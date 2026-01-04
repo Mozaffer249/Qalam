@@ -10,6 +10,7 @@ namespace Qalam.Core.Resources.Shared
         public const string BadRequest = "BadRequest";
         public const string UnAuthorized = "UnAuthorized";
         public const string UnprocessableEntity = "UnprocessableEntity";
+        public const string IsRequired = "IsRequired";
     }
 }
 

@@ -1,5 +1,5 @@
-// Placeholder implementation - to be completed with actual business logic
 using Microsoft.Extensions.Caching.Memory;
+using Qalam.Service.Abstracts;
 using System;
 using System.Threading.Tasks;
 
@@ -16,23 +16,37 @@ namespace Qalam.Service.Implementations
 
         public Task<bool> IsAllowedAsync(string key, int maxAttempts, TimeSpan window)
         {
-            throw new System.NotImplementedException();
+            var attempts = _cache.GetOrCreate(key, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = window;
+                return 0;
+            });
+
+            return Task.FromResult(attempts < maxAttempts);
         }
 
         public Task IncrementAsync(string key, TimeSpan window)
         {
-            throw new System.NotImplementedException();
+            var attempts = _cache.GetOrCreate(key, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = window;
+                return 0;
+            });
+
+            _cache.Set(key, attempts + 1, window);
+            return Task.CompletedTask;
         }
 
         public Task ResetAsync(string key)
         {
-            throw new System.NotImplementedException();
+            _cache.Remove(key);
+            return Task.CompletedTask;
         }
 
         public Task<int> GetAttemptsAsync(string key)
         {
-            throw new System.NotImplementedException();
+            var attempts = _cache.Get<int?>(key) ?? 0;
+            return Task.FromResult(attempts);
         }
     }
 }
-

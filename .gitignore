@@ -342,3 +342,56 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# NuGet generated files in obj folders
+**/obj/**/*.nuget.*
+**/obj/**/project.assets.json
+**/obj/**/project.nuget.dgspec.json
+**/obj/**/project.nuget.g.props
+**/obj/**/project.nuget.g.targets
+**/obj/**/project.nuget.cache
+
+# Environment-specific appsettings
+appsettings.*.json
+!appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+
+# User secrets (ASP.NET Core)
+**/Properties/secrets.json
+
+# Rider IDE / JetBrains
+.idea/
+*.sln.iml
+
+# VS Code (keep some useful settings)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Local database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.temp
+*.swp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.backup

@@ -31,11 +31,5 @@ namespace Qalam.Service.Models
             public bool NotifyOnSuspiciousActivity { get; set; } = true;
         }
     }
-
-    public enum EmailSendingStrategy
-    {
-        Immediate,
-        Queued
-    }
 }
 

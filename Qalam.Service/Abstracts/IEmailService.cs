@@ -1,4 +1,5 @@
 using Qalam.Service.Models;
+using System.Threading.Tasks;
 
 namespace Qalam.Service.Abstracts
 {
