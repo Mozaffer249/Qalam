@@ -1,0 +1,136 @@
+name: qalam-platform
+
+services:
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: qalam-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672" # AMQP port
+      - "15672:15672" # Management UI (http://localhost:15672)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Messaging API
+  messaging-api:
+    build:
+      context: ../Train-Backend/apps/backend
+      dockerfile: Sudan_Train.MessagingApi/Dockerfile
+    image: qalam-messaging-api:latest
+    container_name: qalam-messaging-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__MessagingDb=Server=db37349.public.databaseasp.net;Database=MessagingDb;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__VirtualHost=/
+      - RabbitMQSettings__EmailQueueName=email-queue
+      - RabbitMQSettings__SmsQueueName=sms-queue
+      - RabbitMQSettings__PushQueueName=push-queue
+      - EmailSettings__Host=${EMAIL_HOST:-smtp.gmail.com}
+      - EmailSettings__Port=${EMAIL_PORT:-587}
+      - EmailSettings__FromName=${EMAIL_FROM_NAME:-Qalam System}
+      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL:-noreply@qalam.com}
+      - EmailSettings__UserName=${EMAIL_USERNAME:-noreply@qalam.com}
+      - EmailSettings__Password=${EMAIL_PASSWORD:-your-email-password}
+      - EmailSettings__EnableSsl=${EMAIL_ENABLE_SSL:-true}
+      - EmailSettings__DefaultStrategy=${EMAIL_DEFAULT_STRATEGY:-Queued}
+      - SmsSettings__AccountSid=${TWILIO_ACCOUNT_SID:-}
+      - SmsSettings__AuthToken=${TWILIO_AUTH_TOKEN:-}
+      - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}
+      - PushSettings__ServiceAccountKeyPath=${FIREBASE_KEY_PATH:-}
+    ports:
+      - "5001:80"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - qalam-network
+    restart: unless-stopped
+
+  # Qalam Backend API
+  qalam-api:
+    build:
+      context: .
+      dockerfile: Qalam.Api/Dockerfile
+    image: qalam-backend-api:latest
+    container_name: qalam-backend-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__dbcontext=Server=db37349.public.databaseasp.net;Database=db37349;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
+      - jwtSettings__Secret=${JWT_SECRET:-QalamProjectSecretKey123456789QalamProjectSecretKey123456789}
+      - jwtSettings__Issuer=${JWT_ISSUER:-QalamProject}
+      - jwtSettings__Audience=${JWT_AUDIENCE:-QalamProjectUsers}
+      - jwtSettings__AccessTokenExpireDate=${JWT_ACCESS_TOKEN_EXPIRE:-60}
+      - jwtSettings__RefreshTokenExpireDate=${JWT_REFRESH_TOKEN_EXPIRE:-43200}
+      - jwtSettings__ValidateIssuer=${JWT_VALIDATE_ISSUER:-true}
+      - jwtSettings__ValidateAudience=${JWT_VALIDATE_AUDIENCE:-true}
+      - jwtSettings__ValidateLifeTime=${JWT_VALIDATE_LIFETIME:-true}
+      - jwtSettings__ValidateIssuerSigningKey=${JWT_VALIDATE_SIGNING_KEY:-true}
+      - MessagingApi__BaseUrl=http://messaging-api
+      - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:4200}
+      - RateLimiting__Login__MaxAttempts=${RATE_LIMIT_LOGIN_MAX:-5}
+      - RateLimiting__Login__WindowMinutes=${RATE_LIMIT_LOGIN_WINDOW:-15}
+      - RateLimiting__Register__MaxAttempts=${RATE_LIMIT_REGISTER_MAX:-3}
+      - RateLimiting__Register__WindowMinutes=${RATE_LIMIT_REGISTER_WINDOW:-60}
+      - RateLimiting__PasswordReset__MaxAttempts=${RATE_LIMIT_PASSWORD_RESET_MAX:-3}
+      - RateLimiting__PasswordReset__WindowMinutes=${RATE_LIMIT_PASSWORD_RESET_WINDOW:-60}
+      - RateLimiting__RefreshToken__MaxAttempts=${RATE_LIMIT_REFRESH_TOKEN_MAX:-10}
+      - RateLimiting__RefreshToken__WindowMinutes=${RATE_LIMIT_REFRESH_TOKEN_WINDOW:-1}
+      - PasswordPolicy__MinimumLength=${PASSWORD_MIN_LENGTH:-8}
+      - PasswordPolicy__RequireUppercase=${PASSWORD_REQUIRE_UPPERCASE:-true}
+      - PasswordPolicy__RequireLowercase=${PASSWORD_REQUIRE_LOWERCASE:-true}
+      - PasswordPolicy__RequireDigit=${PASSWORD_REQUIRE_DIGIT:-true}
+      - PasswordPolicy__RequireSpecialCharacter=${PASSWORD_REQUIRE_SPECIAL:-true}
+      - PasswordPolicy__PreventPasswordReuse=${PASSWORD_PREVENT_REUSE:-5}
+      - PasswordPolicy__PasswordExpiryDays=${PASSWORD_EXPIRY_DAYS:-90}
+      - PasswordPolicy__CheckCommonPasswords=${PASSWORD_CHECK_COMMON:-true}
+      - SecuritySettings__SessionTimeout__Enabled=${SESSION_TIMEOUT_ENABLED:-true}
+      - SecuritySettings__SessionTimeout__InactivityMinutes=${SESSION_TIMEOUT_INACTIVITY:-480}
+      - SecuritySettings__SessionTimeout__CheckIntervalMinutes=${SESSION_TIMEOUT_CHECK_INTERVAL:-5}
+      - SecuritySettings__RiskBasedAuth__Enabled=${RISK_BASED_AUTH_ENABLED:-true}
+      - SecuritySettings__RiskBasedAuth__MaxFailedAttemptsPerIp=${RISK_BASED_AUTH_MAX_FAILED:-10}
+      - SecuritySettings__RiskBasedAuth__FailedAttemptWindowMinutes=${RISK_BASED_AUTH_WINDOW:-60}
+      - SecuritySettings__RiskBasedAuth__RequireTwoFactorForSuspiciousIp=${RISK_BASED_AUTH_REQUIRE_2FA:-true}
+      - SecuritySettings__RiskBasedAuth__BlockSuspiciousIpMinutes=${RISK_BASED_AUTH_BLOCK_MINUTES:-30}
+      - SecuritySettings__EmailNotifications__Enabled=${EMAIL_NOTIFICATIONS_ENABLED:-true}
+      - SecuritySettings__EmailNotifications__NotifyOnNewDeviceLogin=${EMAIL_NOTIFY_NEW_DEVICE:-true}
+      - SecuritySettings__EmailNotifications__NotifyOnPasswordChange=${EMAIL_NOTIFY_PASSWORD_CHANGE:-true}
+      - SecuritySettings__EmailNotifications__NotifyOnSessionTerminated=${EMAIL_NOTIFY_SESSION_TERMINATED:-true}
+      - SecuritySettings__EmailNotifications__NotifyOnSuspiciousActivity=${EMAIL_NOTIFY_SUSPICIOUS:-true}
+    ports:
+      - "8080:80"
+    volumes:
+      - ./Qalam.Api/Logs:/app/Logs # Mount logs directory
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      messaging-api:
+        condition: service_started
+    networks:
+      - qalam-network
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  qalam-network:
+    driver: bridge
+
