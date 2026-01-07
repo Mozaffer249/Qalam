@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Commons;
 using Qalam.Data.Entity.Identity;
+using Qalam.Data.Entity.Education;
+using Qalam.Data.Entity.Quran;
+using Qalam.Data.Entity.Teaching;
+using Qalam.Data.Entity.Common;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -35,6 +39,34 @@ namespace Qalam.Infrastructure.context
         public DbSet<EmailConfirmationOtp> EmailConfirmationOtps { get; set; }
         public DbSet<PasswordResetOtp> PasswordResetOtps { get; set; }
         public DbSet<IpLoginAttempt> IpLoginAttempts { get; set; }
+
+        // Education Schema DbSets
+        public DbSet<EducationDomain> EducationDomains { get; set; }
+        public DbSet<Curriculum> Curriculums { get; set; }
+        public DbSet<EducationLevel> EducationLevels { get; set; }
+        public DbSet<Grade> Grades { get; set; }
+        public DbSet<AcademicTerm> AcademicTerms { get; set; }
+        public DbSet<Subject> Subjects { get; set; }
+        public DbSet<ContentUnit> ContentUnits { get; set; }
+        public DbSet<Lesson> Lessons { get; set; }
+        public DbSet<TeacherSubject> TeacherSubjects { get; set; }
+
+        // Quran Schema DbSets
+        public DbSet<QuranLevel> QuranLevels { get; set; }
+        public DbSet<QuranContentType> QuranContentTypes { get; set; }
+        public DbSet<QuranPart> QuranParts { get; set; }
+        public DbSet<QuranSurah> QuranSurahs { get; set; }
+
+        // Teaching Schema DbSets
+        public DbSet<TeachingMode> TeachingModes { get; set; }
+        public DbSet<SessionType> SessionTypes { get; set; }
+        public DbSet<DomainTeachingMode> DomainTeachingModes { get; set; }
+        public DbSet<EducationRule> EducationRules { get; set; }
+
+        // Common Schema DbSets
+        public DbSet<Location> Locations { get; set; }
+        public DbSet<TimeSlot> TimeSlots { get; set; }
+        public DbSet<SystemSetting> SystemSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -75,4 +107,3 @@ namespace Qalam.Infrastructure.context
         }
     }
 }
-
