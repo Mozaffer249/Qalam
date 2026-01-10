@@ -17,11 +17,21 @@ public class DatabaseSeeder
         await QuranContentTypesSeeder.SeedAsync(context);
         await TimeSlotsSeeder.SeedAsync(context);
         
-        // Saudi Education System
+        // Saudi Education System (School Domain)
         await SaudiEducationLevelsSeeder.SeedAsync(context);
         await SaudiGradesSeeder.SeedAsync(context);
         await SaudiAcademicTermsSeeder.SeedAsync(context);
         await SaudiSubjectsSeeder.SeedAsync(context);
+        
+        // Quran Domain Subjects
+        await QuranSubjectsSeeder.SeedAsync(context);
+        
+        // Languages Domain
+        await LanguageLevelsSeeder.SeedAsync(context);
+        await LanguageSubjectsSeeder.SeedAsync(context);
+        
+        // General Skills Domain
+        await GeneralSkillsSubjectsSeeder.SeedAsync(context);
     }
 }
 
