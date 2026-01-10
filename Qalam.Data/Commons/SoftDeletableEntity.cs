@@ -12,4 +12,3 @@ namespace Qalam.Data.Commons
         public int? DeletedBy { get; set; }
     }
 }
-
