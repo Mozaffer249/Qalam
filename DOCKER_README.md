@@ -23,17 +23,26 @@ The Docker setup includes:
    cd "C:\Users\user\OneDrive\المستندات\Visual Studio 2022\projects\Qalam"
    ```
 
-2. **Start all services:**
+2. **Apply database migrations (REQUIRED before first run):**
+   ```bash
+   dotnet ef database update --project Qalam.Infrastructure --startup-project Qalam.Api
+   ```
+   
+   This command will:
+   - Create the database if it doesn't exist
+   - Apply all pending migrations to bring the schema up to date
+
+3. **Start all services:**
    ```bash
    docker-compose up -d
    ```
 
-3. **View logs:**
+4. **View logs:**
    ```bash
    docker-compose logs -f
    ```
 
-4. **Stop all services:**
+5. **Stop all services:**
    ```bash
    docker-compose down
    ```
@@ -100,6 +109,52 @@ To rebuild without cache:
 ```bash
 docker-compose build --no-cache
 ```
+
+## Database Migration Management
+
+### Running Migrations
+
+Migrations are now managed manually using EF Core CLI tools. This provides better control over database schema changes, especially in production environments.
+
+#### Apply All Pending Migrations
+```bash
+dotnet ef database update --project Qalam.Infrastructure --startup-project Qalam.Api
+```
+
+#### Create a New Migration
+```bash
+dotnet ef migrations add <MigrationName> --project Qalam.Infrastructure --startup-project Qalam.Api
+```
+
+#### Rollback to a Specific Migration
+```bash
+dotnet ef database update <MigrationName> --project Qalam.Infrastructure --startup-project Qalam.Api
+```
+
+#### List All Migrations
+```bash
+dotnet ef migrations list --project Qalam.Infrastructure --startup-project Qalam.Api
+```
+
+#### Remove Last Migration (if not applied)
+```bash
+dotnet ef migrations remove --project Qalam.Infrastructure --startup-project Qalam.Api
+```
+
+### Database Seeding
+
+Database seeders (roles, users, etc.) are available in the codebase but are not automatically executed. To seed data:
+
+1. The seeder classes are located in `Qalam.Infrastructure/Seeder/`
+2. You can create a separate admin endpoint or console tool to trigger seeding
+3. Or manually insert seed data using SQL scripts
+
+### Important Notes
+
+- **Always run migrations before starting the application** for the first time or after pulling new migration files
+- Migrations are **not applied automatically** at application startup
+- This prevents unexpected schema changes in production environments
+- For Docker deployments, run migrations on the host machine before starting containers, or add a migration step to your CI/CD pipeline
 
 ## Troubleshooting
 
