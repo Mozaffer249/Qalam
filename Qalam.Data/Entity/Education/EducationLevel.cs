@@ -19,7 +19,7 @@ public class EducationLevel : AuditableEntity
     [Required, MaxLength(100)]
     public string NameEn { get; set; } = default!;
     
-    public int OrderIndex { get; set; } // ترتيب العرض
+    public int OrderIndex { get; set; }  
     
     public bool IsActive { get; set; } = true;
     

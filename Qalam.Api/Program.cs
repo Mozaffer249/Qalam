@@ -111,6 +111,66 @@ builder.Services.AddSerilog();
 
 var app = builder.Build();
 
+#region Database Migration and Seeding
+
+// Apply migrations and seed database
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDBContext>();
+        
+        Log.Information("Applying database migrations...");
+        
+        // Apply any pending migrations
+        await context.Database.MigrateAsync();
+        
+        Log.Information("Database migrations applied successfully");
+        
+        // Check if seeding is needed (check if _SeedingHistory table exists and has our migration)
+        var seedingApplied = await context.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '_SeedingHistory'")
+            .FirstOrDefaultAsync();
+        
+        if (seedingApplied > 0)
+        {
+            // Check if this specific seeding has been completed
+            var seedingCompleted = await context.Database
+                .SqlQueryRaw<int>("SELECT COUNT(*) FROM [_SeedingHistory] WHERE [MigrationId] = '20260111200000_SeedInitialData' AND [SeedingCompleted] = 1")
+                .FirstOrDefaultAsync();
+            
+            if (seedingCompleted == 0)
+            {
+                Log.Information("Starting database seeding...");
+                
+                // Seed all data
+                await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
+                
+                // Mark seeding as completed
+                await context.Database.ExecuteSqlRawAsync(@"
+                    UPDATE [_SeedingHistory] 
+                    SET [SeedingCompleted] = 1, [SeedingCompletedAt] = GETUTCDATE()
+                    WHERE [MigrationId] = '20260111200000_SeedInitialData'
+                ");
+                
+                Log.Information("Database seeding completed successfully!");
+            }
+            else
+            {
+                Log.Information("Database seeding already completed, skipping...");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "An error occurred while applying migrations or seeding the database");
+        // Don't throw - allow the app to start even if seeding fails
+    }
+}
+
+#endregion
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

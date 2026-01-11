@@ -37,10 +37,12 @@
 ### الأنواع الأربعة الأساسية
 
 #### 1. **School Education (تعليم مدرسي)**
+
 ```csharp
 Code: "school"
 HasCurriculum: true
 ```
+
 - **الوصف:** التعليم الأكاديمي المدرسي بجميع مراحله
 - **الخصائص:**
   - يحتوي على منهج محدد (Curriculum)
@@ -51,10 +53,12 @@ HasCurriculum: true
 **مثال:** رياضيات - الصف الثالث الابتدائي - المنهج السعودي - الفصل الدراسي الأول
 
 #### 2. **Quran (قرآن كريم)**
+
 ```csharp
 Code: "quran"
 HasCurriculum: false
 ```
+
 - **الوصف:** تعليم القرآن الكريم حفظاً وتلاوة وتجويداً
 - **الخصائص:**
   - لا يحتوي على منهج ثابت
@@ -65,10 +69,12 @@ HasCurriculum: false
 **مثال:** حفظ جزء عم - مستوى مبتدئ
 
 #### 3. **Languages (لغات)**
+
 ```csharp
 Code: "language"
 HasCurriculum: false
 ```
+
 - **الوصف:** تعليم اللغات الأجنبية والعربية
 - **الخصائص:**
   - مرن - بدون منهج محدد
@@ -77,10 +83,12 @@ HasCurriculum: false
 **مثال:** تعليم اللغة الإنجليزية للمحادثة
 
 #### 4. **General Skills (مهارات عامة)**
+
 ```csharp
 Code: "skills"
 HasCurriculum: false
 ```
+
 - **الوصف:** المهارات الحياتية والمهنية والتقنية
 - **أمثلة:**
   - البرمجة
@@ -114,12 +122,12 @@ HasCurriculum: false
 
 ```csharp
 {
-    DomainId: 1, // School
+    DomainId: 1,
     MinSessions: 4,
     MaxSessions: 40,
     DefaultSessionDurationMinutes: 60,
     AllowExtension: true,
-    AllowFlexibleCourses: false, // المنهج ثابت
+    AllowFlexibleCourses: false,
     MaxGroupSize: 10,
     MinGroupSize: 1
 }
@@ -814,11 +822,13 @@ await _emailService.SendEmailAsync(
 ### أنواع الإشعارات
 
 #### 1. **تأكيد البريد الإلكتروني**
+
 ```csharp
 await _notificationService.SendEmailConfirmationAsync(user, otpCode);
 ```
 
 #### 2. **تسجيل دخول من جهاز جديد**
+
 ```csharp
 await _notificationService.NotifyNewDeviceLoginAsync(
     user: user,
@@ -828,6 +838,7 @@ await _notificationService.NotifyNewDeviceLoginAsync(
 ```
 
 #### 3. **نشاط مشبوه**
+
 ```csharp
 await _notificationService.NotifySuspiciousActivityAsync(
     user: user,
@@ -837,6 +848,7 @@ await _notificationService.NotifySuspiciousActivityAsync(
 ```
 
 #### 4. **إعادة تعيين كلمة المرور**
+
 ```csharp
 await _notificationService.SendPasswordResetCodeAsync(
     user: user,
@@ -925,7 +937,7 @@ app.MapControllers();
 
 ### مثال 1: تسجيل مستخدم جديد
 
-```bash
+```sh
 # الطلب
 POST /api/Authentication/Register
 Content-Type: application/json
@@ -954,9 +966,13 @@ Body: Your confirmation code is: 8374
       This code will expire in 5 minutes.
 ```
 
+```text
+<3>WSL (10 - Relay) ERROR: CreateProcessCommon:800: execvpe(/bin/bash) failed: No such file or directory
+```
+
 ### مثال 2: تأكيد البريد الإلكتروني
 
-```bash
+```sh
 # الطلب
 POST /api/Authentication/ConfirmEmail
 Content-Type: application/json
@@ -974,9 +990,13 @@ Content-Type: application/json
 }
 ```
 
+```text
+<3>WSL (13 - Relay) ERROR: CreateProcessCommon:800: execvpe(/bin/bash) failed: No such file or directory
+```
+
 ### مثال 3: تسجيل الدخول
 
-```bash
+```sh
 # الطلب
 POST /api/Authentication/Login
 Content-Type: application/json
@@ -1009,9 +1029,13 @@ Content-Type: application/json
 }
 ```
 
+```text
+<3>WSL (16 - Relay) ERROR: CreateProcessCommon:800: execvpe(/bin/bash) failed: No such file or directory
+```
+
 ### مثال 4: تغيير كلمة المرور
 
-```bash
+```sh
 # الطلب
 POST /api/Authentication/ChangePassword
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -1031,9 +1055,13 @@ Content-Type: application/json
 }
 ```
 
+```text
+<3>WSL (19 - Relay) ERROR: CreateProcessCommon:800: execvpe(/bin/bash) failed: No such file or directory
+```
+
 ### مثال 5: إعادة تعيين كلمة المرور
 
-```bash
+```sh
 # الخطوة 1: طلب كود إعادة التعيين
 POST /api/Authentication/SendResetPasswordCode
 Content-Type: application/json
@@ -1070,6 +1098,10 @@ Content-Type: application/json
     "message": "Password reset successfully",
     "data": null
 }
+```
+
+```text
+<3>WSL (22 - Relay) ERROR: CreateProcessCommon:800: execvpe(/bin/bash) failed: No such file or directory
 ```
 
 ---
