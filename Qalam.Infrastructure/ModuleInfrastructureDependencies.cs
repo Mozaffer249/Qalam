@@ -10,8 +10,32 @@ namespace Qalam.Infrastructure
     {
         public static IServiceCollection AddInfrastructureDependencies(this IServiceCollection services)
         {
-            services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
+            // Generic Repository
             services.AddTransient(typeof(IGenericRepositoryAsync<>), typeof(GenericRepositoryAsync<>));
+            
+            // Identity Repositories
+            services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
+
+            // Education Repositories
+            services.AddTransient<IEducationDomainRepository, EducationDomainRepository>();
+            services.AddTransient<ICurriculumRepository, CurriculumRepository>();
+            services.AddTransient<IEducationLevelRepository, EducationLevelRepository>();
+            services.AddTransient<IGradeRepository, GradeRepository>();
+            services.AddTransient<IAcademicTermRepository, AcademicTermRepository>();
+            services.AddTransient<ISubjectRepository, SubjectRepository>();
+            services.AddTransient<IContentUnitRepository, ContentUnitRepository>();
+            services.AddTransient<ILessonRepository, LessonRepository>();
+
+            // Quran Repositories
+            services.AddTransient<IQuranLevelRepository, QuranLevelRepository>();
+            services.AddTransient<IQuranContentTypeRepository, QuranContentTypeRepository>();
+
+            // Teaching Repositories
+            services.AddTransient<ITeachingModeRepository, TeachingModeRepository>();
+            services.AddTransient<ISessionTypeRepository, SessionTypeRepository>();
+
+            // Common Repositories
+            services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();
 
             // Database Seeder
             services.AddTransient<DatabaseSeeder>();

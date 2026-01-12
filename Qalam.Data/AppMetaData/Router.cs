@@ -46,6 +46,86 @@ namespace Qalam.Data.AppMetaData
         public const string Users = Rule + "Users";
         public const string UserById = Users + SignleRoute;
         #endregion
+
+        #region Education
+        public const string Education = Rule + "Education";
+        
+        // Domains
+        public const string EducationDomains = Education + "/Domains";
+        public const string EducationDomainById = EducationDomains + SignleRoute;
+        
+        // Levels
+        public const string EducationLevels = Education + "/Levels";
+        public const string EducationLevelById = EducationLevels + SignleRoute;
+        
+        // Grades
+        public const string EducationGrades = Education + "/Grades";
+        public const string EducationGradeById = EducationGrades + SignleRoute;
+        
+        // Terms
+        public const string EducationTerms = Education + "/Terms";
+        public const string EducationTermById = EducationTerms + SignleRoute;
+        #endregion
+
+        #region Curriculum
+        public const string Curriculum = Rule + "Curriculum";
+        public const string CurriculumById = Curriculum + SignleRoute;
+        public const string CurriculumLevels = Curriculum + "/{id}/Levels";
+        #endregion
+
+        #region Subjects
+        public const string Subjects = Rule + "Subjects";
+        public const string SubjectById = Subjects + SignleRoute;
+        public const string SubjectsByGrade = Subjects + "/Grade/{gradeId}";
+        public const string SubjectsByDomain = Subjects + "/Domain/{domainId}";
+        #endregion
+
+        #region Content
+        public const string Content = Rule + "Content";
+        
+        // Content Units
+        public const string ContentUnits = Content + "/Units";
+        public const string ContentUnitById = ContentUnits + SignleRoute;
+        
+        // Lessons
+        public const string ContentLessons = Content + "/Lessons";
+        public const string ContentLessonById = ContentLessons + SignleRoute;
+        #endregion
+
+        #region Quran
+        public const string Quran = Rule + "Quran";
+        
+        // Quran Levels
+        public const string QuranLevels = Quran + "/Levels";
+        public const string QuranLevelById = QuranLevels + SignleRoute;
+        
+        // Quran Parts
+        public const string QuranParts = Quran + "/Parts";
+        public const string QuranPartByNumber = QuranParts + "/{partNumber}";
+        
+        // Quran Surahs
+        public const string QuranSurahs = Quran + "/Surahs";
+        public const string QuranSurahByNumber = QuranSurahs + "/{surahNumber}";
+        
+        // Content Types
+        public const string QuranContentTypes = Quran + "/ContentTypes";
+        #endregion
+
+        #region Teaching
+        public const string Teaching = Rule + "Teaching";
+        
+        // Teaching Modes
+        public const string TeachingModes = Teaching + "/Modes";
+        public const string TeachingModeById = TeachingModes + SignleRoute;
+        
+        // Session Types
+        public const string SessionTypes = Teaching + "/SessionTypes";
+        public const string SessionTypeById = SessionTypes + SignleRoute;
+        
+        // Time Slots
+        public const string TimeSlots = Teaching + "/TimeSlots";
+        public const string TimeSlotById = TimeSlots + SignleRoute;
+        #endregion
     }
 }
 

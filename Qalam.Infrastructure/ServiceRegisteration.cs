@@ -117,6 +117,18 @@ namespace Qalam.Infrastructure
                 {
                     policy.RequireRole(Roles.SuperAdmin);
                 });
+
+                // Teacher policy - requires Teacher role
+                option.AddPolicy(Roles.TeacherPolicy, policy =>
+                {
+                    policy.RequireRole(Roles.Teacher);
+                });
+
+                // Teacher or Admin policy - for content management
+                option.AddPolicy(Roles.TeacherOrAdminPolicy, policy =>
+                {
+                    policy.RequireRole(Roles.Teacher, Roles.Admin, Roles.SuperAdmin);
+                });
             });
 
             return services;

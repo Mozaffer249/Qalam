@@ -25,6 +25,15 @@ namespace Qalam.Service
             // Add memory cache for rate limiting and IP blocking
             services.AddMemoryCache();
 
+            // Education Management Services
+            services.AddTransient<IEducationDomainService, EducationDomainService>();
+            services.AddTransient<ICurriculumService, CurriculumService>();
+            services.AddTransient<IGradeService, GradeService>();
+            services.AddTransient<ISubjectService, SubjectService>();
+            services.AddTransient<IContentManagementService, ContentManagementService>();
+            services.AddTransient<IQuranService, QuranService>();
+            services.AddTransient<ITeachingConfigurationService, TeachingConfigurationService>();
+
             return services;
         }
     }
