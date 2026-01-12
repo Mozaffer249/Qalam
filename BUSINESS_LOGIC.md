@@ -1106,6 +1106,273 @@ Content-Type: application/json
 
 ---
 
+## طرق التدريس وأنواع الجلسات 🎓👥
+
+### الفرق الأساسي
+
+تفصل المنصة بين مفهومين مستقلين لتوفير مرونة أكبر:
+
+#### 1. **TeachingMode (المكان: أين؟)** 📍
+
+يحدد **المكان** الذي ستتم فيه الجلسة:
+
+| Code | NameAr | NameEn | الوصف |
+|------|---------|---------|-------|
+| `in_person` | حضوري | In-Person | الجلسة في موقع فعلي |
+| `online` | أونلاين | Online | الجلسة عبر الإنترنت |
+
+**ملاحظة:** ❌ لا يوجد خيار "هجين" - كل جلسة إما حضورية أو أونلاين فقط.
+
+#### 2. **SessionType (الحجم: كم؟)** 👥
+
+يحدد **عدد الطلاب** في الجلسة:
+
+| Code | NameAr | NameEn | الوصف |
+|------|---------|---------|-------|
+| `individual` | فردي | Individual | معلم + طالب واحد |
+| `group` | جماعي | Group | معلم + مجموعة طلاب |
+
+---
+
+### السيناريوهات الأربعة الممكنة (2 × 2)
+
+| # | TeachingMode | SessionType | مثال عملي |
+|---|--------------|-------------|-----------|
+| 1️⃣ | حضوري | فردي | درس قرآن خصوصي في المسجد |
+| 2️⃣ | حضوري | جماعي | محاضرة رياضيات في مركز القلم (25 طالب) |
+| 3️⃣ | أونلاين | فردي | جلسة Zoom للإنجليزية واحد لواحد |
+| 4️⃣ | أونلاين | جماعي | ويبينار برمجة عبر Teams (100 طالب) |
+
+---
+
+### أمثلة كود عملية
+
+#### مثال 1: إنشاء جلسة حضورية فردية
+
+```csharp
+var session = new TeachingSession
+{
+    TeachingModeId = 1,           // حضوري (in_person)
+    SessionTypeId = 1,            // فردي (individual)
+    LocationId = 5,               // مطلوب للحضوري: مسجد الحي
+    MeetingLink = null,           // لا حاجة له في الحضوري
+    MaxParticipants = null,       // غير مطلوب للفردي
+    StartTime = DateTime.Now,
+    DurationMinutes = 45
+};
+```
+
+**استعلام:** البحث عن جميع الجلسات الحضورية الفردية
+
+```csharp
+var sessions = await _context.TeachingSessions
+    .Include(s => s.TeachingMode)
+    .Include(s => s.SessionType)
+    .Where(s => s.TeachingModeId == 1 && s.SessionTypeId == 1)  // حضوري + فردي
+    .ToListAsync();
+```
+
+---
+
+#### مثال 2: إنشاء جلسة أونلاين جماعية
+
+```csharp
+var session = new TeachingSession
+{
+    TeachingModeId = 2,           // أونلاين (online)
+    SessionTypeId = 2,            // جماعي (group)
+    LocationId = null,            // لا حاجة له في الأونلاين
+    MeetingLink = "https://zoom.us/j/123456789",  // مطلوب للأونلاين
+    MaxParticipants = 30,         // مطلوب للجماعي
+    StartTime = DateTime.Now,
+    DurationMinutes = 60
+};
+```
+
+**استعلام:** البحث عن جميع الجلسات الأونلاين الجماعية
+
+```csharp
+var sessions = await _context.TeachingSessions
+    .Include(s => s.TeachingMode)
+    .Include(s => s.SessionType)
+    .Where(s => s.TeachingModeId == 2 && s.SessionTypeId == 2)  // أونلاين + جماعي
+    .ToListAsync();
+```
+
+---
+
+#### مثال 3: إنشاء جلسة حضورية جماعية (محاضرة)
+
+```csharp
+var session = new TeachingSession
+{
+    TeachingModeId = 1,           // حضوري (in_person)
+    SessionTypeId = 2,            // جماعي (group)
+    LocationId = 12,              // قاعة المحاضرات
+    MeetingLink = null,
+    MaxParticipants = 50,         // قاعة كبيرة
+    StartTime = DateTime.Now,
+    DurationMinutes = 90
+};
+```
+
+---
+
+#### مثال 4: إنشاء جلسة أونلاين فردية (درس خصوصي)
+
+```csharp
+var session = new TeachingSession
+{
+    TeachingModeId = 2,           // أونلاين (online)
+    SessionTypeId = 1,            // فردي (individual)
+    LocationId = null,
+    MeetingLink = "https://meet.google.com/abc-defg-hij",
+    MaxParticipants = null,       // غير مطلوب للفردي
+    StartTime = DateTime.Now,
+    DurationMinutes = 30
+};
+```
+
+---
+
+### القواعد والتحقق من الصحة (Validation Rules)
+
+```csharp
+public class TeachingSessionValidator : AbstractValidator<TeachingSession>
+{
+    public TeachingSessionValidator()
+    {
+        // 1. إذا كانت الجلسة حضورية، LocationId مطلوب
+        When(x => x.TeachingModeId == 1, () =>
+        {
+            RuleFor(x => x.LocationId)
+                .NotNull()
+                .WithMessage("Location is required for in-person sessions");
+        });
+
+        // 2. إذا كانت الجلسة أونلاين، MeetingLink مطلوب
+        When(x => x.TeachingModeId == 2, () =>
+        {
+            RuleFor(x => x.MeetingLink)
+                .NotEmpty()
+                .WithMessage("Meeting link is required for online sessions")
+                .Must(BeValidUrl)
+                .WithMessage("Invalid meeting link URL");
+        });
+
+        // 3. إذا كانت الجلسة جماعية، MaxParticipants مطلوب
+        When(x => x.SessionTypeId == 2, () =>
+        {
+            RuleFor(x => x.MaxParticipants)
+                .NotNull()
+                .GreaterThan(1)
+                .WithMessage("Max participants must be greater than 1 for group sessions");
+        });
+    }
+
+    private bool BeValidUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out _);
+    }
+}
+```
+
+---
+
+### استعلامات مفيدة (Useful Queries)
+
+#### 1. الحصول على جميع الجلسات الحضورية (سواء فردية أو جماعية)
+
+```csharp
+var inPersonSessions = await _context.TeachingSessions
+    .Where(s => s.TeachingMode.Code == "in_person")
+    .Include(s => s.Location)
+    .ToListAsync();
+```
+
+#### 2. الحصول على جميع الجلسات الفردية (سواء حضورية أو أونلاين)
+
+```csharp
+var individualSessions = await _context.TeachingSessions
+    .Where(s => s.SessionType.Code == "individual")
+    .ToListAsync();
+```
+
+#### 3. الحصول على إحصائيات الجلسات حسب النوع
+
+```csharp
+var stats = await _context.TeachingSessions
+    .GroupBy(s => new { s.TeachingMode.NameAr, s.SessionType.NameAr })
+    .Select(g => new 
+    {
+        TeachingMode = g.Key.NameAr,
+        SessionType = g.Key.NameAr,
+        Count = g.Count()
+    })
+    .ToListAsync();
+
+// النتيجة مثلاً:
+// [
+//   { TeachingMode: "حضوري", SessionType: "فردي", Count: 45 },
+//   { TeachingMode: "حضوري", SessionType: "جماعي", Count: 12 },
+//   { TeachingMode: "أونلاين", SessionType: "فردي", Count: 78 },
+//   { TeachingMode: "أونلاين", SessionType: "جماعي", Count: 25 }
+// ]
+```
+
+#### 4. البحث عن الجلسات حسب المعلم والنوع
+
+```csharp
+// مثال: جميع الدروس الخصوصية الأونلاين للمعلم أحمد
+var sessions = await _context.TeachingSessions
+    .Where(s => 
+        s.TeacherId == 5 &&
+        s.TeachingMode.Code == "online" &&
+        s.SessionType.Code == "individual")
+    .ToListAsync();
+```
+
+---
+
+### جدول المقارنة الشامل
+
+| السيناريو | TeachingMode | SessionType | LocationId | MeetingLink | MaxParticipants | مثال |
+|-----------|--------------|-------------|------------|-------------|-----------------|------|
+| **درس خصوصي في المنزل** | حضوري | فردي | ✅ مطلوب | ❌ | ❌ | معلم قرآن يزور منزل الطالب |
+| **دورة في المركز** | حضوري | جماعي | ✅ مطلوب | ❌ | ✅ مطلوب | دورة برمجة في مركز القلم (15 طالب) |
+| **درس Zoom خاص** | أونلاين | فردي | ❌ | ✅ مطلوب | ❌ | معلم إنجليزي مع طالب واحد عبر Zoom |
+| **ويبينار أونلاين** | أونلاين | جماعي | ❌ | ✅ مطلوب | ✅ مطلوب | محاضرة تاريخ لـ 100 طالب عبر Teams |
+
+---
+
+### نصائح للمطورين 💡
+
+1. **دائماً استخدم Include()** عند استعلام الجلسات لتحميل `TeachingMode` و `SessionType`:
+   ```csharp
+   .Include(s => s.TeachingMode)
+   .Include(s => s.SessionType)
+   ```
+
+2. **تحقق من المتطلبات** قبل الحفظ:
+   - حضوري → `LocationId` مطلوب
+   - أونلاين → `MeetingLink` مطلوب
+   - جماعي → `MaxParticipants` مطلوب
+
+3. **استخدم الـ Code** وليس الـ ID في الاستعلامات لسهولة القراءة:
+   ```csharp
+   // ✅ جيد - واضح
+   .Where(s => s.TeachingMode.Code == "online")
+   
+   // ❌ أقل وضوحاً
+   .Where(s => s.TeachingModeId == 2)
+   ```
+
+4. **لا تخلط المفهومين**:
+   - ❌ "هل الجلسة حضورية فردية؟" → خطأ في الصياغة
+   - ✅ "هل الجلسة حضورية **و** فردية؟" → صحيح
+
+---
+
 ## الخلاصة
 
 ### نقاط القوة 💪

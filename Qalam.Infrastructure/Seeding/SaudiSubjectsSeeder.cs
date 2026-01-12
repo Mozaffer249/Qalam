@@ -10,7 +10,7 @@ public class SaudiSubjectsSeeder
     {
         var saudiCurriculumId = 1;
         var schoolDomainId = 1;
-        
+
         // Get education levels
         var elementaryLevel = await context.EducationLevels
             .FirstOrDefaultAsync(el => el.CurriculumId == saudiCurriculumId && el.NameEn == "Elementary");
@@ -29,12 +29,12 @@ public class SaudiSubjectsSeeder
             .Where(g => g.LevelId == elementaryLevel.Id)
             .OrderBy(g => g.OrderIndex)
             .ToListAsync();
-        
+
         var intermediateGrades = await context.Grades
             .Where(g => g.LevelId == intermediateLevel.Id)
             .OrderBy(g => g.OrderIndex)
             .ToListAsync();
-        
+
         var secondaryGrades = await context.Grades
             .Where(g => g.LevelId == secondaryLevel.Id)
             .OrderBy(g => g.OrderIndex)

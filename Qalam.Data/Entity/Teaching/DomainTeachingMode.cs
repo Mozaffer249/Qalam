@@ -14,4 +14,3 @@ public class DomainTeachingMode
     
     public bool IsAllowed { get; set; } = true;
 }
-
