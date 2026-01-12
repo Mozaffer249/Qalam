@@ -10,6 +10,12 @@ using Qalam.Infrastructure.context;
 using Qalam.Service;
 using System.Globalization;
 
+// Force Gregorian calendar for all cultures to prevent Hijri dates in database
+var defaultCulture = new CultureInfo("en-US");
+defaultCulture.DateTimeFormat.Calendar = new GregorianCalendar();
+CultureInfo.DefaultThreadCurrentCulture = defaultCulture;
+CultureInfo.DefaultThreadCurrentUICulture = defaultCulture;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure host options to prevent crash on background service failure
@@ -31,7 +37,12 @@ builder.Services.AddSwaggerGen();
 // Connection to SQL Server
 builder.Services.AddDbContext<ApplicationDBContext>(option =>
 {
-    option.UseSqlServer(builder.Configuration.GetConnectionString("dbcontext"));
+    var connectionString = builder.Configuration.GetConnectionString("dbcontext");
+    option.UseSqlServer(connectionString, sqlOptions =>
+    {
+        // Ensure Gregorian calendar is used for date operations
+        sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+    });
 });
 
 #region Dependency Injections
@@ -56,10 +67,17 @@ builder.Services.AddLocalization(opt => { opt.ResourcesPath = ""; });
 
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
+    // Create cultures with Gregorian calendar
+    var enCulture = new CultureInfo("en-US");
+
+    var arCulture = new CultureInfo("ar-EG");
+    // Force Arabic culture to use Gregorian calendar instead of Hijri
+    arCulture.DateTimeFormat.Calendar = new GregorianCalendar();
+
     List<CultureInfo> supportedCultures = new List<CultureInfo>
     {
-        new CultureInfo("en-US"),
-        new CultureInfo("ar-EG")
+        enCulture,
+        arCulture
     };
 
     options.DefaultRequestCulture = new RequestCulture("en-US");
