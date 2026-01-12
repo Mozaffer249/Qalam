@@ -20,7 +20,7 @@ public class QuranSubjectsSeeder
             throw new Exception("Quran levels must be seeded before Quran subjects");
         }
 
-        if (!await context.Subjects.AnyAsync(s => s.DomainId == quranDomainId))
+        if (!await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == quranDomainId))
         {
             var subjects = new List<Subject>();
 

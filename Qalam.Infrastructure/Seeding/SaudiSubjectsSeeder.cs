@@ -40,7 +40,7 @@ public class SaudiSubjectsSeeder
             .OrderBy(g => g.OrderIndex)
             .ToListAsync();
 
-        if (!await context.Subjects.AnyAsync(s => s.LevelId == elementaryLevel.Id))
+        if (!await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.LevelId == elementaryLevel.Id))
         {
             var subjects = new List<Subject>();
 

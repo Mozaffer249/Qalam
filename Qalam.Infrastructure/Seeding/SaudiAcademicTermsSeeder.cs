@@ -10,7 +10,7 @@ public class SaudiAcademicTermsSeeder
     {
         var saudiCurriculumId = 1; // Saudi Curriculum
         
-        if (!await context.AcademicTerms.AnyAsync(at => at.CurriculumId == saudiCurriculumId))
+        if (!await SeederHelper.HasAnyDataAsync(context.AcademicTerms, at => at.CurriculumId == saudiCurriculumId))
         {
             var terms = new List<AcademicTerm>
             {

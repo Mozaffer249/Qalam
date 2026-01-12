@@ -8,7 +8,7 @@ public class QuranPartsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.QuranParts.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.QuranParts))
         {
             var parts = new List<QuranPart>
             {

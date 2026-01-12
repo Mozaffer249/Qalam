@@ -8,7 +8,8 @@ public class EducationDomainsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.EducationDomains.AnyAsync())
+        // Safely check if data exists (returns false if table doesn't exist)
+        if (!await SeederHelper.HasAnyDataAsync(context.EducationDomains))
         {
             var domains = new List<EducationDomain>
             {

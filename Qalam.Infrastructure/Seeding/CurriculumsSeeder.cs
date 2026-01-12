@@ -8,7 +8,7 @@ public class CurriculumsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.Curriculums.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.Curriculums))
         {
             var curriculums = new List<Curriculum>
             {

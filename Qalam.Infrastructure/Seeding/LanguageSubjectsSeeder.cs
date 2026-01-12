@@ -29,7 +29,7 @@ public class LanguageSubjectsSeeder
             .OrderBy(g => g.LevelId).ThenBy(g => g.OrderIndex)
             .ToListAsync();
 
-        if (!await context.Subjects.AnyAsync(s => s.DomainId == languageDomainId))
+        if (!await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == languageDomainId))
         {
             var subjects = new List<Subject>();
 

@@ -10,7 +10,7 @@ public class LanguageLevelsSeeder
     {
         var languageDomainId = 3; // Languages domain
 
-        if (!await context.EducationLevels.AnyAsync(el => el.DomainId == languageDomainId))
+        if (!await SeederHelper.HasAnyDataAsync(context.EducationLevels, el => el.DomainId == languageDomainId))
         {
             var levels = new List<EducationLevel>
             {
@@ -60,7 +60,7 @@ public class LanguageLevelsSeeder
             throw new Exception("Language levels must be created before grades");
         }
 
-        if (!await context.Grades.AnyAsync(g => g.LevelId == beginnerLevel.Id))
+        if (!await SeederHelper.HasAnyDataAsync(context.Grades, g => g.LevelId == beginnerLevel.Id))
         {
             var grades = new List<Grade>
             {

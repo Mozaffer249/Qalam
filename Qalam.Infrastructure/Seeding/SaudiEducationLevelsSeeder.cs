@@ -11,7 +11,7 @@ public class SaudiEducationLevelsSeeder
         var saudiCurriculumId = 1; // Saudi Curriculum
         var schoolDomainId = 1; // School Education
         
-        if (!await context.EducationLevels.AnyAsync(el => el.CurriculumId == saudiCurriculumId))
+        if (!await SeederHelper.HasAnyDataAsync(context.EducationLevels, el => el.CurriculumId == saudiCurriculumId))
         {
             var levels = new List<EducationLevel>
             {

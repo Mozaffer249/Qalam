@@ -139,59 +139,21 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ApplicationDBContext>();
 
-        Log.Information("Checking database connection...");
+        Log.Information("Checking database and applying migrations...");
 
-        // Check if database exists (without trying to create it)
-        var canConnect = await context.Database.CanConnectAsync();
+        // Apply migrations - this will create the database if it doesn't exist
+        // MigrateAsync() handles everything: creates DB, applies all pending migrations
+        await context.Database.MigrateAsync();
 
-        if (!canConnect)
-        {
-            Log.Warning("Cannot connect to database. Please ensure the database exists on the server.");
-            Log.Warning("Skipping migrations and seeding...");
-        }
-        else
-        {
-            Log.Information("Database connection successful. Applying migrations...");
+        Log.Information("Database migrations applied successfully");
 
-            // Apply any pending migrations (won't try to create database if it exists)
-            await context.Database.MigrateAsync();
+        // Now seed the data
+        Log.Information("Starting database seeding...");
 
-            Log.Information("Database migrations applied successfully");
+        // Seed all data using our seeders
+        await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
 
-            // Check if seeding is needed (check if _SeedingHistory table exists and has our migration)
-            var seedingApplied = await context.Database
-                .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '_SeedingHistory'")
-                .FirstOrDefaultAsync();
-
-            if (seedingApplied > 0)
-            {
-                // Check if this specific seeding has been completed
-                var seedingCompleted = await context.Database
-                    .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [_SeedingHistory] WHERE [MigrationId] = '20260111200000_SeedInitialData' AND [SeedingCompleted] = 1")
-                    .FirstOrDefaultAsync();
-
-                if (seedingCompleted == 0)
-                {
-                    Log.Information("Starting database seeding...");
-
-                    // Seed all data
-                    await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
-
-                    // Mark seeding as completed
-                    await context.Database.ExecuteSqlRawAsync(@"
-                        UPDATE [_SeedingHistory] 
-                        SET [SeedingCompleted] = 1, [SeedingCompletedAt] = GETUTCDATE()
-                        WHERE [MigrationId] = '20260111200000_SeedInitialData'
-                    ");
-
-                    Log.Information("Database seeding completed successfully!");
-                }
-                else
-                {
-                    Log.Information("Database seeding already completed, skipping...");
-                }
-            }
-        }
+        Log.Information("Database seeding completed successfully!");
     }
     catch (Exception ex)
     {

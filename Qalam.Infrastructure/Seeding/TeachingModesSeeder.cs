@@ -8,7 +8,7 @@ public class TeachingModesSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.TeachingModes.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.TeachingModes))
         {
             var teachingModes = new List<TeachingMode>
             {

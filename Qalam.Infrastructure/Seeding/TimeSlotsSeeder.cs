@@ -8,7 +8,7 @@ public class TimeSlotsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.TimeSlots.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.TimeSlots))
         {
             var timeSlots = new List<TimeSlot>();
 

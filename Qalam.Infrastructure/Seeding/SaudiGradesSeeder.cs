@@ -23,7 +23,7 @@ public class SaudiGradesSeeder
             throw new Exception("Saudi education levels must be seeded before grades");
         }
 
-        if (!await context.Grades.AnyAsync(g => g.LevelId == elementaryLevel.Id))
+        if (!await SeederHelper.HasAnyDataAsync(context.Grades, g => g.LevelId == elementaryLevel.Id))
         {
             var grades = new List<Grade>
             {

@@ -10,7 +10,7 @@ public class GeneralSkillsSubjectsSeeder
     {
         var skillsDomainId = 4; // General Skills domain
 
-        if (!await context.Subjects.AnyAsync(s => s.DomainId == skillsDomainId))
+        if (!await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == skillsDomainId))
         {
             var subjects = new List<Subject>();
 

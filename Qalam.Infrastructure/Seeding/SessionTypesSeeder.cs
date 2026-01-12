@@ -8,7 +8,7 @@ public class SessionTypesSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.SessionTypes.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.SessionTypes))
         {
             var sessionTypes = new List<SessionType>
             {

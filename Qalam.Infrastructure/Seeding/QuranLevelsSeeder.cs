@@ -8,7 +8,7 @@ public class QuranLevelsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        if (!await context.QuranLevels.AnyAsync())
+        if (!await SeederHelper.HasAnyDataAsync(context.QuranLevels))
         {
             var quranLevels = new List<QuranLevel>
             {
