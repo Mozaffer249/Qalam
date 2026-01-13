@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -50,6 +51,11 @@ public class SubjectService : ISubjectService
     public async Task<Subject> GetSubjectByIdAsync(int id)
     {
         return await _subjectRepository.GetByIdAsync(id);
+    }
+
+    public async Task<SubjectDto?> GetSubjectDtoByIdAsync(int id)
+    {
+        return await _subjectRepository.GetSubjectDtoByIdAsync(id);
     }
 
     public async Task<Subject> GetSubjectWithDetailsAsync(int id)
@@ -119,11 +125,11 @@ public class SubjectService : ISubjectService
 
     #region Pagination
 
-    public async Task<PaginatedResult<Subject>> GetPaginatedSubjectsAsync(
+    public async Task<PaginatedResult<SubjectDto>> GetPaginatedSubjectsAsync(
         int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null,
         int? levelId = null, int? gradeId = null, int? termId = null, string? search = null)
     {
-        var query = _subjectRepository.GetSubjectsQueryable();
+        var query = _subjectRepository.GetSubjectsDtoQueryable();
 
         if (domainId.HasValue)
             query = query.Where(s => s.DomainId == domainId.Value);
@@ -155,7 +161,7 @@ public class SubjectService : ISubjectService
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<Subject>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<SubjectDto>(items, totalCount, pageNumber, pageSize);
     }
 
     #endregion

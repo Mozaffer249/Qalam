@@ -2,14 +2,14 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs;
 using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Subjects.Queries.GetSubjectsList;
 
 public class GetSubjectsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetSubjectsListQuery, Response<PaginatedResult<Subject>>>
+    IRequestHandler<GetSubjectsListQuery, Response<PaginatedResult<SubjectDto>>>
 {
     private readonly ISubjectService _subjectService;
 
@@ -20,7 +20,7 @@ public class GetSubjectsListQueryHandler : ResponseHandler,
         _subjectService = subjectService;
     }
 
-    public async Task<Response<PaginatedResult<Subject>>> Handle(
+    public async Task<Response<PaginatedResult<SubjectDto>>> Handle(
         GetSubjectsListQuery request,
         CancellationToken cancellationToken)
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -14,10 +15,71 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
     {
         return _dbContext.Subjects
             .AsNoTracking()
-            .Include(s => s.Domain)
-            .Include(s => s.Grade)
-            .Include(s => s.Level)
             .AsQueryable();
+    }
+
+    public IQueryable<SubjectDto> GetSubjectsDtoQueryable()
+    {
+        return _dbContext.Subjects
+            .AsNoTracking()
+            .Select(s => new SubjectDto
+            {
+                Id = s.Id,
+                DomainId = s.DomainId,
+                DomainNameAr = s.Domain.NameAr,
+                DomainNameEn = s.Domain.NameEn,
+                CurriculumId = s.CurriculumId,
+                CurriculumNameAr = s.Curriculum != null ? s.Curriculum.NameAr : null,
+                CurriculumNameEn = s.Curriculum != null ? s.Curriculum.NameEn : null,
+                LevelId = s.LevelId,
+                LevelNameAr = s.Level != null ? s.Level.NameAr : null,
+                LevelNameEn = s.Level != null ? s.Level.NameEn : null,
+                GradeId = s.GradeId,
+                GradeNameAr = s.Grade != null ? s.Grade.NameAr : null,
+                GradeNameEn = s.Grade != null ? s.Grade.NameEn : null,
+                TermId = s.TermId,
+                TermNameAr = s.Term != null ? s.Term.NameAr : null,
+                TermNameEn = s.Term != null ? s.Term.NameEn : null,
+                NameAr = s.NameAr,
+                NameEn = s.NameEn,
+                DescriptionAr = s.DescriptionAr,
+                DescriptionEn = s.DescriptionEn,
+                IsActive = s.IsActive,
+                CreatedAt = s.CreatedAt
+            });
+    }
+
+    public async Task<SubjectDto?> GetSubjectDtoByIdAsync(int id)
+    {
+        return await _dbContext.Subjects
+            .AsNoTracking()
+            .Where(s => s.Id == id)
+            .Select(s => new SubjectDto
+            {
+                Id = s.Id,
+                DomainId = s.DomainId,
+                DomainNameAr = s.Domain.NameAr,
+                DomainNameEn = s.Domain.NameEn,
+                CurriculumId = s.CurriculumId,
+                CurriculumNameAr = s.Curriculum != null ? s.Curriculum.NameAr : null,
+                CurriculumNameEn = s.Curriculum != null ? s.Curriculum.NameEn : null,
+                LevelId = s.LevelId,
+                LevelNameAr = s.Level != null ? s.Level.NameAr : null,
+                LevelNameEn = s.Level != null ? s.Level.NameEn : null,
+                GradeId = s.GradeId,
+                GradeNameAr = s.Grade != null ? s.Grade.NameAr : null,
+                GradeNameEn = s.Grade != null ? s.Grade.NameEn : null,
+                TermId = s.TermId,
+                TermNameAr = s.Term != null ? s.Term.NameAr : null,
+                TermNameEn = s.Term != null ? s.Term.NameEn : null,
+                NameAr = s.NameAr,
+                NameEn = s.NameEn,
+                DescriptionAr = s.DescriptionAr,
+                DescriptionEn = s.DescriptionEn,
+                IsActive = s.IsActive,
+                CreatedAt = s.CreatedAt
+            })
+            .FirstOrDefaultAsync();
     }
 
     public IQueryable<Subject> GetSubjectsByDomainId(int domainId)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -19,10 +20,65 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
     {
         return _context.Grades
             .AsNoTracking()
-            .Include(g => g.Level)
-            .ThenInclude(l => l.Curriculum)
-            .OrderBy(g => g.Level.OrderIndex)
-            .ThenBy(g => g.OrderIndex);
+            .OrderBy(g => g.OrderIndex);
+    }
+
+    public IQueryable<GradeDto> GetGradesDtoQueryable()
+    {
+        return _context.Grades
+            .AsNoTracking()
+            .Select(g => new GradeDto
+            {
+                Id = g.Id,
+                LevelId = g.LevelId,
+                LevelNameAr = g.Level.NameAr,
+                LevelNameEn = g.Level.NameEn,
+                NameAr = g.NameAr,
+                NameEn = g.NameEn,
+                OrderIndex = g.OrderIndex,
+                IsActive = g.IsActive,
+                CreatedAt = g.CreatedAt
+            });
+    }
+
+    public async Task<GradeDto?> GetGradeDtoByIdAsync(int id)
+    {
+        return await _context.Grades
+            .AsNoTracking()
+            .Where(g => g.Id == id)
+            .Select(g => new GradeDto
+            {
+                Id = g.Id,
+                LevelId = g.LevelId,
+                LevelNameAr = g.Level.NameAr,
+                LevelNameEn = g.Level.NameEn,
+                NameAr = g.NameAr,
+                NameEn = g.NameEn,
+                OrderIndex = g.OrderIndex,
+                IsActive = g.IsActive,
+                CreatedAt = g.CreatedAt
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public IQueryable<GradeDto> GetGradesDtoByLevelId(int levelId)
+    {
+        return _context.Grades
+            .AsNoTracking()
+            .Where(g => g.LevelId == levelId)
+            .Select(g => new GradeDto
+            {
+                Id = g.Id,
+                LevelId = g.LevelId,
+                LevelNameAr = g.Level.NameAr,
+                LevelNameEn = g.Level.NameEn,
+                NameAr = g.NameAr,
+                NameEn = g.NameEn,
+                OrderIndex = g.OrderIndex,
+                IsActive = g.IsActive,
+                CreatedAt = g.CreatedAt
+            })
+            .OrderBy(g => g.OrderIndex);
     }
 
     public IQueryable<Grade> GetGradesByLevelId(int levelId)
@@ -37,17 +93,13 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
     {
         return _context.Grades
             .AsNoTracking()
-            .Include(g => g.Level)
             .Where(g => g.Level.CurriculumId == curriculumId)
-            .OrderBy(g => g.Level.OrderIndex)
-            .ThenBy(g => g.OrderIndex);
+            .OrderBy(g => g.OrderIndex);
     }
 
     public async Task<Grade> GetGradeWithSubjectsAsync(int id)
     {
         return await _context.Grades
-            .Include(g => g.Level)
-            .ThenInclude(l => l.Curriculum)
             .Include(g => g.Subjects.OrderBy(s => s.NameEn))
             .FirstOrDefaultAsync(g => g.Id == id);
     }

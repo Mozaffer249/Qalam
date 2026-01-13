@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 
@@ -13,6 +14,7 @@ public interface ISubjectService
     IQueryable<Subject> GetSubjectsByGradeIdQueryable(int gradeId);
     IQueryable<Subject> GetSubjectsByTermIdQueryable(int termId);
     Task<Subject> GetSubjectByIdAsync(int id);
+    Task<SubjectDto?> GetSubjectDtoByIdAsync(int id);
     Task<Subject> GetSubjectWithDetailsAsync(int id);
 
     // Command Operations
@@ -22,7 +24,7 @@ public interface ISubjectService
     Task<bool> ToggleSubjectStatusAsync(int id);
 
     // Pagination
-    Task<PaginatedResult<Subject>> GetPaginatedSubjectsAsync(
+    Task<PaginatedResult<SubjectDto>> GetPaginatedSubjectsAsync(
         int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null,
         int? levelId = null, int? gradeId = null, int? termId = null, string? search = null);
 }

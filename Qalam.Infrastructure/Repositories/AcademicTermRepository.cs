@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -19,8 +20,48 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
     {
         return _context.AcademicTerms
             .AsNoTracking()
-            .Include(at => at.Curriculum)
             .OrderBy(at => at.OrderIndex);
+    }
+
+    public IQueryable<AcademicTermDto> GetTermsDtoQueryable()
+    {
+        return _context.AcademicTerms
+            .AsNoTracking()
+            .Select(at => new AcademicTermDto
+            {
+                Id = at.Id,
+                CurriculumId = at.CurriculumId,
+                CurriculumNameAr = at.Curriculum.NameAr,
+                CurriculumNameEn = at.Curriculum.NameEn,
+                NameAr = at.NameAr,
+                NameEn = at.NameEn,
+                OrderIndex = at.OrderIndex,
+                IsMandatory = at.IsMandatory,
+                IsActive = at.IsActive,
+                CreatedAt = at.CreatedAt
+            })
+            .OrderBy(at => at.OrderIndex);
+    }
+
+    public async Task<AcademicTermDto?> GetTermDtoByIdAsync(int id)
+    {
+        return await _context.AcademicTerms
+            .AsNoTracking()
+            .Where(at => at.Id == id)
+            .Select(at => new AcademicTermDto
+            {
+                Id = at.Id,
+                CurriculumId = at.CurriculumId,
+                CurriculumNameAr = at.Curriculum.NameAr,
+                CurriculumNameEn = at.Curriculum.NameEn,
+                NameAr = at.NameAr,
+                NameEn = at.NameEn,
+                OrderIndex = at.OrderIndex,
+                IsMandatory = at.IsMandatory,
+                IsActive = at.IsActive,
+                CreatedAt = at.CreatedAt
+            })
+            .FirstOrDefaultAsync();
     }
 
     public IQueryable<AcademicTerm> GetTermsByCurriculumId(int curriculumId)

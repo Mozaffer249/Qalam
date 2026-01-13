@@ -122,6 +122,11 @@ public class GradeService : IGradeService
         return await _gradeRepository.GetByIdAsync(id);
     }
 
+    public async Task<GradeDto?> GetGradeDtoByIdAsync(int id)
+    {
+        return await _gradeRepository.GetGradeDtoByIdAsync(id);
+    }
+
     public async Task<Grade> GetGradeWithSubjectsAsync(int id)
     {
         return await _gradeRepository.GetGradeWithSubjectsAsync(id);
@@ -186,6 +191,11 @@ public class GradeService : IGradeService
     public async Task<AcademicTerm> GetTermByIdAsync(int id)
     {
         return await _termRepository.GetByIdAsync(id);
+    }
+
+    public async Task<AcademicTermDto?> GetTermDtoByIdAsync(int id)
+    {
+        return await _termRepository.GetTermDtoByIdAsync(id);
     }
 
     public async Task<AcademicTerm> GetCurrentTermAsync(int curriculumId)
@@ -260,16 +270,13 @@ public class GradeService : IGradeService
         return new PaginatedResult<EducationLevelDto>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<PaginatedResult<Grade>> GetPaginatedGradesAsync(
+    public async Task<PaginatedResult<GradeDto>> GetPaginatedGradesAsync(
         int pageNumber, int pageSize, int? levelId = null, int? curriculumId = null, string? search = null)
     {
-        var query = _gradeRepository.GetGradesQueryable();
+        var query = _gradeRepository.GetGradesDtoQueryable();
 
         if (levelId.HasValue)
             query = query.Where(g => g.LevelId == levelId.Value);
-
-        if (curriculumId.HasValue)
-            query = query.Where(g => g.Level.CurriculumId == curriculumId.Value);
 
         if (!string.IsNullOrEmpty(search))
         {
@@ -281,19 +288,18 @@ public class GradeService : IGradeService
         var totalCount = await query.CountAsync();
 
         var items = await query
-            .OrderBy(g => g.Level.OrderIndex)
-            .ThenBy(g => g.OrderIndex)
+            .OrderBy(g => g.OrderIndex)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<Grade>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<GradeDto>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<PaginatedResult<AcademicTerm>> GetPaginatedTermsAsync(
+    public async Task<PaginatedResult<AcademicTermDto>> GetPaginatedTermsAsync(
         int pageNumber, int pageSize, int? curriculumId = null)
     {
-        var query = _termRepository.GetTermsQueryable();
+        var query = _termRepository.GetTermsDtoQueryable();
 
         if (curriculumId.HasValue)
             query = query.Where(t => t.CurriculumId == curriculumId.Value);
@@ -306,7 +312,7 @@ public class GradeService : IGradeService
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<AcademicTerm>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<AcademicTermDto>(items, totalCount, pageNumber, pageSize);
     }
 
     #endregion

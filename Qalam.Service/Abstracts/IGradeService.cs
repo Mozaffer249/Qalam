@@ -22,6 +22,7 @@ public interface IGradeService
     IQueryable<Grade> GetGradesByLevelIdQueryable(int levelId);
     IQueryable<Grade> GetGradesByCurriculumIdQueryable(int curriculumId);
     Task<Grade> GetGradeByIdAsync(int id);
+    Task<GradeDto?> GetGradeDtoByIdAsync(int id);
     Task<Grade> GetGradeWithSubjectsAsync(int id);
     Task<Grade> CreateGradeAsync(Grade grade);
     Task<Grade> UpdateGradeAsync(Grade grade);
@@ -31,6 +32,7 @@ public interface IGradeService
     IQueryable<AcademicTerm> GetTermsQueryable();
     IQueryable<AcademicTerm> GetTermsByCurriculumIdQueryable(int curriculumId);
     Task<AcademicTerm> GetTermByIdAsync(int id);
+    Task<AcademicTermDto?> GetTermDtoByIdAsync(int id);
     Task<AcademicTerm> GetCurrentTermAsync(int curriculumId);
     Task<AcademicTerm> CreateTermAsync(AcademicTerm term);
     Task<AcademicTerm> UpdateTermAsync(AcademicTerm term);
@@ -39,9 +41,9 @@ public interface IGradeService
     // Pagination
     Task<PaginatedResult<EducationLevelDto>> GetPaginatedLevelsAsync(
         int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null, string? search = null);
-    Task<PaginatedResult<Grade>> GetPaginatedGradesAsync(
+    Task<PaginatedResult<GradeDto>> GetPaginatedGradesAsync(
         int pageNumber, int pageSize, int? levelId = null, int? curriculumId = null, string? search = null);
-    Task<PaginatedResult<AcademicTerm>> GetPaginatedTermsAsync(
+    Task<PaginatedResult<AcademicTermDto>> GetPaginatedTermsAsync(
         int pageNumber, int pageSize, int? curriculumId = null);
 
     // Validation

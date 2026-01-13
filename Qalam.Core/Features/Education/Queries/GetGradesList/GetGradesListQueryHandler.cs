@@ -2,14 +2,14 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs;
 using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Queries.GetGradesList;
 
 public class GetGradesListQueryHandler : ResponseHandler,
-    IRequestHandler<GetGradesListQuery, Response<PaginatedResult<Grade>>>
+    IRequestHandler<GetGradesListQuery, Response<PaginatedResult<GradeDto>>>
 {
     private readonly IGradeService _gradeService;
 
@@ -20,7 +20,7 @@ public class GetGradesListQueryHandler : ResponseHandler,
         _gradeService = gradeService;
     }
 
-    public async Task<Response<PaginatedResult<Grade>>> Handle(
+    public async Task<Response<PaginatedResult<GradeDto>>> Handle(
         GetGradesListQuery request,
         CancellationToken cancellationToken)
     {
