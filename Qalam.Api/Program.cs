@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting;
 using Qalam.Core.MiddleWare;
+using Qalam.Data.Entity.Identity;
+using Qalam.Infrastructure.Seeding;
 using Serilog;
 using Qalam.Core;
 using Qalam.Infrastructure;
@@ -32,7 +35,6 @@ builder.Services.AddHttpClient();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 // Connection to SQL Server
 builder.Services.AddDbContext<ApplicationDBContext>(option =>
@@ -151,7 +153,15 @@ using (var scope = app.Services.CreateScope())
         Log.Information("Starting database seeding...");
 
         // Seed all data using our seeders
-        await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
+        await DatabaseSeeder.SeedAllAsync(context);
+
+        // Seed Identity data (roles and admin user)
+        Log.Information("Seeding roles and admin user...");
+        var roleManager = services.GetRequiredService<RoleManager<Role>>();
+        var userManager = services.GetRequiredService<UserManager<User>>();
+
+        await RolesSeeder.SeedAsync(roleManager);
+        await AdminUserSeeder.SeedAsync(userManager);
 
         Log.Information("Database seeding completed successfully!");
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -76,7 +77,17 @@ namespace Qalam.Infrastructure
             //Swagger Gen
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Qalam API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "Qalam API",
+                    Version = "v1",
+                    Description = "Qalam Education Platform API - Manages education content, Quran studies, and teaching configurations",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Qalam Support",
+                        Email = "support@qalam.com"
+                    }
+                });
                 c.EnableAnnotations();
 
                 c.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
@@ -89,19 +100,27 @@ namespace Qalam.Infrastructure
                 });
 
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-            {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = JwtBearerDefaults.AuthenticationScheme
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = JwtBearerDefaults.AuthenticationScheme
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+
+                // XML Documentation
+                var xmlFile = "Qalam.Api.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                if (File.Exists(xmlPath))
+                {
+                    c.IncludeXmlComments(xmlPath);
                 }
-            },
-            Array.Empty<string>()
-            }
-           });
             });
 
             services.AddAuthorization(option =>
