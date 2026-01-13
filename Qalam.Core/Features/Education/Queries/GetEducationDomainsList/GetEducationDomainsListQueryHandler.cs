@@ -2,14 +2,14 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs;
 using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
 
 public class GetEducationDomainsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetEducationDomainsListQuery, Response<PaginatedResult<EducationDomain>>>
+    IRequestHandler<GetEducationDomainsListQuery, Response<PaginatedResult<EducationDomainDto>>>
 {
     private readonly IEducationDomainService _domainService;
 
@@ -20,7 +20,7 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
         _domainService = domainService;
     }
 
-    public async Task<Response<PaginatedResult<EducationDomain>>> Handle(
+    public async Task<Response<PaginatedResult<EducationDomainDto>>> Handle(
         GetEducationDomainsListQuery request,
         CancellationToken cancellationToken)
     {

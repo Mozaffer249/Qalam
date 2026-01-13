@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -23,6 +24,40 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
             .AsNoTracking()
             .Where(d => d.IsActive)
             .AsQueryable();
+    }
+
+    public IQueryable<EducationDomainDto> GetDomainsDtoQueryable()
+    {
+        return _dbContext.EducationDomains
+            .AsNoTracking()
+            .Select(d => new EducationDomainDto
+            {
+                Id = d.Id,
+                NameAr = d.NameAr,
+                NameEn = d.NameEn,
+                Code = d.Code,
+                DescriptionAr = d.DescriptionAr,
+                DescriptionEn = d.DescriptionEn,
+                CreatedAt = d.CreatedAt
+            });
+    }
+
+    public async Task<EducationDomainDto?> GetDomainDtoByIdAsync(int id)
+    {
+        return await _dbContext.EducationDomains
+            .AsNoTracking()
+            .Where(d => d.Id == id)
+            .Select(d => new EducationDomainDto
+            {
+                Id = d.Id,
+                NameAr = d.NameAr,
+                NameEn = d.NameEn,
+                Code = d.Code,
+                DescriptionAr = d.DescriptionAr,
+                DescriptionEn = d.DescriptionEn,
+                CreatedAt = d.CreatedAt
+            })
+            .FirstOrDefaultAsync();
     }
 
     public async Task<EducationDomain> GetDomainWithLevelsAsync(int id)

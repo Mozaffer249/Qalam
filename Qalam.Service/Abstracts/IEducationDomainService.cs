@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 
@@ -9,9 +10,10 @@ public interface IEducationDomainService
     IQueryable<EducationDomain> GetDomainsQueryable();
     IQueryable<EducationDomain> GetActiveDomainsQueryable();
     Task<EducationDomain> GetDomainByIdAsync(int id);
+    Task<EducationDomainDto?> GetDomainDtoByIdAsync(int id);
     Task<EducationDomain> GetDomainWithLevelsAsync(int id);
     Task<EducationDomain> GetDomainByCodeAsync(string code);
-    Task<PaginatedResult<EducationDomain>> GetPaginatedDomainsAsync(int pageNumber, int pageSize, string search = null);
+    Task<PaginatedResult<EducationDomainDto>> GetPaginatedDomainsAsync(int pageNumber, int pageSize, string? search = null);
 
     // Command operations
     Task<EducationDomain> CreateDomainAsync(EducationDomain domain);

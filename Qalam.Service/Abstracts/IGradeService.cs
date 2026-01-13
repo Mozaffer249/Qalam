@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 
@@ -10,6 +11,7 @@ public interface IGradeService
     IQueryable<EducationLevel> GetLevelsByDomainIdQueryable(int domainId);
     IQueryable<EducationLevel> GetLevelsByCurriculumIdQueryable(int curriculumId);
     Task<EducationLevel> GetLevelByIdAsync(int id);
+    Task<EducationLevelDto?> GetLevelDtoByIdAsync(int id);
     Task<EducationLevel> GetLevelWithGradesAsync(int id);
     Task<EducationLevel> CreateLevelAsync(EducationLevel level);
     Task<EducationLevel> UpdateLevelAsync(EducationLevel level);
@@ -35,7 +37,7 @@ public interface IGradeService
     Task<bool> DeleteTermAsync(int id);
 
     // Pagination
-    Task<PaginatedResult<EducationLevel>> GetPaginatedLevelsAsync(
+    Task<PaginatedResult<EducationLevelDto>> GetPaginatedLevelsAsync(
         int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null, string? search = null);
     Task<PaginatedResult<Grade>> GetPaginatedGradesAsync(
         int pageNumber, int pageSize, int? levelId = null, int? curriculumId = null, string? search = null);

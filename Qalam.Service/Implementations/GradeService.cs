@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -42,6 +43,11 @@ public class GradeService : IGradeService
     public async Task<EducationLevel> GetLevelByIdAsync(int id)
     {
         return await _levelRepository.GetByIdAsync(id);
+    }
+
+    public async Task<EducationLevelDto?> GetLevelDtoByIdAsync(int id)
+    {
+        return await _levelRepository.GetLevelDtoByIdAsync(id);
     }
 
     public async Task<EducationLevel> GetLevelWithGradesAsync(int id)
@@ -225,10 +231,10 @@ public class GradeService : IGradeService
 
     #region Pagination
 
-    public async Task<PaginatedResult<EducationLevel>> GetPaginatedLevelsAsync(
+    public async Task<PaginatedResult<EducationLevelDto>> GetPaginatedLevelsAsync(
         int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null, string? search = null)
     {
-        var query = _levelRepository.GetLevelsQueryable();
+        var query = _levelRepository.GetLevelsDtoQueryable();
 
         if (domainId.HasValue)
             query = query.Where(l => l.DomainId == domainId.Value);
@@ -251,7 +257,7 @@ public class GradeService : IGradeService
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<EducationLevel>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<EducationLevelDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public async Task<PaginatedResult<Grade>> GetPaginatedGradesAsync(

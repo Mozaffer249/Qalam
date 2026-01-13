@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -32,6 +33,11 @@ public class EducationDomainService : IEducationDomainService
         return await _domainRepository.GetByIdAsync(id);
     }
 
+    public async Task<EducationDomainDto?> GetDomainDtoByIdAsync(int id)
+    {
+        return await _domainRepository.GetDomainDtoByIdAsync(id);
+    }
+
     public async Task<EducationDomain> GetDomainWithLevelsAsync(int id)
     {
         return await _domainRepository.GetDomainWithLevelsAsync(id);
@@ -42,10 +48,10 @@ public class EducationDomainService : IEducationDomainService
         return await _domainRepository.GetDomainByCodeAsync(code);
     }
 
-    public async Task<PaginatedResult<EducationDomain>> GetPaginatedDomainsAsync(
-        int pageNumber, int pageSize, string search = null)
+    public async Task<PaginatedResult<EducationDomainDto>> GetPaginatedDomainsAsync(
+        int pageNumber, int pageSize, string? search = null)
     {
-        var query = _domainRepository.GetDomainsQueryable();
+        var query = _domainRepository.GetDomainsDtoQueryable();
 
         if (!string.IsNullOrEmpty(search))
         {
@@ -63,7 +69,7 @@ public class EducationDomainService : IEducationDomainService
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<EducationDomain>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<EducationDomainDto>(items, totalCount, pageNumber, pageSize);
     }
 
     #endregion
