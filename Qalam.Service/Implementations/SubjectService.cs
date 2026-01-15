@@ -126,19 +126,18 @@ public class SubjectService : ISubjectService
     #region Pagination
 
     public async Task<PaginatedResult<SubjectDto>> GetPaginatedSubjectsAsync(
-        int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null,
-        int? levelId = null, int? gradeId = null, int? termId = null, string? search = null)
+        int pageNumber, int pageSize, int? gradeId = null, int? termId = null, string? search = null)
     {
         var query = _subjectRepository.GetSubjectsDtoQueryable();
 
-        if (domainId.HasValue)
-            query = query.Where(s => s.DomainId == domainId.Value);
+        // if (domainId.HasValue)
+        //     query = query.Where(s => s.DomainId == domainId.Value);
 
-        if (curriculumId.HasValue)
-            query = query.Where(s => s.CurriculumId == curriculumId.Value);
+        // if (curriculumId.HasValue)
+        //     query = query.Where(s => s.CurriculumId == curriculumId.Value);
 
-        if (levelId.HasValue)
-            query = query.Where(s => s.LevelId == levelId.Value);
+        // if (levelId.HasValue)
+        //     query = query.Where(s => s.LevelId == levelId.Value);
 
         if (gradeId.HasValue)
             query = query.Where(s => s.GradeId == gradeId.Value);

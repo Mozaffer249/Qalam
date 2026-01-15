@@ -155,11 +155,11 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 			var result = await _authenticationService.GetJWTToken(user);
 
 			// Populate user information
-			result.UserId = user.Id;
+			// result.UserId = user.Id;
 			result.UserName = user.UserName!;
 			result.Email = user.Email!;
 			result.FullName = $"{user.FirstName} {user.LastName}".Trim();
-			result.Roles = (await _userManager.GetRolesAsync(user)).ToList();
+			// result.Roles = (await _userManager.GetRolesAsync(user)).ToList();
 
 			// Get device and IP info
 			var userAgent = httpContext?.Request.Headers["User-Agent"].ToString() ?? "Unknown";
@@ -203,7 +203,7 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 
 			// Add device info to response for frontend to prompt "Trust this device?"
 			//result.IsNewDevice = !isTrustedDevice;
-			result.DeviceId = deviceId;
+			// result.DeviceId = deviceId;
 
 			return Success(entity: result);
 		}

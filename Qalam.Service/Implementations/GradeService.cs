@@ -242,12 +242,9 @@ public class GradeService : IGradeService
     #region Pagination
 
     public async Task<PaginatedResult<EducationLevelDto>> GetPaginatedLevelsAsync(
-        int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null, string? search = null)
+        int pageNumber, int pageSize, int? curriculumId = null, string? search = null)
     {
         var query = _levelRepository.GetLevelsDtoQueryable();
-
-        if (domainId.HasValue)
-            query = query.Where(l => l.DomainId == domainId.Value);
 
         if (curriculumId.HasValue)
             query = query.Where(l => l.CurriculumId == curriculumId.Value);
@@ -271,7 +268,7 @@ public class GradeService : IGradeService
     }
 
     public async Task<PaginatedResult<GradeDto>> GetPaginatedGradesAsync(
-        int pageNumber, int pageSize, int? levelId = null, int? curriculumId = null, string? search = null)
+        int pageNumber, int pageSize, int? levelId = null, string? search = null)
     {
         var query = _gradeRepository.GetGradesDtoQueryable();
 

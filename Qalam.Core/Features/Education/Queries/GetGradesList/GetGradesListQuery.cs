@@ -10,6 +10,5 @@ public class GetGradesListQuery : IRequest<Response<PaginatedResult<GradeDto>>>
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public int? LevelId { get; set; }
-    public int? CurriculumId { get; set; }
-    public string? Search { get; set; }
+     public string? Search { get; set; }
 }

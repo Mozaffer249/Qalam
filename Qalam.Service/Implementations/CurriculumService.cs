@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -42,10 +43,24 @@ public class CurriculumService : ICurriculumService
         return await _curriculumRepository.GetCurriculumByCodeAsync(code);
     }
 
-    public async Task<PaginatedResult<Curriculum>> GetPaginatedCurriculumsAsync(
+    #endregion
+
+    #region DTO Query Operations
+
+    public IQueryable<CurriculumDto> GetCurriculumsDtoQueryable()
+    {
+        return _curriculumRepository.GetCurriculumsDtoQueryable();
+    }
+
+    public async Task<CurriculumDto?> GetCurriculumDtoByIdAsync(int id)
+    {
+        return await _curriculumRepository.GetCurriculumDtoByIdAsync(id);
+    }
+
+    public async Task<PaginatedResult<CurriculumDto>> GetPaginatedCurriculumsAsync(
         int pageNumber, int pageSize, string? search = null)
     {
-        var query = _curriculumRepository.GetCurriculumsQueryable();
+        var query = _curriculumRepository.GetCurriculumsDtoQueryable();
 
         if (!string.IsNullOrEmpty(search))
         {
@@ -62,7 +77,7 @@ public class CurriculumService : ICurriculumService
             .Take(pageSize)
             .ToListAsync();
 
-        return new PaginatedResult<Curriculum>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<CurriculumDto>(items, totalCount, pageNumber, pageSize);
     }
 
     #endregion

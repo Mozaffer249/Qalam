@@ -14,7 +14,7 @@ public class Curriculum : AuditableEntity
     public string NameEn { get; set; } = default!;
     
     [MaxLength(100)]
-    public string? Country { get; set; } // السعودية، مصر، إلخ
+    public string? Country { get; set; } 
     
     [MaxLength(500)]
     public string? DescriptionAr { get; set; }

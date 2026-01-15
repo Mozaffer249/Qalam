@@ -25,6 +25,5 @@ public interface ISubjectService
 
     // Pagination
     Task<PaginatedResult<SubjectDto>> GetPaginatedSubjectsAsync(
-        int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null,
-        int? levelId = null, int? gradeId = null, int? termId = null, string? search = null);
+        int pageNumber, int pageSize, int? gradeId = null, int? termId = null, string? search = null);
 }

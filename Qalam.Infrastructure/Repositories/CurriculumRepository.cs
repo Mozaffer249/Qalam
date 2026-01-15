@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -52,4 +53,47 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
             query = query.Where(c => c.Id != excludeId.Value);
         return !await query.AnyAsync();
     }
+
+    #region DTO Projection Methods
+
+    public IQueryable<CurriculumDto> GetCurriculumsDtoQueryable()
+    {
+        return _context.Curriculums
+            .AsNoTracking()
+            .Select(c => new CurriculumDto
+            {
+                Id = c.Id,
+                NameAr = c.NameAr,
+                NameEn = c.NameEn,
+                Country = c.Country,
+                DescriptionAr = c.DescriptionAr,
+                DescriptionEn = c.DescriptionEn,
+                IsActive = c.IsActive,
+                CreatedAt = c.CreatedAt,
+        
+            })
+            .OrderBy(c => c.NameEn);
+    }
+
+    public async Task<CurriculumDto?> GetCurriculumDtoByIdAsync(int id)
+    {
+        return await _context.Curriculums
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new CurriculumDto
+            {
+                Id = c.Id,
+                NameAr = c.NameAr,
+                NameEn = c.NameEn,
+                Country = c.Country,
+                DescriptionAr = c.DescriptionAr,
+                DescriptionEn = c.DescriptionEn,
+                IsActive = c.IsActive,
+                CreatedAt = c.CreatedAt,
+         
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    #endregion
 }

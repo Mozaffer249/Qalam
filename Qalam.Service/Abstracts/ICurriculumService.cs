@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 
@@ -11,9 +12,13 @@ public interface ICurriculumService
     Task<Curriculum> GetCurriculumByIdAsync(int id);
     Task<Curriculum> GetCurriculumWithLevelsAsync(int id);
     Task<Curriculum> GetCurriculumByCodeAsync(string code);
+    
+    // DTO Query Operations
+    IQueryable<CurriculumDto> GetCurriculumsDtoQueryable();
+    Task<CurriculumDto?> GetCurriculumDtoByIdAsync(int id);
 
     // Pagination
-    Task<PaginatedResult<Curriculum>> GetPaginatedCurriculumsAsync(
+    Task<PaginatedResult<CurriculumDto>> GetPaginatedCurriculumsAsync(
         int pageNumber, int pageSize, string? search = null);
 
     // Command Operations

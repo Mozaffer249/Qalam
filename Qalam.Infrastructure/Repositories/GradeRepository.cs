@@ -31,8 +31,6 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             {
                 Id = g.Id,
                 LevelId = g.LevelId,
-                LevelNameAr = g.Level.NameAr,
-                LevelNameEn = g.Level.NameEn,
                 NameAr = g.NameAr,
                 NameEn = g.NameEn,
                 OrderIndex = g.OrderIndex,
@@ -50,8 +48,6 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             {
                 Id = g.Id,
                 LevelId = g.LevelId,
-                LevelNameAr = g.Level.NameAr,
-                LevelNameEn = g.Level.NameEn,
                 NameAr = g.NameAr,
                 NameEn = g.NameEn,
                 OrderIndex = g.OrderIndex,
@@ -70,8 +66,6 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             {
                 Id = g.Id,
                 LevelId = g.LevelId,
-                LevelNameAr = g.Level.NameAr,
-                LevelNameEn = g.Level.NameEn,
                 NameAr = g.NameAr,
                 NameEn = g.NameEn,
                 OrderIndex = g.OrderIndex,

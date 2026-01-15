@@ -27,7 +27,6 @@ public class GetLevelsListQueryHandler : ResponseHandler,
         var result = await _gradeService.GetPaginatedLevelsAsync(
             request.PageNumber,
             request.PageSize,
-            request.DomainId,
             request.CurriculumId,
             request.Search);
 

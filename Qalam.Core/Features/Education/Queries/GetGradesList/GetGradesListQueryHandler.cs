@@ -28,8 +28,7 @@ public class GetGradesListQueryHandler : ResponseHandler,
             request.PageNumber,
             request.PageSize,
             request.LevelId,
-            request.CurriculumId,
-            request.Search);
+             request.Search);
 
         return Success(entity: result);
     }

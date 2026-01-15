@@ -27,9 +27,9 @@ public class GetSubjectsListQueryHandler : ResponseHandler,
         var result = await _subjectService.GetPaginatedSubjectsAsync(
             request.PageNumber,
             request.PageSize,
-            request.DomainId,
-            request.CurriculumId,
-            request.LevelId,
+            // request.DomainId,
+            // request.CurriculumId,
+            // request.LevelId,
             request.GradeId,
             request.TermId,
             request.Search);

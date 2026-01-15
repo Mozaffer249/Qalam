@@ -44,15 +44,15 @@ public class SubjectsController : AppControllerBase
         return NewResult(await Mediator.Send(query));
     }
 
-    /// <summary>
-    /// Get subjects by domain ID
-    /// </summary>
-    [HttpGet(Router.SubjectsByDomain)]
-    public async Task<IActionResult> GetSubjectsByDomain(int domainId)
-    {
-        var query = new GetSubjectsListQuery { DomainId = domainId, PageSize = 100 };
-        return NewResult(await Mediator.Send(query));
-    }
+    // /// <summary>
+    // /// Get subjects by domain ID
+    // /// </summary>
+    // [HttpGet(Router.SubjectsByDomain)]
+    // public async Task<IActionResult> GetSubjectsByDomain(int domainId)
+    // {
+    //     var query = new GetSubjectsListQuery { DomainId = domainId, PageSize = 100 };
+    //     return NewResult(await Mediator.Send(query));
+    // }
 
     /// <summary>
     /// Create a new subject (Admin only)

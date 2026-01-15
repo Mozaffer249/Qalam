@@ -25,21 +25,12 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .Select(s => new SubjectDto
             {
                 Id = s.Id,
-                DomainId = s.DomainId,
-                DomainNameAr = s.Domain.NameAr,
-                DomainNameEn = s.Domain.NameEn,
-                CurriculumId = s.CurriculumId,
-                CurriculumNameAr = s.Curriculum != null ? s.Curriculum.NameAr : null,
-                CurriculumNameEn = s.Curriculum != null ? s.Curriculum.NameEn : null,
+            
                 LevelId = s.LevelId,
-                LevelNameAr = s.Level != null ? s.Level.NameAr : null,
-                LevelNameEn = s.Level != null ? s.Level.NameEn : null,
+  
                 GradeId = s.GradeId,
-                GradeNameAr = s.Grade != null ? s.Grade.NameAr : null,
-                GradeNameEn = s.Grade != null ? s.Grade.NameEn : null,
+           
                 TermId = s.TermId,
-                TermNameAr = s.Term != null ? s.Term.NameAr : null,
-                TermNameEn = s.Term != null ? s.Term.NameEn : null,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
                 DescriptionAr = s.DescriptionAr,
@@ -57,21 +48,8 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .Select(s => new SubjectDto
             {
                 Id = s.Id,
-                DomainId = s.DomainId,
-                DomainNameAr = s.Domain.NameAr,
-                DomainNameEn = s.Domain.NameEn,
-                CurriculumId = s.CurriculumId,
-                CurriculumNameAr = s.Curriculum != null ? s.Curriculum.NameAr : null,
-                CurriculumNameEn = s.Curriculum != null ? s.Curriculum.NameEn : null,
-                LevelId = s.LevelId,
-                LevelNameAr = s.Level != null ? s.Level.NameAr : null,
-                LevelNameEn = s.Level != null ? s.Level.NameEn : null,
                 GradeId = s.GradeId,
-                GradeNameAr = s.Grade != null ? s.Grade.NameAr : null,
-                GradeNameEn = s.Grade != null ? s.Grade.NameEn : null,
                 TermId = s.TermId,
-                TermNameAr = s.Term != null ? s.Term.NameAr : null,
-                TermNameEn = s.Term != null ? s.Term.NameEn : null,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
                 DescriptionAr = s.DescriptionAr,
