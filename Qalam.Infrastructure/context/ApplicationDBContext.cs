@@ -10,6 +10,11 @@ using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Quran;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Data.Entity.Common;
+using Qalam.Data.Entity.Student;
+using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.Session;
+using Qalam.Data.Entity.Payment;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -49,7 +54,6 @@ namespace Qalam.Infrastructure.context
         public DbSet<Subject> Subjects { get; set; }
         public DbSet<ContentUnit> ContentUnits { get; set; }
         public DbSet<Lesson> Lessons { get; set; }
-        public DbSet<TeacherSubject> TeacherSubjects { get; set; }
 
         // Quran Schema DbSets
         public DbSet<QuranLevel> QuranLevels { get; set; }
@@ -67,6 +71,43 @@ namespace Qalam.Infrastructure.context
         public DbSet<Location> Locations { get; set; }
         public DbSet<TimeSlot> TimeSlots { get; set; }
         public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<DayOfWeekMaster> DaysOfWeek { get; set; }
+
+        // Student Schema DbSets
+        public DbSet<Student> Students { get; set; }
+        public DbSet<Guardian> Guardians { get; set; }
+        public DbSet<StudentGuardian> StudentGuardians { get; set; }
+
+        // Teacher Schema DbSets
+        public DbSet<Teacher> Teachers { get; set; }
+        public DbSet<TeacherDocument> TeacherDocuments { get; set; }
+        public DbSet<TeacherSubject> TeacherSubjects { get; set; }
+        public DbSet<TeacherSubjectUnit> TeacherSubjectUnits { get; set; }
+        public DbSet<TeacherAvailability> TeacherAvailabilities { get; set; }
+        public DbSet<TeacherAvailabilityException> TeacherAvailabilityExceptions { get; set; }
+        public DbSet<TeacherArea> TeacherAreas { get; set; }
+        public DbSet<TeacherReview> TeacherReviews { get; set; }
+        public DbSet<TeacherAuditLog> TeacherAuditLogs { get; set; }
+
+        // Course Schema DbSets
+        public DbSet<Course> Courses { get; set; }
+        public DbSet<CourseSession> CourseSessions { get; set; }
+        public DbSet<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; }
+        public DbSet<CourseRequestSelectedAvailability> CourseRequestSelectedAvailabilities { get; set; }
+        public DbSet<CourseRequestGroupMember> CourseRequestGroupMembers { get; set; }
+        public DbSet<CourseEnrollment> CourseEnrollments { get; set; }
+        public DbSet<CourseSchedule> CourseSchedules { get; set; }
+
+        // Session Schema DbSets
+        public DbSet<SessionRequest> SessionRequests { get; set; }
+        public DbSet<SessionRequestOffer> SessionRequestOffers { get; set; }
+        public DbSet<Session> Sessions { get; set; }
+        public DbSet<ScheduledSession> ScheduledSessions { get; set; }
+
+        // Payment Schema DbSets
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<PaymentItem> PaymentItems { get; set; }
+        public DbSet<CourseEnrollmentPayment> CourseEnrollmentPayments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

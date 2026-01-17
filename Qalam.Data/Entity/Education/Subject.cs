@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Qalam.Data.Commons;
-using Qalam.Data.Entity.Identity;
 
 namespace Qalam.Data.Entity.Education;
 
@@ -39,16 +38,6 @@ public class Subject : AuditableEntity
     
     // Navigation Properties
     public ICollection<ContentUnit> ContentUnits { get; set; } = new List<ContentUnit>();
-    public ICollection<TeacherSubject> TeacherSubjects { get; set; } = new List<TeacherSubject>();
-}
-
-// Junction table for many-to-many relationship between Teachers and Subjects
-public class TeacherSubject
-{
-    public int Id { get; set; }
-    public int TeacherId { get; set; }
-    public User Teacher { get; set; } = default!;
-    public int SubjectId { get; set; }
-    public Subject Subject { get; set; } = default!;
+    public ICollection<Teacher.TeacherSubject> TeacherSubjects { get; set; } = new List<Teacher.TeacherSubject>();
 }
 
