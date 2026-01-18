@@ -27,7 +27,7 @@ namespace Qalam.Infrastructure.context
           IdentityUserToken<int>>
     {
         private readonly IEncryptionProvider _encryptionProvider;
-        
+
         public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options) : base(options)
         {
             _encryptionProvider = new GenerateEncryptionProvider("8a4dcaaec64d412380fe4b02193cd26f");
@@ -76,7 +76,6 @@ namespace Qalam.Infrastructure.context
         // Student Schema DbSets
         public DbSet<Student> Students { get; set; }
         public DbSet<Guardian> Guardians { get; set; }
-        public DbSet<StudentGuardian> StudentGuardians { get; set; }
 
         // Teacher Schema DbSets
         public DbSet<Teacher> Teachers { get; set; }

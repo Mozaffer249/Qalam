@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.EncryptColumn.Attribute;
 using Microsoft.AspNetCore.Identity;
+using Qalam.Data.Entity.Student;
 
 namespace Qalam.Data.Entity.Identity
 {
@@ -50,6 +51,10 @@ namespace Qalam.Data.Entity.Identity
         public ICollection<SecurityEvent> SecurityEvents { get; set; }
         public ICollection<PasswordHistory> PasswordHistories { get; set; }
         public ICollection<TwoFactorRecoveryCode> TwoFactorRecoveryCodes { get; set; }
+
+        // Profile Navigation Properties
+        public Student.Student? StudentProfile { get; set; }
+        public Student.Guardian? GuardianProfile { get; set; }
     }
 }
 
