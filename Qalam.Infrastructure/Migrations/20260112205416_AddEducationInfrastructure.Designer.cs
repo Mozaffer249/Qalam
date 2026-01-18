@@ -1995,3 +1995,4 @@ namespace Qalam.Infrastructure.Migrations
         }
     }
 }
+ 
