@@ -19,6 +19,9 @@ namespace Qalam.Core
             // Register FluentValidation validators
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
+            // Register User Identity Behavior (runs before validation)
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(UserIdentityBehavior<,>));
+
             // Register Validation Behavior
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 

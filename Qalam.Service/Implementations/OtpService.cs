@@ -1,0 +1,77 @@
+using Microsoft.Extensions.Logging;
+using Qalam.Data.Entity.Identity;
+using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
+
+namespace Qalam.Service.Implementations;
+
+public class OtpService : IOtpService
+{
+    private readonly IPhoneOtpRepository _otpRepository;
+    private readonly ILogger<OtpService> _logger;
+
+    public OtpService(
+        IPhoneOtpRepository otpRepository,
+        ILogger<OtpService> logger)
+    {
+        _otpRepository = otpRepository;
+        _logger = logger;
+    }
+
+    public async Task<string> GeneratePhoneOtpAsync(string countryCode, string phoneNumber)
+    {
+        // Remove expired OTPs for this phone number
+        await _otpRepository.RemoveExpiredOtpsAsync(phoneNumber);
+
+        // Generate 4-digit OTP
+        var random = new Random();
+        var otpCode = random.Next(1000, 9999).ToString();
+
+        // Create and save OTP
+        var otp = new PhoneConfirmationOtp
+        {
+            CountryCode = countryCode,
+            PhoneNumber = phoneNumber,
+            OtpCode = otpCode,
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            IsUsed = false
+        };
+
+        await _otpRepository.AddAsync(otp);
+        await _otpRepository.SaveChangesAsync();
+
+        _logger.LogInformation("OTP generated for phone {Phone}", phoneNumber);
+        
+        return otpCode;
+    }
+
+    public async Task<bool> VerifyPhoneOtpAsync(string phoneNumber, string otpCode)
+    {
+        var otp = await _otpRepository.GetValidOtpAsync(phoneNumber, otpCode);
+        
+        if (otp == null)
+        {
+            _logger.LogWarning("Invalid or expired OTP for phone {Phone}", phoneNumber);
+            return false;
+        }
+
+        _logger.LogInformation("OTP verified successfully for phone {Phone}", phoneNumber);
+        return true;
+    }
+
+    public async Task SendOtpSmsAsync(string fullPhoneNumber, string otpCode)
+    {
+        // TODO: Integrate with SMS provider (Twilio, AWS SNS, etc.)
+        // For now, just log the OTP
+        _logger.LogInformation(
+            "SMS would be sent to {Phone} with OTP: {OTP}",
+            fullPhoneNumber,
+            otpCode);
+
+        // In production, implement something like:
+        // await _smsClient.SendAsync(fullPhoneNumber, $"Your verification code is: {otpCode}");
+        
+        await Task.CompletedTask;
+    }
+}

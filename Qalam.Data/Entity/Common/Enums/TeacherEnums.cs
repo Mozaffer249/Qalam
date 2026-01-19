@@ -5,9 +5,10 @@ namespace Qalam.Data.Entity.Common.Enums;
 /// </summary>
 public enum TeacherStatus
 {
-    Pending = 1,
+    Pending = 1,                    // Profile incomplete
     Active = 2,
-    Blocked = 3
+    Blocked = 3,
+    PendingVerification = 4         // Documents uploaded, awaiting admin
 }
 
 /// <summary>
@@ -17,7 +18,10 @@ public enum TeacherDocumentType
 {
     Id = 1,
     Certificate = 2,
-    Other = 3
+    Other = 3,
+    NationalId = 4,      // Saudi National ID
+    Iqama = 5,           // Saudi Iqama
+    Passport = 6         // International Passport
 }
 
 /// <summary>

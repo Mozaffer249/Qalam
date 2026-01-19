@@ -30,8 +30,17 @@ namespace Qalam.Infrastructure.Seeder
                 // Seed Admin role
                 await CreateRoleIfNotExistsAsync(Roles.Admin);
 
-                // Seed User role
-                await CreateRoleIfNotExistsAsync(Roles.User);
+                // Seed Staff role
+                await CreateRoleIfNotExistsAsync(Roles.Staff);
+
+                // Seed Teacher role
+                await CreateRoleIfNotExistsAsync(Roles.Teacher);
+
+                // Seed Student role
+                await CreateRoleIfNotExistsAsync(Roles.Student);
+
+                // Seed Guardian role
+                await CreateRoleIfNotExistsAsync(Roles.Guardian);
 
                 _logger.LogInformation("Role seeding completed.");
             }

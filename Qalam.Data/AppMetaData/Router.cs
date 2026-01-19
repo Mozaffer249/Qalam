@@ -26,6 +26,12 @@ namespace Qalam.Data.AppMetaData
         public const string AuthenticationGenerateRecoveryCodes = Authentication + "/GenerateRecoveryCodes";
         public const string AuthenticationGetTwoFactorStatus = Authentication + "/GetTwoFactorStatus";
 
+        // Teacher Registration (4 Steps)
+        public const string TeacherStep1SendOtp = Authentication + "/Teacher/Step1-SendOtp";
+        public const string TeacherStep2VerifyOtp = Authentication + "/Teacher/Step2-VerifyOtp";
+        public const string TeacherStep3PersonalInfo = Authentication + "/Teacher/Step3-PersonalInfo";
+        public const string TeacherStep4UploadDocuments = Authentication + "/Teacher/Step4-UploadDocuments";
+
         // Account Management
         public const string AccountGetProfile = Authentication + "/Profile";
         public const string AccountUpdateProfile = Authentication + "/Profile/Update";

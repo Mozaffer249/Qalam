@@ -8,9 +8,7 @@ namespace Qalam.Data.AppMetaData
         public const string Staff = "Staff";
         public const string Teacher = "Teacher";
         public const string Student = "Student";
-        public const string Parent = "Parent";
-        public const string Customer = "Customer";
-        public const string User = "User";
+        public const string Guardian = "Guardian";
 
         // Combined Roles
         public const string AdminOrStaff = "SuperAdmin,Staff";

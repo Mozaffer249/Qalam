@@ -30,6 +30,28 @@ public class TeacherDocument : AuditableEntity
 
     public DateTime? VerifiedAt { get; set; }
 
+    // Identity Document Fields
+    [MaxLength(50)]
+    public string? DocumentNumber { get; set; }
+
+    public IdentityType? IdentityType { get; set; }
+
+    [MaxLength(3)]  // ISO 3166-1 alpha-3
+    public string? IssuingCountryCode { get; set; }
+
+    // Certificate Fields
+    [MaxLength(200)]
+    public string? CertificateTitle { get; set; }
+
+    [MaxLength(200)]
+    public string? Issuer { get; set; }
+
+    public DateOnly? IssueDate { get; set; }
+
+    // Admin Review
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
     // Navigation
     public Teacher Teacher { get; set; } = null!;
 }

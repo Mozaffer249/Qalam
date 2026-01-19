@@ -8,16 +8,14 @@ public static class RolesSeeder
 {
     public static async Task SeedAsync(RoleManager<Role> roleManager)
     {
-        string[] roles = 
-        { 
-            Roles.SuperAdmin, 
-            Roles.Admin, 
-            Roles.Staff, 
-            Roles.Teacher, 
-            Roles.Student, 
-            Roles.Parent, 
-            Roles.Customer, 
-            Roles.User 
+        string[] roles =
+        {
+            Roles.SuperAdmin,
+            Roles.Admin,
+            Roles.Staff,
+            Roles.Teacher,
+            Roles.Student,
+            Roles.Guardian
         };
 
         foreach (var role in roles)

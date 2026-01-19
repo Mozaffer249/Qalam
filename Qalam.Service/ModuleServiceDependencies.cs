@@ -22,6 +22,11 @@ namespace Qalam.Service
             // Register EmailService
             services.AddHttpClient<IEmailService, EmailService>();
 
+            // Teacher Registration Services
+            services.AddTransient<IOtpService, OtpService>();
+            services.AddTransient<IFileStorageService, FileStorageService>();
+            services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
+
             // Add memory cache for rate limiting and IP blocking
             services.AddMemoryCache();
 

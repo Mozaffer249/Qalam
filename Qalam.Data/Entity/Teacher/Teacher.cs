@@ -22,6 +22,8 @@ public class Teacher : AuditableEntity
     
     public TeacherStatus Status { get; set; } = TeacherStatus.Pending;
     
+    public TeacherLocation? Location { get; set; }
+    
     /// <summary>
     /// Average rating of the teacher (0-5)
     /// </summary>
