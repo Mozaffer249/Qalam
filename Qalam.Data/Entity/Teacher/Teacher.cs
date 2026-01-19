@@ -38,4 +38,5 @@ public class Teacher : AuditableEntity
     public ICollection<TeacherArea> TeacherAreas { get; set; } = new List<TeacherArea>();
     public ICollection<TeacherReview> TeacherReviews { get; set; } = new List<TeacherReview>();
     public ICollection<TeacherAuditLog> TeacherAuditLogs { get; set; } = new List<TeacherAuditLog>();
+    public ICollection<Course.Course> Courses { get; set; } = new List<Course.Course>();
 }
