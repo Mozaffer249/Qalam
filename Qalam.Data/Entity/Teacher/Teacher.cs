@@ -6,14 +6,14 @@ using Qalam.Data.Entity.Identity;
 namespace Qalam.Data.Entity.Teacher;
 
 /// <summary>
-/// كيان المعلم
+/// Teacher entity represents a teacher in the system
 /// </summary>
 public class Teacher : AuditableEntity
 {
     public int Id { get; set; }
     
     /// <summary>
-    /// معرف المستخدم المرتبط
+    /// UserId of the teacher
     /// </summary>
     public int? UserId { get; set; }
     
@@ -23,7 +23,7 @@ public class Teacher : AuditableEntity
     public TeacherStatus Status { get; set; } = TeacherStatus.Pending;
     
     /// <summary>
-    /// متوسط التقييم (0-5)
+    /// Average rating of the teacher (0-5)
     /// </summary>
     public decimal RatingAverage { get; set; } = 0m;
     
