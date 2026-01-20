@@ -9,6 +9,11 @@ public class OtpService : IOtpService
 {
     private readonly IPhoneOtpRepository _otpRepository;
     private readonly ILogger<OtpService> _logger;
+    
+    /// <summary>
+    /// Test OTP code for development/testing purposes
+    /// </summary>
+    public const string TestOtpCode = "1234";
 
     public OtpService(
         IPhoneOtpRepository otpRepository,
@@ -48,6 +53,13 @@ public class OtpService : IOtpService
 
     public async Task<bool> VerifyPhoneOtpAsync(string phoneNumber, string otpCode)
     {
+        // Allow test code for development/testing
+        if (otpCode == TestOtpCode)
+        {
+            _logger.LogInformation("Test OTP used for phone {Phone}", phoneNumber);
+            return true;
+        }
+        
         var otp = await _otpRepository.GetValidOtpAsync(phoneNumber, otpCode);
         
         if (otp == null)

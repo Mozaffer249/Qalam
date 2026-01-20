@@ -118,7 +118,6 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
         return new TeacherAccountDto
         {
-          
             FirstName = firstName,
             LastName = lastName,
             Email = email,

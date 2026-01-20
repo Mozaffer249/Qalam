@@ -38,6 +38,7 @@ namespace Qalam.Infrastructure
                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
                    option.User.RequireUniqueEmail = false;  // Allow phone-only registration
                    option.SignIn.RequireConfirmedEmail = true;
+                   
 
                }).AddEntityFrameworkStores<ApplicationDBContext>().AddDefaultTokenProviders();
             //JWT Authentication
