@@ -36,7 +36,7 @@ namespace Qalam.Infrastructure
                    // User settings.
                    option.User.AllowedUserNameCharacters =
                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-                   option.User.RequireUniqueEmail = true;
+                   option.User.RequireUniqueEmail = false;  // Allow phone-only registration
                    option.SignIn.RequireConfirmedEmail = true;
 
                }).AddEntityFrameworkStores<ApplicationDBContext>().AddDefaultTokenProviders();

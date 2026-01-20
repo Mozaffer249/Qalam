@@ -234,16 +234,37 @@ namespace Qalam.Service.Implementations
             var roles = await _userManager.GetRolesAsync(user);
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, user.UserName!),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email!),
+                // Use short claim names for cleaner JWT payload
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),  // "sub" - subject
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),  // "jti" - JWT ID
                 new Claim("uid", user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim("name", user.UserName ?? user.PhoneNumber ?? user.Id.ToString())
             };
+
+            // Add optional claims only if they have values
+            if (!string.IsNullOrEmpty(user.Email))
+            {
+                claims.Add(new Claim("email", user.Email));
+            }
+            
+            if (!string.IsNullOrEmpty(user.PhoneNumber))
+            {
+                claims.Add(new Claim("phone", user.PhoneNumber));
+            }
+            
+            if (!string.IsNullOrEmpty(user.FirstName))
+            {
+                claims.Add(new Claim("firstName", user.FirstName));
+            }
+            
+            if (!string.IsNullOrEmpty(user.LastName))
+            {
+                claims.Add(new Claim("lastName", user.LastName));
+            }
 
             foreach (var role in roles)
             {
-                claims.Add(new Claim(ClaimTypes.Role, role));
+                claims.Add(new Claim("role", role));
             }
 
             var userClaims = await _userManager.GetClaimsAsync(user);

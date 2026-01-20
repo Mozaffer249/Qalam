@@ -20,8 +20,8 @@ namespace Qalam.Data.Entity.Identity
             TwoFactorRecoveryCodes = new HashSet<TwoFactorRecoveryCode>();
         }
 
-        public string FirstName { get; set; } = default!;
-        public string LastName { get; set; } = default!;
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
         public string? Address { get; set; }
         public string? Nationality { get; set; }
 

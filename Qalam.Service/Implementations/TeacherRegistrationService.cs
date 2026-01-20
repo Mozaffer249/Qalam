@@ -31,13 +31,13 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber)
     {
-        // Create basic user account
+        // Create basic user account (email is optional, will be provided later)
         var user = new User
         {
             UserName = fullPhoneNumber,
             PhoneNumber = fullPhoneNumber,
             PhoneNumberConfirmed = true,
-            IsActive = false,  // Will be activated in step 3
+            IsActive = false,  
             EmailConfirmed = false
         };
 
@@ -118,8 +118,11 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
         return new TeacherAccountDto
         {
-            UserId = user.Id,
-            TeacherId = teacher.Id,
+          
+            FirstName = firstName,
+            LastName = lastName,
+            Email = email,
+            PhoneNumber = user.PhoneNumber!,
             Token = jwtResult.AccessToken
         };
     }
