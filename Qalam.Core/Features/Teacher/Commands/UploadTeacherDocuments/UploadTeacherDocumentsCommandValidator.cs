@@ -15,11 +15,12 @@ public class UploadTeacherDocumentsCommandValidator : AbstractValidator<UploadTe
         RuleFor(x => x.IdentityDocumentFile)
             .NotNull().WithMessage("Identity document file is required");
 
-        // Passport requires country code
+        // Passport and DrivingLicense require country code
         RuleFor(x => x.IssuingCountryCode)
             .NotEmpty()
-            .WithMessage("Issuing country is required for Passport")
-            .When(x => x.IdentityType == IdentityType.Passport);
+            .WithMessage("Issuing country is required for Passport or Driving License")
+            .When(x => x.IdentityType == IdentityType.Passport ||
+                      x.IdentityType == IdentityType.DrivingLicense);
 
         // NationalId and Iqama should not have country code
         RuleFor(x => x.IssuingCountryCode)
@@ -36,8 +37,8 @@ public class UploadTeacherDocumentsCommandValidator : AbstractValidator<UploadTe
 
         // Outside Saudi Arabia validation
         RuleFor(x => x.IdentityType)
-            .Must(type => type == IdentityType.Passport)
-            .WithMessage("Teachers outside Saudi Arabia must use Passport")
+            .Must(type => type == IdentityType.Passport || type == IdentityType.DrivingLicense)
+            .WithMessage("Teachers outside Saudi Arabia must use Passport or Driving License")
             .When(x => !x.IsInSaudiArabia);
 
         // Certificates validation

@@ -13,7 +13,7 @@ public class FileStorageService : IFileStorageService
     {
         _logger = logger;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teachers");
-        
+
         // Ensure directory exists
         if (!Directory.Exists(_uploadPath))
         {

@@ -17,13 +17,13 @@ public static class TeacherDocumentBusinessRules
         IdentityType type,
         string? countryCode)
     {
-        if (isInSaudiArabia && type == IdentityType.Passport)
+        if (isInSaudiArabia && (type == IdentityType.Passport || type == IdentityType.DrivingLicense))
         {
             throw new ValidationException(
                 "Passport is not allowed for teachers inside Saudi Arabia. Please use National ID or Iqama.");
         }
 
-        if (!isInSaudiArabia && type != IdentityType.Passport)
+        if (!isInSaudiArabia && type != IdentityType.Passport && type != IdentityType.DrivingLicense)
         {
             throw new ValidationException(
                 "Must use Passport for teachers outside Saudi Arabia.");
@@ -35,7 +35,7 @@ public static class TeacherDocumentBusinessRules
                 "Issuing country is required for Passport.");
         }
 
-        if ((type == IdentityType.NationalId || type == IdentityType.Iqama) 
+        if ((type == IdentityType.NationalId || type == IdentityType.Iqama)
             && !string.IsNullOrEmpty(countryCode))
         {
             throw new ValidationException(
@@ -69,7 +69,7 @@ public static class TeacherDocumentBusinessRules
         string? countryCode)
     {
         var isUnique = await repo.IsIdentityNumberUniqueAsync(type, number, countryCode);
-        
+
         if (!isUnique)
         {
             throw new ValidationException(
