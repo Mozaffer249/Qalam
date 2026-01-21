@@ -25,8 +25,18 @@ public class OtpService : IOtpService
 
     public async Task<string> GeneratePhoneOtpAsync(string countryCode, string phoneNumber)
     {
-        // Remove expired OTPs for this phone number
+        // Check if a valid OTP already exists
+        var hasValidOtp = await _otpRepository.HasValidOtpAsync(phoneNumber);
+        if (hasValidOtp)
+        {
+            _logger.LogWarning("Valid OTP already exists for phone {Phone}", phoneNumber);
+            throw new InvalidOperationException(
+                "A valid OTP code has already been sent. Please check your phone or wait 5 minutes to request a new one.");
+        }
+
+        // Remove expired OTPs for cleanup
         await _otpRepository.RemoveExpiredOtpsAsync(phoneNumber);
+        await _otpRepository.SaveChangesAsync();
 
         // Generate 4-digit OTP
         var random = new Random();
@@ -43,8 +53,8 @@ public class OtpService : IOtpService
             IsUsed = false
         };
 
+        // AddAsync from GenericRepositoryAsync automatically saves changes
         await _otpRepository.AddAsync(otp);
-        await _otpRepository.SaveChangesAsync();
 
         _logger.LogInformation("OTP generated for phone {Phone}", phoneNumber);
         

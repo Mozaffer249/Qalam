@@ -11,26 +11,26 @@ namespace Qalam.Data.Entity.Teacher;
 public class Teacher : AuditableEntity
 {
     public int Id { get; set; }
-    
+
     /// <summary>
     /// UserId of the teacher
     /// </summary>
     public int? UserId { get; set; }
-    
+
     [MaxLength(500)]
     public string? Bio { get; set; }
-    
+
     public TeacherStatus Status { get; set; } = TeacherStatus.Pending;
-    
+
     public TeacherLocation? Location { get; set; }
-    
+
     /// <summary>
     /// Average rating of the teacher (0-5)
     /// </summary>
     public decimal RatingAverage { get; set; } = 0m;
-    
+
     public bool IsActive { get; set; } = true;
-    
+
     // Navigation Properties
     public User? User { get; set; }
     public ICollection<TeacherDocument> TeacherDocuments { get; set; } = new List<TeacherDocument>();
