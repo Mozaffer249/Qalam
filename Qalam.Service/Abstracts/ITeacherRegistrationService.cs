@@ -16,4 +16,9 @@ public interface ITeacherRegistrationService
     Task CompleteDocumentUploadAsync(
         int teacherId,
         bool isInSaudiArabia);
+
+    /// <summary>
+    /// Determines the next registration step for a user
+    /// </summary>
+    Task<RegistrationStepDto> GetNextRegistrationStepAsync(int userId);
 }

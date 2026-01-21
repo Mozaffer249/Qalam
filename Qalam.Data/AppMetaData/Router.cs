@@ -32,6 +32,10 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherStep3PersonalInfo = Authentication + "/Teacher/Step3-PersonalInfo";
         public const string TeacherStep4UploadDocuments = Authentication + "/Teacher/Step4-UploadDocuments";
 
+        // Enum endpoints
+        public const string GetIdentityTypes = Authentication + "/IdentityTypes";
+        public const string GetDocumentTypes = Authentication + "/DocumentTypes";
+
         // Account Management
         public const string AccountGetProfile = Authentication + "/Profile";
         public const string AccountUpdateProfile = Authentication + "/Profile/Update";
@@ -55,19 +59,19 @@ namespace Qalam.Data.AppMetaData
 
         #region Education
         public const string Education = Rule + "Education";
-        
+
         // Domains
         public const string EducationDomains = Education + "/Domains";
         public const string EducationDomainById = EducationDomains + SignleRoute;
-        
+
         // Levels
         public const string EducationLevels = Education + "/Levels";
         public const string EducationLevelById = EducationLevels + SignleRoute;
-        
+
         // Grades
         public const string EducationGrades = Education + "/Grades";
         public const string EducationGradeById = EducationGrades + SignleRoute;
-        
+
         // Terms
         public const string EducationTerms = Education + "/Terms";
         public const string EducationTermById = EducationTerms + SignleRoute;
@@ -88,11 +92,11 @@ namespace Qalam.Data.AppMetaData
 
         #region Content
         public const string Content = Rule + "Content";
-        
+
         // Content Units
         public const string ContentUnits = Content + "/Units";
         public const string ContentUnitById = ContentUnits + SignleRoute;
-        
+
         // Lessons
         public const string ContentLessons = Content + "/Lessons";
         public const string ContentLessonById = ContentLessons + SignleRoute;
@@ -100,34 +104,34 @@ namespace Qalam.Data.AppMetaData
 
         #region Quran
         public const string Quran = Rule + "Quran";
-        
+
         // Quran Levels
         public const string QuranLevels = Quran + "/Levels";
         public const string QuranLevelById = QuranLevels + SignleRoute;
-        
+
         // Quran Parts
         public const string QuranParts = Quran + "/Parts";
         public const string QuranPartByNumber = QuranParts + "/{partNumber}";
-        
+
         // Quran Surahs
         public const string QuranSurahs = Quran + "/Surahs";
         public const string QuranSurahByNumber = QuranSurahs + "/{surahNumber}";
-        
+
         // Content Types
         public const string QuranContentTypes = Quran + "/ContentTypes";
         #endregion
 
         #region Teaching
         public const string Teaching = Rule + "Teaching";
-        
+
         // Teaching Modes
         public const string TeachingModes = Teaching + "/Modes";
         public const string TeachingModeById = TeachingModes + SignleRoute;
-        
+
         // Session Types
         public const string SessionTypes = Teaching + "/SessionTypes";
         public const string SessionTypeById = SessionTypes + SignleRoute;
-        
+
         // Time Slots
         public const string TimeSlots = Teaching + "/TimeSlots";
         public const string TimeSlotById = TimeSlots + SignleRoute;

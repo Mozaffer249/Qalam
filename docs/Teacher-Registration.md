@@ -99,7 +99,7 @@ sequenceDiagram
     T->>API: POST /Teacher/Step3-PersonalInfo<br/>Authorization: Bearer {token}<br/>{firstName, lastName, email, password}
     API->>Auth: Extract UserId from JWT (automatic)
     Auth->>DB: Update User (name, email, password)<br/>IsActive=true
-    Auth->>DB: Create Teacher Profile<br/>Status=Pending
+    Auth->>DB: Create Teacher Profile<br/>Status=AwaitingDocuments
     Auth->>T: Return TeacherId + New Token
     
     Note over T,DB: Step 4: Document Upload
@@ -110,6 +110,200 @@ sequenceDiagram
     Auth->>DB: Save Certificates (1-5)
     Auth->>DB: Update Teacher Status=PendingVerification
     Auth->>T: Registration Complete<br/>Awaiting Admin Verification
+```
+
+---
+
+## Registration Status Tracking
+
+### Teacher Status Flow
+
+The system tracks teacher registration progress using the `TeacherStatus` enum. This allows the application to determine what step a user should resume when they login with an incomplete registration.
+
+#### Status Definitions
+
+| Status | Numeric Value | Meaning | Next Action |
+|--------|---------------|---------|-------------|
+| `AwaitingDocuments` | 1 | Step 3 completed - Personal info added | User should proceed to Step 4 (Upload Documents) |
+| `PendingVerification` | 2 | Step 4 completed - Documents uploaded | User should wait for admin approval |
+| `Active` | 3 | Admin approved - Fully verified | Teacher can start teaching |
+| `Blocked` | 4 | Account blocked by admin | Cannot access system |
+
+#### State Mapping by Registration Step
+
+| Step Completed | User Account | Teacher Profile | Teacher.Status | Next Step Required |
+|----------------|--------------|-----------------|----------------|-------------------|
+| Step 1 (OTP Sent) | No | No | N/A | Verify OTP (Step 2) |
+| Step 2 (OTP Verified) | Yes | No | N/A | Complete Personal Info (Step 3) |
+| Step 3 (Personal Info) | Yes | Yes | `AwaitingDocuments` | Upload Documents (Step 4) |
+| Step 4 (Documents) | Yes | Yes | `PendingVerification` | Wait for Admin Approval |
+| Admin Approved | Yes | Yes | `Active` | Can start teaching |
+
+### Checking Registration Progress
+
+Use the `GetNextRegistrationStepAsync` method to determine where a user left off:
+
+**Service Method:**
+
+```csharp
+Task<RegistrationStepDto> GetNextRegistrationStepAsync(int userId);
+```
+
+**Response DTO:**
+
+```csharp
+public class RegistrationStepDto
+{
+    public int CurrentStep { get; set; }        // Last completed step (2, 3, or 4)
+    public int NextStep { get; set; }            // Next step to complete (3, 4, or 0 if done)
+    public string NextStepName { get; set; }     // Human-readable next action
+    public bool IsRegistrationComplete { get; set; }
+    public string? Message { get; set; }         // Optional additional info
+}
+```
+
+### Example: Incomplete Registration Scenarios
+
+#### Scenario 1: User stopped after Step 2 (OTP verification)
+
+```csharp
+// User has account but NO Teacher profile
+var step = await _service.GetNextRegistrationStepAsync(userId);
+// Returns:
+{
+    "currentStep": 2,
+    "nextStep": 3,
+    "nextStepName": "Complete Personal Information",
+    "isRegistrationComplete": false,
+    "message": null
+}
+```
+
+**Redirect user to:** Step 3 - Personal Information Form
+
+#### Scenario 2: User stopped after Step 3 (Personal info)
+
+```csharp
+// User has account AND Teacher profile with Status = AwaitingDocuments
+var step = await _service.GetNextRegistrationStepAsync(userId);
+// Returns:
+{
+    "currentStep": 3,
+    "nextStep": 4,
+    "nextStepName": "Upload Documents",
+    "isRegistrationComplete": false,
+    "message": null
+}
+```
+
+**Redirect user to:** Step 4 - Document Upload Form
+
+#### Scenario 3: User completed Step 4 (Documents uploaded)
+
+```csharp
+// Teacher profile with Status = PendingVerification
+var step = await _service.GetNextRegistrationStepAsync(userId);
+// Returns:
+{
+    "currentStep": 4,
+    "nextStep": 0,
+    "nextStepName": "Awaiting Admin Verification",
+    "isRegistrationComplete": false,
+    "message": "Your documents are being reviewed by our team."
+}
+```
+
+**Show user:** "Registration complete, pending admin approval" message
+
+#### Scenario 4: Admin approved the teacher
+
+```csharp
+// Teacher profile with Status = Active
+var step = await _service.GetNextRegistrationStepAsync(userId);
+// Returns:
+{
+    "currentStep": 4,
+    "nextStep": 0,
+    "nextStepName": "Registration Complete",
+    "isRegistrationComplete": true,
+    "message": null
+}
+```
+
+**Allow user to:** Access full teacher dashboard
+
+### Login Flow with Status Check
+
+When a teacher tries to login, check their registration status:
+
+```csharp
+// 1. Authenticate user
+var user = await _userManager.FindByNameAsync(username);
+if (user == null) 
+    return BadRequest("Invalid credentials");
+
+var passwordValid = await _userManager.CheckPasswordAsync(user, password);
+if (!passwordValid)
+    return BadRequest("Invalid credentials");
+
+// 2. Check registration status
+var registrationStep = await _teacherRegistrationService
+    .GetNextRegistrationStepAsync(user.Id);
+
+// 3. Handle incomplete registration
+if (!registrationStep.IsRegistrationComplete)
+{
+    return new
+    {
+        Token = GenerateJWT(user),
+        RegistrationIncomplete = true,
+        CurrentStep = registrationStep.CurrentStep,
+        NextStep = registrationStep.NextStep,
+        NextStepName = registrationStep.NextStepName,
+        Message = registrationStep.Message
+    };
+}
+
+// 4. Normal login for complete registration
+return new { Token = GenerateJWT(user), User = userDto };
+```
+
+### Frontend Implementation
+
+**Step Navigation State:**
+
+```javascript
+const useRegistrationStatus = () => {
+  const [registrationStep, setRegistrationStep] = useState(null);
+  
+  const checkStatus = async () => {
+    try {
+      const response = await api.get('/Teacher/RegistrationStatus');
+      setRegistrationStep(response.data);
+      
+      // Redirect based on status
+      if (!response.data.isRegistrationComplete) {
+        switch (response.data.nextStep) {
+          case 3:
+            router.push('/register/personal-info');
+            break;
+          case 4:
+            router.push('/register/documents');
+            break;
+          case 0:
+            if (response.data.nextStepName.includes('Verification')) {
+              router.push('/register/pending-approval');
+            }
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check registration status', error);
+    }
+  };
+  
+  return { registrationStep, checkStatus };
+};
 ```
 
 ---

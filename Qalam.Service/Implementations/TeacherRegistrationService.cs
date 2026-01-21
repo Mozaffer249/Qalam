@@ -37,12 +37,12 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             UserName = fullPhoneNumber,
             PhoneNumber = fullPhoneNumber,
             PhoneNumberConfirmed = true,
-            IsActive = false,  
+            IsActive = false,
             EmailConfirmed = false
         };
 
         var result = await _userManager.CreateAsync(user);
-        
+
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
@@ -56,7 +56,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         // Generate JWT token
         var jwtResult = await _authService.GetJWTToken(user);
 
-        _logger.LogInformation("Basic teacher account created for user {UserId}", user.Id);
+        _logger.LogInformation("New teacher account created for user {UserId}", user.Id);
 
         return new PhoneVerificationDto
         {
@@ -101,7 +101,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         var teacher = new Teacher
         {
             UserId = user.Id,
-            Status = TeacherStatus.Pending,
+            Status = TeacherStatus.AwaitingDocuments,
             IsActive = true
         };
 
@@ -139,13 +139,75 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         var location = isInSaudiArabia
             ? TeacherLocation.InsideSaudiArabia
             : TeacherLocation.OutsideSaudiArabia;
-        
+
         await _teacherRepository.UpdateLocationAsync(teacherId, location);
-        
+
         await _teacherRepository.SaveChangesAsync();
 
         _logger.LogInformation(
             "Document upload completed for teacher {TeacherId}, status set to PendingVerification",
             teacherId);
+    }
+
+    public async Task<RegistrationStepDto> GetNextRegistrationStepAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+
+        // Check if Teacher profile exists
+        var teacher = await _teacherRepository.GetByUserIdAsync(userId);
+
+        if (teacher == null)
+        {
+            // Step 2 complete, need Step 3
+            return new RegistrationStepDto
+            {
+                CurrentStep = 2,
+                NextStep = 3,
+                NextStepName = "Complete Personal Information",
+                IsRegistrationComplete = false
+            };
+        }
+
+        // Teacher profile exists, check status
+        switch (teacher.Status)
+        {
+            case TeacherStatus.AwaitingDocuments:
+                return new RegistrationStepDto
+                {
+                    CurrentStep = 3,
+                    NextStep = 4,
+                    NextStepName = "Upload Documents",
+                    IsRegistrationComplete = false
+                };
+
+            case TeacherStatus.PendingVerification:
+                return new RegistrationStepDto
+                {
+                    CurrentStep = 4,
+                    NextStep = 0,
+                    NextStepName = "Awaiting Admin Verification",
+                    IsRegistrationComplete = false,
+                    Message = "Your documents are being reviewed by our team."
+                };
+
+            case TeacherStatus.Active:
+                return new RegistrationStepDto
+                {
+                    CurrentStep = 4,
+                    NextStep = 0,
+                    NextStepName = "Registration Complete",
+                    IsRegistrationComplete = true
+                };
+
+            case TeacherStatus.Blocked:
+                throw new Exception("Your account has been blocked. Please contact support.");
+
+            default:
+                throw new Exception("Unknown registration status");
+        }
     }
 }

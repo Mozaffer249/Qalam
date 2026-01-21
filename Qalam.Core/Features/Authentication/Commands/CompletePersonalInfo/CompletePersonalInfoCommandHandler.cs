@@ -8,7 +8,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
 
 public class CompletePersonalInfoCommandHandler : ResponseHandler,
-    IRequestHandler<CompletePersonalInfoCommand, Response<TeacherAccountDto>>
+    IRequestHandler<CompletePersonalInfoCommand, Response<TeacherAccountResponseDto>>
 {
     private readonly ITeacherRegistrationService _teacherRegistrationService;
 
@@ -19,7 +19,7 @@ public class CompletePersonalInfoCommandHandler : ResponseHandler,
         _teacherRegistrationService = teacherRegistrationService;
     }
 
-    public async Task<Response<TeacherAccountDto>> Handle(
+    public async Task<Response<TeacherAccountResponseDto>> Handle(
         CompletePersonalInfoCommand request,
         CancellationToken cancellationToken)
     {
@@ -28,21 +28,29 @@ public class CompletePersonalInfoCommandHandler : ResponseHandler,
             // UserId is automatically populated by UserIdentityBehavior
             if (request.UserId == 0)
             {
-                return Unauthorized<TeacherAccountDto>("User not authenticated");
+                return Unauthorized<TeacherAccountResponseDto>("User not authenticated");
             }
 
-            var result = await _teacherRegistrationService.CompleteAccountAsync(
+            var account = await _teacherRegistrationService.CompleteAccountAsync(
                 request.UserId,
                 request.FirstName,
                 request.LastName,
                 request.Email,
                 request.Password);
 
-            return Success<TeacherAccountDto>(entity: result);
+            // Get next step (should be Step 4 - Upload Documents)
+            var nextStep = await _teacherRegistrationService
+                .GetNextRegistrationStepAsync(request.UserId);
+
+            return Success(entity: new TeacherAccountResponseDto
+            {
+                Account = account,
+                NextStep = nextStep
+            });
         }
         catch (Exception ex)
         {
-            return BadRequest<TeacherAccountDto>(ex.Message);
+            return BadRequest<TeacherAccountResponseDto>(ex.Message);
         }
     }
 }

@@ -52,22 +52,20 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
 
             var teacherId = teacher.Id;
 
-            var documents = request.Documents;
-
             // Validate business rules
             TeacherDocumentBusinessRules.ValidateSaudiIdentityRules(
-                documents.IsInSaudiArabia,
-                documents.IdentityDocument.IdentityType,
-                documents.IdentityDocument.IssuingCountryCode);
+                request.IsInSaudiArabia,
+                request.IdentityType,
+                request.IssuingCountryCode);
 
-            TeacherDocumentBusinessRules.ValidateCertificateCount(documents.Certificates.Count);
+            TeacherDocumentBusinessRules.ValidateCertificateCount(request.Certificates.Count);
 
             // Validate identity document uniqueness
             await TeacherDocumentBusinessRules.ValidateIdentityUnique(
                 _documentRepository,
-                documents.IdentityDocument.IdentityType,
-                documents.IdentityDocument.DocumentNumber,
-                documents.IdentityDocument.IssuingCountryCode);
+                request.IdentityType,
+                request.DocumentNumber,
+                request.IssuingCountryCode);
 
             // Define allowed file extensions and max size (10MB)
             var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png" };
@@ -75,7 +73,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
 
             // Validate and save identity document
             var isIdentityValid = await _fileStorageService.ValidateFileAsync(
-                documents.IdentityDocument.File,
+                request.IdentityDocumentFile,
                 allowedExtensions,
                 maxSizeBytes);
 
@@ -85,35 +83,26 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             }
 
             var identityFilePath = await _fileStorageService.SaveTeacherDocumentAsync(
-                documents.IdentityDocument.File,
+                request.IdentityDocumentFile,
                 teacherId,
                 "identity");
-
-            // Map IdentityType to TeacherDocumentType
-            var identityDocType = documents.IdentityDocument.IdentityType switch
-            {
-                IdentityType.NationalId => TeacherDocumentType.NationalId,
-                IdentityType.Iqama => TeacherDocumentType.Iqama,
-                IdentityType.Passport => TeacherDocumentType.Passport,
-                _ => throw new InvalidOperationException("Invalid identity type")
-            };
 
             // Save identity document metadata
             var identityDoc = new TeacherDocument
             {
                 TeacherId = teacherId,
-                DocumentType = identityDocType,
+                DocumentType = TeacherDocumentType.IdentityDocument,
                 FilePath = identityFilePath,
-                DocumentNumber = documents.IdentityDocument.DocumentNumber,
-                IdentityType = documents.IdentityDocument.IdentityType,
-                IssuingCountryCode = documents.IdentityDocument.IssuingCountryCode,
+                DocumentNumber = request.DocumentNumber,
+                IdentityType = request.IdentityType,
+                IssuingCountryCode = request.IssuingCountryCode,
                 IsVerified = false
             };
 
             await _documentRepository.AddAsync(identityDoc);
 
             // Validate and save certificates
-            foreach (var cert in documents.Certificates)
+            foreach (var cert in request.Certificates)
             {
                 var isCertValid = await _fileStorageService.ValidateFileAsync(
                     cert.File,
@@ -150,7 +139,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             // Update teacher status and location
             await _teacherRegistrationService.CompleteDocumentUploadAsync(
                 teacherId,
-                documents.IsInSaudiArabia);
+                request.IsInSaudiArabia);
 
             return Success<string>("Registration completed successfully. Your documents are pending verification.");
         }

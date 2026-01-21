@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Bases;
 using Qalam.Core.Features.Authentication.Commands.Register;
 using Qalam.Core.Features.Authentication.Commands.Login;
 using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
@@ -8,6 +9,8 @@ using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
 using Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Common;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Api.Controllers.Authentication.Core
 {
@@ -16,6 +19,12 @@ namespace Qalam.Api.Controllers.Authentication.Core
     /// </summary>
     public class AuthController : AppControllerBase
     {
+        private readonly IEnumService _enumService;
+
+        public AuthController(IEnumService enumService)
+        {
+            _enumService = enumService;
+        }
         /// <summary>
         /// Register a new user account
         /// </summary>
@@ -84,6 +93,41 @@ namespace Qalam.Api.Controllers.Authentication.Core
         public async Task<IActionResult> UploadTeacherDocuments([FromForm] UploadTeacherDocumentsCommand command)
         {
             return NewResult(await Mediator.Send(command));
+        }
+
+        #endregion
+
+        #region Enum Helpers
+
+        /// <summary>
+        /// Get available identity types (optionally filtered by location)
+        /// </summary>
+        /// <param name="isInSaudiArabia">Filter by location: true for Saudi Arabia, false for outside, null for all</param>
+        /// <returns>List of identity types with translations</returns>
+        [HttpGet(Router.GetIdentityTypes)]
+        public IActionResult GetIdentityTypes([FromQuery] bool? isInSaudiArabia = null)
+        {
+            var identityTypes = _enumService.GetIdentityTypes(isInSaudiArabia);
+            return Ok(new Response<List<EnumItemDto>>
+            {
+                Data = identityTypes,
+                Succeeded = true
+            });
+        }
+
+        /// <summary>
+        /// Get all teacher document types
+        /// </summary>
+        /// <returns>List of document types with translations</returns>
+        [HttpGet(Router.GetDocumentTypes)]
+        public IActionResult GetDocumentTypes()
+        {
+            var documentTypes = _enumService.GetTeacherDocumentTypes();
+            return Ok(new Response<List<EnumItemDto>>
+            {
+                Data = documentTypes,
+                Succeeded = true
+            });
         }
 
         #endregion

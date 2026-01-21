@@ -25,7 +25,7 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
             .AnyAsync(d => d.IdentityType == type
                         && d.DocumentNumber == number
                         && d.IssuingCountryCode == countryCode);
-        
+
         return !exists;  // Return true if unique (doesn't exist)
     }
 

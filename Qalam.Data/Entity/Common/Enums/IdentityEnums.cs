@@ -5,9 +5,10 @@ namespace Qalam.Data.Entity.Common.Enums;
 /// </summary>
 public enum IdentityType
 {
-    NationalId = 1,    // الهوية الوطنية السعودية
-    Iqama = 2,         // إقامة سعودية
-    Passport = 3       // جواز سفر (خارج السعودية)
+    NationalId = 1,
+    Iqama = 2,
+    Passport = 3,
+    DrivingLicense = 4
 }
 
 /// <summary>

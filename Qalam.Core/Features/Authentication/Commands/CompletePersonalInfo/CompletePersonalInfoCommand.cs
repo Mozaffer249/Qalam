@@ -6,7 +6,7 @@ using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
 
-public class CompletePersonalInfoCommand : IRequest<Response<TeacherAccountDto>>, IAuthenticatedRequest
+public class CompletePersonalInfoCommand : IRequest<Response<TeacherAccountResponseDto>>, IAuthenticatedRequest
 {
     /// <summary>
     /// Automatically populated by UserIdentityBehavior from JWT token.

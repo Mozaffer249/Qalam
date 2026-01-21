@@ -20,7 +20,7 @@ public class Teacher : AuditableEntity
     [MaxLength(500)]
     public string? Bio { get; set; }
 
-    public TeacherStatus Status { get; set; } = TeacherStatus.Pending;
+    public TeacherStatus Status { get; set; } = TeacherStatus.AwaitingDocuments;
 
     public TeacherLocation? Location { get; set; }
 

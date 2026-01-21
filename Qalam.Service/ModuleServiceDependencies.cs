@@ -27,6 +27,9 @@ namespace Qalam.Service
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
 
+            // Enum Services
+            services.AddTransient<IEnumService, EnumService>();
+
             // Add memory cache for rate limiting and IP blocking
             services.AddMemoryCache();
 
