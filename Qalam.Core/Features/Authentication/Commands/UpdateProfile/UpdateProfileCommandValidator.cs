@@ -22,6 +22,8 @@ namespace Qalam.Core.Features.Authentication.Commands.UpdateProfile
                 .WithMessage(_localizer[AuthenticationResourcesKeys.LastNameMaxLength])
                 .When(x => !string.IsNullOrWhiteSpace(x.LastName));
 
+                
+ 
             RuleFor(x => x.PhoneNumber)
                 .Matches(@"^\+?[1-9]\d{1,14}$")
                 .WithMessage("Invalid phone number format")

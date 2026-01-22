@@ -11,6 +11,13 @@ namespace Qalam.Core.Resources.Shared
         public const string UnAuthorized = "UnAuthorized";
         public const string UnprocessableEntity = "UnprocessableEntity";
         public const string IsRequired = "IsRequired";
+
+        // General validation (generic, reusable across all features)
+        public const string ValidationFailed = "ValidationFailed";
+        public const string FieldRequired = "FieldRequired";
+
+        // DataAnnotations default error messages
+        public const string RequiredAttribute_ValidationError = "RequiredAttribute_ValidationError";
     }
 }
 

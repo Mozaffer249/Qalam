@@ -92,6 +92,21 @@ namespace Qalam.Core.Resources.Authentication
         public const string PasswordsDoNotMatch = "PasswordsDoNotMatch";
         public const string TwoFactorCodeIsRequired = "TwoFactorCodeIsRequired";
         public const string TwoFactorCodeMustBeSixDigits = "TwoFactorCodeMustBeSixDigits";
+
+        // Teacher Registration - Document Validation
+        public const string DocumentNumberRequired = "DocumentNumberRequired";
+        public const string IdentityDocumentFileRequired = "IdentityDocumentFileRequired";
+        public const string IssuingCountryRequiredForPassport = "IssuingCountryRequiredForPassport";
+        public const string IssuingCountryShouldNotBeProvided = "IssuingCountryShouldNotBeProvided";
+        public const string TeachersSaudiMustUseNationalIdOrIqama = "TeachersSaudiMustUseNationalIdOrIqama";
+        public const string TeachersOutsideSaudiMustUsePassport = "TeachersOutsideSaudiMustUsePassport";
+        public const string CertificatesRequired = "CertificatesRequired";
+        public const string AtLeastOneCertificateRequired = "AtLeastOneCertificateRequired";
+        public const string MaximumFiveCertificatesAllowed = "MaximumFiveCertificatesAllowed";
+        public const string CertificateFileRequired = "CertificateFileRequired";
+        public const string PassportNotAllowedInsideSaudi = "PassportNotAllowedInsideSaudi";
+        public const string MustUsePassportOutsideSaudi = "MustUsePassportOutsideSaudi";
+        public const string IdentityDocumentAlreadyRegistered = "IdentityDocumentAlreadyRegistered";
     }
 }
 

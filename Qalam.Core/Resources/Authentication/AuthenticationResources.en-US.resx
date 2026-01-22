@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Teacher Registration - Document Validation -->
+  <data name="DocumentNumberRequired" xml:space="preserve">
+    <value>Document number is required</value>
+  </data>
+  <data name="IdentityDocumentFileRequired" xml:space="preserve">
+    <value>Identity document file is required</value>
+  </data>
+  <data name="IssuingCountryRequiredForPassport" xml:space="preserve">
+    <value>Issuing country is required for Passport or Driving License</value>
+  </data>
+  <data name="IssuingCountryShouldNotBeProvided" xml:space="preserve">
+    <value>Issuing country should not be provided for National ID or Iqama</value>
+  </data>
+  <data name="TeachersSaudiMustUseNationalIdOrIqama" xml:space="preserve">
+    <value>Teachers in Saudi Arabia must use National ID or Iqama</value>
+  </data>
+  <data name="TeachersOutsideSaudiMustUsePassport" xml:space="preserve">
+    <value>Teachers outside Saudi Arabia must use Passport or Driving License</value>
+  </data>
+  <data name="CertificatesRequired" xml:space="preserve">
+    <value>Certificates are required</value>
+  </data>
+  <data name="AtLeastOneCertificateRequired" xml:space="preserve">
+    <value>At least 1 certificate is required</value>
+  </data>
+  <data name="MaximumFiveCertificatesAllowed" xml:space="preserve">
+    <value>Maximum 5 certificates allowed</value>
+  </data>
+  <data name="CertificateFileRequired" xml:space="preserve">
+    <value>Certificate file is required</value>
+  </data>
+  <data name="PassportNotAllowedInsideSaudi" xml:space="preserve">
+    <value>Passport is not allowed for teachers inside Saudi Arabia. Please use National ID or Iqama.</value>
+  </data>
+  <data name="MustUsePassportOutsideSaudi" xml:space="preserve">
+    <value>Must use Passport for teachers outside Saudi Arabia.</value>
+  </data>
+  <data name="IdentityDocumentAlreadyRegistered" xml:space="preserve">
+    <value>This identity document is already registered in the system.</value>
+  </data>
+</root>

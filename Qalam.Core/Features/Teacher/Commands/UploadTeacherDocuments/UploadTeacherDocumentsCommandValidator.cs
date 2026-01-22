@@ -1,59 +1,73 @@
 using FluentValidation;
+using Microsoft.Extensions.Localization;
+using Qalam.Core.Resources.Authentication;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 
 public class UploadTeacherDocumentsCommandValidator : AbstractValidator<UploadTeacherDocumentsCommand>
 {
-    public UploadTeacherDocumentsCommandValidator()
+    public UploadTeacherDocumentsCommandValidator(IStringLocalizer<AuthenticationResources> localizer)
     {
         // Identity document number validation
         RuleFor(x => x.DocumentNumber)
-            .NotEmpty().WithMessage("Document number is required");
+            .NotEmpty()
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.DocumentNumberRequired]);
 
         // Identity document file validation
         RuleFor(x => x.IdentityDocumentFile)
-            .NotNull().WithMessage("Identity document file is required");
+            .NotNull()
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.IdentityDocumentFileRequired]);
 
         // Passport and DrivingLicense require country code
         RuleFor(x => x.IssuingCountryCode)
             .NotEmpty()
-            .WithMessage("Issuing country is required for Passport or Driving License")
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.IssuingCountryRequiredForPassport])
             .When(x => x.IdentityType == IdentityType.Passport ||
                       x.IdentityType == IdentityType.DrivingLicense);
 
         // NationalId and Iqama should not have country code
         RuleFor(x => x.IssuingCountryCode)
             .Empty()
-            .WithMessage("Issuing country should not be provided for National ID or Iqama")
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.IssuingCountryShouldNotBeProvided])
             .When(x => x.IdentityType == IdentityType.NationalId ||
                       x.IdentityType == IdentityType.Iqama);
 
         // Saudi Arabia validation
         RuleFor(x => x.IdentityType)
             .Must(type => type == IdentityType.NationalId || type == IdentityType.Iqama)
-            .WithMessage("Teachers in Saudi Arabia must use National ID or Iqama")
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.TeachersSaudiMustUseNationalIdOrIqama])
             .When(x => x.IsInSaudiArabia);
 
         // Outside Saudi Arabia validation
         RuleFor(x => x.IdentityType)
             .Must(type => type == IdentityType.Passport || type == IdentityType.DrivingLicense)
-            .WithMessage("Teachers outside Saudi Arabia must use Passport or Driving License")
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.TeachersOutsideSaudiMustUsePassport])
             .When(x => !x.IsInSaudiArabia);
 
         // Certificates validation
         RuleFor(x => x.Certificates)
-            .NotNull().WithMessage("Certificates are required")
+            .NotNull()
+            .WithName("")
+            .WithMessage(localizer[AuthenticationResourcesKeys.CertificatesRequired])
             .Must(c => c != null && c.Count >= 1)
-            .WithMessage("At least 1 certificate is required")
+            .WithMessage(localizer[AuthenticationResourcesKeys.AtLeastOneCertificateRequired])
             .Must(c => c != null && c.Count <= 5)
-            .WithMessage("Maximum 5 certificates allowed");
+            .WithMessage(localizer[AuthenticationResourcesKeys.MaximumFiveCertificatesAllowed]);
 
         RuleForEach(x => x.Certificates)
             .ChildRules(cert =>
             {
                 cert.RuleFor(c => c.File)
-                    .NotNull().WithMessage("Certificate file is required");
+                    .NotNull()
+                    .WithName("")
+                    .WithMessage(localizer[AuthenticationResourcesKeys.CertificateFileRequired]);
             });
     }
 }

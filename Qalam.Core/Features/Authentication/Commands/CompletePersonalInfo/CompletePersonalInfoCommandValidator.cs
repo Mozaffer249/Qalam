@@ -15,6 +15,8 @@ public class CompletePersonalInfoCommandValidator : AbstractValidator<CompletePe
             .MaximumLength(50).WithMessage("Last name cannot exceed 50 characters");
 
         RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required")
+            .NotNull().WithMessage("Email is required")
             .EmailAddress().WithMessage("Invalid email format")
             .When(x => !string.IsNullOrEmpty(x.Email));
 

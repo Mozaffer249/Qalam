@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Teacher.Validators;
+using Qalam.Core.Resources.Authentication;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
@@ -17,18 +18,21 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly IFileStorageService _fileStorageService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
+    private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
 
     public UploadTeacherDocumentsCommandHandler(
         ITeacherRepository teacherRepository,
         ITeacherDocumentRepository documentRepository,
         IFileStorageService fileStorageService,
         ITeacherRegistrationService teacherRegistrationService,
-        IStringLocalizer<SharedResources> localizer) : base(localizer)
+        IStringLocalizer<SharedResources> sharedLocalizer,
+        IStringLocalizer<AuthenticationResources> authLocalizer) : base(sharedLocalizer)
     {
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
         _fileStorageService = fileStorageService;
         _teacherRegistrationService = teacherRegistrationService;
+        _authLocalizer = authLocalizer;
     }
 
     public async Task<Response<string>> Handle(
@@ -56,16 +60,18 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             TeacherDocumentBusinessRules.ValidateSaudiIdentityRules(
                 request.IsInSaudiArabia,
                 request.IdentityType,
-                request.IssuingCountryCode);
+                request.IssuingCountryCode,
+                _authLocalizer);
 
-            TeacherDocumentBusinessRules.ValidateCertificateCount(request.Certificates.Count);
+            TeacherDocumentBusinessRules.ValidateCertificateCount(request.Certificates.Count, _authLocalizer);
 
             // Validate identity document uniqueness
             await TeacherDocumentBusinessRules.ValidateIdentityUnique(
                 _documentRepository,
                 request.IdentityType,
                 request.DocumentNumber,
-                request.IssuingCountryCode);
+                request.IssuingCountryCode,
+                _authLocalizer);
 
             // Define allowed file extensions and max size (10MB)
             var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png" };

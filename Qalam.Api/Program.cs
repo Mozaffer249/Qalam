@@ -1,9 +1,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using Qalam.Api.Configurations;
 using Qalam.Core;
+using Qalam.Core.Bases;
 using Qalam.Core.MiddleWare;
+using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure;
 using Qalam.Infrastructure.context;
@@ -28,7 +33,16 @@ builder.Services.Configure<HostOptions>(options =>
 });
 
 // Add services to the container.
-builder.Services.AddControllers();
+// Configure DataAnnotations localization
+builder.Services.AddControllers()
+	.AddDataAnnotationsLocalization(options =>
+	{
+		options.DataAnnotationLocalizerProvider = (type, factory) =>
+			factory.Create(typeof(SharedResources));
+	});
+
+// Configure API behavior to use custom validation response format with localized errors
+builder.Services.ConfigureValidationBehavior();
 
 // Add HttpClient for external services
 builder.Services.AddHttpClient();
