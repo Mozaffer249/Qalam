@@ -26,6 +26,7 @@ namespace Qalam.Service
             services.AddTransient<IOtpService, OtpService>();
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
+            services.AddTransient<ITeacherManagementService, TeacherManagementService>();
 
             // Enum Services
             services.AddTransient<IEnumService, EnumService>();

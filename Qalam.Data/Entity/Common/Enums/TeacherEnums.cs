@@ -18,14 +18,40 @@ public enum TeacherStatus
     PendingVerification = 2,
 
     /// <summary>
+    /// One or more documents rejected - Teacher needs to re-upload
+    /// </summary>
+    DocumentsRejected = 3,
+
+    /// <summary>
     /// Admin approved - Teacher is fully verified and can teach
     /// </summary>
-    Active = 3,
+    Active = 4,
 
     /// <summary>
     /// Teacher account is blocked by admin
     /// </summary>
-    Blocked = 4
+    Blocked = 5
+}
+
+/// <summary>
+/// Document verification status by admin
+/// </summary>
+public enum DocumentVerificationStatus
+{
+    /// <summary>
+    /// Document uploaded, awaiting admin review
+    /// </summary>
+    Pending = 1,
+
+    /// <summary>
+    /// Document approved by admin
+    /// </summary>
+    Approved = 2,
+
+    /// <summary>
+    /// Document rejected by admin - needs re-upload
+    /// </summary>
+    Rejected = 3
 }
 
 /// <summary>

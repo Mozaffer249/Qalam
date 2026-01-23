@@ -19,16 +19,16 @@ public class TeacherDocument : AuditableEntity
     public string FilePath { get; set; } = null!;
 
     /// <summary>
-    /// Whether the document has been verified
+    /// Document verification status (Pending, Approved, Rejected)
     /// </summary>
-    public bool IsVerified { get; set; } = false;
+    public DocumentVerificationStatus VerificationStatus { get; set; } = DocumentVerificationStatus.Pending;
 
     /// <summary>
-    /// Id of the admin who verified the document
+    /// Id of the admin who reviewed the document
     /// </summary>
-    public int? VerifiedByAdminId { get; set; }
+    public int? ReviewedByAdminId { get; set; }
 
-    public DateTime? VerifiedAt { get; set; }
+    public DateTime? ReviewedAt { get; set; }
 
     // Identity Document Fields
     [MaxLength(50)]

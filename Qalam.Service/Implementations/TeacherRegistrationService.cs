@@ -14,17 +14,20 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 {
     private readonly UserManager<User> _userManager;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherDocumentRepository _documentRepository;
     private readonly IAuthenticationService _authService;
     private readonly ILogger<TeacherRegistrationService> _logger;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
         ITeacherRepository teacherRepository,
+        ITeacherDocumentRepository documentRepository,
         IAuthenticationService authService,
         ILogger<TeacherRegistrationService> logger)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
+        _documentRepository = documentRepository;
         _authService = authService;
         _logger = logger;
     }
@@ -192,6 +195,18 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                     NextStepName = "Awaiting Admin Verification",
                     IsRegistrationComplete = false,
                     Message = "Your documents are being reviewed by our team."
+                };
+
+            case TeacherStatus.DocumentsRejected:
+                var rejectedDocs = await _documentRepository.GetRejectedDocumentsAsync(teacher.Id);
+                return new RegistrationStepDto
+                {
+                    CurrentStep = 4,
+                    NextStep = 4,
+                    NextStepName = "Re-upload Rejected Documents",
+                    IsRegistrationComplete = false,
+                    Message = "Some of your documents were rejected. Please check the rejection reasons and re-upload.",
+                    RejectedDocuments = rejectedDocs
                 };
 
             case TeacherStatus.Active:

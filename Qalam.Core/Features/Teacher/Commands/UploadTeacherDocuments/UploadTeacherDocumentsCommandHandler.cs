@@ -102,7 +102,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 DocumentNumber = request.DocumentNumber,
                 IdentityType = request.IdentityType,
                 IssuingCountryCode = request.IssuingCountryCode,
-                IsVerified = false
+                VerificationStatus = DocumentVerificationStatus.Pending
             };
 
             await _documentRepository.AddAsync(identityDoc);
@@ -133,7 +133,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                     CertificateTitle = cert.Title,
                     Issuer = cert.Issuer,
                     IssueDate = cert.IssueDate,
-                    IsVerified = false
+                    VerificationStatus = DocumentVerificationStatus.Pending
                 };
 
                 await _documentRepository.AddAsync(certificate);
