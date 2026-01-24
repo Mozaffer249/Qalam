@@ -1,0 +1,236 @@
+{
+	"info": {
+		"_postman_id": "admin-teacher-mgmt-001",
+		"name": "Admin - Teacher Management",
+		"description": "Admin endpoints for managing teacher verification, document approval/rejection, and account blocking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{admin_access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "admin_access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "teacher_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "document_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Queries",
+			"item": [
+				{
+					"name": "Get Pending Teachers",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/Pending?pageNumber=1&pageSize=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"Pending"
+							],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "pageSize",
+									"value": "10",
+									"description": "Number of items per page (default: 10)"
+								}
+							]
+						},
+						"description": "Get paginated list of teachers pending verification or with rejected documents"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Teacher Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}"
+							]
+						},
+						"description": "Get teacher details with all documents for admin review"
+					},
+					"response": []
+				}
+			],
+			"description": "Query endpoints for retrieving teacher information"
+		},
+		{
+			"name": "Commands",
+			"item": [
+				{
+					"name": "Approve Document",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Documents/{{document_id}}/Approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Documents",
+								"{{document_id}}",
+								"Approve"
+							]
+						},
+						"description": "Approve a specific document for a teacher. Once all documents are approved, teacher status becomes Active."
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Document",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"The document is unclear. Please upload a high-quality scan.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Documents/{{document_id}}/Reject",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Documents",
+								"{{document_id}}",
+								"Reject"
+							]
+						},
+						"description": "Reject a specific document with a reason. Teacher will be notified to re-upload."
+					},
+					"response": []
+				},
+				{
+					"name": "Block Teacher",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Suspected fraudulent documents\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Block",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Block"
+							]
+						},
+						"description": "Block a teacher account permanently. Optional reason can be provided."
+					},
+					"response": []
+				}
+			],
+			"description": "Command endpoints for document approval/rejection and account management"
+		}
+	]
+}

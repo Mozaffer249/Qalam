@@ -2,1344 +2,1748 @@
 	"info": {
 		"_postman_id": "qalam-api-collection",
 		"name": "Qalam API",
-		"description": "Complete API collection for Qalam Educational Platform with Teacher Registration 4-step flow",
+		"description": "Complete API collection for Qalam Educational Platform - Organized by Role",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "Teacher Registration (4 Steps)",
-			"description": "Complete teacher registration flow with phone verification, OTP, personal info, and document upload",
+			"name": "Public (No Authentication)",
+			"description": "Endpoints that do not require authentication - accessible to anyone",
 			"item": [
 				{
-					"name": "Step 1: Send OTP",
-					"event": [
+					"name": "Authentication",
+					"item": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded) {",
-									"        console.log('✓ OTP sent successfully');",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"countryCode\": \"+966\",\n  \"phoneNumber\": \"503333256\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step1-SendOtp",
-							"host": [
-								"{{base_url}}"
+							"name": "Register",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded && response.Data) {",
+											"        pm.environment.set('token', response.Data.token || response.Data);",
+											"        console.log('✓ Registration successful, token saved');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
 							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Teacher",
-								"Step1-SendOtp"
-							]
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"userName\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Pass@123456\",\n  \"confirmPassword\": \"Pass@123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Register",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Register"
+									]
+								},
+								"description": "Register a new user account with username, email, and password"
+							},
+							"response": []
 						},
-						"description": "Send OTP code to teacher's phone number. No authentication required."
-					},
-					"response": []
-				},
-				{
-					"name": "Step 2: Verify OTP & Create Account",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded && response.Data) {",
-									"        // Save token for next steps",
-									"        pm.environment.set('teacher_token', response.Data.Token);",
-									"        console.log('✓ Account created, token saved');",
-									"        ",
-									"        // Display next step info",
-									"        if (response.Data.NextStep) {",
-									"            console.log('Next Step:', response.Data.NextStep.NextStepName);",
-									"            console.log('Current Step:', response.Data.NextStep.CurrentStep);",
-									"        }",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"phoneNumber\": \"503333256\",\n  \"otpCode\": \"1234\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step2-VerifyOtp",
-							"host": [
-								"{{base_url}}"
+							"name": "Login",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded && response.Data) {",
+											"        const token = response.Data.accessToken || response.Data.AccessToken || response.Data.token;",
+											"        if (token) {",
+											"            pm.environment.set('token', token);",
+											"            console.log('✓ Login successful, token saved');",
+											"        }",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
 							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Teacher",
-								"Step2-VerifyOtp"
-							]
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"userName\": \"testuser\",\n  \"password\": \"Pass@123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Login"
+									]
+								},
+								"description": "Login with username and password to receive JWT access token"
+							},
+							"response": []
 						},
-						"description": "Verify OTP code and create basic teacher account. Returns JWT token and next step information."
-					},
-					"response": []
-				},
-				{
-					"name": "Step 3: Complete Personal Info",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded && response.Data) {",
-									"        // Update token if provided",
-									"        if (response.Data.Account && response.Data.Account.Token) {",
-									"            pm.environment.set('teacher_token', response.Data.Account.Token);",
-									"        }",
-									"        console.log('✓ Personal info completed');",
-									"        ",
-									"        // Display next step",
-									"        if (response.Data.NextStep) {",
-									"            console.log('Next Step:', response.Data.NextStep.NextStepName);",
-									"        }",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{teacher_token}}",
-									"type": "string"
-								}
-							]
+							"name": "Get Identity Types",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/IdentityTypes?isInSaudiArabia=true",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"IdentityTypes"
+									],
+									"query": [
+										{
+											"key": "isInSaudiArabia",
+											"value": "true",
+											"description": "Filter: true=Saudi only (NationalId, Iqama), false=Passport only, omit=all types"
+										}
+									]
+								},
+								"description": "Get available identity types filtered by location. Returns translated names based on Accept-Language header (en-US or ar-EG)"
+							},
+							"response": []
 						},
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"Ahmed\",\n  \"lastName\": \"Ali\",\n  \"email\": \"ahmed.ali@example.com\",\n  \"password\": \"Pass@123456\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step3-PersonalInfo",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Teacher",
-								"Step3-PersonalInfo"
-							]
-						},
-						"description": "Complete teacher personal information (name, email, password). Requires Bearer token from Step 2. UserId is automatically extracted from token - DO NOT send in request body."
-					},
-					"response": []
-				},
-				{
-					"name": "Step 4: Upload Documents",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded) {",
-									"        console.log('✓ Documents uploaded successfully');",
-									"        console.log('Registration complete - awaiting admin approval');",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
+							"name": "Get Document Types",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/DocumentTypes",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"DocumentTypes"
+									]
+								},
+								"description": "Get all teacher document types. Returns translated names based on Accept-Language header (en-US or ar-EG)"
+							},
+							"response": []
 						}
-					],
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{teacher_token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "IsInSaudiArabia",
-									"value": "true",
-									"type": "text"
-								},
-								{
-									"key": "IdentityType",
-									"value": "1",
-									"description": "1=NationalId, 2=Iqama, 3=Passport",
-									"type": "text"
-								},
-								{
-									"key": "DocumentNumber",
-									"value": "1234567890",
-									"type": "text"
-								},
-								{
-									"key": "IdentityDocumentFile",
-									"description": "Upload identity document (PDF/Image)",
-									"type": "file",
-									"src": []
-								},
-								{
-									"key": "Certificates[0].File",
-									"description": "Upload certificate file",
-									"type": "file",
-									"src": []
-								},
-								{
-									"key": "Certificates[0].Title",
-									"value": "Bachelor Degree in Education",
-									"type": "text"
-								},
-								{
-									"key": "Certificates[0].Issuer",
-									"value": "King Saud University",
-									"type": "text"
-								},
-								{
-									"key": "Certificates[0].IssueDate",
-									"value": "2020-06-15",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step4-UploadDocuments",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Teacher",
-								"Step4-UploadDocuments"
-							]
-						},
-						"description": "Upload teacher identity documents and certificates. Requires Bearer token and Teacher role. UserId is automatically extracted from token."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Authentication",
-			"description": "Standard authentication endpoints for login and registration",
-			"item": [
+					]
+				},
 				{
-					"name": "Register",
-					"event": [
+					"name": "Teacher Registration Flow",
+					"description": "4-step teacher registration process. Step 2 also handles LOGIN for existing teachers via OTP authentication. Steps 1-2 are public, no auth required.",
+					"item": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded && response.Data) {",
-									"        pm.environment.set('token', response.Data.token || response.Data);",
-									"        console.log('✓ Registration successful, token saved');",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"userName\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Pass@123456\",\n  \"confirmPassword\": \"Pass@123456\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Register",
-							"host": [
-								"{{base_url}}"
+							"name": "Step 1: Send OTP",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded) {",
+											"        console.log('✓ OTP sent successfully');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
 							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Register"
-							]
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"countryCode\": \"+966\",\n  \"phoneNumber\": \"503333256\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step1-SendOtp",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Teacher",
+										"Step1-SendOtp"
+									]
+								},
+								"description": "Send OTP code to teacher's phone number. No authentication required."
+							},
+							"response": []
 						},
-						"description": "Register a new user account with username, email, and password"
-					},
-					"response": []
-				},
-				{
-					"name": "Login",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    if (response.Succeeded && response.Data) {",
-									"        // Handle different response structures",
-									"        const token = response.Data.accessToken || response.Data.AccessToken || response.Data.token;",
-									"        if (token) {",
-									"            pm.environment.set('token', token);",
-									"            console.log('✓ Login successful, token saved');",
-									"        }",
-									"    }",
-									"}"
+							"name": "Step 2: Verify OTP (Login/Register)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded && response.Data) {",
+											"        pm.environment.set('teacher_token', response.Data.Token);",
+											"        const isNewUser = response.Data.NextStep?.CurrentStep === 2;",
+											"        console.log(isNewUser ? '✓ Account created (Registration)' : '✓ Login successful');",
+											"        console.log('Token saved');",
+											"        if (response.Data.NextStep) {",
+											"            console.log('Current Step:', response.Data.NextStep.CurrentStep);",
+											"            console.log('Next Step:', response.Data.NextStep.NextStepName);",
+											"            console.log('Registration Complete:', response.Data.NextStep.IsRegistrationComplete);",
+											"        }",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
 								],
-								"type": "text/javascript"
-							}
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"phoneNumber\": \"503333256\",\n  \"otpCode\": \"1234\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step2-VerifyOtp",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Teacher",
+										"Step2-VerifyOtp"
+									]
+								},
+								"description": "Verify OTP code for teacher authentication. THIS ENDPOINT HANDLES BOTH LOGIN AND REGISTRATION:\n- If phone number exists: Returns JWT token + current registration step (LOGIN)\n- If new phone number: Creates account, returns JWT token + Step 3 prompt (REGISTRATION)\n\nBlocked teachers will receive an error and NO token. Returns next step information for incomplete registrations."
+							},
+							"response": []
 						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"userName\": \"testuser\",\n  \"password\": \"Pass@123456\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/Login",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"Login"
-							]
-						},
-						"description": "Login with username and password to receive JWT access token"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Identity Types",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/IdentityTypes?isInSaudiArabia=true",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"IdentityTypes"
-							],
-							"query": [
-								{
-									"key": "isInSaudiArabia",
-									"value": "true",
-									"description": "Filter: true=Saudi only (NationalId, Iqama), false=Passport only, omit=all types"
-								}
-							]
-						},
-						"description": "Get available identity types filtered by location. Returns translated names based on Accept-Language header (en-US or ar-EG)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Document Types",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Authentication/DocumentTypes",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Authentication",
-								"DocumentTypes"
-							]
-						},
-						"description": "Get all teacher document types. Returns translated names based on Accept-Language header (en-US or ar-EG)"
-					},
-					"response": []
+					]
 				}
 			]
 		},
 		{
-			"name": "Education",
-			"description": "Education system management - domains, levels, grades, and terms",
+			"name": "Teacher Role",
+			"description": "Endpoints requiring Teacher role authentication",
 			"item": [
 				{
-					"name": "Get All Domains",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
+					"name": "Registration (Steps 3-4)",
+					"description": "Complete teacher registration after phone verification",
+					"item": [
+						{
+							"name": "Step 3: Complete Personal Info",
+							"event": [
 								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded && response.Data) {",
+											"        if (response.Data.Account && response.Data.Account.Token) {",
+											"            pm.environment.set('teacher_token', response.Data.Account.Token);",
+											"        }",
+											"        console.log('✓ Personal info completed');",
+											"        if (response.Data.NextStep) {",
+											"            console.log('Next Step:', response.Data.NextStep.NextStepName);",
+											"        }",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
 								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Education/Domains",
-							"host": [
-								"{{base_url}}"
 							],
-							"path": [
-								"Api",
-								"V1",
-								"Education",
-								"Domains"
-							]
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"firstName\": \"Ahmed\",\n  \"lastName\": \"Ali\",\n  \"email\": \"ahmed.ali@example.com\",\n  \"password\": \"Pass@123456\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step3-PersonalInfo",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Teacher",
+										"Step3-PersonalInfo"
+									]
+								},
+								"description": "Complete teacher personal information. Requires Bearer token from Step 2. UserId is automatically extracted from token."
+							},
+							"response": []
 						},
-						"description": "Get all education domains (General, Religious, Technical, etc.)"
-					},
-					"response": []
+						{
+							"name": "Step 4: Upload Documents",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.Succeeded) {",
+											"        console.log('✓ Documents uploaded successfully');",
+											"        console.log('Registration complete - awaiting admin approval');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "IsInSaudiArabia",
+											"value": "true",
+											"type": "text"
+										},
+										{
+											"key": "IdentityType",
+											"value": "1",
+											"description": "1=NationalId, 2=Iqama, 3=Passport",
+											"type": "text"
+										},
+										{
+											"key": "DocumentNumber",
+											"value": "1234567890",
+											"type": "text"
+										},
+										{
+											"key": "IdentityDocumentFile",
+											"description": "Upload identity document (PDF/Image)",
+											"type": "file",
+											"src": []
+										},
+										{
+											"key": "Certificates[0].File",
+											"description": "Upload certificate file",
+											"type": "file",
+											"src": []
+										},
+										{
+											"key": "Certificates[0].Title",
+											"value": "Bachelor Degree in Education",
+											"type": "text"
+										},
+										{
+											"key": "Certificates[0].Issuer",
+											"value": "King Saud University",
+											"type": "text"
+										},
+										{
+											"key": "Certificates[0].IssueDate",
+											"value": "2020-06-15",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step4-UploadDocuments",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Authentication",
+										"Teacher",
+										"Step4-UploadDocuments"
+									]
+								},
+								"description": "Upload teacher identity documents and certificates. Requires Teacher role. UserId is automatically extracted from token."
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Domain By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Document Management",
+					"description": "View and manage teacher documents",
+					"item": [
+						{
+							"name": "Get Documents Status",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text",
+										"description": "Language for localized responses"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Teacher/TeacherDocuments/Status",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Teacher",
+										"TeacherDocuments",
+										"Status"
+									]
+								},
+								"description": "Get current verification status of all uploaded documents. Returns Pending, Approved, or Rejected (with reason) for each document."
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Education/Domains/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Education",
-								"Domains",
-								"1"
-							]
-						},
-						"description": "Get specific education domain by ID"
-					},
-					"response": []
+						{
+							"name": "Reupload Rejected Document",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"description": "New document file (jpg, jpeg, png, or pdf)",
+											"type": "file",
+											"src": []
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Teacher/TeacherDocuments/{{document_id}}/Reupload",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Teacher",
+										"TeacherDocuments",
+										"{{document_id}}",
+										"Reupload"
+									]
+								},
+								"description": "Re-upload a rejected document with a new file. Only rejected documents can be re-uploaded."
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get All Levels",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Content Creation",
+					"description": "Create educational content (available to Teachers and Admins)",
+					"item": [
+						{
+							"name": "Create Content Unit",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Unit Name\",\n  \"description\": \"Unit description\",\n  \"subjectId\": 1,\n  \"termId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Content/Units",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Content",
+										"Units"
+									]
+								},
+								"description": "Create a new content unit for a subject"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Education/Levels",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Education",
-								"Levels"
-							]
-						},
-						"description": "Get all education levels (Elementary, Middle, Secondary)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Grades",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Education/Grades",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Education",
-								"Grades"
-							]
-						},
-						"description": "Get all grades (1st through 12th)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Terms",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Education/Terms",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Education",
-								"Terms"
-							]
-						},
-						"description": "Get all academic terms"
-					},
-					"response": []
+						{
+							"name": "Create Lesson",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{teacher_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"title\": \"Lesson Title\",\n  \"content\": \"Lesson content\",\n  \"contentUnitId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Content/Lessons",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Content",
+										"Lessons"
+									]
+								},
+								"description": "Create a new lesson within a content unit"
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		},
 		{
-			"name": "Curriculum",
-			"description": "Curriculum and subject management",
+			"name": "Admin Role",
+			"description": "Endpoints requiring Admin or SuperAdmin role",
 			"item": [
 				{
-					"name": "Get All Curriculums",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Teacher Management",
+					"description": "Manage teacher verification and documents",
+					"item": [
+						{
+							"name": "Get Pending Teachers",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/Pending?pageNumber=1&pageSize=10",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Admin",
+										"TeacherManagement",
+										"Pending"
+									],
+									"query": [
+										{
+											"key": "pageNumber",
+											"value": "1"
+										},
+										{
+											"key": "pageSize",
+											"value": "10"
+										}
+									]
+								},
+								"description": "Get paginated list of teachers pending verification"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Curriculum",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Curriculum"
-							]
+						{
+							"name": "Get Teacher Details",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Admin",
+										"TeacherManagement",
+										"{{teacher_id}}"
+									]
+								},
+								"description": "Get detailed teacher information including all uploaded documents"
+							},
+							"response": []
 						},
-						"description": "Get all available curriculums"
-					},
-					"response": []
+						{
+							"name": "Approve Document",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Documents/{{document_id}}/Approve",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Admin",
+										"TeacherManagement",
+										"{{teacher_id}}",
+										"Documents",
+										"{{document_id}}",
+										"Approve"
+									]
+								},
+								"description": "Approve a specific teacher document"
+							},
+							"response": []
+						},
+						{
+							"name": "Reject Document",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"reason\": \"The document is unclear. Please upload a high-quality scan.\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Documents/{{document_id}}/Reject",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Admin",
+										"TeacherManagement",
+										"{{teacher_id}}",
+										"Documents",
+										"{{document_id}}",
+										"Reject"
+									]
+								},
+								"description": "Reject a document with a detailed reason (required, max 500 characters)"
+							},
+							"response": []
+						},
+						{
+							"name": "Block Teacher",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Accept-Language",
+										"value": "ar-EG",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"reason\": \"Suspected fraudulent documents submitted\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Block",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Admin",
+										"TeacherManagement",
+										"{{teacher_id}}",
+										"Block"
+									]
+								},
+								"description": "Block a teacher account permanently with optional reason"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Curriculum By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Education Management",
+					"description": "Manage education domains, levels, and grades",
+					"item": [
+						{
+							"name": "Create Education Domain",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nameAr\": \"التعليم العام\",\n  \"nameEn\": \"General Education\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Domains",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Domains"
+									]
+								},
+								"description": "Create a new education domain (Admin only)"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Curriculum/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Curriculum",
-								"1"
-							]
+						{
+							"name": "Update Education Domain",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"id\": 1,\n  \"nameAr\": \"التعليم العام المحدث\",\n  \"nameEn\": \"Updated General Education\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Domains/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Domains",
+										"1"
+									]
+								},
+								"description": "Update an existing education domain (Admin only)"
+							},
+							"response": []
 						},
-						"description": "Get specific curriculum details by ID"
-					},
-					"response": []
+						{
+							"name": "Delete Education Domain",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Domains/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Domains",
+										"1"
+									]
+								},
+								"description": "Delete an education domain (Admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Create Education Level",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nameAr\": \"الابتدائية\",\n  \"nameEn\": \"Elementary\",\n  \"domainId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Levels",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Levels"
+									]
+								},
+								"description": "Create a new education level (Admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Create Grade",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nameAr\": \"الصف الأول\",\n  \"nameEn\": \"Grade 1\",\n  \"levelId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Grades",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Grades"
+									]
+								},
+								"description": "Create a new grade (Admin only)"
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Subject Management",
+					"description": "Create, update, and delete subjects",
+					"item": [
+						{
+							"name": "Create Subject",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nameAr\": \"الرياضيات\",\n  \"nameEn\": \"Mathematics\",\n  \"gradeId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects"
+									]
+								},
+								"description": "Create a new subject (Admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Update Subject",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"id\": 1,\n  \"nameAr\": \"الرياضيات المحدثة\",\n  \"nameEn\": \"Updated Mathematics\",\n  \"gradeId\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects",
+										"1"
+									]
+								},
+								"description": "Update an existing subject (Admin only)"
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Subject",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{admin_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects",
+										"1"
+									]
+								},
+								"description": "Delete a subject (Admin only)"
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		},
 		{
-			"name": "Subjects",
-			"description": "Subject management and queries",
+			"name": "Authenticated (All Roles)",
+			"description": "Endpoints available to any authenticated user (read-only)",
 			"item": [
 				{
-					"name": "Get All Subjects",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Education System",
+					"description": "Browse education domains, levels, and grades",
+					"item": [
+						{
+							"name": "Get All Domains",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Domains",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Domains"
+									]
+								},
+								"description": "Get all education domains"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Subjects",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Subjects"
-							]
+						{
+							"name": "Get Domain By ID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Domains/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Domains",
+										"1"
+									]
+								},
+								"description": "Get specific education domain by ID"
+							},
+							"response": []
 						},
-						"description": "Get all subjects"
-					},
-					"response": []
+						{
+							"name": "Get All Levels",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Levels",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Levels"
+									]
+								},
+								"description": "Get all education levels"
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Grades",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Education/Grades",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Education",
+										"Grades"
+									]
+								},
+								"description": "Get all grades"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Subject By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Curriculum",
+					"description": "Browse curriculum and subjects",
+					"item": [
+						{
+							"name": "Get All Curriculums",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Curriculum",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Curriculum"
+									]
+								},
+								"description": "Get all available curriculums"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Subjects/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Subjects",
-								"1"
-							]
-						},
-						"description": "Get specific subject details"
-					},
-					"response": []
+						{
+							"name": "Get Curriculum By ID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Curriculum/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Curriculum",
+										"1"
+									]
+								},
+								"description": "Get specific curriculum details by ID"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Subjects By Grade",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Subjects",
+					"description": "Browse subjects by grade or domain",
+					"item": [
+						{
+							"name": "Get All Subjects",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects"
+									]
+								},
+								"description": "Get all subjects"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Subjects/Grade/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Subjects",
-								"Grade",
-								"1"
-							]
+						{
+							"name": "Get Subject By ID",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects",
+										"1"
+									]
+								},
+								"description": "Get specific subject details"
+							},
+							"response": []
 						},
-						"description": "Get all subjects for a specific grade"
-					},
-					"response": []
+						{
+							"name": "Get Subjects By Grade",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Subjects/Grade/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Subjects",
+										"Grade",
+										"1"
+									]
+								},
+								"description": "Get all subjects for a specific grade"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Subjects By Domain",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Content",
+					"description": "Browse educational content units and lessons",
+					"item": [
+						{
+							"name": "Get All Content Units",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Content/Units",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Content",
+										"Units"
+									]
+								},
+								"description": "Get all content units"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Subjects/Domain/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Subjects",
-								"Domain",
-								"1"
-							]
-						},
-						"description": "Get all subjects for a specific education domain"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Content Management",
-			"description": "Educational content units and lessons",
-			"item": [
-				{
-					"name": "Get All Content Units",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Content/Units",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Content",
-								"Units"
-							]
-						},
-						"description": "Get all content units"
-					},
-					"response": []
+						{
+							"name": "Get All Lessons",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Content/Lessons",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Content",
+										"Lessons"
+									]
+								},
+								"description": "Get all lessons"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get Content Unit By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Quran",
+					"description": "Browse Quran levels, parts, and surahs",
+					"item": [
+						{
+							"name": "Get All Quran Levels",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Quran/Levels",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Quran",
+										"Levels"
+									]
+								},
+								"description": "Get all Quran memorization levels"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Content/Units/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Content",
-								"Units",
-								"1"
-							]
+						{
+							"name": "Get All Quran Parts",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Quran/Parts",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Quran",
+										"Parts"
+									]
+								},
+								"description": "Get all Quran parts (Juz)"
+							},
+							"response": []
 						},
-						"description": "Get specific content unit details"
-					},
-					"response": []
+						{
+							"name": "Get All Quran Surahs",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Quran/Surahs",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Quran",
+										"Surahs"
+									]
+								},
+								"description": "Get all Quran surahs (chapters)"
+							},
+							"response": []
+						}
+					]
 				},
 				{
-					"name": "Get All Lessons",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
+					"name": "Teaching Configuration",
+					"description": "Browse teaching modes, session types, and time slots",
+					"item": [
+						{
+							"name": "Get All Teaching Modes",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Teaching/Modes",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Teaching",
+										"Modes"
+									]
+								},
+								"description": "Get all teaching modes (Online, In-Person, Hybrid)"
+							},
+							"response": []
 						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Content/Lessons",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Content",
-								"Lessons"
-							]
+						{
+							"name": "Get All Session Types",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Teaching/SessionTypes",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Teaching",
+										"SessionTypes"
+									]
+								},
+								"description": "Get all session types (Individual, Group, etc.)"
+							},
+							"response": []
 						},
-						"description": "Get all lessons"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Lesson By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Content/Lessons/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Content",
-								"Lessons",
-								"1"
-							]
-						},
-						"description": "Get specific lesson details"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Quran",
-			"description": "Quran curriculum management - levels, parts, surahs, and content types",
-			"item": [
-				{
-					"name": "Get All Quran Levels",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Levels",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Levels"
-							]
-						},
-						"description": "Get all Quran memorization levels"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Quran Level By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Levels/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Levels",
-								"1"
-							]
-						},
-						"description": "Get specific Quran level details"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Quran Parts",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Parts",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Parts"
-							]
-						},
-						"description": "Get all Quran parts (Juz)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Quran Part By Number",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Parts/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Parts",
-								"1"
-							]
-						},
-						"description": "Get specific Quran part by number (1-30)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Quran Surahs",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Surahs",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Surahs"
-							]
-						},
-						"description": "Get all Quran surahs (chapters)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Quran Surah By Number",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/Surahs/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"Surahs",
-								"1"
-							]
-						},
-						"description": "Get specific Quran surah by number (1-114)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Quran Content Types",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Quran/ContentTypes",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Quran",
-								"ContentTypes"
-							]
-						},
-						"description": "Get all Quran content types (Memorization, Recitation, etc.)"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Teaching Configuration",
-			"description": "Teaching modes, session types, and time slots",
-			"item": [
-				{
-					"name": "Get All Teaching Modes",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/Modes",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"Modes"
-							]
-						},
-						"description": "Get all teaching modes (Online, In-Person, Hybrid)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Teaching Mode By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/Modes/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"Modes",
-								"1"
-							]
-						},
-						"description": "Get specific teaching mode details"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Session Types",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/SessionTypes",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"SessionTypes"
-							]
-						},
-						"description": "Get all session types (Individual, Group, etc.)"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Session Type By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/SessionTypes/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"SessionTypes",
-								"1"
-							]
-						},
-						"description": "Get specific session type details"
-					},
-					"response": []
-				},
-				{
-					"name": "Get All Time Slots",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/TimeSlots",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"TimeSlots"
-							]
-						},
-						"description": "Get all available time slots"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Time Slot By ID",
-					"request": {
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{token}}",
-									"type": "string"
-								}
-							]
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/Api/V1/Teaching/TimeSlots/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"Api",
-								"V1",
-								"Teaching",
-								"TimeSlots",
-								"1"
-							]
-						},
-						"description": "Get specific time slot details"
-					},
-					"response": []
+						{
+							"name": "Get All Time Slots",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/Api/V1/Teaching/TimeSlots",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"Api",
+										"V1",
+										"Teaching",
+										"TimeSlots"
+									]
+								},
+								"description": "Get all available time slots"
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		}
@@ -1353,12 +1757,32 @@
 		{
 			"key": "token",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "Generic token for authenticated requests"
 		},
 		{
 			"key": "teacher_token",
 			"value": "",
-			"type": "string"
+			"type": "string",
+			"description": "JWT token for Teacher role - get from teacher registration or login"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string",
+			"description": "JWT token for Admin/SuperAdmin role - get from admin login"
+		},
+		{
+			"key": "teacher_id",
+			"value": "1",
+			"type": "string",
+			"description": "Teacher ID for admin operations"
+		},
+		{
+			"key": "document_id",
+			"value": "1",
+			"type": "string",
+			"description": "Document ID for approval/rejection/reupload"
 		}
 	]
 }
