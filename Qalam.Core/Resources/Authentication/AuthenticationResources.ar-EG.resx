@@ -102,4 +102,15 @@
   <data name="IdentityDocumentAlreadyRegistered" xml:space="preserve">
     <value>وثيقة الهوية هذه مسجلة بالفعل في النظام.</value>
   </data>
+
+  <!-- Teacher Status Validation -->
+  <data name="DocumentsAlreadyPendingVerification" xml:space="preserve">
+    <value>تم تقديم وثائقك بالفعل وهي قيد المراجعة. يرجى انتظار مراجعة المسؤول.</value>
+  </data>
+  <data name="AccountAlreadyVerified" xml:space="preserve">
+    <value>حسابك موثق بالفعل. غير مسموح برفع المستندات.</value>
+  </data>
+  <data name="AccountBlocked" xml:space="preserve">
+    <value>تم حظر حسابك. يرجى التواصل مع الدعم الفني.</value>
+  </data>
 </root>

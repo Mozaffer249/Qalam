@@ -148,43 +148,43 @@ var app = builder.Build();
 #region Database Migration and Seeding
 
 // Apply migrations and seed database
-// using (var scope = app.Services.CreateScope())
-// {
-// 	var services = scope.ServiceProvider;
-// 	try
-// 	{
-// 		var context = services.GetRequiredService<ApplicationDBContext>();
+using (var scope = app.Services.CreateScope())
+{
+	var services = scope.ServiceProvider;
+	try
+	{
+		var context = services.GetRequiredService<ApplicationDBContext>();
 
-// 		Log.Information("Checking database and applying migrations...");
+		Log.Information("Checking database and applying migrations...");
 
-// 		// Apply migrations - this will create the database if it doesn't exist
-// 		// MigrateAsync() handles everything: creates DB, applies all pending migrations
-// 		await context.Database.MigrateAsync();
+		// Apply migrations - this will create the database if it doesn't exist
+		// MigrateAsync() handles everything: creates DB, applies all pending migrations
+		await context.Database.MigrateAsync();
 
-// 		Log.Information("Database migrations applied successfully");
+		Log.Information("Database migrations applied successfully");
 
-// 		// Now seed the data
-// 		Log.Information("Starting database seeding...");
+		// Now seed the data
+		Log.Information("Starting database seeding...");
 
-// 		// Seed all data using our seeders
-// 		//   await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
+		// Seed all data using our seeders
+		//   await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
 
-// 		// Seed Identity data (roles and admin user)
-// 		Log.Information("Seeding roles and admin user...");
-// 		var roleManager = services.GetRequiredService<RoleManager<Role>>();
-// 		var userManager = services.GetRequiredService<UserManager<User>>();
+		// Seed Identity data (roles and admin user)
+		Log.Information("Seeding roles and admin user...");
+		var roleManager = services.GetRequiredService<RoleManager<Role>>();
+		var userManager = services.GetRequiredService<UserManager<User>>();
 
-// 		await RolesSeeder.SeedAsync(roleManager);
-// 		await AdminUserSeeder.SeedAsync(userManager);
+		await RolesSeeder.SeedAsync(roleManager);
+		await AdminUserSeeder.SeedAsync(userManager);
 
-// 		Log.Information("Database seeding completed successfully!");
-// 	}
-// 	catch (Exception ex)
-// 	{
-// 		Log.Error(ex, "An error occurred while applying migrations or seeding the database");
-// 		// Don't throw - allow the app to start even if seeding fails
-// 	}
-// }
+		Log.Information("Database seeding completed successfully!");
+	}
+	catch (Exception ex)
+	{
+		Log.Error(ex, "An error occurred while applying migrations or seeding the database");
+		// Don't throw - allow the app to start even if seeding fails
+	}
+}
 #endregion
 
 // Configure the HTTP request pipeline.

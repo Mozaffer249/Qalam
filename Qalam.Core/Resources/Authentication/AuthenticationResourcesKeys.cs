@@ -107,6 +107,11 @@ namespace Qalam.Core.Resources.Authentication
         public const string PassportNotAllowedInsideSaudi = "PassportNotAllowedInsideSaudi";
         public const string MustUsePassportOutsideSaudi = "MustUsePassportOutsideSaudi";
         public const string IdentityDocumentAlreadyRegistered = "IdentityDocumentAlreadyRegistered";
+
+        // Teacher Status Validation
+        public const string DocumentsAlreadyPendingVerification = "DocumentsAlreadyPendingVerification";
+        public const string AccountAlreadyVerified = "AccountAlreadyVerified";
+        public const string AccountBlocked = "AccountBlocked";
     }
 }
 

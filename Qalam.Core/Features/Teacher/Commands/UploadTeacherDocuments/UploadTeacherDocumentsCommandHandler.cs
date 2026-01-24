@@ -54,6 +54,24 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 return BadRequest<string>("Teacher profile not found. Please complete Step 3 first.");
             }
 
+            // Validate teacher status - only allow uploads for specific statuses
+            if (teacher.Status == TeacherStatus.PendingVerification)
+            {
+                return BadRequest<string>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
+            }
+
+            if (teacher.Status == TeacherStatus.Active)
+            {
+                return BadRequest<string>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
+            }
+
+            if (teacher.Status == TeacherStatus.Blocked)
+            {
+                return Unauthorized<string>(_authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
+            }
+
+            // At this point, status is either AwaitingDocuments or DocumentsRejected (both valid for upload)
+
             var teacherId = teacher.Id;
 
             // Validate business rules

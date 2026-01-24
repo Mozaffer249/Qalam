@@ -2,8 +2,10 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
+using Qalam.Core.Resources.Authentication;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -18,6 +20,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
     private readonly IPhoneOtpRepository _otpRepository;
     private readonly UserManager<User> _userManager;
     private readonly IAuthenticationService _authService;
+    private readonly ITeacherRepository _teacherRepository;
+    private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
@@ -25,13 +29,17 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         IPhoneOtpRepository otpRepository,
         UserManager<User> userManager,
         IAuthenticationService authService,
-        IStringLocalizer<SharedResources> localizer) : base(localizer)
+        ITeacherRepository teacherRepository,
+        IStringLocalizer<SharedResources> localizer,
+        IStringLocalizer<AuthenticationResources> authLocalizer) : base(localizer)
     {
         _otpService = otpService;
         _teacherRegistrationService = teacherRegistrationService;
         _otpRepository = otpRepository;
         _userManager = userManager;
         _authService = authService;
+        _teacherRepository = teacherRepository;
+        _authLocalizer = authLocalizer;
     }
 
     public async Task<Response<PhoneVerificationResponseDto>> Handle(
@@ -71,6 +79,16 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
 
         if (existingUser != null)
         {
+            // USER EXISTS - THIS IS LOGIN
+            
+            // Check if teacher is blocked BEFORE issuing token
+            var teacher = await _teacherRepository.GetByUserIdAsync(existingUser.Id);
+            if (teacher != null && teacher.Status == TeacherStatus.Blocked)
+            {
+                return Unauthorized<PhoneVerificationResponseDto>(
+                    _authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
+            }
+            
             // User exists - generate new token directly
             var jwtResult = await _authService.GetJWTToken(existingUser);
 
