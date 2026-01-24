@@ -10,7 +10,7 @@
 			"name": "Public (No Authentication)",
 			"description": "Endpoints that do not require authentication - accessible to anyone",
 			"item": [
-				{
+				{ 
 					"name": "Authentication",
 					"item": [
 						{

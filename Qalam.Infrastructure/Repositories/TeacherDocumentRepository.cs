@@ -77,7 +77,7 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
                 CreatedAt = d.CreatedAt
             })
             .ToListAsync();
-    }
+    } 
 
     public async Task<List<RejectedDocumentInfo>> GetRejectedDocumentsAsync(int teacherId)
     {
