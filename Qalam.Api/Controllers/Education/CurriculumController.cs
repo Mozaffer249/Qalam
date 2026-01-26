@@ -31,21 +31,12 @@ public class CurriculumController : AppControllerBase
     /// <param name="pageNumber">Page number (default: 1)</param>
     /// <param name="pageSize">Page size (default: 10)</param>
     /// <param name="search">Search term for filtering by name</param>
+    /// <param name="domainId">Domain ID for filtering by domain</param>
     /// <returns>Paginated list of curriculums</returns>
     [HttpGet(Router.Curriculum)]
-    public async Task<IActionResult> GetCurriculums(
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? search = null)
+    public async Task<IActionResult> GetCurriculums([FromQuery] GetCurriculumsListQuery query)
     {
-        var query = new GetCurriculumsListQuery
-        {
-            PageNumber = pageNumber,
-            PageSize = pageSize,
-            Search = search
-        };
-        var result = await _mediator.Send(query);
-        return NewResult(result);
+        return NewResult(await Mediator.Send(query));
     }
 
     /// <summary>

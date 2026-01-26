@@ -14,12 +14,19 @@ public class CurriculumConfiguration : IEntityTypeConfiguration<Curriculum>
         
         builder.HasIndex(e => e.IsActive);
         builder.HasIndex(e => e.Country);
+        builder.HasIndex(e => new { e.DomainId, e.Country });
         
+        builder.Property(e => e.DomainId).IsRequired();
         builder.Property(e => e.NameAr).IsRequired().HasMaxLength(100);
         builder.Property(e => e.NameEn).IsRequired().HasMaxLength(100);
         builder.Property(e => e.Country).HasMaxLength(100);
         builder.Property(e => e.DescriptionAr).HasMaxLength(500);
         builder.Property(e => e.DescriptionEn).HasMaxLength(500);
+        
+        builder.HasOne(e => e.Domain)
+               .WithMany(d => d.Curricula)
+               .HasForeignKey(e => e.DomainId)
+               .OnDelete(DeleteBehavior.Restrict);
         
         builder.HasMany(e => e.EducationLevels)
                .WithOne(l => l.Curriculum)

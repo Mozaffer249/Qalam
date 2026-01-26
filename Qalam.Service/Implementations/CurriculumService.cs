@@ -58,7 +58,7 @@ public class CurriculumService : ICurriculumService
     }
 
     public async Task<PaginatedResult<CurriculumDto>> GetPaginatedCurriculumsAsync(
-        int pageNumber, int pageSize, string? search = null)
+        int pageNumber, int pageSize, string? search = null, int? domainId = null)
     {
         var query = _curriculumRepository.GetCurriculumsDtoQueryable();
 
@@ -67,6 +67,11 @@ public class CurriculumService : ICurriculumService
             query = query.Where(c =>
                 c.NameAr.Contains(search) ||
                 c.NameEn.Contains(search));
+        }
+
+        if (domainId.HasValue)
+        {
+            query = query.Where(c => c.DomainId == domainId.Value);
         }
 
         var totalCount = await query.CountAsync();

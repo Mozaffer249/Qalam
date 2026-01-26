@@ -22,6 +22,11 @@ public class EducationDomainConfiguration : IEntityTypeConfiguration<EducationDo
         builder.Property(e => e.DescriptionAr).HasMaxLength(500);
         builder.Property(e => e.DescriptionEn).HasMaxLength(500);
         
+        builder.HasMany(e => e.Curricula)
+               .WithOne(c => c.Domain)
+               .HasForeignKey(c => c.DomainId)
+               .OnDelete(DeleteBehavior.Restrict);
+        
         builder.HasMany(e => e.EducationLevels)
                .WithOne(l => l.Domain)
                .HasForeignKey(l => l.DomainId)

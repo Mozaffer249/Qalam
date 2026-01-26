@@ -163,7 +163,7 @@ flowchart TD
 
 2. **After Teacher Reuploads**
    - Teacher status returns to `PendingVerification`
-   - Document appears in pending list again
+   - Document appears in pending list again  
 
 ### Scenario 4: Block Teacher
 

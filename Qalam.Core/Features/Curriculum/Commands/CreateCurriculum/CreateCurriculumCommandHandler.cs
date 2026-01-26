@@ -26,6 +26,7 @@ public class CreateCurriculumCommandHandler : ResponseHandler,
         {
             var curriculum = new Data.Entity.Education.Curriculum
             {
+                DomainId = request.DomainId,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
                 Country = request.Country,

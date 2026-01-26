@@ -27,7 +27,8 @@ public class GetCurriculumsListQueryHandler : ResponseHandler,
         var result = await _curriculumService.GetPaginatedCurriculumsAsync(
             request.PageNumber,
             request.PageSize,
-            request.Search);
+            request.Search,
+            request.DomainId);
 
         return Success(entity: result);
     }

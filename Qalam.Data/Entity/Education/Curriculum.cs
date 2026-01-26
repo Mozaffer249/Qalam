@@ -7,6 +7,9 @@ public class Curriculum : AuditableEntity
 {
     public int Id { get; set; }
     
+    public int DomainId { get; set; }
+    public EducationDomain Domain { get; set; } = default!;
+    
     [Required, MaxLength(100)]
     public string NameAr { get; set; } = default!;
     

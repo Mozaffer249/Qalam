@@ -28,6 +28,7 @@ public class EducationDomain : AuditableEntity
     public bool IsActive { get; set; } = true;
 
     // Navigation Properties
+    public ICollection<Curriculum> Curricula { get; set; } = new List<Curriculum>();
     public ICollection<EducationLevel> EducationLevels { get; set; } = new List<EducationLevel>();
     public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
     public ICollection<DomainTeachingMode> DomainTeachingModes { get; set; } = new List<DomainTeachingMode>();

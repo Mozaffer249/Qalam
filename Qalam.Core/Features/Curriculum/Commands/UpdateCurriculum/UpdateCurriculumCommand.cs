@@ -6,6 +6,7 @@ namespace Qalam.Core.Features.Curriculum.Commands.UpdateCurriculum;
 public class UpdateCurriculumCommand : IRequest<Response<Data.Entity.Education.Curriculum>>
 {
     public int Id { get; set; }
+    public int DomainId { get; set; }
     public string NameAr { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
     public string? Country { get; set; }
