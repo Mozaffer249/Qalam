@@ -6,6 +6,9 @@ public class CreateCurriculumCommandValidator : AbstractValidator<CreateCurricul
 {
     public CreateCurriculumCommandValidator()
     {
+        RuleFor(x => x.DomainId)
+            .GreaterThan(0).WithMessage("DomainId is required and must be greater than 0");
+
         RuleFor(x => x.NameAr)
             .NotEmpty().WithMessage("Arabic name is required")
             .MaximumLength(100).WithMessage("Arabic name cannot exceed 100 characters");

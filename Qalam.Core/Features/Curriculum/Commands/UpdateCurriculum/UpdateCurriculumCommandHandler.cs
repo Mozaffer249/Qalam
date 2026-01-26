@@ -27,6 +27,7 @@ public class UpdateCurriculumCommandHandler : ResponseHandler,
             var curriculum = new Data.Entity.Education.Curriculum
             {
                 Id = request.Id,
+                DomainId = request.DomainId,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
                 Country = request.Country,

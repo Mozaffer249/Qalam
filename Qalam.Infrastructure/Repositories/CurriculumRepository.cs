@@ -34,6 +34,7 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
     public async Task<Curriculum> GetCurriculumWithLevelsAsync(int id)
     {
         return await _context.Curriculums
+            .Include(c => c.Domain)
             .Include(c => c.EducationLevels.OrderBy(el => el.OrderIndex))
             .Include(c => c.AcademicTerms.OrderBy(at => at.OrderIndex))
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -59,10 +60,14 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
     public IQueryable<CurriculumDto> GetCurriculumsDtoQueryable()
     {
         return _context.Curriculums
+            .Include(c => c.Domain)
             .AsNoTracking()
             .Select(c => new CurriculumDto
             {
                 Id = c.Id,
+                DomainId = c.DomainId,
+                DomainNameAr = c.Domain.NameAr,
+                DomainNameEn = c.Domain.NameEn,
                 NameAr = c.NameAr,
                 NameEn = c.NameEn,
                 Country = c.Country,
@@ -78,11 +83,15 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
     public async Task<CurriculumDto?> GetCurriculumDtoByIdAsync(int id)
     {
         return await _context.Curriculums
+            .Include(c => c.Domain)
             .AsNoTracking()
             .Where(c => c.Id == id)
             .Select(c => new CurriculumDto
             {
                 Id = c.Id,
+                DomainId = c.DomainId,
+                DomainNameAr = c.Domain.NameAr,
+                DomainNameEn = c.Domain.NameEn,
                 NameAr = c.NameAr,
                 NameEn = c.NameEn,
                 Country = c.Country,

@@ -10,10 +10,13 @@ public class CurriculumsSeeder
     {
         if (!await SeederHelper.HasAnyDataAsync(context.Curriculums))
         {
+            var schoolDomainId = 1; // School Education Domain
+            
             var curriculums = new List<Curriculum>
             {
                 new()
                 {
+                    DomainId = schoolDomainId,
                     NameAr = "المنهج السعودي",
                     NameEn = "Saudi Curriculum",
                     Country = "Saudi Arabia",
@@ -24,6 +27,7 @@ public class CurriculumsSeeder
                 },
                 new()
                 {
+                    DomainId = schoolDomainId,
                     NameAr = "المنهج المصري",
                     NameEn = "Egyptian Curriculum",
                     Country = "Egypt",
@@ -34,6 +38,7 @@ public class CurriculumsSeeder
                 },
                 new()
                 {
+                    DomainId = schoolDomainId,
                     NameAr = "المنهج الأمريكي",
                     NameEn = "American Curriculum",
                     Country = "United States",
