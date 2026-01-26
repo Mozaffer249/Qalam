@@ -47,10 +47,10 @@ flowchart TD
 
 **خطوات الاختبار | Test Steps:**
 
-#### الخطوة 1 - إرسال رمز OTP | Step 1 - Send OTP
+#### إرسال رمز OTP (تسجيل/دخول) | Send OTP (Login or Register)
 
 ```http
-POST /Api/V1/Authentication/Teacher/Step1-SendOtp
+POST /Api/V1/Authentication/Teacher/LoginOrRegister
 Content-Type: application/json
 
 {
@@ -60,16 +60,27 @@ Content-Type: application/json
 ```
 
 **النتيجة المتوقعة | Expected Result:**
-- Status: `200 OK`
-- رسالة نجاح | Success message
+```json
+{
+  "Succeeded": true,
+  "Data": {
+    "IsNewUser": true,
+    "PhoneNumber": "*******3256",
+    "Message": "OTP sent successfully. Welcome! You will create a new account."
+  }
+}
+```
+
+- `IsNewUser: true` = مستخدم جديد (تسجيل) | New user (registration)
+- `IsNewUser: false` = مستخدم موجود (دخول) | Existing user (login)
 - ملاحظة: رمز OTP للاختبار هو `"1234"` | Note: Test OTP code is `"1234"`
 
 ---
 
-#### الخطوة 2 - التحقق من OTP | Step 2 - Verify OTP
+#### التحقق من OTP | Verify OTP
 
 ```http
-POST /Api/V1/Authentication/Teacher/Step2-VerifyOtp
+POST /Api/V1/Authentication/Teacher/VerifyOtp
 Content-Type: application/json
 
 {
@@ -84,26 +95,29 @@ Content-Type: application/json
   "Succeeded": true,
   "Data": {
     "Token": "eyJhbGciOiJIUzI1NiIs...",
-    "UserId": 1,
-    "PhoneNumber": "+966503333256",
+    "IsNewUser": true,
     "NextStep": {
       "CurrentStep": 2,
-      "NextStepName": "CompletePersonalInfo",
+      "NextStep": 3,
+      "NextStepName": "Complete Personal Information",
       "IsRegistrationComplete": false
     }
   }
 }
 ```
 
+- `IsNewUser: true` = تم إنشاء حساب جديد | New account created
+- `IsNewUser: false` = تم تسجيل الدخول لحساب موجود | Logged in to existing account
+
 > **مهم:** احفظ الـ Token لاستخدامه في الخطوات التالية
 > **Important:** Save the Token for the next steps
 
 ---
 
-#### الخطوة 3 - إكمال المعلومات الشخصية | Step 3 - Complete Personal Info
+#### إكمال المعلومات الشخصية | Complete Personal Info
 
 ```http
-POST /Api/V1/Authentication/Teacher/Step3-PersonalInfo
+POST /Api/V1/Authentication/Teacher/CompletePersonalInfo
 Content-Type: application/json
 Authorization: Bearer {token}
 
@@ -137,10 +151,10 @@ Authorization: Bearer {token}
 
 ---
 
-#### الخطوة 4 - رفع الوثائق | Step 4 - Upload Documents
+#### رفع الوثائق | Upload Documents
 
 ```http
-POST /Api/V1/Authentication/Teacher/Step4-UploadDocuments
+POST /Api/V1/Authentication/Teacher/UploadDocuments
 Authorization: Bearer {token}
 Content-Type: multipart/form-data
 
@@ -449,10 +463,10 @@ Teacher: Cannot login or access any features
 
 | الطريقة | Method | النقطة | Endpoint | المصادقة | Auth | الوصف | Description |
 |---------|--------|--------|----------|----------|------|-------|-------------|
-| POST | `/Api/V1/Authentication/Teacher/Step1-SendOtp` | بدون | None | إرسال OTP | Send OTP |
-| POST | `/Api/V1/Authentication/Teacher/Step2-VerifyOtp` | بدون | None | التحقق وإنشاء الحساب | Verify & create account |
-| POST | `/Api/V1/Authentication/Teacher/Step3-PersonalInfo` | Token | Token | إكمال الملف الشخصي | Complete profile |
-| POST | `/Api/V1/Authentication/Teacher/Step4-UploadDocuments` | معلم | Teacher | رفع الوثائق | Upload documents |
+| POST | `/Api/V1/Authentication/Teacher/LoginOrRegister` | بدون | None | تسجيل/دخول - إرسال OTP | Login/Register - Send OTP |
+| POST | `/Api/V1/Authentication/Teacher/VerifyOtp` | بدون | None | التحقق من OTP | Verify OTP |
+| POST | `/Api/V1/Authentication/Teacher/CompletePersonalInfo` | Token | Token | إكمال الملف الشخصي | Complete profile |
+| POST | `/Api/V1/Authentication/Teacher/UploadDocuments` | معلم | Teacher | رفع الوثائق | Upload documents |
 | GET | `/Api/V1/Teacher/TeacherDocuments/Status` | معلم | Teacher | حالة الوثائق | Get documents status |
 | PUT | `/Api/V1/Teacher/TeacherDocuments/{id}/Reupload` | معلم | Teacher | إعادة رفع وثيقة | Reupload rejected doc |
 

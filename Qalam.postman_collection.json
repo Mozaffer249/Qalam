@@ -162,11 +162,11 @@
 					]
 				},
 				{
-					"name": "Teacher Registration Flow",
-					"description": "4-step teacher registration process. Step 2 also handles LOGIN for existing teachers via OTP authentication. Steps 1-2 are public, no auth required.",
+					"name": "Teacher Authentication",
+					"description": "Smart OTP-based teacher authentication. Works for both LOGIN (existing users) and REGISTRATION (new users). The system auto-detects if the phone number exists.",
 					"item": [
 						{
-							"name": "Step 1: Send OTP",
+							"name": "LoginOrRegister (Send OTP)",
 							"event": [
 								{
 									"listen": "test",
@@ -174,8 +174,10 @@
 										"exec": [
 											"if (pm.response.code === 200) {",
 											"    const response = pm.response.json();",
-											"    if (response.Succeeded) {",
-											"        console.log('✓ OTP sent successfully');",
+											"    if (response.Succeeded && response.Data) {",
+											"        const isNewUser = response.Data.IsNewUser;",
+											"        console.log(isNewUser ? '✓ New user - will register' : '✓ Existing user - will login');",
+											"        console.log('Message:', response.Data.Message);",
 											"    }",
 											"}"
 										],
@@ -196,7 +198,7 @@
 									"raw": "{\n  \"countryCode\": \"+966\",\n  \"phoneNumber\": \"503333256\"\n}"
 								},
 								"url": {
-									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step1-SendOtp",
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/LoginOrRegister",
 									"host": [
 										"{{base_url}}"
 									],
@@ -205,15 +207,15 @@
 										"V1",
 										"Authentication",
 										"Teacher",
-										"Step1-SendOtp"
+										"LoginOrRegister"
 									]
 								},
-								"description": "Send OTP code to teacher's phone number. No authentication required."
+								"description": "Send OTP to teacher's phone number. Works for both new and existing users.\n\nReturns:\n- IsNewUser: true = new registration, false = existing user login\n- Message: User-friendly status message\n- PhoneNumber: Masked phone number for verification"
 							},
 							"response": []
 						},
 						{
-							"name": "Step 2: Verify OTP (Login/Register)",
+							"name": "VerifyOtp (Complete Login/Register)",
 							"event": [
 								{
 									"listen": "test",
@@ -223,7 +225,7 @@
 											"    const response = pm.response.json();",
 											"    if (response.Succeeded && response.Data) {",
 											"        pm.environment.set('teacher_token', response.Data.Token);",
-											"        const isNewUser = response.Data.NextStep?.CurrentStep === 2;",
+											"        const isNewUser = response.Data.IsNewUser;",
 											"        console.log(isNewUser ? '✓ Account created (Registration)' : '✓ Login successful');",
 											"        console.log('Token saved');",
 											"        if (response.Data.NextStep) {",
@@ -251,7 +253,7 @@
 									"raw": "{\n  \"phoneNumber\": \"503333256\",\n  \"otpCode\": \"1234\"\n}"
 								},
 								"url": {
-									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step2-VerifyOtp",
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/VerifyOtp",
 									"host": [
 										"{{base_url}}"
 									],
@@ -260,10 +262,10 @@
 										"V1",
 										"Authentication",
 										"Teacher",
-										"Step2-VerifyOtp"
+										"VerifyOtp"
 									]
 								},
-								"description": "Verify OTP code for teacher authentication. THIS ENDPOINT HANDLES BOTH LOGIN AND REGISTRATION:\n- If phone number exists: Returns JWT token + current registration step (LOGIN)\n- If new phone number: Creates account, returns JWT token + Step 3 prompt (REGISTRATION)\n\nBlocked teachers will receive an error and NO token. Returns next step information for incomplete registrations."
+								"description": "Verify OTP and complete authentication. Handles both LOGIN and REGISTRATION:\n\n- If phone exists: LOGIN - Returns JWT token + current registration step\n- If new phone: REGISTER - Creates account, returns JWT token + next step\n\nReturns:\n- Token: JWT access token\n- IsNewUser: true = new registration, false = existing user login\n- NextStep: Registration progress information\n\nBlocked teachers will receive an error. Test OTP code: 1234"
 							},
 							"response": []
 						}
@@ -276,11 +278,11 @@
 			"description": "Endpoints requiring Teacher role authentication",
 			"item": [
 				{
-					"name": "Registration (Steps 3-4)",
-					"description": "Complete teacher registration after phone verification",
+					"name": "Complete Registration",
+					"description": "Complete teacher registration after OTP verification (for new users)",
 					"item": [
 						{
-							"name": "Step 3: Complete Personal Info",
+							"name": "Complete Personal Info",
 							"event": [
 								{
 									"listen": "test",
@@ -326,7 +328,7 @@
 									"raw": "{\n  \"firstName\": \"Ahmed\",\n  \"lastName\": \"Ali\",\n  \"email\": \"ahmed.ali@example.com\",\n  \"password\": \"Pass@123456\"\n}"
 								},
 								"url": {
-									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step3-PersonalInfo",
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/CompletePersonalInfo",
 									"host": [
 										"{{base_url}}"
 									],
@@ -335,7 +337,7 @@
 										"V1",
 										"Authentication",
 										"Teacher",
-										"Step3-PersonalInfo"
+										"CompletePersonalInfo"
 									]
 								},
 								"description": "Complete teacher personal information. Requires Bearer token from Step 2. UserId is automatically extracted from token."
@@ -343,7 +345,7 @@
 							"response": []
 						},
 						{
-							"name": "Step 4: Upload Documents",
+							"name": "Upload Documents",
 							"event": [
 								{
 									"listen": "test",
@@ -423,7 +425,7 @@
 									]
 								},
 								"url": {
-									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/Step4-UploadDocuments",
+									"raw": "{{base_url}}/Api/V1/Authentication/Teacher/UploadDocuments",
 									"host": [
 										"{{base_url}}"
 									],
@@ -432,7 +434,7 @@
 										"V1",
 										"Authentication",
 										"Teacher",
-										"Step4-UploadDocuments"
+										"UploadDocuments"
 									]
 								},
 								"description": "Upload teacher identity documents and certificates. Requires Teacher role. UserId is automatically extracted from token."

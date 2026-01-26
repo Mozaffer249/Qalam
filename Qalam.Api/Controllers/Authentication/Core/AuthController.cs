@@ -47,49 +47,50 @@ namespace Qalam.Api.Controllers.Authentication.Core
             return NewResult(await Mediator.Send(command));
         }
 
-        #region Teacher Registration - 4 Steps
+        #region Teacher Authentication & Registration
 
         /// <summary>
-        /// Step 1: Send OTP to phone number
+        /// Teacher Login or Register - Send OTP to phone number
+        /// Works for both new and existing users
         /// </summary>
         /// <param name="command">Country code and phone number</param>
-        /// <returns>Success message if OTP sent</returns>
-        [HttpPost(Router.TeacherStep1SendOtp)]
-        public async Task<IActionResult> SendPhoneOtp([FromBody] SendPhoneOtpCommand command)
+        /// <returns>IsNewUser flag and success message</returns>
+        [HttpPost(Router.TeacherLoginOrRegister)]
+        public async Task<IActionResult> TeacherLoginOrRegister([FromBody] SendPhoneOtpCommand command)
         {
             return NewResult(await Mediator.Send(command));
         }
 
         /// <summary>
-        /// Step 2: Verify OTP and create basic account
+        /// Verify OTP - Login for existing users, Register for new users
         /// </summary>
         /// <param name="command">Phone number and OTP code</param>
-        /// <returns>User ID and temporary JWT token</returns>
-        [HttpPost(Router.TeacherStep2VerifyOtp)]
-        public async Task<IActionResult> VerifyOtpAndCreateAccount([FromBody] VerifyOtpAndCreateAccountCommand command)
+        /// <returns>JWT token, IsNewUser flag, and next registration step</returns>
+        [HttpPost(Router.TeacherVerifyOtp)]
+        public async Task<IActionResult> TeacherVerifyOtp([FromBody] VerifyOtpAndCreateAccountCommand command)
         {
             return NewResult(await Mediator.Send(command));
         }
 
         /// <summary>
-        /// Step 3: Complete personal information
+        /// Complete personal information (for new users after registration)
         /// </summary>
         /// <param name="command">Name, email, and password</param>
         /// <returns>Teacher ID and full JWT token</returns>
-        [HttpPost(Router.TeacherStep3PersonalInfo)]
-        [Authorize] // Requires token from step 2
+        [HttpPost(Router.TeacherCompletePersonalInfo)]
+        [Authorize] // Requires token from VerifyOtp
         public async Task<IActionResult> CompletePersonalInfo([FromBody] CompletePersonalInfoCommand command)
         {
             return NewResult(await Mediator.Send(command));
         }
 
         /// <summary>
-        /// Step 4: Upload identity documents and certificates
+        /// Upload identity documents and certificates
         /// </summary>
         /// <param name="command">Identity document, certificates, and location info</param>
         /// <returns>Success message if documents uploaded</returns>
-        [HttpPost(Router.TeacherStep4UploadDocuments)]
-        [Authorize(Roles = Roles.Teacher)] // Requires completion of step 3
+        [HttpPost(Router.TeacherUploadDocuments)]
+        [Authorize(Roles = Roles.Teacher)] // Requires Teacher role
         public async Task<IActionResult> UploadTeacherDocuments([FromForm] UploadTeacherDocumentsCommand command)
         {
             return NewResult(await Mediator.Send(command));

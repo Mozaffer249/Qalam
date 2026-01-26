@@ -1,10 +1,9 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
-using Qalam.Core.Resources.Authentication;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.Abstracts;
@@ -13,36 +12,33 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 
 public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
-    IRequestHandler<VerifyOtpAndCreateAccountCommand, Response<PhoneVerificationResponseDto>>
+    IRequestHandler<VerifyOtpAndCreateAccountCommand, Response<object>>
 {
     private readonly IOtpService _otpService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly IPhoneOtpRepository _otpRepository;
     private readonly UserManager<User> _userManager;
-    private readonly IAuthenticationService _authService;
     private readonly ITeacherRepository _teacherRepository;
-    private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
+    private readonly IAuthenticationService _authService;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
         ITeacherRegistrationService teacherRegistrationService,
         IPhoneOtpRepository otpRepository,
         UserManager<User> userManager,
-        IAuthenticationService authService,
         ITeacherRepository teacherRepository,
-        IStringLocalizer<SharedResources> localizer,
-        IStringLocalizer<AuthenticationResources> authLocalizer) : base(localizer)
+        IAuthenticationService authService,
+        IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
         _teacherRegistrationService = teacherRegistrationService;
         _otpRepository = otpRepository;
         _userManager = userManager;
-        _authService = authService;
         _teacherRepository = teacherRepository;
-        _authLocalizer = authLocalizer;
+        _authService = authService;
     }
 
-    public async Task<Response<PhoneVerificationResponseDto>> Handle(
+    public async Task<Response<object>> Handle(
         VerifyOtpAndCreateAccountCommand request,
         CancellationToken cancellationToken)
     {
@@ -53,78 +49,92 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
 
         if (!isValid)
         {
-            return BadRequest<PhoneVerificationResponseDto>("Invalid or expired OTP code");
+            return BadRequest<object>("Invalid or expired OTP code");
         }
 
         string fullPhoneNumber;
-
-        // For test OTP, use default country code
+        
+        // For test OTP, use default country code (no DB record exists)
         if (request.OtpCode == "1234")
         {
             fullPhoneNumber = $"+966{request.PhoneNumber}";
         }
         else
         {
-            // Get the OTP record
+            // Get the OTP record to get country code
             var otp = await _otpRepository.GetValidOtpAsync(request.PhoneNumber, request.OtpCode);
             if (otp == null)
             {
-                return BadRequest<PhoneVerificationResponseDto>("OTP verification failed");
+                return BadRequest<object>("OTP verification failed");
             }
             fullPhoneNumber = $"{otp.CountryCode}{request.PhoneNumber}";
+            
+            // Mark OTP as used (will be done after account creation/login)
         }
 
         // Check if user already exists
-        var existingUser = await _userManager.FindByNameAsync(fullPhoneNumber);
+        var existingUser = await _userManager.Users
+            .FirstOrDefaultAsync(u => u.PhoneNumber == fullPhoneNumber, cancellationToken);
 
         if (existingUser != null)
         {
-            // USER EXISTS - THIS IS LOGIN
-            
-            // Check if teacher is blocked BEFORE issuing token
+            // LOGIN flow - existing user
             var teacher = await _teacherRepository.GetByUserIdAsync(existingUser.Id);
-            if (teacher != null && teacher.Status == TeacherStatus.Blocked)
-            {
-                return Unauthorized<PhoneVerificationResponseDto>(
-                    _authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
-            }
             
-            // User exists - generate new token directly
+            if (teacher?.Status == TeacherStatus.Blocked)
+            {
+                return BadRequest<object>("Your account has been blocked. Please contact support.");
+            }
+
+            // Generate JWT token for existing user
             var jwtResult = await _authService.GetJWTToken(existingUser);
+            
+            // Get next registration step
+            var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(existingUser.Id);
 
-            // Get their registration status
-            var registrationStep = await _teacherRegistrationService
-                .GetNextRegistrationStepAsync(existingUser.Id);
+            // Mark OTP as used (if not test OTP)
+            if (request.OtpCode != "1234")
+            {
+                var otp = await _otpRepository.GetValidOtpAsync(request.PhoneNumber, request.OtpCode);
+                if (otp != null)
+                {
+                    await _otpRepository.MarkAsUsedAsync(otp.Id, existingUser.Id);
+                    await _otpRepository.SaveChangesAsync();
+                }
+            }
 
-            return Success(entity: new PhoneVerificationResponseDto
+            return Success<object>(entity: new
             {
                 Token = jwtResult.AccessToken,
-                NextStep = registrationStep
+                IsNewUser = false,
+                NextStep = nextStep
             });
         }
-
-        // Create new account
-        var result = await _teacherRegistrationService.CreateBasicAccountAsync(fullPhoneNumber);
-
-        // Mark OTP as used (skip for test OTP)
-        if (request.OtpCode != "1234")
+        else
         {
-            var otp = await _otpRepository.GetValidOtpAsync(request.PhoneNumber, request.OtpCode);
-            if (otp != null)
+            // REGISTER flow - new user
+            var result = await _teacherRegistrationService.CreateBasicAccountAsync(fullPhoneNumber);
+            
+            // Get next registration step
+            var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(result.UserId);
+
+            // Mark OTP as used (if not test OTP)
+            if (request.OtpCode != "1234")
             {
-                await _otpRepository.MarkAsUsedAsync(otp.Id, result.UserId);
-                await _otpRepository.SaveChangesAsync();
+                var otp = await _otpRepository.GetValidOtpAsync(request.PhoneNumber, request.OtpCode);
+                if (otp != null)
+                {
+                    await _otpRepository.MarkAsUsedAsync(otp.Id, result.UserId);
+                    await _otpRepository.SaveChangesAsync();
+                }
             }
+
+            return Success<object>(entity: new
+            {
+                Token = result.Token,
+                IsNewUser = true,
+                NextStep = nextStep
+            });
         }
-
-        // Get next step (should be Step 3 for new user)
-        var nextStep = await _teacherRegistrationService
-            .GetNextRegistrationStepAsync(result.UserId);
-
-        return Success(entity: new PhoneVerificationResponseDto
-        {
-            Token = result.Token,
-            NextStep = nextStep
-        });
     }
 }
