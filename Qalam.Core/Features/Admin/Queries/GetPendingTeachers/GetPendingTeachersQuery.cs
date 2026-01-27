@@ -1,14 +1,13 @@
 using MediatR;
 using Qalam.Core.Bases;
 using Qalam.Data.DTOs.Admin;
-using Qalam.Data.Results;
 
 namespace Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 
 /// <summary>
 /// Query to get paginated list of teachers pending verification or with rejected documents
 /// </summary>
-public class GetPendingTeachersQuery : IRequest<Response<PaginatedResult<PendingTeacherDto>>>
+public class GetPendingTeachersQuery : IRequest<Response<List<PendingTeacherDto>>>
 {
 	/// <summary>
 	/// Page number (1-based)

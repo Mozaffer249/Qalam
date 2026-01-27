@@ -30,6 +30,7 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
             .Select(el => new EducationLevelDto
             {
                 Id = el.Id,
+                DomainId = el.DomainId,
                 CurriculumId = el.CurriculumId,
                 NameAr = el.NameAr,
                 NameEn = el.NameEn,
@@ -48,6 +49,7 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
             .Select(el => new EducationLevelDto
             {
                 Id = el.Id,
+                DomainId = el.DomainId,
                 CurriculumId = el.CurriculumId,
                 NameAr = el.NameAr,
                 NameEn = el.NameEn,

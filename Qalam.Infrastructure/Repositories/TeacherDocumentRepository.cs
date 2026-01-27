@@ -77,17 +77,17 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
                 CreatedAt = d.CreatedAt
             })
             .ToListAsync();
-    } 
+    }
 
     public async Task<List<RejectedDocumentInfo>> GetRejectedDocumentsAsync(int teacherId)
     {
         return await _teacherDocuments
-            .Where(d => d.TeacherId == teacherId 
+            .Where(d => d.TeacherId == teacherId
                      && d.VerificationStatus == DocumentVerificationStatus.Rejected)
             .Select(d => new RejectedDocumentInfo
             {
                 DocumentId = d.Id,
-                DocumentType = d.DocumentType.ToString(),
+                DocumentType = d.DocumentType,
                 RejectionReason = d.RejectionReason ?? "No reason provided"
             })
             .ToListAsync();

@@ -40,7 +40,7 @@ public interface IGradeService
 
     // Pagination
     Task<PaginatedResult<EducationLevelDto>> GetPaginatedLevelsAsync(
-        int pageNumber, int pageSize, int? curriculumId = null, string? search = null);
+        int pageNumber, int pageSize, int? domainId = null, int? curriculumId = null, string? search = null);
     Task<PaginatedResult<GradeDto>> GetPaginatedGradesAsync(
         int pageNumber, int pageSize, int? levelId = null, string? search = null);
     Task<PaginatedResult<AcademicTermDto>> GetPaginatedTermsAsync(

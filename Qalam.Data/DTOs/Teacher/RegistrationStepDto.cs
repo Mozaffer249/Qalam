@@ -1,3 +1,5 @@
+using Qalam.Data.Entity.Common.Enums;
+
 namespace Qalam.Data.DTOs.Teacher;
 
 public class RegistrationStepDto
@@ -7,7 +9,7 @@ public class RegistrationStepDto
     public string NextStepName { get; set; } = string.Empty;
     public bool IsRegistrationComplete { get; set; }
     public string? Message { get; set; }
-    
+
     /// <summary>
     /// List of rejected documents (only populated when Status = DocumentsRejected)
     /// </summary>
@@ -20,6 +22,6 @@ public class RegistrationStepDto
 public class RejectedDocumentInfo
 {
     public int DocumentId { get; set; }
-    public string DocumentType { get; set; } = string.Empty;
+    public TeacherDocumentType DocumentType { get; set; }
     public string RejectionReason { get; set; } = string.Empty;
 }

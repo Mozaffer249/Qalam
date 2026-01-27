@@ -4,6 +4,7 @@ public class EducationLevelDto
 {
     public int Id { get; set; }
    
+    public int DomainId { get; set; }
     public int? CurriculumId { get; set; }
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;

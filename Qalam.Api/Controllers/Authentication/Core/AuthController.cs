@@ -130,7 +130,6 @@ namespace Qalam.Api.Controllers.Authentication.Core
                 Succeeded = true
             });
         }
-
         #endregion
     }
 }

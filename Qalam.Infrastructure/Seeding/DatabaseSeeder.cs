@@ -18,6 +18,7 @@ public class DatabaseSeeder
         await QuranPartsSeeder.SeedAsync(context);
         await QuranSurahsSeeder.SeedAsync(context);
         await TimeSlotsSeeder.SeedAsync(context);
+        await DayOfWeekSeeder.SeedAsync(context);
 
         // Saudi Education System (School Domain)
         await SaudiEducationLevelsSeeder.SeedAsync(context);

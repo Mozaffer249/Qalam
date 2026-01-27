@@ -10,7 +10,7 @@ using Qalam.Infrastructure.Abstracts;
 namespace Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 
 public class GetPendingTeachersQueryHandler : ResponseHandler,
-	IRequestHandler<GetPendingTeachersQuery, Response<PaginatedResult<PendingTeacherDto>>>
+	IRequestHandler<GetPendingTeachersQuery, Response<List<PendingTeacherDto>>>
 {
 	private readonly ITeacherRepository _teacherRepository;
 	private readonly ILogger<GetPendingTeachersQueryHandler> _logger;
@@ -24,7 +24,7 @@ public class GetPendingTeachersQueryHandler : ResponseHandler,
 		_logger = logger;
 	}
 
-	public async Task<Response<PaginatedResult<PendingTeacherDto>>> Handle(
+	public async Task<Response<List<PendingTeacherDto>>> Handle(
 		GetPendingTeachersQuery request,
 		CancellationToken cancellationToken)
 	{
@@ -46,24 +46,35 @@ public class GetPendingTeachersQueryHandler : ResponseHandler,
 				request.PageNumber,
 				request.PageSize);
 
-			// Create paginated result
-			var result = new PaginatedResult<PendingTeacherDto>(
-				teachers,
-				totalCount,
-				request.PageNumber,
-				request.PageSize);
+		// Create paginated result
+		var result = new PaginatedResult<PendingTeacherDto>(
+			teachers,
+			totalCount,
+			request.PageNumber,
+			request.PageSize);
 
-			_logger.LogInformation(
-				"Successfully fetched {Count} pending teachers out of {Total}",
-				teachers.Count,
-				totalCount);
+		_logger.LogInformation(
+			"Successfully fetched {Count} pending teachers out of {Total}",
+			teachers.Count,
+			totalCount);
 
-			return Success<PaginatedResult<PendingTeacherDto>>(entity: result);
+		// Return items directly in data, pagination info in meta
+		return Success<List<PendingTeacherDto>>(
+			entity: teachers,
+			Meta: new
+			{
+				totalCount = result.TotalCount,
+				pageNumber = result.PageNumber,
+				pageSize = result.PageSize,
+				totalPages = result.TotalPages,
+				hasPreviousPage = result.HasPreviousPage,
+				hasNextPage = result.HasNextPage
+			});
 		}
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Error fetching pending teachers");
-			return BadRequest<PaginatedResult<PendingTeacherDto>>("Error retrieving pending teachers");
+			return BadRequest<List<PendingTeacherDto>>("Error retrieving pending teachers");
 		}
 	}
 }

@@ -167,7 +167,7 @@ using (var scope = app.Services.CreateScope())
         Log.Information("Starting database seeding...");
 
         // Seed all data using our seeders
-        // await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
+        await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
 
         // Seed Identity data (roles and admin user)
         Log.Information("Seeding roles and admin user...");

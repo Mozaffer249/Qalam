@@ -9,6 +9,7 @@ public class GetLevelsListQuery : IRequest<Response<PaginatedResult<EducationLev
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public int? DomainId { get; set; }
     public int? CurriculumId { get; set; }
     public string? Search { get; set; }
 }
