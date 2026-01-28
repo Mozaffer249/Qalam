@@ -16,6 +16,17 @@ namespace Qalam.Data.Commons
                 return NameAr;
             return NameEn;
         }
+
+        /// <summary>
+        /// Gets the localized value based on current culture
+        /// </summary>
+        public static string GetLocalizedValue(string arabicValue, string englishValue)
+        {
+            CultureInfo culture = Thread.CurrentThread.CurrentCulture;
+            if (culture.TwoLetterISOLanguageName.ToLower().Equals("ar"))
+                return arabicValue;
+            return englishValue;
+        }
     }
 }
 

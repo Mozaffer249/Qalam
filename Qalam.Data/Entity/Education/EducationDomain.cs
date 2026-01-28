@@ -15,7 +15,10 @@ public class EducationDomain : AuditableEntity
     public string NameEn { get; set; } = default!;
 
     [Required, MaxLength(50)]
-    public string Code { get; set; } = default!; // school, quran, language, skills
+    public string ArabicCode { get; set; } = default!; // school, quran, language, skills
+
+    [Required, MaxLength(50)]
+    public string EnglishCode { get; set; } = default!; // school, quran, language, skills
 
     public bool HasCurriculum { get; set; }
 

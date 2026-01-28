@@ -12,8 +12,8 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDBContext))]
-    [Migration("20260127124934_DisableIdentityForDayOfWeekId")]
-    partial class DisableIdentityForDayOfWeekId
+    [Migration("20260128133530_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -867,7 +867,7 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
+                    b.Property<string>("ArabicCode")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -885,6 +885,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<string>("DescriptionEn")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("EnglishCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<bool>("HasCurriculum")
                         .HasColumnType("bit");
@@ -910,7 +915,10 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("ArabicCode")
+                        .IsUnique();
+
+                    b.HasIndex("EnglishCode")
                         .IsUnique();
 
                     b.HasIndex("IsActive");

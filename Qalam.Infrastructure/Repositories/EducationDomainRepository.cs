@@ -35,7 +35,8 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 Id = d.Id,
                 NameAr = d.NameAr,
                 NameEn = d.NameEn,
-                Code = d.Code,
+                ArabicCode = d.ArabicCode,
+                EnglishCode = d.EnglishCode,
                 DescriptionAr = d.DescriptionAr,
                 DescriptionEn = d.DescriptionEn,
                 CreatedAt = d.CreatedAt
@@ -52,7 +53,8 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 Id = d.Id,
                 NameAr = d.NameAr,
                 NameEn = d.NameEn,
-                Code = d.Code,
+                ArabicCode = d.ArabicCode,
+                EnglishCode = d.EnglishCode,
                 DescriptionAr = d.DescriptionAr,
                 DescriptionEn = d.DescriptionEn,
                 CreatedAt = d.CreatedAt
@@ -71,12 +73,18 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
     {
         return await _dbContext.EducationDomains
             .AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Code == code);
+            .FirstOrDefaultAsync(d => d.ArabicCode == code || d.EnglishCode == code);
     }
 
     public async Task<bool> IsDomainCodeUniqueAsync(string code, int? excludeId = null)
     {
-        return !await _dbContext.EducationDomains
-            .AnyAsync(d => d.Code == code && d.Id != excludeId);
+        // Check if code exists in EITHER ArabicCode OR EnglishCode for global uniqueness
+        var query = _dbContext.EducationDomains
+            .Where(d => d.ArabicCode == code || d.EnglishCode == code);
+        
+        if (excludeId.HasValue)
+            query = query.Where(d => d.Id != excludeId.Value);
+        
+        return !await query.AnyAsync();
     }
 }

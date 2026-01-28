@@ -9,7 +9,8 @@ public class UpdateEducationDomainCommand : IRequest<Response<EducationDomain>>
     public int Id { get; set; }
     public string NameAr { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
+    public string ArabicCode { get; set; } = string.Empty;
+    public string EnglishCode { get; set; } = string.Empty;
     public string? DescriptionAr { get; set; }
     public string? DescriptionEn { get; set; }
     public bool HasCurriculum { get; set; }

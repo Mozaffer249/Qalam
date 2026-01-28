@@ -17,7 +17,8 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "تعليم مدرسي",
                     NameEn = "School Education",
-                    Code = "school",
+                    ArabicCode = "مدرسي",
+                    EnglishCode = "school",
                     HasCurriculum = true,
                     DescriptionAr = "التعليم المدرسي الأكاديمي بجميع مراحله",
                     DescriptionEn = "Academic school education at all levels",
@@ -28,7 +29,8 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "قرآن كريم",
                     NameEn = "Quran",
-                    Code = "quran",
+                    ArabicCode = "قرآن",
+                    EnglishCode = "quran",
                     HasCurriculum = false,
                     DescriptionAr = "تعليم القرآن الكريم حفظاً وتلاوة وتجويداً",
                     DescriptionEn = "Quran education: memorization, recitation, and tajweed",
@@ -39,7 +41,8 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "لغات",
                     NameEn = "Languages",
-                    Code = "language",
+                    ArabicCode = "لغات",
+                    EnglishCode = "language",
                     HasCurriculum = false,
                     DescriptionAr = "تعليم اللغات الأجنبية والعربية",
                     DescriptionEn = "Foreign and Arabic language education",
@@ -50,7 +53,8 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "مهارات عامة",
                     NameEn = "General Skills",
-                    Code = "skills",
+                    ArabicCode = "مهارات",
+                    EnglishCode = "skills",
                     HasCurriculum = false,
                     DescriptionAr = "المهارات الحياتية والمهنية والتقنية",
                     DescriptionEn = "Life, professional, and technical skills",

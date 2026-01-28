@@ -1,11 +1,14 @@
 using FluentValidation;
 
-namespace Qalam.Core.Features.Education.Commands.CreateEducationDomain;
+namespace Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
 
-public class CreateEducationDomainCommandValidator : AbstractValidator<CreateEducationDomainCommand>
+public class UpdateEducationDomainCommandValidator : AbstractValidator<UpdateEducationDomainCommand>
 {
-    public CreateEducationDomainCommandValidator()
+    public UpdateEducationDomainCommandValidator()
     {
+        RuleFor(x => x.Id)
+            .GreaterThan(0).WithMessage("Id must be greater than 0");
+
         RuleFor(x => x.NameAr)
             .NotEmpty().WithMessage("Arabic name is required")
             .MaximumLength(200).WithMessage("Arabic name cannot exceed 200 characters");
