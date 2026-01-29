@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Quran;
 using Qalam.Infrastructure.InfrastructureBases;
 
@@ -8,4 +9,7 @@ public interface IQuranContentTypeRepository : IGenericRepositoryAsync<QuranCont
     IQueryable<QuranContentType> GetContentTypesQueryable();
     IQueryable<QuranContentType> GetActiveContentTypesQueryable();
     Task<QuranContentType> GetContentTypeByCodeAsync(string code);
+
+    // Filter options
+    Task<List<FilterOptionDto>> GetQuranContentTypesAsOptionsAsync();
 }

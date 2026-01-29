@@ -75,7 +75,7 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
                 DescriptionEn = c.DescriptionEn,
                 IsActive = c.IsActive,
                 CreatedAt = c.CreatedAt,
-        
+
             })
             .OrderBy(c => c.NameEn);
     }
@@ -99,9 +99,24 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
                 DescriptionEn = c.DescriptionEn,
                 IsActive = c.IsActive,
                 CreatedAt = c.CreatedAt,
-         
+
             })
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<FilterOptionDto>> GetCurriculumsAsOptionsAsync(int domainId)
+    {
+        return await _context.Curriculums
+            .AsNoTracking()
+            .Where(c => c.DomainId == domainId && c.IsActive)
+            .OrderBy(c => c.NameEn)
+            .Select(c => new FilterOptionDto
+            {
+                Id = c.Id,
+                NameAr = c.NameAr,
+                NameEn = c.NameEn
+            })
+            .ToListAsync();
     }
 
     #endregion

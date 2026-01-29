@@ -11,4 +11,7 @@ public interface IAcademicTermRepository : IGenericRepositoryAsync<AcademicTerm>
     IQueryable<AcademicTerm> GetTermsByCurriculumId(int curriculumId);
     Task<AcademicTerm> GetCurrentTermAsync(int curriculumId);
     Task<AcademicTermDto?> GetTermDtoByIdAsync(int id);
+
+    // Filter options
+    Task<List<FilterOptionDto>> GetAcademicTermsAsOptionsAsync(int curriculumId);
 }

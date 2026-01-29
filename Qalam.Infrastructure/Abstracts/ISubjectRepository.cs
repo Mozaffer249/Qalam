@@ -15,9 +15,12 @@ public interface ISubjectRepository : IGenericRepositoryAsync<Subject>
     IQueryable<Subject> GetSubjectsByLevelId(int levelId);
     IQueryable<Subject> GetSubjectsByTermId(int termId);
     IQueryable<Subject> GetActiveSubjectsQueryable();
-    
+
     // Specific operations
     Task<Subject> GetSubjectWithDetailsAsync(int id);
     Task<SubjectDto?> GetSubjectDtoByIdAsync(int id);
     Task<List<Subject>> GetSubjectsWithContentUnitsAsync(int gradeId);
+
+    // Filter options
+    Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId);
 }

@@ -11,8 +11,11 @@ public interface ICurriculumRepository : IGenericRepositoryAsync<Curriculum>
     Task<Curriculum> GetCurriculumWithLevelsAsync(int id);
     Task<Curriculum> GetCurriculumByCodeAsync(string code);
     Task<bool> IsCurriculumCodeUniqueAsync(string code, int? excludeId = null);
-    
+
     // DTO projection methods
     IQueryable<CurriculumDto> GetCurriculumsDtoQueryable();
     Task<CurriculumDto?> GetCurriculumDtoByIdAsync(int id);
+
+    // Filter options
+    Task<List<FilterOptionDto>> GetCurriculumsAsOptionsAsync(int domainId);
 }

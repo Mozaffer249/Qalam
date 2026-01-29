@@ -105,4 +105,19 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             query = query.Where(g => g.Id != excludeId.Value);
         return !await query.AnyAsync();
     }
+
+    public async Task<List<FilterOptionDto>> GetGradesAsOptionsAsync(int levelId)
+    {
+        return await _context.Grades
+            .AsNoTracking()
+            .Where(g => g.LevelId == levelId && g.IsActive)
+            .OrderBy(g => g.OrderIndex)
+            .Select(g => new FilterOptionDto
+            {
+                Id = g.Id,
+                NameAr = g.NameAr,
+                NameEn = g.NameEn
+            })
+            .ToListAsync();
+    }
 }

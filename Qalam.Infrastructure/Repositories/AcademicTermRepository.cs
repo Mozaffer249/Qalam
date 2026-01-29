@@ -80,4 +80,19 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
             .OrderByDescending(at => at.OrderIndex)
             .FirstOrDefaultAsync();
     }
+
+    public async Task<List<FilterOptionDto>> GetAcademicTermsAsOptionsAsync(int curriculumId)
+    {
+        return await _context.AcademicTerms
+            .AsNoTracking()
+            .Where(at => at.CurriculumId == curriculumId && at.IsActive)
+            .OrderBy(at => at.OrderIndex)
+            .Select(at => new FilterOptionDto
+            {
+                Id = at.Id,
+                NameAr = at.NameAr,
+                NameEn = at.NameEn
+            })
+            .ToListAsync();
+    }
 }

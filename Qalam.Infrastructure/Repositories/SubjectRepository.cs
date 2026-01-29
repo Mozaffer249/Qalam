@@ -25,11 +25,11 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .Select(s => new SubjectDto
             {
                 Id = s.Id,
-            
+
                 LevelId = s.LevelId,
-  
+
                 GradeId = s.GradeId,
-           
+
                 TermId = s.TermId,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
@@ -143,6 +143,36 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .Where(s => s.GradeId == gradeId && s.IsActive)
             .Include(s => s.ContentUnits.Where(cu => cu.IsActive))
             .OrderBy(s => s.NameEn)
+            .ToListAsync();
+    }
+
+    public async Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId)
+    {
+        var query = _dbContext.Subjects
+            .AsNoTracking()
+            .Where(s => s.DomainId == domainId && s.IsActive);
+
+        if (curriculumId.HasValue)
+            query = query.Where(s => s.CurriculumId == curriculumId);
+
+        if (levelId.HasValue)
+            query = query.Where(s => s.LevelId == levelId);
+
+        if (gradeId.HasValue)
+            query = query.Where(s => s.GradeId == gradeId);
+
+        if (termId.HasValue)
+            query = query.Where(s => s.TermId == termId);
+
+        return await query
+            .OrderBy(s => s.NameEn)
+            .Select(s => new FilterOptionDto
+            {
+                Id = s.Id,
+                NameAr = s.NameAr,
+                NameEn = s.NameEn,
+                Code = s.Code
+            })
             .ToListAsync();
     }
 }

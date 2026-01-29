@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Quran;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -35,5 +36,21 @@ public class QuranContentTypeRepository : GenericRepositoryAsync<QuranContentTyp
         return await _context.QuranContentTypes
             .AsNoTracking()
             .FirstOrDefaultAsync(ct => ct.Code == code);
+    }
+
+    public async Task<List<FilterOptionDto>> GetQuranContentTypesAsOptionsAsync()
+    {
+        return await _context.QuranContentTypes
+            .AsNoTracking()
+            .Where(ct => ct.IsActive)
+            .OrderBy(ct => ct.NameEn)
+            .Select(ct => new FilterOptionDto
+            {
+                Id = ct.Id,
+                NameAr = ct.NameAr,
+                NameEn = ct.NameEn,
+                Code = ct.Code
+            })
+            .ToListAsync();
     }
 }

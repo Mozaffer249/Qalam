@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Quran;
 using Qalam.Infrastructure.InfrastructureBases;
 
@@ -9,4 +10,7 @@ public interface IQuranLevelRepository : IGenericRepositoryAsync<QuranLevel>
     IQueryable<QuranLevel> GetActiveQuranLevelsQueryable();
     Task<QuranLevel> GetQuranLevelWithSubjectsAsync(int id);
     Task<QuranLevel> GetQuranLevelByCodeAsync(string code);
+
+    // Filter options
+    Task<List<FilterOptionDto>> GetQuranLevelsAsOptionsAsync();
 }

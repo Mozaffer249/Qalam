@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
+using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -83,5 +84,14 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
             query = query.Where(d => d.Id != excludeId.Value);
 
         return !await query.AnyAsync();
+    }
+
+    public async Task<EducationRule?> GetEducationRuleByDomainCodeAsync(string domainCode)
+    {
+        return await _dbContext.EducationDomains
+            .AsNoTracking()
+            .Where(d => d.Code == domainCode)
+            .Select(d => d.EducationRule)
+            .FirstOrDefaultAsync();
     }
 }

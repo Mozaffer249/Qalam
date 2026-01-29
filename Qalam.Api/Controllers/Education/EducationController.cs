@@ -8,6 +8,7 @@ using Qalam.Core.Features.Education.Commands.DeleteEducationDomain;
 using Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainById;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
+using Qalam.Core.Features.Education.Queries.GetFilterOptions;
 using Qalam.Core.Features.Education.Queries.GetGradesList;
 using Qalam.Core.Features.Education.Queries.GetLevelsList;
 using Qalam.Data.AppMetaData;
@@ -70,6 +71,19 @@ public class EducationController : AppControllerBase
     public async Task<IActionResult> DeleteDomain(int id)
     {
         return NewResult(await Mediator.Send(new DeleteEducationDomainCommand { Id = id }));
+    }
+
+    #endregion
+
+    #region Filtering
+
+    /// <summary>
+    /// Get filter options based on domain rules and current selection state
+    /// </summary>
+    [HttpGet("filter-options")]
+    public async Task<IActionResult> GetFilterOptions([FromQuery] GetFilterOptionsQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
     }
 
     #endregion

@@ -90,4 +90,24 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
             query = query.Where(el => el.Id != excludeId.Value);
         return !await query.AnyAsync();
     }
+
+    public async Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId)
+    {
+        var query = _context.EducationLevels
+            .AsNoTracking()
+            .Where(el => el.DomainId == domainId && el.IsActive);
+
+        if (curriculumId.HasValue)
+            query = query.Where(el => el.CurriculumId == curriculumId);
+
+        return await query
+            .OrderBy(el => el.OrderIndex)
+            .Select(el => new FilterOptionDto
+            {
+                Id = el.Id,
+                NameAr = el.NameAr,
+                NameEn = el.NameEn
+            })
+            .ToListAsync();
+    }
 }
