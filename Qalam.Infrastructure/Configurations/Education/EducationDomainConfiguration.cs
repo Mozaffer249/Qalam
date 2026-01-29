@@ -13,18 +13,15 @@ public class EducationDomainConfiguration : IEntityTypeConfiguration<EducationDo
 
         builder.HasKey(e => e.Id);
 
-        // Add unique indexes for both codes
-        builder.HasIndex(e => e.ArabicCode).IsUnique();
-        builder.HasIndex(e => e.EnglishCode).IsUnique();
-        builder.HasIndex(e => e.IsActive);
-
-        // Configure both code properties
-        builder.Property(e => e.ArabicCode).IsRequired().HasMaxLength(50);
-        builder.Property(e => e.EnglishCode).IsRequired().HasMaxLength(50);
         builder.Property(e => e.NameAr).IsRequired().HasMaxLength(100);
         builder.Property(e => e.NameEn).IsRequired().HasMaxLength(100);
+        builder.Property(e => e.Code).IsRequired().HasMaxLength(50);
         builder.Property(e => e.DescriptionAr).HasMaxLength(500);
         builder.Property(e => e.DescriptionEn).HasMaxLength(500);
+        builder.Property(e => e.IsActive).HasDefaultValue(true);
+
+        builder.HasIndex(e => e.Code).IsUnique();
+        builder.HasIndex(e => e.IsActive);
 
         builder.HasMany(e => e.Curricula)
                .WithOne(c => c.Domain)
@@ -49,7 +46,7 @@ public class EducationDomainConfiguration : IEntityTypeConfiguration<EducationDo
         builder.HasOne(e => e.EducationRule)
                .WithOne(r => r.Domain)
                .HasForeignKey<EducationRule>(r => r.DomainId)
-               .OnDelete(DeleteBehavior.Restrict);
+               .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

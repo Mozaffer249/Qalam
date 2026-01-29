@@ -78,10 +78,8 @@ public class EducationDomainService : IEducationDomainService
 
     public async Task<EducationDomain> CreateDomainAsync(EducationDomain domain)
     {
-        if (!await IsDomainCodeUniqueAsync(domain.ArabicCode))
-            throw new InvalidOperationException($"Code '{domain.ArabicCode}' already exists");
-        if (!await IsDomainCodeUniqueAsync(domain.EnglishCode))
-            throw new InvalidOperationException($"Code '{domain.EnglishCode}' already exists");
+        if (!await IsDomainCodeUniqueAsync(domain.Code))
+            throw new InvalidOperationException($"Code '{domain.Code}' already exists");
 
         domain.CreatedAt = DateTime.UtcNow;
         return await _domainRepository.AddAsync(domain);
@@ -93,18 +91,14 @@ public class EducationDomainService : IEducationDomainService
         if (existing == null)
             throw new InvalidOperationException("Domain not found");
 
-        if (!await IsDomainCodeUniqueAsync(domain.ArabicCode, domain.Id))
-            throw new InvalidOperationException($"Code '{domain.ArabicCode}' already exists");
-        if (!await IsDomainCodeUniqueAsync(domain.EnglishCode, domain.Id))
-            throw new InvalidOperationException($"Code '{domain.EnglishCode}' already exists");
+        if (!await IsDomainCodeUniqueAsync(domain.Code, domain.Id))
+            throw new InvalidOperationException($"Code '{domain.Code}' already exists");
 
         existing.NameAr = domain.NameAr;
         existing.NameEn = domain.NameEn;
-        existing.ArabicCode = domain.ArabicCode;
-        existing.EnglishCode = domain.EnglishCode;
+        existing.Code = domain.Code;
         existing.DescriptionAr = domain.DescriptionAr;
         existing.DescriptionEn = domain.DescriptionEn;
-        existing.HasCurriculum = domain.HasCurriculum;
         existing.IsActive = domain.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 

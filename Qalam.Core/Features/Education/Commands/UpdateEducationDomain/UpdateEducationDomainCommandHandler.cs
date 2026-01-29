@@ -30,11 +30,9 @@ public class UpdateEducationDomainCommandHandler : ResponseHandler,
                 Id = request.Id,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
-                ArabicCode = request.ArabicCode,
-                EnglishCode = request.EnglishCode,
+                Code = request.Code,
                 DescriptionAr = request.DescriptionAr,
                 DescriptionEn = request.DescriptionEn,
-                HasCurriculum = request.HasCurriculum,
                 IsActive = request.IsActive
             };
 

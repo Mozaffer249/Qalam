@@ -29,11 +29,9 @@ public class CreateEducationDomainCommandHandler : ResponseHandler,
             {
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
-                ArabicCode = request.ArabicCode,
-                EnglishCode = request.EnglishCode,
+                Code = request.Code,
                 DescriptionAr = request.DescriptionAr,
                 DescriptionEn = request.DescriptionEn,
-                HasCurriculum = request.HasCurriculum,
                 IsActive = request.IsActive
             };
 

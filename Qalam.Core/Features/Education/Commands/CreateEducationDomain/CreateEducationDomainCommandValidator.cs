@@ -14,13 +14,9 @@ public class CreateEducationDomainCommandValidator : AbstractValidator<CreateEdu
             .NotEmpty().WithMessage("English name is required")
             .MaximumLength(200).WithMessage("English name cannot exceed 200 characters");
 
-        RuleFor(x => x.ArabicCode)
-            .NotEmpty().WithMessage("Arabic code is required")
-            .MaximumLength(50).WithMessage("Arabic code cannot exceed 50 characters");
-
-        RuleFor(x => x.EnglishCode)
-            .NotEmpty().WithMessage("English code is required")
-            .MaximumLength(50).WithMessage("English code cannot exceed 50 characters")
-            .Matches("^[a-z0-9_]+$").WithMessage("English code must contain only lowercase letters, numbers and underscores");
+        RuleFor(x => x.Code)
+            .NotEmpty().WithMessage("Code is required")
+            .MaximumLength(50).WithMessage("Code cannot exceed 50 characters")
+            .Matches("^[a-z0-9_]+$").WithMessage("Code must contain only lowercase letters, numbers and underscores");
     }
 }

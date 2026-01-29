@@ -66,12 +66,10 @@ namespace Qalam.Infrastructure.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     NameAr = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    ArabicCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    EnglishCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    HasCurriculum = table.Column<bool>(type: "bit", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     DescriptionAr = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     DescriptionEn = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -360,7 +358,7 @@ namespace Qalam.Infrastructure.Migrations
                     Country = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     DescriptionAr = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     DescriptionEn = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -386,11 +384,19 @@ namespace Qalam.Infrastructure.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     DomainId = table.Column<int>(type: "int", nullable: false),
-                    MinSessions = table.Column<int>(type: "int", nullable: false),
-                    MaxSessions = table.Column<int>(type: "int", nullable: false),
-                    DefaultSessionDurationMinutes = table.Column<int>(type: "int", nullable: false),
-                    AllowExtension = table.Column<bool>(type: "bit", nullable: false),
-                    AllowFlexibleCourses = table.Column<bool>(type: "bit", nullable: false),
+                    HasCurriculum = table.Column<bool>(type: "bit", nullable: false),
+                    HasEducationLevel = table.Column<bool>(type: "bit", nullable: false),
+                    HasGrade = table.Column<bool>(type: "bit", nullable: false),
+                    HasAcademicTerm = table.Column<bool>(type: "bit", nullable: false),
+                    HasContentUnits = table.Column<bool>(type: "bit", nullable: false),
+                    HasLessons = table.Column<bool>(type: "bit", nullable: false),
+                    RequiresQuranContentType = table.Column<bool>(type: "bit", nullable: false),
+                    RequiresQuranLevel = table.Column<bool>(type: "bit", nullable: false),
+                    MinSessions = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    MaxSessions = table.Column<int>(type: "int", nullable: false, defaultValue: 100),
+                    DefaultSessionDurationMinutes = table.Column<int>(type: "int", nullable: false, defaultValue: 60),
+                    AllowExtension = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    AllowFlexibleCourses = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     MaxGroupSize = table.Column<int>(type: "int", nullable: true),
                     MinGroupSize = table.Column<int>(type: "int", nullable: true),
                     NotesAr = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
@@ -403,13 +409,15 @@ namespace Qalam.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EducationRules", x => x.Id);
+                    table.CheckConstraint("CK_EducationRules_GroupRange", "([MinGroupSize] IS NULL AND [MaxGroupSize] IS NULL) OR ([MinGroupSize] <= [MaxGroupSize])");
+                    table.CheckConstraint("CK_EducationRules_SessionsRange", "[MinSessions] <= [MaxSessions]");
                     table.ForeignKey(
                         name: "FK_EducationRules_EducationDomains_DomainId",
                         column: x => x.DomainId,
                         principalSchema: "education",
                         principalTable: "EducationDomains",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -921,8 +929,8 @@ namespace Qalam.Infrastructure.Migrations
                     NameAr = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     OrderIndex = table.Column<int>(type: "int", nullable: false),
-                    IsMandatory = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsMandatory = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -952,7 +960,7 @@ namespace Qalam.Infrastructure.Migrations
                     NameAr = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     OrderIndex = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -1183,7 +1191,7 @@ namespace Qalam.Infrastructure.Migrations
                     NameAr = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     OrderIndex = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -1285,11 +1293,12 @@ namespace Qalam.Infrastructure.Migrations
                     LevelId = table.Column<int>(type: "int", nullable: true),
                     GradeId = table.Column<int>(type: "int", nullable: true),
                     TermId = table.Column<int>(type: "int", nullable: true),
+                    Code = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
                     NameAr = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     DescriptionAr = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     DescriptionEn = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -1381,7 +1390,10 @@ namespace Qalam.Infrastructure.Migrations
                     NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     OrderIndex = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    UnitTypeCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    QuranSurahId = table.Column<int>(type: "int", nullable: true),
+                    QuranPartId = table.Column<int>(type: "int", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -1390,6 +1402,22 @@ namespace Qalam.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ContentUnits", x => x.Id);
+                    table.CheckConstraint("CK_ContentUnits_QuranPartLink", "([UnitTypeCode] <> 'QuranPart') OR ([QuranPartId] IS NOT NULL)");
+                    table.CheckConstraint("CK_ContentUnits_QuranSurahLink", "([UnitTypeCode] <> 'QuranSurah') OR ([QuranSurahId] IS NOT NULL)");
+                    table.ForeignKey(
+                        name: "FK_ContentUnits_QuranParts_QuranPartId",
+                        column: x => x.QuranPartId,
+                        principalSchema: "quran",
+                        principalTable: "QuranParts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ContentUnits_QuranSurahs_QuranSurahId",
+                        column: x => x.QuranSurahId,
+                        principalSchema: "quran",
+                        principalTable: "QuranSurahs",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_ContentUnits_Subjects_SubjectId",
                         column: x => x.SubjectId,
@@ -1625,7 +1653,7 @@ namespace Qalam.Infrastructure.Migrations
                     NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     NameEn = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     OrderIndex = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
@@ -2070,16 +2098,17 @@ namespace Qalam.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AcademicTerms_CurriculumId_OrderIndex",
+                name: "IX_AcademicTerms_CurriculumId",
                 schema: "education",
                 table: "AcademicTerms",
-                columns: new[] { "CurriculumId", "OrderIndex" });
+                column: "CurriculumId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AcademicTerms_IsActive",
+                name: "IX_AcademicTerms_CurriculumId_NameEn",
                 schema: "education",
                 table: "AcademicTerms",
-                column: "IsActive");
+                columns: new[] { "CurriculumId", "NameEn" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AuditLogs_UserId",
@@ -2093,10 +2122,29 @@ namespace Qalam.Infrastructure.Migrations
                 column: "IsActive");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentUnits_SubjectId_OrderIndex",
+                name: "IX_ContentUnits_QuranPartId",
                 schema: "education",
                 table: "ContentUnits",
-                columns: new[] { "SubjectId", "OrderIndex" });
+                column: "QuranPartId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ContentUnits_QuranSurahId",
+                schema: "education",
+                table: "ContentUnits",
+                column: "QuranSurahId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ContentUnits_SubjectId_UnitTypeCode_NameEn",
+                schema: "education",
+                table: "ContentUnits",
+                columns: new[] { "SubjectId", "UnitTypeCode", "NameEn" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ContentUnits_SubjectId_UnitTypeCode_OrderIndex",
+                schema: "education",
+                table: "ContentUnits",
+                columns: new[] { "SubjectId", "UnitTypeCode", "OrderIndex" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_CourseEnrollmentPayments_CourseEnrollmentId",
@@ -2292,22 +2340,17 @@ namespace Qalam.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Curriculums_Country",
+                name: "IX_Curriculums_DomainId",
                 schema: "education",
                 table: "Curriculums",
-                column: "Country");
+                column: "DomainId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Curriculums_DomainId_Country",
+                name: "IX_Curriculums_DomainId_NameEn",
                 schema: "education",
                 table: "Curriculums",
-                columns: new[] { "DomainId", "Country" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Curriculums_IsActive",
-                schema: "education",
-                table: "Curriculums",
-                column: "IsActive");
+                columns: new[] { "DomainId", "NameEn" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_DaysOfWeek_IsActive",
@@ -2333,17 +2376,10 @@ namespace Qalam.Infrastructure.Migrations
                 column: "TeachingModeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EducationDomains_ArabicCode",
+                name: "IX_EducationDomains_Code",
                 schema: "education",
                 table: "EducationDomains",
-                column: "ArabicCode",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_EducationDomains_EnglishCode",
-                schema: "education",
-                table: "EducationDomains",
-                column: "EnglishCode",
+                column: "Code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -2359,16 +2395,18 @@ namespace Qalam.Infrastructure.Migrations
                 column: "CurriculumId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EducationLevels_DomainId_OrderIndex",
+                name: "IX_EducationLevels_DomainId",
                 schema: "education",
                 table: "EducationLevels",
-                columns: new[] { "DomainId", "OrderIndex" });
+                column: "DomainId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EducationLevels_IsActive",
+                name: "IX_EducationLevels_DomainId_CurriculumId_NameEn",
                 schema: "education",
                 table: "EducationLevels",
-                column: "IsActive");
+                columns: new[] { "DomainId", "CurriculumId", "NameEn" },
+                unique: true,
+                filter: "[CurriculumId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EducationRules_DomainId",
@@ -2383,16 +2421,17 @@ namespace Qalam.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Grades_IsActive",
+                name: "IX_Grades_LevelId",
                 schema: "education",
                 table: "Grades",
-                column: "IsActive");
+                column: "LevelId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Grades_LevelId_OrderIndex",
+                name: "IX_Grades_LevelId_NameEn",
                 schema: "education",
                 table: "Grades",
-                columns: new[] { "LevelId", "OrderIndex" });
+                columns: new[] { "LevelId", "NameEn" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Guardians_Email",
@@ -2421,16 +2460,17 @@ namespace Qalam.Infrastructure.Migrations
                 filter: "[UserId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Lessons_IsActive",
+                name: "IX_Lessons_UnitId",
                 schema: "education",
                 table: "Lessons",
-                column: "IsActive");
+                column: "UnitId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Lessons_UnitId_OrderIndex",
+                name: "IX_Lessons_UnitId_NameEn",
                 schema: "education",
                 table: "Lessons",
-                columns: new[] { "UnitId", "OrderIndex" });
+                columns: new[] { "UnitId", "NameEn" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Locations_IsActive",
@@ -2733,6 +2773,14 @@ namespace Qalam.Infrastructure.Migrations
                 column: "DomainId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Subjects_DomainId_Code",
+                schema: "education",
+                table: "Subjects",
+                columns: new[] { "DomainId", "Code" },
+                unique: true,
+                filter: "[Code] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Subjects_GradeId",
                 schema: "education",
                 table: "Subjects",
@@ -3019,14 +3067,6 @@ namespace Qalam.Infrastructure.Migrations
                 schema: "quran");
 
             migrationBuilder.DropTable(
-                name: "QuranParts",
-                schema: "quran");
-
-            migrationBuilder.DropTable(
-                name: "QuranSurahs",
-                schema: "quran");
-
-            migrationBuilder.DropTable(
                 name: "RoleClaims",
                 schema: "security");
 
@@ -3133,6 +3173,14 @@ namespace Qalam.Infrastructure.Migrations
             migrationBuilder.DropTable(
                 name: "SessionRequests",
                 schema: "session");
+
+            migrationBuilder.DropTable(
+                name: "QuranParts",
+                schema: "quran");
+
+            migrationBuilder.DropTable(
+                name: "QuranSurahs",
+                schema: "quran");
 
             migrationBuilder.DropTable(
                 name: "Teachers");

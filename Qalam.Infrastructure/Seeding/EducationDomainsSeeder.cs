@@ -17,9 +17,7 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "تعليم مدرسي",
                     NameEn = "School Education",
-                    ArabicCode = "مدرسي",
-                    EnglishCode = "school",
-                    HasCurriculum = true,
+                    Code = "school",
                     DescriptionAr = "التعليم المدرسي الأكاديمي بجميع مراحله",
                     DescriptionEn = "Academic school education at all levels",
                     IsActive = true,
@@ -29,9 +27,7 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "قرآن كريم",
                     NameEn = "Quran",
-                    ArabicCode = "قرآن",
-                    EnglishCode = "quran",
-                    HasCurriculum = false,
+                    Code = "quran",
                     DescriptionAr = "تعليم القرآن الكريم حفظاً وتلاوة وتجويداً",
                     DescriptionEn = "Quran education: memorization, recitation, and tajweed",
                     IsActive = true,
@@ -41,9 +37,7 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "لغات",
                     NameEn = "Languages",
-                    ArabicCode = "لغات",
-                    EnglishCode = "language",
-                    HasCurriculum = false,
+                    Code = "language",
                     DescriptionAr = "تعليم اللغات الأجنبية والعربية",
                     DescriptionEn = "Foreign and Arabic language education",
                     IsActive = true,
@@ -53,11 +47,19 @@ public class EducationDomainsSeeder
                 {
                     NameAr = "مهارات عامة",
                     NameEn = "General Skills",
-                    ArabicCode = "مهارات",
-                    EnglishCode = "skills",
-                    HasCurriculum = false,
+                    Code = "skills",
                     DescriptionAr = "المهارات الحياتية والمهنية والتقنية",
                     DescriptionEn = "Life, professional, and technical skills",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new()
+                {
+                    NameAr = "تعليم جامعي",
+                    NameEn = "University Education",
+                    Code = "university",
+                    DescriptionAr = "التعليم الجامعي والدراسات العليا",
+                    DescriptionEn = "University and higher education",
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 }
