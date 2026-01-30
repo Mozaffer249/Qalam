@@ -27,7 +27,7 @@ public class GetFilterOptionsQueryHandler : ResponseHandler,
         {
             var state = new FilterStateDto
             {
-                DomainCode = request.DomainCode,
+                DomainId = request.DomainId,
                 CurriculumId = request.CurriculumId,
                 LevelId = request.LevelId,
                 GradeId = request.GradeId,

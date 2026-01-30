@@ -6,7 +6,7 @@ namespace Qalam.Core.Features.Education.Queries.GetFilterOptions;
 
 public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>>
 {
-    public string DomainCode { get; set; } = default!;
+    public int DomainId { get; set; }
     public int? CurriculumId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }

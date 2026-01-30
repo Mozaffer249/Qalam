@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs;
+using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -41,17 +42,19 @@ public class EducationFilterService : IEducationFilterService
 
     public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state)
     {
-        if (string.IsNullOrWhiteSpace(state.DomainCode))
-            throw new ArgumentException("DomainCode is required");
+        if (!state.DomainId.HasValue)
+            throw new ArgumentException("DomainId is required");
+
+        var domainId = state.DomainId.Value;
 
         // Load domain rule
-        var rule = await _domainRepository.GetEducationRuleByDomainCodeAsync(state.DomainCode);
+        var rule = await _domainRepository.GetEducationRuleByDomainIdAsync(domainId);
         if (rule == null)
-            throw new InvalidOperationException($"Domain '{state.DomainCode}' not found or has no rules configured");
+            throw new InvalidOperationException($"Domain with ID '{domainId}' not found or has no rules configured");
 
-        var domain = await _domainRepository.GetDomainByCodeAsync(state.DomainCode);
+        var domain = await _domainRepository.GetByIdAsync(domainId);
         if (domain == null)
-            throw new InvalidOperationException($"Domain '{state.DomainCode}' not found");
+            throw new InvalidOperationException($"Domain with ID '{domainId}' not found");
 
         var response = new FilterOptionsResponseDto
         {
@@ -61,7 +64,7 @@ public class EducationFilterService : IEducationFilterService
         };
 
         // Determine next step and load options
-        var (nextStep, options) = await DetermineNextStepAsync(state, rule, domain.Id);
+        var (nextStep, options) = await DetermineNextStepAsync(state, rule, domain);
         response.NextStep = nextStep;
         response.Options = options;
 
@@ -71,8 +74,11 @@ public class EducationFilterService : IEducationFilterService
     private async Task<(string NextStep, List<FilterOptionDto> Options)> DetermineNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
-        int domainId)
+        EducationDomain domain)
     {
+        var domainId = domain.Id;
+        var isQuranDomain = domain.Code?.ToLowerInvariant() == "quran";
+
         // Step 1: Check if Curriculum is required
         if (rule.HasCurriculum && !state.CurriculumId.HasValue)
         {
@@ -108,9 +114,9 @@ public class EducationFilterService : IEducationFilterService
         }
 
         // Step 5: Check if Quran pedagogy is required (before subject selection)
-        if (state.DomainCode == "quran" &&
-            (rule.RequiresQuranContentType && !state.QuranContentTypeId.HasValue) ||
-            (rule.RequiresQuranLevel && !state.QuranLevelId.HasValue))
+        if (isQuranDomain &&
+            ((rule.RequiresQuranContentType && !state.QuranContentTypeId.HasValue) ||
+            (rule.RequiresQuranLevel && !state.QuranLevelId.HasValue)))
         {
             // Return both QuranContentType and QuranLevel options together
             var contentTypes = await _quranContentTypeRepository.GetQuranContentTypesAsOptionsAsync();
@@ -140,7 +146,7 @@ public class EducationFilterService : IEducationFilterService
         if (rule.HasContentUnits)
         {
             // For Quran, filter by UnitTypeCode
-            string? unitTypeCode = state.DomainCode == "quran" ? "QuranSurah" : null;
+            string? unitTypeCode = isQuranDomain ? "QuranSurah" : null;
 
             var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
                 state.SubjectId.Value,

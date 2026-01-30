@@ -94,4 +94,12 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
             .Select(d => d.EducationRule)
             .FirstOrDefaultAsync();
     }
+    public async Task<EducationRule?> GetEducationRuleByDomainIdAsync(int domainId)
+    {
+        return await _dbContext.EducationDomains
+            .AsNoTracking()
+            .Where(d => d.Id == domainId)
+            .Select(d => d.EducationRule)
+            .FirstOrDefaultAsync();
+    }
 }

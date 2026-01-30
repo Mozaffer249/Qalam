@@ -2,7 +2,8 @@ namespace Qalam.Data.DTOs;
 
 public class FilterStateDto
 {
-    public string? DomainCode { get; set; }
+    // public string? DomainCode { get; set; }
+    public int? DomainId { get; set; }
     public int? CurriculumId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
