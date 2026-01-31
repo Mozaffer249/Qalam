@@ -10,4 +10,5 @@ public class EducationRuleDto
     public bool HasLessons { get; set; }
     public bool RequiresQuranContentType { get; set; }
     public bool RequiresQuranLevel { get; set; }
+    public bool RequiresUnitTypeSelection { get; set; }
 }

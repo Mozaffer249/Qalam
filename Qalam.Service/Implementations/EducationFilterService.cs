@@ -40,7 +40,7 @@ public class EducationFilterService : IEducationFilterService
         _quranLevelRepository = quranLevelRepository;
     }
 
-    public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state)
+    public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state, int pageNumber = 1, int pageSize = 20)
     {
         if (!state.DomainId.HasValue)
             throw new ArgumentException("DomainId is required");
@@ -56,6 +56,12 @@ public class EducationFilterService : IEducationFilterService
         if (domain == null)
             throw new InvalidOperationException($"Domain with ID '{domainId}' not found");
 
+        // Set default UnitTypeCode for Quran domain if not specified
+        if (domain.Code?.ToLowerInvariant() == "quran" && string.IsNullOrEmpty(state.UnitTypeCode))
+        {
+            state.UnitTypeCode = "QuranPart";
+        }
+
         var response = new FilterOptionsResponseDto
         {
             CurrentState = state,
@@ -64,28 +70,47 @@ public class EducationFilterService : IEducationFilterService
         };
 
         // Determine next step and load options
-        var (nextStep, options) = await DetermineNextStepAsync(state, rule, domain);
+        var (nextStep, options, paginatedOptions, quranContentTypes, quranLevels) = await DetermineNextStepAsync(state, rule, domain, pageNumber, pageSize);
         response.NextStep = nextStep;
         response.Options = options;
+        response.PaginatedOptions = paginatedOptions;
+        response.QuranContentTypes = quranContentTypes;
+        response.QuranLevels = quranLevels;
+
+        // For Quran domain, set the auto-selected subject
+        if (domain.Code?.ToLowerInvariant() == "quran" && options.Count == 1)
+        {
+            response.SelectedSubject = options[0];
+            response.Options = new List<FilterOptionDto>(); // Clear since we're using SelectedSubject
+
+            // Auto-populate SubjectId in state if not already set
+            if (!state.SubjectId.HasValue && response.SelectedSubject != null)
+            {
+                state.SubjectId = response.SelectedSubject.Id;
+                response.CurrentState.SubjectId = response.SelectedSubject.Id;
+            }
+        }
 
         return response;
     }
 
-    private async Task<(string NextStep, List<FilterOptionDto> Options)> DetermineNextStepAsync(
+    private async Task<(string NextStep, List<FilterOptionDto> Options, PaginatedFilterOptionsDto? PaginatedOptions, List<FilterOptionDto>? QuranContentTypes, List<FilterOptionDto>? QuranLevels)> DetermineNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
-        EducationDomain domain)
+        EducationDomain domain,
+        int pageNumber,
+        int pageSize)
     {
         var domainId = domain.Id;
         var isQuranDomain = domain.Code?.ToLowerInvariant() == "quran";
 
         // ========================================
         // QURAN DOMAIN FLOW
-        // Subject → QuranContentType → QuranLevel → Units
+        // Subject → QuranContentType → QuranLevel → UnitType → Units
         // ========================================
         if (isQuranDomain)
         {
-            return await DetermineQuranNextStepAsync(state, rule, domainId);
+            return await DetermineQuranNextStepAsync(state, rule, domainId, pageNumber, pageSize);
         }
 
         // ========================================
@@ -96,58 +121,62 @@ public class EducationFilterService : IEducationFilterService
     }
 
     /// <summary>
-    /// Quran domain flow: Subject → QuranContentType → QuranLevel → Units (Surahs/Parts)
+    /// Quran domain flow: Single response with everything (Subject, ContentTypes, Levels, Units)
+    /// Skips all intermediate steps and returns paginated units with QuranPart as default
     /// </summary>
-    private async Task<(string NextStep, List<FilterOptionDto> Options)> DetermineQuranNextStepAsync(
+    private async Task<(string NextStep, List<FilterOptionDto> Options, PaginatedFilterOptionsDto? PaginatedOptions, List<FilterOptionDto>? QuranContentTypes, List<FilterOptionDto>? QuranLevels)> DetermineQuranNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
-        int domainId)
+        int domainId,
+        int pageNumber,
+        int pageSize)
     {
-        // Step 1: Subject (usually single "قرآن كريم")
+        // Always fetch the single Quran subject
+        var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
+            domainId,
+            curriculumId: null,
+            levelId: null,
+            gradeId: null,
+            termId: null);
+
+        var quranSubject = subjects.FirstOrDefault();
+        if (quranSubject == null)
+            throw new InvalidOperationException("Quran subject not found");
+
+        // Set subject in state if not provided
         if (!state.SubjectId.HasValue)
-        {
-            var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
-                domainId,
-                curriculumId: null,
-                levelId: null,
-                gradeId: null,
-                termId: null);
-            
-            // If only one subject, could auto-select, but return for explicit selection
-            return ("Subject", subjects);
-        }
+            state.SubjectId = quranSubject.Id;
 
-        // Step 2: QuranContentType (تحفيظ / تلاوة / تجويد)
-        if (rule.RequiresQuranContentType && !state.QuranContentTypeId.HasValue)
-        {
-            var contentTypes = await _quranContentTypeRepository.GetQuranContentTypesAsOptionsAsync();
-            return ("QuranContentType", contentTypes);
-        }
+        // Default to QuranPart if no UnitTypeCode specified
+        var unitTypeCode = string.IsNullOrEmpty(state.UnitTypeCode)
+            ? "QuranPart"
+            : state.UnitTypeCode;
 
-        // Step 3: QuranLevel (نورانية / مبتدئ / متوسط / متقدم)
-        if (rule.RequiresQuranLevel && !state.QuranLevelId.HasValue)
-        {
-            var levels = await _quranLevelRepository.GetQuranLevelsAsOptionsAsync();
-            return ("QuranLevel", levels);
-        }
+        // Fetch all data sequentially (DbContext is not thread-safe for parallel operations)
+        var contentTypes = await _quranContentTypeRepository.GetQuranContentTypesAsOptionsAsync();
+        var levels = await _quranLevelRepository.GetQuranLevelsAsOptionsAsync();
+        var (options, totalCount) = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
+            state.SubjectId.Value,
+            unitTypeCode,
+            pageNumber,
+            pageSize);
 
-        // Step 4: ContentUnits (Surahs or Parts)
-        if (rule.HasContentUnits)
+        var paginatedOptions = new PaginatedFilterOptionsDto
         {
-            var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
-                state.SubjectId.Value,
-                unitTypeCode: null); // Return both Surahs and Parts
-            return ("Unit", units);
-        }
+            Options = options,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
 
-        // All done
-        return ("Done", new List<FilterOptionDto>());
+        // Return subject as an option so it can be included in response
+        return ("Unit", new List<FilterOptionDto> { quranSubject }, paginatedOptions, contentTypes, levels);
     }
 
     /// <summary>
     /// Standard domain flow: Curriculum → Level → Grade → Term → Subject → Units
     /// </summary>
-    private async Task<(string NextStep, List<FilterOptionDto> Options)> DetermineStandardNextStepAsync(
+    private async Task<(string NextStep, List<FilterOptionDto> Options, PaginatedFilterOptionsDto? PaginatedOptions, List<FilterOptionDto>? QuranContentTypes, List<FilterOptionDto>? QuranLevels)> DetermineStandardNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
         int domainId)
@@ -156,14 +185,14 @@ public class EducationFilterService : IEducationFilterService
         if (rule.HasCurriculum && !state.CurriculumId.HasValue)
         {
             var curricula = await _curriculumRepository.GetCurriculumsAsOptionsAsync(domainId);
-            return ("Curriculum", curricula);
+            return ("Curriculum", curricula, null, null, null);
         }
 
         // Step 2: EducationLevel
         if (rule.HasEducationLevel && !state.LevelId.HasValue)
         {
             var levels = await _levelRepository.GetLevelsAsOptionsAsync(domainId, state.CurriculumId);
-            return ("Level", levels);
+            return ("Level", levels, null, null, null);
         }
 
         // Step 3: Grade
@@ -173,7 +202,7 @@ public class EducationFilterService : IEducationFilterService
                 throw new InvalidOperationException("LevelId is required before selecting Grade");
 
             var grades = await _gradeRepository.GetGradesAsOptionsAsync(state.LevelId.Value);
-            return ("Grade", grades);
+            return ("Grade", grades, null, null, null);
         }
 
         // Step 4: AcademicTerm
@@ -183,7 +212,7 @@ public class EducationFilterService : IEducationFilterService
                 throw new InvalidOperationException("CurriculumId is required before selecting Term");
 
             var terms = await _termRepository.GetAcademicTermsAsOptionsAsync(state.CurriculumId.Value);
-            return ("Term", terms);
+            return ("Term", terms, null, null, null);
         }
 
         // Step 5: Subject
@@ -195,20 +224,20 @@ public class EducationFilterService : IEducationFilterService
                 state.LevelId,
                 state.GradeId,
                 state.TermId);
-            return ("Subject", subjects);
+            return ("Subject", subjects, null, null, null);
         }
 
-        // Step 6: ContentUnits
+        // Step 6: ContentUnits (no pagination for standard domains)
         if (rule.HasContentUnits)
         {
             var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
                 state.SubjectId.Value,
                 unitTypeCode: null);
-            return ("Unit", units);
+            return ("Unit", units, null, null, null);
         }
 
         // All done
-        return ("Done", new List<FilterOptionDto>());
+        return ("Done", new List<FilterOptionDto>(), null, null, null);
     }
 
     private EducationRuleDto MapToRuleDto(EducationRule rule)
@@ -222,7 +251,8 @@ public class EducationFilterService : IEducationFilterService
             HasContentUnits = rule.HasContentUnits,
             HasLessons = rule.HasLessons,
             RequiresQuranContentType = rule.RequiresQuranContentType,
-            RequiresQuranLevel = rule.RequiresQuranLevel
+            RequiresQuranLevel = rule.RequiresQuranLevel,
+            RequiresUnitTypeSelection = rule.RequiresUnitTypeSelection
         };
     }
 }

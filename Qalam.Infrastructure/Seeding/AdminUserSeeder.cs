@@ -9,7 +9,7 @@ public static class AdminUserSeeder
     public static async Task SeedAsync(UserManager<User> userManager)
     {
         var adminEmail = "admin@qalam.com";
-        
+
         if (await userManager.FindByEmailAsync(adminEmail) == null)
         {
             var admin = new User
@@ -24,7 +24,7 @@ public static class AdminUserSeeder
             };
 
             var result = await userManager.CreateAsync(admin, "Admin@123");
-            
+
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(admin, Roles.SuperAdmin);

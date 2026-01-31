@@ -15,4 +15,5 @@ public interface IContentUnitRepository : IGenericRepositoryAsync<ContentUnit>
 
     // Filter options
     Task<List<FilterOptionDto>> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode);
+    Task<(List<FilterOptionDto> Options, int TotalCount)> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode, int pageNumber, int pageSize);
 }

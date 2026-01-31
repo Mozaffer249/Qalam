@@ -82,4 +82,34 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
             })
             .ToListAsync();
     }
+
+    public async Task<(List<FilterOptionDto> Options, int TotalCount)> GetContentUnitsAsOptionsAsync(
+        int subjectId, 
+        string? unitTypeCode, 
+        int pageNumber, 
+        int pageSize)
+    {
+        var query = _context.ContentUnits
+            .AsNoTracking()
+            .Where(cu => cu.SubjectId == subjectId && cu.IsActive);
+
+        if (!string.IsNullOrEmpty(unitTypeCode))
+            query = query.Where(cu => cu.UnitTypeCode == unitTypeCode);
+
+        var totalCount = await query.CountAsync();
+
+        var options = await query
+            .OrderBy(cu => cu.OrderIndex)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(cu => new FilterOptionDto
+            {
+                Id = cu.Id,
+                NameAr = cu.NameAr,
+                NameEn = cu.NameEn
+            })
+            .ToListAsync();
+
+        return (options, totalCount);
+    }
 }

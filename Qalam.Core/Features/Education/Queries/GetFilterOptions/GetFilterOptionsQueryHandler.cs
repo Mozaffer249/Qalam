@@ -34,10 +34,11 @@ public class GetFilterOptionsQueryHandler : ResponseHandler,
                 TermId = request.TermId,
                 SubjectId = request.SubjectId,
                 QuranContentTypeId = request.QuranContentTypeId,
-                QuranLevelId = request.QuranLevelId
+                QuranLevelId = request.QuranLevelId,
+                UnitTypeCode = request.UnitTypeCode
             };
 
-            var result = await _filterService.GetFilterOptionsAsync(state);
+            var result = await _filterService.GetFilterOptionsAsync(state, request.PageNumber, request.PageSize);
             return Success(entity: result);
         }
         catch (ArgumentException ex)

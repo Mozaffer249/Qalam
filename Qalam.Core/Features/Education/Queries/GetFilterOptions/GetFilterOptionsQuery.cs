@@ -14,4 +14,9 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     public int? SubjectId { get; set; }
     public int? QuranContentTypeId { get; set; }
     public int? QuranLevelId { get; set; }
+    public string? UnitTypeCode { get; set; }
+    
+    // Pagination parameters
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
 }

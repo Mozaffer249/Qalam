@@ -22,6 +22,7 @@ public class EducationRule : AuditableEntity
     // Quran pedagogy requirements
     public bool RequiresQuranContentType { get; set; }
     public bool RequiresQuranLevel { get; set; }
+    public bool RequiresUnitTypeSelection { get; set; }
 
     // قواعد الجلسات
     public int MinSessions { get; set; } = 1;

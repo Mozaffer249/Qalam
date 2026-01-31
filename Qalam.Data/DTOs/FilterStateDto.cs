@@ -11,4 +11,5 @@ public class FilterStateDto
     public int? SubjectId { get; set; }
     public int? QuranContentTypeId { get; set; }
     public int? QuranLevelId { get; set; }
+    public string? UnitTypeCode { get; set; }
 }
