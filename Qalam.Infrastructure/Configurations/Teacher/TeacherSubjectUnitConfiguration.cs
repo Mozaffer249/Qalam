@@ -12,11 +12,19 @@ public class TeacherSubjectUnitConfiguration : IEntityTypeConfiguration<TeacherS
         
         builder.HasKey(e => e.Id);
         
-        // Indexes
+        // Indexes for filtering
         builder.HasIndex(e => e.TeacherSubjectId);
         builder.HasIndex(e => e.UnitId);
-        builder.HasIndex(e => new { e.TeacherSubjectId, e.UnitId })
-               .IsUnique();
+        builder.HasIndex(e => e.QuranContentTypeId);
+        builder.HasIndex(e => e.QuranLevelId);
+        
+        // Composite unique index (same unit can have multiple records with different ContentType/Level)
+        builder.HasIndex(e => new { e.TeacherSubjectId, e.UnitId, e.QuranContentTypeId, e.QuranLevelId })
+               .IsUnique()
+               .HasFilter(null); // Include nulls in unique constraint
+        
+        // Composite index for teacher search queries
+        builder.HasIndex(e => new { e.UnitId, e.QuranContentTypeId, e.QuranLevelId });
         
         // Relationships
         builder.HasOne(e => e.TeacherSubject)
@@ -27,6 +35,16 @@ public class TeacherSubjectUnitConfiguration : IEntityTypeConfiguration<TeacherS
         builder.HasOne(e => e.Unit)
                .WithMany()
                .HasForeignKey(e => e.UnitId)
-               .OnDelete(DeleteBehavior.Restrict); // Changed to Restrict to avoid cascade path conflict
+               .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.HasOne(e => e.QuranContentType)
+               .WithMany()
+               .HasForeignKey(e => e.QuranContentTypeId)
+               .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.HasOne(e => e.QuranLevel)
+               .WithMany()
+               .HasForeignKey(e => e.QuranLevelId)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }
