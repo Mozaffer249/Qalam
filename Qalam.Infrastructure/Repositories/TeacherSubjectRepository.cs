@@ -129,4 +129,69 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         _teacherSubjects.RemoveRange(existingSubjects);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<HashSet<int>> GetExistingSubjectIdsAsync(int teacherId)
+    {
+        var subjectIds = await _teacherSubjects
+            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Select(ts => ts.SubjectId)  // Only select SubjectId - optimized
+            .ToListAsync();
+        
+        return subjectIds.ToHashSet();
+    }
+
+    public async Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjectDtos)
+    {
+        var existingSubjectIds = await GetExistingSubjectIdsAsync(teacherId);
+        
+        // Filter to only new subjects (not already in database)
+        var newSubjects = subjectDtos
+            .Where(dto => !existingSubjectIds.Contains(dto.SubjectId))
+            .ToList();
+        
+        // If no new subjects, return existing ones
+        if (!newSubjects.Any())
+        {
+            return await GetTeacherSubjectsWithUnitsAsync(teacherId);
+        }
+        
+        // Add only new subjects
+        foreach (var dto in newSubjects)
+        {
+            var teacherSubject = new TeacherSubject
+            {
+                TeacherId = teacherId,
+                SubjectId = dto.SubjectId,
+                CurriculumId = dto.CurriculumId,
+                LevelId = dto.LevelId,
+                GradeId = dto.GradeId,
+                CanTeachFullSubject = dto.CanTeachFullSubject,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _teacherSubjects.AddAsync(teacherSubject);
+            await _context.SaveChangesAsync(); // Save to get the ID
+
+            // Add units if not teaching full subject
+            if (!dto.CanTeachFullSubject && dto.Units.Any())
+            {
+                var units = dto.Units.Select(u => new TeacherSubjectUnit
+                {
+                    TeacherSubjectId = teacherSubject.Id,
+                    UnitId = u.UnitId,
+                    QuranContentTypeId = u.QuranContentTypeId,
+                    QuranLevelId = u.QuranLevelId,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                await _teacherSubjectUnits.AddRangeAsync(units);
+            }
+        }
+        
+        await _context.SaveChangesAsync();
+        
+        // Return all teacher subjects with full data
+        return await GetTeacherSubjectsWithUnitsAsync(teacherId);
+    }
 }

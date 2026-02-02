@@ -26,4 +26,11 @@ public interface ISubjectService
     // Pagination
     Task<PaginatedResult<SubjectDto>> GetPaginatedSubjectsAsync(
         int pageNumber, int pageSize, int? gradeId = null, int? termId = null, string? search = null);
+    
+    // Validation
+    /// <summary>
+    /// Validate subject IDs exist (optimized - only checks IDs)
+    /// Returns list of invalid IDs that don't exist in database
+    /// </summary>
+    Task<List<int>> GetInvalidSubjectIdsAsync(IEnumerable<int> subjectIds);
 }

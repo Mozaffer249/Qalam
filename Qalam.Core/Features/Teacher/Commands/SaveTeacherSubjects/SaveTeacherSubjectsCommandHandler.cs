@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Commands.SaveTeacherSubjects;
 
@@ -13,19 +14,19 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
 {
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
-    private readonly ISubjectRepository _subjectRepository;
+    private readonly ISubjectService _subjectService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherRepository teacherRepository,
-        ISubjectRepository subjectRepository,
+        ISubjectService subjectService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
-        _subjectRepository = subjectRepository;
+        _subjectService = subjectService;
         _mapper = mapper;
     }
 
@@ -40,25 +41,43 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             return NotFound<TeacherSubjectsResponseDto>("Teacher not found");
         }
 
-        // Validate subjects exist
-        foreach (var subjectDto in request.Subjects)
+        // Check for duplicate subjects in request
+        var duplicates = request.Subjects
+            .GroupBy(s => s.SubjectId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+            
+        if (duplicates.Any())
         {
-            var subject = await _subjectRepository.GetByIdAsync(subjectDto.SubjectId);
-            if (subject == null)
-            {
-                return BadRequest<TeacherSubjectsResponseDto>($"Subject with ID {subjectDto.SubjectId} not found");
-            }
-
-            // Validate: if CanTeachFullSubject is false, units must be provided
-            if (!subjectDto.CanTeachFullSubject && !subjectDto.Units.Any())
-            {
-                return BadRequest<TeacherSubjectsResponseDto>(
-                    $"Units are required when CanTeachFullSubject is false for subject {subject.NameAr}");
-            }
+            return BadRequest<TeacherSubjectsResponseDto>(
+                $"Duplicate subjects in request: {string.Join(", ", duplicates)}");
         }
 
-        // Save subjects
-        var savedSubjects = await _teacherSubjectRepository.SaveTeacherSubjectsAsync(
+        // Validate subjects exist (optimized - single batch query)
+        var subjectIds = request.Subjects.Select(s => s.SubjectId);
+        var invalidSubjectIds = await _subjectService.GetInvalidSubjectIdsAsync(subjectIds);
+        
+        if (invalidSubjectIds.Any())
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
+        }
+
+        // Validate: if CanTeachFullSubject is false, units must be provided
+        var subjectsWithoutUnits = request.Subjects
+            .Where(s => !s.CanTeachFullSubject && !s.Units.Any())
+            .Select(s => s.SubjectId)
+            .ToList();
+            
+        if (subjectsWithoutUnits.Any())
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                $"Units are required when CanTeachFullSubject is false for subjects: {string.Join(", ", subjectsWithoutUnits)}");
+        }
+
+        // Add only new subjects (skip existing ones)
+        var savedSubjects = await _teacherSubjectRepository.AddNewSubjectsAsync(
             teacher.Id,
             request.Subjects);
 
@@ -69,6 +88,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             Subjects = _mapper.Map<List<TeacherSubjectResponseDto>>(savedSubjects)
         };
 
-        return Success( "Teacher subjects saved successfully", entity: response);
+        return Success("Teacher subjects saved successfully", entity: response);
     }
 }

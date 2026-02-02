@@ -30,4 +30,14 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     /// Remove all subjects for a teacher
     /// </summary>
     Task RemoveAllTeacherSubjectsAsync(int teacherId);
+    
+    /// <summary>
+    /// Get only SubjectIds for a teacher (optimized - no full data)
+    /// </summary>
+    Task<HashSet<int>> GetExistingSubjectIdsAsync(int teacherId);
+    
+    /// <summary>
+    /// Add only new subjects (skip existing ones)
+    /// </summary>
+    Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjects);
 }

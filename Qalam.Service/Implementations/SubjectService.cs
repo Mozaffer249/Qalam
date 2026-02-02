@@ -164,4 +164,26 @@ public class SubjectService : ISubjectService
     }
 
     #endregion
+
+    #region Validation
+
+    public async Task<List<int>> GetInvalidSubjectIdsAsync(IEnumerable<int> subjectIds)
+    {
+        var requestedIds = subjectIds.Distinct().ToList();
+        
+        if (!requestedIds.Any())
+            return new List<int>();
+        
+        // Optimized: only select IDs, not full entities
+        var existingIds = await _subjectRepository
+            .GetSubjectsQueryable()
+            .Where(s => requestedIds.Contains(s.Id))
+            .Select(s => s.Id)
+            .ToListAsync();
+        
+        // Return IDs that don't exist
+        return requestedIds.Except(existingIds).ToList();
+    }
+
+    #endregion
 }
