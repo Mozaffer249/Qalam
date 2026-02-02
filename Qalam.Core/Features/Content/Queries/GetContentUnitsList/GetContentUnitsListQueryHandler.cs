@@ -28,7 +28,8 @@ public class GetContentUnitsListQueryHandler : ResponseHandler,
             request.PageNumber,
             request.PageSize,
             request.SubjectId,
-            request.TermId,
+            request.TermIds,
+            request.UnitTypeCode,
             request.Search);
 
         return Success(entity: result);

@@ -10,6 +10,10 @@ public class ContentUnit : AuditableEntity
     public int SubjectId { get; set; }
     public Subject Subject { get; set; } = default!;
 
+    // Academic term this unit belongs to (optional - for curriculum planning)
+    public int? TermId { get; set; }
+    public AcademicTerm? Term { get; set; }
+
     [Required, MaxLength(200)]
     public string NameAr { get; set; } = default!;
 

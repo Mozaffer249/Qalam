@@ -218,12 +218,20 @@ public class ContentManagementService : IContentManagementService
     #region Pagination
 
     public async Task<PaginatedResult<ContentUnit>> GetPaginatedContentUnitsAsync(
-        int pageNumber, int pageSize, int? subjectId = null, int? termId = null, string? search = null)
+        int pageNumber, int pageSize, int? subjectId = null, List<int>? termIds = null, string? unitTypeCode = null, string? search = null)
     {
         var query = _contentUnitRepository.GetContentUnitsQueryable();
 
         if (subjectId.HasValue)
             query = query.Where(cu => cu.SubjectId == subjectId.Value);
+
+        // Add term filtering for multiple terms (for regular curriculum units)
+        if (termIds != null && termIds.Any())
+            query = query.Where(cu => cu.TermId.HasValue && termIds.Contains(cu.TermId.Value));
+
+        // Add unit type filtering (for Quran units: QuranSurah, QuranPart)
+        if (!string.IsNullOrEmpty(unitTypeCode))
+            query = query.Where(cu => cu.UnitTypeCode == unitTypeCode);
 
         if (!string.IsNullOrEmpty(search))
         {

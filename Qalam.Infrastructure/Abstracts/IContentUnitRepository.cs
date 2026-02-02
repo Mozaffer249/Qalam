@@ -14,6 +14,6 @@ public interface IContentUnitRepository : IGenericRepositoryAsync<ContentUnit>
     Task UpdateRangeAsync(IEnumerable<ContentUnit> entities);
 
     // Filter options
-    Task<List<FilterOptionDto>> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode);
-    Task<(List<FilterOptionDto> Options, int TotalCount)> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode, int pageNumber, int pageSize);
+    Task<List<FilterOptionDto>> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode, List<int>? termIds = null);
+    Task<(List<FilterOptionDto> Options, int TotalCount)> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode, int pageNumber, int pageSize, List<int>? termIds = null);
 }

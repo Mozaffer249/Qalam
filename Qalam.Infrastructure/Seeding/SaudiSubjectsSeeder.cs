@@ -182,6 +182,181 @@ public class SaudiSubjectsSeeder
 
             await context.Subjects.AddRangeAsync(subjects);
             await context.SaveChangesAsync();
+
+            // Seed ContentUnits for elementary subjects
+            await SeedElementaryContentUnitsAsync(context, saudiCurriculumId, elementaryLevel.Id);
+        }
+    }
+
+    /// <summary>
+    /// Seeds ContentUnits for Saudi elementary subjects with realistic curriculum units distributed across 3 terms
+    /// </summary>
+    private static async Task SeedElementaryContentUnitsAsync(ApplicationDBContext context, int curriculumId, int levelId)
+    {
+        // Check if content units already exist for elementary subjects
+        var existingUnits = await context.ContentUnits
+            .AnyAsync(cu => cu.Subject.LevelId == levelId && cu.UnitTypeCode == "SchoolUnit");
+
+        if (existingUnits)
+            return; // Already seeded
+
+        // Get academic terms
+        var terms = await context.AcademicTerms
+            .Where(t => t.CurriculumId == curriculumId)
+            .OrderBy(t => t.OrderIndex)
+            .ToListAsync();
+
+        if (terms.Count < 3)
+            throw new Exception("Saudi academic terms must be seeded before content units");
+
+        var term1 = terms[0];
+        var term2 = terms[1];
+        var term3 = terms[2];
+
+        // Get all elementary subjects
+        var elementarySubjects = await context.Subjects
+            .Where(s => s.LevelId == levelId && s.CurriculumId == curriculumId)
+            .ToListAsync();
+
+        var contentUnits = new List<ContentUnit>();
+
+        foreach (var subject in elementarySubjects)
+        {
+            List<(string NameAr, string NameEn, int TermId)> units;
+
+            // Define units based on subject name
+            switch (subject.NameEn)
+            {
+                case "Arabic Language":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: الحروف والأصوات", "Unit 1: Letters and Sounds", term1.Id),
+                        ("الوحدة الثانية: الكلمات والجمل", "Unit 2: Words and Sentences", term1.Id),
+                        ("الوحدة الثالثة: القراءة الأساسية", "Unit 3: Basic Reading", term1.Id),
+                        ("الوحدة الرابعة: الكتابة الأساسية", "Unit 4: Basic Writing", term2.Id),
+                        ("الوحدة الخامسة: القصص القصيرة", "Unit 5: Short Stories", term2.Id),
+                        ("الوحدة السادسة: الأناشيد", "Unit 6: Poems", term2.Id),
+                        ("الوحدة السابعة: المحادثة", "Unit 7: Conversation", term3.Id),
+                        ("الوحدة الثامنة: المراجعة العامة", "Unit 8: General Review", term3.Id)
+                    };
+                    break;
+
+                case "Mathematics":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: الأعداد من 1 إلى 10", "Unit 1: Numbers 1-10", term1.Id),
+                        ("الوحدة الثانية: الجمع الأساسي", "Unit 2: Basic Addition", term1.Id),
+                        ("الوحدة الثالثة: الطرح الأساسي", "Unit 3: Basic Subtraction", term1.Id),
+                        ("الوحدة الرابعة: الأشكال الهندسية", "Unit 4: Geometric Shapes", term2.Id),
+                        ("الوحدة الخامسة: القياس", "Unit 5: Measurement", term2.Id),
+                        ("الوحدة السادسة: الأنماط", "Unit 6: Patterns", term2.Id),
+                        ("الوحدة السابعة: الوقت", "Unit 7: Time", term3.Id),
+                        ("الوحدة الثامنة: النقود", "Unit 8: Money", term3.Id),
+                        ("الوحدة التاسعة: حل المسائل", "Unit 9: Problem Solving", term3.Id)
+                    };
+                    break;
+
+                case "Islamic Education":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: أركان الإسلام", "Unit 1: Pillars of Islam", term1.Id),
+                        ("الوحدة الثانية: السور القصيرة", "Unit 2: Short Surahs", term1.Id),
+                        ("الوحدة الثالثة: الوضوء والطهارة", "Unit 3: Wudu and Purity", term1.Id),
+                        ("الوحدة الرابعة: الصلاة", "Unit 4: Prayer", term2.Id),
+                        ("الوحدة الخامسة: الأخلاق الإسلامية", "Unit 5: Islamic Morals", term2.Id),
+                        ("الوحدة السادسة: قصص الأنبياء", "Unit 6: Stories of Prophets", term2.Id),
+                        ("الوحدة السابعة: الأذكار اليومية", "Unit 7: Daily Remembrances", term3.Id),
+                        ("الوحدة الثامنة: السيرة النبوية", "Unit 8: Prophet's Biography", term3.Id),
+                        ("الوحدة التاسعة: المراجعة", "Unit 9: Review", term3.Id)
+                    };
+                    break;
+
+                case "Science":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: الكائنات الحية", "Unit 1: Living Things", term1.Id),
+                        ("الوحدة الثانية: النباتات", "Unit 2: Plants", term1.Id),
+                        ("الوحدة الثالثة: الحيوانات", "Unit 3: Animals", term2.Id),
+                        ("الوحدة الرابعة: الماء والهواء", "Unit 4: Water and Air", term2.Id),
+                        ("الوحدة الخامسة: الأرض والفضاء", "Unit 5: Earth and Space", term3.Id),
+                        ("الوحدة السادسة: الطقس", "Unit 6: Weather", term3.Id)
+                    };
+                    break;
+
+                case "Art Education":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: الألوان", "Unit 1: Colors", term1.Id),
+                        ("الوحدة الثانية: الرسم الأساسي", "Unit 2: Basic Drawing", term1.Id),
+                        ("الوحدة الثالثة: الأشغال اليدوية", "Unit 3: Handicrafts", term2.Id),
+                        ("الوحدة الرابعة: الأشكال الفنية", "Unit 4: Artistic Shapes", term2.Id),
+                        ("الوحدة الخامسة: الفنون التقليدية", "Unit 5: Traditional Arts", term3.Id),
+                        ("الوحدة السادسة: المشروع الفني", "Unit 6: Art Project", term3.Id)
+                    };
+                    break;
+
+                case "Physical Education":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: اللياقة البدنية", "Unit 1: Physical Fitness", term1.Id),
+                        ("الوحدة الثانية: الحركات الأساسية", "Unit 2: Basic Movements", term1.Id),
+                        ("الوحدة الثالثة: الألعاب الجماعية", "Unit 3: Team Games", term2.Id),
+                        ("الوحدة الرابعة: المهارات الحركية", "Unit 4: Motor Skills", term2.Id),
+                        ("الوحدة الخامسة: الرياضات الفردية", "Unit 5: Individual Sports", term3.Id),
+                        ("الوحدة السادسة: السلامة الرياضية", "Unit 6: Sports Safety", term3.Id)
+                    };
+                    break;
+
+                case "English Language":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: الحروف والأصوات", "Unit 1: Letters and Sounds", term1.Id),
+                        ("الوحدة الثانية: الكلمات الأساسية", "Unit 2: Basic Words", term1.Id),
+                        ("الوحدة الثالثة: الجمل البسيطة", "Unit 3: Simple Sentences", term2.Id),
+                        ("الوحدة الرابعة: المحادثات اليومية", "Unit 4: Daily Conversations", term2.Id),
+                        ("الوحدة الخامسة: القصص والأغاني", "Unit 5: Stories and Songs", term3.Id),
+                        ("الوحدة السادسة: المراجعة", "Unit 6: Review", term3.Id)
+                    };
+                    break;
+
+                case "Digital Skills":
+                    units = new List<(string, string, int)>
+                    {
+                        ("الوحدة الأولى: مقدمة في الحاسب", "Unit 1: Introduction to Computer", term1.Id),
+                        ("الوحدة الثانية: استخدام لوحة المفاتيح", "Unit 2: Using Keyboard", term1.Id),
+                        ("الوحدة الثالثة: الرسم الرقمي", "Unit 3: Digital Drawing", term2.Id),
+                        ("الوحدة الرابعة: البرمجة البسيطة", "Unit 4: Simple Programming", term2.Id),
+                        ("الوحدة الخامسة: الإنترنت الآمن", "Unit 5: Safe Internet", term3.Id),
+                        ("الوحدة السادسة: المشروع الرقمي", "Unit 6: Digital Project", term3.Id)
+                    };
+                    break;
+
+                default:
+                    continue; // Skip unknown subjects
+            }
+
+            // Create ContentUnits for this subject
+            for (int i = 0; i < units.Count; i++)
+            {
+                var unit = units[i];
+                contentUnits.Add(new ContentUnit
+                {
+                    SubjectId = subject.Id,
+                    TermId = unit.TermId,
+                    NameAr = unit.NameAr,
+                    NameEn = unit.NameEn,
+                    OrderIndex = i + 1,
+                    UnitTypeCode = "SchoolUnit",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (contentUnits.Any())
+        {
+            await context.ContentUnits.AddRangeAsync(contentUnits);
+            await context.SaveChangesAsync();
         }
     }
 }

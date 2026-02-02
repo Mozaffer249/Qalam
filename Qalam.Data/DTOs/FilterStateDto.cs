@@ -11,42 +11,42 @@ public class FilterStateDto
     /// Education domain ID (1=School, 2=Quran, 3=Language, 4=Skills)
     /// </summary>
     public int? DomainId { get; set; }
-    
+
     /// <summary>
     /// Curriculum ID (for school domain)
     /// </summary>
     public int? CurriculumId { get; set; }
-    
+
     /// <summary>
     /// Education level ID (e.g., Primary, Secondary)
     /// </summary>
     public int? LevelId { get; set; }
-    
+
     /// <summary>
     /// Grade ID within the education level
     /// </summary>
     public int? GradeId { get; set; }
-    
+
     /// <summary>
-    /// Academic term/semester ID
+    /// Academic term/semester IDs (can select multiple terms)
     /// </summary>
-    public int? TermId { get; set; }
-    
+    public List<int>? TermIds { get; set; }
+
     /// <summary>
     /// Subject ID
     /// </summary>
     public int? SubjectId { get; set; }
-    
+
     /// <summary>
     /// Quran content type ID (for Quran domain): Memorization, Recitation, Tajweed
     /// </summary>
     public int? QuranContentTypeId { get; set; }
-    
+
     /// <summary>
     /// Quran level ID (for Quran domain): Beginner, Intermediate, Advanced
     /// </summary>
     public int? QuranLevelId { get; set; }
-    
+
     /// <summary>
     /// Unit type code for filtering content units.
     /// Values: "QuranSurah" (114 Surahs), "QuranPart" (30 Juz), "SchoolUnit", "LanguageModule"

@@ -30,19 +30,19 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// </summary>
         /// <param name="command">Registration details including username, email, password</param>
         /// <returns>Registration result with user information</returns>
-        [HttpPost(Router.AuthenticationRegister)]
-        public async Task<IActionResult> Register([FromBody] RegisterCommand command)
-        {
-            return NewResult(await Mediator.Send(command));
-        }
+        // [HttpPost(Router.AuthenticationRegister)]
+        // public async Task<IActionResult> Register([FromBody] RegisterCommand command)
+        // {
+        //     return NewResult(await Mediator.Send(command));
+        // }
 
         /// <summary>
         /// Login with username and password
         /// </summary>
         /// <param name="command">Login credentials (username/email and password)</param>
         /// <returns>JWT access token and refresh token</returns>
-        [HttpPost(Router.AuthenticationLogin)]
-        public async Task<IActionResult> Login([FromBody] LoginCommand command)
+        [HttpPost(Router.AdminLogin)]
+        public async Task<IActionResult> AdminLogin([FromBody] LoginCommand command)
         {
             return NewResult(await Mediator.Send(command));
         }

@@ -11,7 +11,7 @@ namespace Qalam.Data.AppMetaData
         #region Authentication
         public const string Authentication = Rule + "Authentication";
         public const string AuthenticationRegister = Authentication + "/Register";
-        public const string AuthenticationLogin = Authentication + "/Login";
+        public const string AdminLogin = Authentication + "/Admin/Login";
         public const string AuthenticationLoginWithTwoFactor = Authentication + "/LoginWithTwoFactor";
         public const string AuthenticationLogout = Authentication + "/Logout";
         public const string AuthenticationRefreshToken = Authentication + "/RefreshToken";

@@ -30,11 +30,11 @@ public class DatabaseSeeder
         await QuranSubjectsSeeder.SeedAsync(context);
 
         // Languages Domain
-        await LanguageLevelsSeeder.SeedAsync(context);
-        await LanguageSubjectsSeeder.SeedAsync(context);
+        // await LanguageLevelsSeeder.SeedAsync(context);
+        // await LanguageSubjectsSeeder.SeedAsync(context);
 
         // General Skills Domain
-        await GeneralSkillsSubjectsSeeder.SeedAsync(context);
+        // await GeneralSkillsSubjectsSeeder.SeedAsync(context);
     }
 }
 

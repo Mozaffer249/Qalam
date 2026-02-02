@@ -63,7 +63,7 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<FilterOptionDto>> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode)
+    public async Task<List<FilterOptionDto>> GetContentUnitsAsOptionsAsync(int subjectId, string? unitTypeCode, List<int>? termIds = null)
     {
         var query = _context.ContentUnits
             .AsNoTracking()
@@ -71,6 +71,10 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
 
         if (!string.IsNullOrEmpty(unitTypeCode))
             query = query.Where(cu => cu.UnitTypeCode == unitTypeCode);
+
+        // Add term filtering for multiple terms
+        if (termIds != null && termIds.Any())
+            query = query.Where(cu => cu.TermId.HasValue && termIds.Contains(cu.TermId.Value));
 
         return await query
             .OrderBy(cu => cu.OrderIndex)
@@ -84,10 +88,11 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
     }
 
     public async Task<(List<FilterOptionDto> Options, int TotalCount)> GetContentUnitsAsOptionsAsync(
-        int subjectId, 
-        string? unitTypeCode, 
-        int pageNumber, 
-        int pageSize)
+        int subjectId,
+        string? unitTypeCode,
+        int pageNumber,
+        int pageSize,
+        List<int>? termIds = null)
     {
         var query = _context.ContentUnits
             .AsNoTracking()
@@ -95,6 +100,10 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
 
         if (!string.IsNullOrEmpty(unitTypeCode))
             query = query.Where(cu => cu.UnitTypeCode == unitTypeCode);
+
+        // Add term filtering for multiple terms
+        if (termIds != null && termIds.Any())
+            query = query.Where(cu => cu.TermId.HasValue && termIds.Contains(cu.TermId.Value));
 
         var totalCount = await query.CountAsync();
 

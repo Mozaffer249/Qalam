@@ -199,7 +199,7 @@ public class EducationFilterService : IEducationFilterService
     }
 
     /// <summary>
-    /// Standard domain flow: Curriculum → Level → Grade → Term → Subject → Units
+    /// Standard domain flow: Curriculum → Level → Grade → Subject → Term → Units
     /// </summary>
     private async Task<FilterStepResult> DetermineStandardNextStepAsync(
         FilterStateDto state,
@@ -230,8 +230,21 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Grade", Options = grades };
         }
 
-        // Step 4: AcademicTerm
-        if (rule.HasAcademicTerm && !state.TermId.HasValue)
+        // Step 4: Subject (MOVED UP - now before Term)
+        if (!state.SubjectId.HasValue)
+        {
+            var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
+                domainId,
+                state.CurriculumId,
+                state.LevelId,
+                state.GradeId,
+                termId: null); // Don't filter by term - subjects are year-long
+            return new FilterStepResult { NextStep = "Subject", Options = subjects };
+        }
+
+        // Step 5: AcademicTerm (MOVED DOWN - now OPTIONAL after Subject)
+        // Note: This step is now OPTIONAL - user can skip directly to units to see all terms
+        if (rule.HasAcademicTerm && (state.TermIds == null || !state.TermIds.Any()))
         {
             if (!state.CurriculumId.HasValue)
                 throw new InvalidOperationException("CurriculumId is required before selecting Term");
@@ -240,27 +253,16 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Term", Options = terms };
         }
 
-        // Step 5: Subject
-        if (!state.SubjectId.HasValue)
-        {
-            var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
-                domainId,
-                state.CurriculumId,
-                state.LevelId,
-                state.GradeId,
-                state.TermId);
-            return new FilterStepResult { NextStep = "Subject", Options = subjects };
-        }
-
-        // Step 6: ContentUnits (no pagination for standard domains - return as unit array)
+        // Step 6: ContentUnits (filtered by selected terms if provided)
         if (rule.HasContentUnits)
         {
             var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
                 state.SubjectId.Value,
-                unitTypeCode: null);
-            return new FilterStepResult 
-            { 
-                NextStep = "Unit", 
+                unitTypeCode: null,
+                termIds: state.TermIds); // Pass termIds list to filter units
+            return new FilterStepResult
+            {
+                NextStep = "Unit",
                 Options = new List<FilterOptionDto>(),
                 Unit = units,
                 TotalCount = units.Count,

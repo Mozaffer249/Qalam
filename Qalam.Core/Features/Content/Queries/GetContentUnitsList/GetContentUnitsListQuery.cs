@@ -10,6 +10,7 @@ public class GetContentUnitsListQuery : IRequest<Response<PaginatedResult<Conten
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public int? SubjectId { get; set; }
-    public int? TermId { get; set; }
+    public List<int>? TermIds { get; set; }  // Changed from TermId to support multiple term selection
+    public string? UnitTypeCode { get; set; }  // For Quran filtering (QuranSurah/QuranPart) and other unit types
     public string? Search { get; set; }
 }

@@ -30,7 +30,12 @@ public class CreateContentUnitCommandHandler : ResponseHandler,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
                 SubjectId = request.SubjectId,
-                OrderIndex = request.OrderIndex
+                TermId = request.TermId,
+                OrderIndex = request.OrderIndex,
+                UnitTypeCode = request.UnitTypeCode,
+                // Convert 0 to null for optional foreign keys
+                QuranSurahId = request.QuranSurahId > 0 ? request.QuranSurahId : null,
+                QuranPartId = request.QuranPartId > 0 ? request.QuranPartId : null
             };
 
             var result = await _contentService.CreateContentUnitAsync(contentUnit);
