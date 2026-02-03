@@ -12,7 +12,7 @@ namespace Qalam.Infrastructure
         {
             // Generic Repository
             services.AddTransient(typeof(IGenericRepositoryAsync<>), typeof(GenericRepositoryAsync<>));
-            
+
             // Identity Repositories
             services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddTransient<IPhoneOtpRepository, PhoneOtpRepository>();
@@ -21,6 +21,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<ITeacherRepository, TeacherRepository>();
             services.AddTransient<ITeacherDocumentRepository, TeacherDocumentRepository>();
             services.AddTransient<ITeacherSubjectRepository, TeacherSubjectRepository>();
+            services.AddTransient<ITeacherAvailabilityRepository, TeacherAvailabilityRepository>();
 
             // Education Repositories
             services.AddTransient<IEducationDomainRepository, EducationDomainRepository>();
