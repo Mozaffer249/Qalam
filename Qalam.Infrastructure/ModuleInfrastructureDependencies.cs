@@ -43,6 +43,7 @@ namespace Qalam.Infrastructure
 
             // Common Repositories
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();
+            services.AddTransient<IDayOfWeekRepository, DayOfWeekRepository>();
 
             // Database Seeder
             services.AddTransient<DatabaseSeeder>();

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Teaching.Queries.GetDaysOfWeekList;
 using Qalam.Core.Features.Teaching.Queries.GetSessionTypesList;
 using Qalam.Core.Features.Teaching.Queries.GetTeachingModesList;
 using Qalam.Core.Features.Teaching.Queries.GetTimeSlotsList;
@@ -9,7 +10,7 @@ using Qalam.Data.AppMetaData;
 namespace Qalam.Api.Controllers.Education;
 
 /// <summary>
-/// Teaching configuration: Modes, Session Types, Time Slots
+/// Teaching configuration: Modes, Session Types, Time Slots, Days of Week
 /// </summary>
 [Authorize]
 public class TeachingController : AppControllerBase
@@ -37,6 +38,15 @@ public class TeachingController : AppControllerBase
     /// </summary>
     [HttpGet(Router.TimeSlots)]
     public async Task<IActionResult> GetTimeSlots([FromQuery] GetTimeSlotsListQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Get all days of week with pagination
+    /// </summary>
+    [HttpGet(Router.DaysOfWeek)]
+    public async Task<IActionResult> GetDaysOfWeek([FromQuery] GetDaysOfWeekListQuery query)
     {
         return NewResult(await Mediator.Send(query));
     }

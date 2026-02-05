@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Data.Results;
@@ -12,15 +13,18 @@ public class TeachingConfigurationService : ITeachingConfigurationService
     private readonly ITeachingModeRepository _teachingModeRepository;
     private readonly ISessionTypeRepository _sessionTypeRepository;
     private readonly ITimeSlotRepository _timeSlotRepository;
+    private readonly IDayOfWeekRepository _dayOfWeekRepository;
 
     public TeachingConfigurationService(
         ITeachingModeRepository teachingModeRepository,
         ISessionTypeRepository sessionTypeRepository,
-        ITimeSlotRepository timeSlotRepository)
+        ITimeSlotRepository timeSlotRepository,
+        IDayOfWeekRepository dayOfWeekRepository)
     {
         _teachingModeRepository = teachingModeRepository;
         _sessionTypeRepository = sessionTypeRepository;
         _timeSlotRepository = timeSlotRepository;
+        _dayOfWeekRepository = dayOfWeekRepository;
     }
 
     #region Teaching Mode Operations
@@ -234,6 +238,25 @@ public class TeachingConfigurationService : ITeachingConfigurationService
 
     #endregion
 
+    #region Day of Week Operations
+
+    public IQueryable<DayOfWeekMaster> GetDaysOfWeekQueryable()
+    {
+        return _dayOfWeekRepository.GetDaysOfWeekQueryable();
+    }
+
+    public IQueryable<DayOfWeekMaster> GetActiveDaysOfWeekQueryable()
+    {
+        return _dayOfWeekRepository.GetActiveDaysOfWeekQueryable();
+    }
+
+    public async Task<DayOfWeekMaster> GetDayOfWeekByIdAsync(int id)
+    {
+        return await _dayOfWeekRepository.GetByIdAsync(id);
+    }
+
+    #endregion
+
     #region Pagination
 
     public async Task<PaginatedResult<TeachingMode>> GetPaginatedTeachingModesAsync(
@@ -285,7 +308,7 @@ public class TeachingConfigurationService : ITeachingConfigurationService
     }
 
     public async Task<PaginatedResult<TimeSlot>> GetPaginatedTimeSlotsAsync(
-        int pageNumber, int pageSize, int? dayOfWeek = null)
+        int pageNumber, int pageSize)
     {
         var query = _timeSlotRepository.GetTimeSlotsQueryable();
 
@@ -298,6 +321,29 @@ public class TeachingConfigurationService : ITeachingConfigurationService
             .ToListAsync();
 
         return new PaginatedResult<TimeSlot>(items, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<PaginatedResult<DayOfWeekDto>> GetPaginatedDaysOfWeekAsync(
+        int pageNumber, int pageSize)
+    {
+        var query = _dayOfWeekRepository.GetDaysOfWeekQueryable();
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .OrderBy(d => d.OrderIndex)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(d => new DayOfWeekDto
+            {
+                Id = d.Id,
+                NameAr = d.NameAr,
+                NameEn = d.NameEn,
+                OrderIndex = d.OrderIndex
+            })
+            .ToListAsync();
+
+        return new PaginatedResult<DayOfWeekDto>(items, totalCount, pageNumber, pageSize);
     }
 
     #endregion

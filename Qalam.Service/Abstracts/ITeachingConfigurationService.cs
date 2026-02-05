@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Data.Results;
@@ -36,13 +37,20 @@ public interface ITeachingConfigurationService
     Task<bool> DeleteTimeSlotAsync(int id);
     Task<bool> ToggleTimeSlotStatusAsync(int id);
 
+    // Day of Week Operations
+    IQueryable<DayOfWeekMaster> GetDaysOfWeekQueryable();
+    IQueryable<DayOfWeekMaster> GetActiveDaysOfWeekQueryable();
+    Task<DayOfWeekMaster> GetDayOfWeekByIdAsync(int id);
+
     // Pagination
     Task<PaginatedResult<TeachingMode>> GetPaginatedTeachingModesAsync(
         int pageNumber, int pageSize, string? search = null);
     Task<PaginatedResult<SessionType>> GetPaginatedSessionTypesAsync(
         int pageNumber, int pageSize, string? search = null);
     Task<PaginatedResult<TimeSlot>> GetPaginatedTimeSlotsAsync(
-        int pageNumber, int pageSize, int? dayOfWeek = null);
+        int pageNumber, int pageSize);
+    Task<PaginatedResult<DayOfWeekDto>> GetPaginatedDaysOfWeekAsync(
+        int pageNumber, int pageSize);
 
     // Validation
     Task<bool> IsTeachingModeCodeUniqueAsync(string code, int? excludeId = null);

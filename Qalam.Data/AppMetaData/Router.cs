@@ -135,6 +135,10 @@ namespace Qalam.Data.AppMetaData
         // Time Slots
         public const string TimeSlots = Teaching + "/TimeSlots";
         public const string TimeSlotById = TimeSlots + SignleRoute;
+
+        // Days of Week
+        public const string DaysOfWeek = Teaching + "/DaysOfWeek";
+        public const string DayOfWeekById = DaysOfWeek + SignleRoute;
         #endregion
     }
 }
