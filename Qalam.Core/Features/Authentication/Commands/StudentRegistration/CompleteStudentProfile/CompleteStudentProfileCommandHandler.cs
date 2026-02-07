@@ -11,12 +11,15 @@ public class CompleteStudentProfileCommandHandler : ResponseHandler,
     IRequestHandler<CompleteStudentProfileCommand, Response<StudentRegistrationResponseDto>>
 {
     private readonly IStudentRepository _studentRepository;
+    private readonly IGuardianRepository _guardianRepository;
 
     public CompleteStudentProfileCommandHandler(
         IStudentRepository studentRepository,
+        IGuardianRepository guardianRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
+        _guardianRepository = guardianRepository;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -36,10 +39,20 @@ public class CompleteStudentProfileCommandHandler : ResponseHandler,
         await _studentRepository.UpdateAsync(student);
         await _studentRepository.SaveChangesAsync();
 
+        // Check if user also has Guardian role
+        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+        var optionalSteps = guardian != null ? new List<string> { "AddChildren" } : new List<string>();
+        var description = guardian != null 
+            ? "Profile completed! You can add children or go to dashboard." 
+            : "Profile completed successfully!";
+
         return Success(entity: new StudentRegistrationResponseDto
         {
-            CurrentStep = 2,
+            CurrentStep = 3,
             NextStepName = "Dashboard",
+            IsNextStepRequired = false,
+            OptionalSteps = optionalSteps,
+            NextStepDescription = description,
             IsRegistrationComplete = true,
             Message = "Academic profile saved successfully."
         });

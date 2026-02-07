@@ -61,15 +61,35 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
             var jwtResult = await _authService.GetJWTToken(existingUser);
             var roles = await _userManager.GetRolesAsync(existingUser);
             var hasStudentOrGuardianRole = roles.Contains(Roles.Student) || roles.Contains(Roles.Guardian);
-            var nextStepName = hasStudentOrGuardianRole ? "Dashboard" : "ChooseAccountType";
-            var isComplete = hasStudentOrGuardianRole;
+            
+            // If user already has Student or Guardian role, send to dashboard
+            if (hasStudentOrGuardianRole)
+            {
+                return Success(entity: new StudentRegistrationResponseDto
+                {
+                    Token = jwtResult.AccessToken,
+                    CurrentStep = 1,
+                    NextStepName = "Dashboard",
+                    IsNextStepRequired = false,
+                    OptionalSteps = new List<string>(),
+                    NextStepDescription = "Welcome back!",
+                    IsRegistrationComplete = true,
+                    Message = "Signed in successfully."
+                });
+            }
+            
+            // User has other roles (e.g., Teacher) but not Student/Guardian
+            // Allow them to add Student/Guardian role
             return Success(entity: new StudentRegistrationResponseDto
             {
                 Token = jwtResult.AccessToken,
-                CurrentStep = isComplete ? 1 : 1,
-                NextStepName = nextStepName,
-                IsRegistrationComplete = isComplete,
-                Message = isComplete ? "Signed in successfully." : "Verified. Choose account type next."
+                CurrentStep = 1,
+                NextStepName = "ChooseAccountType",
+                IsNextStepRequired = true,
+                OptionalSteps = new List<string>(),
+                NextStepDescription = "Choose account type to add student/parent capabilities.",
+                IsRegistrationComplete = false,
+                Message = "Verified. Choose account type to add student/parent capabilities."
             });
         }
 
@@ -88,17 +108,17 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
 
         await MarkOtpUsedIfNeeded(request.PhoneNumber, request.OtpCode, user.Id);
 
-        var passwordSetupToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-
         var jwt = await _authService.GetJWTToken(user);
         return Success(entity: new StudentRegistrationResponseDto
         {
             Token = jwt.AccessToken,
             CurrentStep = 1,
             NextStepName = "ChooseAccountType",
+            IsNextStepRequired = true,
+            OptionalSteps = new List<string>(),
+            NextStepDescription = "Choose your account type and complete profile.",
             IsRegistrationComplete = false,
-            Message = "Verified. Choose account type and complete profile.",
-            PasswordSetupToken = passwordSetupToken
+            Message = "Verified. Choose account type and complete profile."
         });
     }
 

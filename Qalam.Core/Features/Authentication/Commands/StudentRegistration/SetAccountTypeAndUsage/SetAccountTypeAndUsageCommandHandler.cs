@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
+using Qalam.Core.Extensions;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Student;
@@ -42,7 +43,24 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         if (user == null)
             return NotFound<StudentRegistrationResponseDto>("User not found.");
 
-        var dto = request.Data;
+        // Convert string to enum
+        var accountType = request.Data.AccountType.ToStudentAccountType();
+        var usageMode = !string.IsNullOrEmpty(request.Data.UsageMode)
+            ? request.Data.UsageMode.ToUsageMode()
+            : (UsageMode?)null;
+
+        // Create internal DTO with enum values
+        var dto = new SetAccountTypeAndUsageDto
+        {
+            AccountType = accountType,
+            UsageMode = usageMode,
+            FirstName = request.Data.FirstName,
+            LastName = request.Data.LastName,
+            Email = request.Data.Email,
+            Password = request.Data.Password,
+            CityOrRegion = request.Data.CityOrRegion,
+            DateOfBirth = request.Data.DateOfBirth
+        };
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var age = today.Year - dto.DateOfBirth.Year;
@@ -52,21 +70,29 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
 
         var existingStudent = await _studentRepository.GetByUserIdAsync(user.Id);
         var existingGuardian = await _guardianRepository.GetByUserIdAsync(user.Id);
-        if (existingStudent != null && existingGuardian != null)
+
+        // Check if requested roles are already set up
+        bool studentAlreadyExists = existingStudent != null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both);
+        bool guardianAlreadyExists = existingGuardian != null && (accountType == StudentAccountType.Parent || accountType == StudentAccountType.Both);
+
+        // If all requested roles exist, user is done
+        if ((accountType == StudentAccountType.Student && studentAlreadyExists) ||
+            (accountType == StudentAccountType.Parent && guardianAlreadyExists) ||
+            (accountType == StudentAccountType.Both && studentAlreadyExists && guardianAlreadyExists))
+        {
+            // Regenerate token to include all current roles
+            var jwtToken = await _authService.GetJWTToken(user);
             return Success(entity: new StudentRegistrationResponseDto
             {
+                Token = jwtToken.AccessToken,
                 CurrentStep = 1,
                 NextStepName = "Dashboard",
+                IsNextStepRequired = false,
+                OptionalSteps = new List<string>(),
+                NextStepDescription = "You're all set!",
                 IsRegistrationComplete = true,
-                Message = "Account already set up."
+                Message = "Account already set up with requested roles."
             });
-
-        if (!string.IsNullOrEmpty(dto.PasswordSetupToken))
-        {
-            var resetResult = await _userManager.ResetPasswordAsync(user, dto.PasswordSetupToken, dto.Password);
-            if (!resetResult.Succeeded)
-                return BadRequest<StudentRegistrationResponseDto>(
-                    string.Join("; ", resetResult.Errors.Select(e => e.Description)));
         }
 
         user.FirstName = dto.FirstName;
@@ -75,7 +101,6 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         user.Address = dto.CityOrRegion;
         await _userManager.UpdateAsync(user);
 
-        var accountType = dto.AccountType;
         if (existingStudent == null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both))
             await _userManager.AddToRoleAsync(user, Roles.Student);
         if (existingGuardian == null && (accountType == StudentAccountType.Parent || accountType == StudentAccountType.Both))
@@ -110,8 +135,49 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             await _guardianRepository.SaveChangesAsync();
         }
 
-        string nextStepName = accountType == StudentAccountType.Parent ? "AddChildren" : "CompleteAcademicProfile";
-        if (accountType == StudentAccountType.Both) nextStepName = "CompleteAcademicProfile";
+        // Smart logic to determine next step based on AccountType and UsageMode
+        string nextStepName;
+        bool isNextStepRequired;
+        List<string> optionalSteps = new();
+        string nextStepDescription;
+
+        if (accountType == StudentAccountType.Student)
+        {
+            nextStepName = "CompleteAcademicProfile";
+            isNextStepRequired = true;
+            nextStepDescription = "Complete your academic profile to start.";
+        }
+        else if (accountType == StudentAccountType.Parent)
+        {
+            if (usageMode == UsageMode.StudySelf)
+            {
+                nextStepName = "CompleteAcademicProfile";
+                isNextStepRequired = true;
+                optionalSteps.Add("AddChildren");
+                nextStepDescription = "Complete your academic profile. You can also add children later.";
+            }
+            else if (usageMode == UsageMode.AddChildren)
+            {
+                nextStepName = "AddChildren";
+                isNextStepRequired = false;
+                optionalSteps.Add("Dashboard");
+                nextStepDescription = "You can add children now or skip to dashboard.";
+            }
+            else // UsageMode.Both
+            {
+                nextStepName = "CompleteAcademicProfile";
+                isNextStepRequired = true;
+                optionalSteps.Add("AddChildren");
+                nextStepDescription = "Complete your academic profile first, then you can add children.";
+            }
+        }
+        else // StudentAccountType.Both
+        {
+            nextStepName = "CompleteAcademicProfile";
+            isNextStepRequired = true;
+            optionalSteps.Add("AddChildren");
+            nextStepDescription = "Complete your academic profile. You can add children anytime.";
+        }
 
         var jwt = await _authService.GetJWTToken(user);
         return Success(entity: new StudentRegistrationResponseDto
@@ -119,8 +185,11 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             Token = jwt.AccessToken,
             CurrentStep = 2,
             NextStepName = nextStepName,
+            IsNextStepRequired = isNextStepRequired,
+            OptionalSteps = optionalSteps,
+            NextStepDescription = nextStepDescription,
             IsRegistrationComplete = false,
-            Message = "Account type set. Complete your profile or add children."
+            Message = "Account type set successfully."
         });
     }
 }

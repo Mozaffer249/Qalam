@@ -68,8 +68,6 @@ public class SetAccountTypeAndUsageDto
     public string LastName { get; set; } = default!;
     public string Email { get; set; } = default!;
     public string Password { get; set; } = default!;
-    /// <summary>From VerifyOtp response when user was just created; required to set password</summary>
-    public string? PasswordSetupToken { get; set; }
     public string? CityOrRegion { get; set; }
     /// <summary>Must be 18+</summary>
     public DateOnly DateOfBirth { get; set; }
@@ -121,12 +119,31 @@ public class StudentRegistrationResponseDto
 {
     public string? Token { get; set; }
     public int CurrentStep { get; set; }
+    
+    /// <summary>
+    /// Primary next step name (e.g., "CompleteAcademicProfile", "AddChildren", "Dashboard")
+    /// </summary>
     public string NextStepName { get; set; } = default!;
+    
+    /// <summary>
+    /// Whether the next step is mandatory or optional
+    /// </summary>
+    public bool IsNextStepRequired { get; set; }
+    
+    /// <summary>
+    /// List of optional steps available to the user (e.g., ["AddChildren"], ["Dashboard"])
+    /// </summary>
+    public List<string> OptionalSteps { get; set; } = new();
+    
+    /// <summary>
+    /// Clear description of what the user should do next
+    /// </summary>
+    public string? NextStepDescription { get; set; }
+    
     public bool IsRegistrationComplete { get; set; }
     public string? Message { get; set; }
-    /// <summary>When VerifyOtp creates a new user; client sends this back with SetAccountTypeAndUsage to set password</summary>
-    public string? PasswordSetupToken { get; set; }
 }
+
 
 /// <summary>
 /// Response for SendOtp (Screen 1 - phone only). IsNewUser and message indicate login vs registration path.

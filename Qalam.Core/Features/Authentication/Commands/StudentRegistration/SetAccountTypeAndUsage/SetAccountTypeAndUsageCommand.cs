@@ -13,5 +13,9 @@ public class SetAccountTypeAndUsageCommand : IRequest<Response<StudentRegistrati
 {
     [BindNever]
     public int UserId { get; set; }
-    public SetAccountTypeAndUsageDto Data { get; set; } = null!;
+    
+    /// <summary>
+    /// Request data with string-based enum values
+    /// </summary>
+    public SetAccountTypeAndUsageRequestDto Data { get; set; } = null!;
 }
