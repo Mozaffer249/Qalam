@@ -27,6 +27,11 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     Task<bool> TeacherHasSubjectAsync(int teacherId, int subjectId);
     
     /// <summary>
+    /// Check if teacher has any subjects (optimized - doesn't retrieve data)
+    /// </summary>
+    Task<bool> HasAnySubjectsAsync(int teacherId);
+    
+    /// <summary>
     /// Remove all subjects for a teacher
     /// </summary>
     Task RemoveAllTeacherSubjectsAsync(int teacherId);

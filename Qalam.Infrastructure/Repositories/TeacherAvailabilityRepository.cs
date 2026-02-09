@@ -32,6 +32,12 @@ public class TeacherAvailabilityRepository : GenericRepositoryAsync<TeacherAvail
             .ToListAsync();
     }
 
+    public async Task<bool> HasAnyAvailabilityAsync(int teacherId)
+    {
+        return await _teacherAvailability
+            .AnyAsync(ta => ta.TeacherId == teacherId && ta.IsActive);
+    }
+
     public async Task<List<TeacherAvailabilityException>> GetTeacherExceptionsAsync(int teacherId, DateOnly? fromDate = null, DateOnly? toDate = null)
     {
         var query = _teacherAvailabilityExceptions

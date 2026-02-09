@@ -113,6 +113,12 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .AnyAsync(ts => ts.TeacherId == teacherId && ts.SubjectId == subjectId && ts.IsActive);
     }
 
+    public async Task<bool> HasAnySubjectsAsync(int teacherId)
+    {
+        return await _teacherSubjects
+            .AnyAsync(ts => ts.TeacherId == teacherId && ts.IsActive);
+    }
+
     public async Task RemoveAllTeacherSubjectsAsync(int teacherId)
     {
         var existingSubjects = await _teacherSubjects

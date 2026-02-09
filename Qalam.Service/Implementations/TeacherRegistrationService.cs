@@ -17,19 +17,25 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly IAuthenticationService _authService;
     private readonly ILogger<TeacherRegistrationService> _logger;
+    private readonly ITeacherSubjectRepository _subjectRepository;
+    private readonly ITeacherAvailabilityRepository _availabilityRepository;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
         ITeacherRepository teacherRepository,
         ITeacherDocumentRepository documentRepository,
         IAuthenticationService authService,
-        ILogger<TeacherRegistrationService> logger)
+        ILogger<TeacherRegistrationService> logger,
+        ITeacherSubjectRepository subjectRepository,
+        ITeacherAvailabilityRepository availabilityRepository)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
         _authService = authService;
         _logger = logger;
+        _subjectRepository = subjectRepository;
+        _availabilityRepository = availabilityRepository;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber)
@@ -210,12 +216,40 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 };
 
             case TeacherStatus.Active:
+                // Check if teacher has added subjects
+                if (!await _subjectRepository.HasAnySubjectsAsync(teacher.Id))
+                {
+                    return new RegistrationStepDto
+                    {
+                        CurrentStep = 4,
+                        NextStep = 5,
+                        NextStepName = "Add Teaching Subjects and Units",
+                        IsRegistrationComplete = false,
+                        Message = "Your account is approved! Please add the subjects and content units you can teach."
+                    };
+                }
+
+                // Check if teacher has set availability
+                if (!await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id))
+                {
+                    return new RegistrationStepDto
+                    {
+                        CurrentStep = 5,
+                        NextStep = 6,
+                        NextStepName = "Set Your Availability",
+                        IsRegistrationComplete = false,
+                        Message = "Great! Now set your weekly availability so students can book sessions with you."
+                    };
+                }
+
+                // All setup complete
                 return new RegistrationStepDto
                 {
-                    CurrentStep = 4,
+                    CurrentStep = 6,
                     NextStep = 0,
                     NextStepName = "Registration Complete",
-                    IsRegistrationComplete = true
+                    IsRegistrationComplete = true,
+                    Message = "Your profile is complete! You can now start accepting students."
                 };
 
             case TeacherStatus.Blocked:

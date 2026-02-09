@@ -12,6 +12,11 @@ public interface ITeacherAvailabilityRepository : IGenericRepositoryAsync<Teache
     Task<List<TeacherAvailability>> GetTeacherAvailabilityAsync(int teacherId);
 
     /// <summary>
+    /// Check if teacher has any availability slots (optimized - doesn't retrieve data)
+    /// </summary>
+    Task<bool> HasAnyAvailabilityAsync(int teacherId);
+
+    /// <summary>
     /// Get teacher availability exceptions with optional date filtering
     /// </summary>
     Task<List<TeacherAvailabilityException>> GetTeacherExceptionsAsync(int teacherId, DateOnly? fromDate = null, DateOnly? toDate = null);
