@@ -45,6 +45,9 @@ namespace Qalam.Infrastructure
             services.AddTransient<IStudentRepository, StudentRepository>();
             services.AddTransient<IGuardianRepository, GuardianRepository>();
 
+            // Course Repositories
+            services.AddTransient<ICourseRepository, CourseRepository>();
+
             // Common Repositories
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();
             services.AddTransient<IDayOfWeekRepository, DayOfWeekRepository>();

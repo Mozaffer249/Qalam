@@ -128,6 +128,11 @@ namespace Qalam.Data.AppMetaData
         public const string QuranContentTypes = Quran + "/ContentTypes";
         #endregion
 
+        #region Course
+        public const string Courses = Rule + "Courses";
+        public const string CourseById = Courses + SignleRoute;
+        #endregion
+
         #region Teaching
         public const string Teaching = Rule + "Teaching";
 
