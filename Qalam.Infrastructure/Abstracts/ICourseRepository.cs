@@ -19,4 +19,9 @@ public interface ICourseRepository : IGenericRepositoryAsync<Course>
     /// Gets courses for a specific teacher with filtering and pagination
     /// </summary>
     IQueryable<Course> GetTeacherCoursesQueryable(int teacherId);
+
+    /// <summary>
+    /// Gets published, active courses for student catalog (Status == Published, IsActive == true).
+    /// </summary>
+    IQueryable<Course> GetPublishedCoursesQueryable();
 }

@@ -140,6 +140,28 @@ namespace Qalam.Data.AppMetaData
         public const string CourseById = Courses + SingleRoute;
         #endregion
 
+        #region Teacher
+        /// <summary>Base route for teacher course management: Api/V1/Teacher/TeacherCourse</summary>
+        public const string TeacherCourse = Rule + "Teacher/TeacherCourse";
+        /// <summary>Teacher course by id: Api/V1/Teacher/TeacherCourse/{id}</summary>
+        public const string TeacherCourseById = TeacherCourse + "/{id}";
+        #endregion
+
+        #region Student
+        /// <summary>Student course catalog: Api/V1/Student/Courses</summary>
+        public const string StudentCourses = Rule + "Student/Courses";
+        /// <summary>Student course by id: Api/V1/Student/Courses/{id}</summary>
+        public const string StudentCourseById = StudentCourses + "/{id}";
+        /// <summary>Student enrollment requests: Api/V1/Student/EnrollmentRequests</summary>
+        public const string StudentEnrollmentRequests = Rule + "Student/EnrollmentRequests";
+        /// <summary>Student enrollment request by id: Api/V1/Student/EnrollmentRequests/{id}</summary>
+        public const string StudentEnrollmentRequestById = StudentEnrollmentRequests + "/{id}";
+        /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
+        public const string StudentEnrollments = Rule + "Student/Enrollments";
+        /// <summary>Student enrollment by id: Api/V1/Student/Enrollments/{id}</summary>
+        public const string StudentEnrollmentById = StudentEnrollments + "/{id}";
+        #endregion
+
         #region Teaching
         public const string Teaching = Rule + "Teaching";
 

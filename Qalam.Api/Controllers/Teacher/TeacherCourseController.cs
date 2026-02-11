@@ -17,12 +17,17 @@ namespace Qalam.Api.Controllers.Teacher;
 /// </summary>
 [Authorize(Roles = Roles.Teacher)]
 [ApiController]
-[Route("Api/V1/Teacher/[controller]")]
+[Route(Router.TeacherCourse)]
 public class TeacherCourseController : AppControllerBase
 {
     /// <summary>
     /// Get paginated list of the current teacher's courses.
     /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Teacher/TeacherCourse
+    /// Sample query: ?PageNumber=1&amp;PageSize=10&amp;DomainId=1&amp;Status=0&amp;SubjectId=2
+    /// Sample response: { "data": { "items": [...], "pageNumber": 1, "pageSize": 10, "totalCount": 5 }, "succeeded": true }
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedResult<CourseListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCourses([FromQuery] GetCoursesListQuery query)
@@ -33,7 +38,12 @@ public class TeacherCourseController : AppControllerBase
     /// <summary>
     /// Get course by ID (own course only).
     /// </summary>
-    [HttpGet(Router.SingleRoute)]
+    /// <remarks>
+    /// GET Api/V1/Teacher/TeacherCourse/{id}
+    /// Sample: GET Api/V1/Teacher/TeacherCourse/1
+    /// Sample response: { "data": { "id": 1, "title": "Math Grade 10", "description": "...", "price": 500, "status": 0, ... }, "succeeded": true }
+    /// </remarks>
+    [HttpGet("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCourseById(int id)
@@ -45,6 +55,25 @@ public class TeacherCourseController : AppControllerBase
     /// <summary>
     /// Create a new course (Draft).
     /// </summary>
+    /// <remarks>
+    /// POST Api/V1/Teacher/TeacherCourse
+    /// Sample request body:
+    /// <code>
+    /// {
+    ///   "title": "Mathematics - Grade 10",
+    ///   "description": "Full curriculum algebra and geometry.",
+    ///   "teacherSubjectId": 1,
+    ///   "teachingModeId": 1,
+    ///   "sessionTypeId": 1,
+    ///   "isFlexible": false,
+    ///   "sessionsCount": 12,
+    ///   "sessionDurationMinutes": 45,
+    ///   "price": 500,
+    ///   "maxStudents": 15,
+    ///   "canIncludeInPackages": true
+    /// }
+    /// </code>
+    /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -57,7 +86,12 @@ public class TeacherCourseController : AppControllerBase
     /// <summary>
     /// Update an existing course.
     /// </summary>
-    [HttpPut(Router.SingleRoute)]
+    /// <remarks>
+    /// PUT Api/V1/Teacher/TeacherCourse/{id}
+    /// Sample: PUT Api/V1/Teacher/TeacherCourse/1
+    /// Sample request body: same as Create (title, description, teacherSubjectId, teachingModeId, sessionTypeId, isFlexible, sessionsCount, sessionDurationMinutes, price, maxStudents, canIncludeInPackages).
+    /// </remarks>
+    [HttpPut("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -70,7 +104,8 @@ public class TeacherCourseController : AppControllerBase
     /// <summary>
     /// Delete a course (soft if has enrollments, hard otherwise).
     /// </summary>
-    [HttpDelete(Router.SingleRoute)]
+    /// <remarks>DELETE Api/V1/Teacher/TeacherCourse/{id}. Sample: DELETE Api/V1/Teacher/TeacherCourse/1</remarks>
+    [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteCourse(int id)

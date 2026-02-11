@@ -58,4 +58,23 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Where(c => c.TeacherId == teacherId)
             .OrderByDescending(c => c.CreatedAt);
     }
+
+    public IQueryable<Course> GetPublishedCoursesQueryable()
+    {
+        return _courses
+            .AsNoTracking()
+            .Where(c => c.Status == CourseStatus.Published && c.IsActive)
+            .Include(c => c.TeacherSubject)
+                .ThenInclude(ts => ts.Subject)
+                    .ThenInclude(s => s.Domain)
+            .Include(c => c.TeacherSubject.Curriculum)
+            .Include(c => c.TeacherSubject.Level)
+            .Include(c => c.TeacherSubject.Grade)
+            .Include(c => c.TeachingMode)
+            .Include(c => c.SessionType)
+            .Include(c => c.Teacher)
+                .ThenInclude(t => t.User)
+            .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .OrderByDescending(c => c.CreatedAt);
+    }
 }
