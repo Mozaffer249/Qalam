@@ -21,7 +21,7 @@ public class TeacherSubjectController : AppControllerBase
     /// </summary>
     /// <returns>List of subjects with their units and Quran specialization</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(TeacherSubjectsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<TeacherSubjectResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTeacherSubjects()

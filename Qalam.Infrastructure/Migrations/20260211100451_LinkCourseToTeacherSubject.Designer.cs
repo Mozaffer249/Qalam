@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Qalam.Infrastructure.context;
 
@@ -11,9 +12,11 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDBContext))]
-    partial class ApplicationDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260211100451_LinkCourseToTeacherSubject")]
+    partial class LinkCourseToTeacherSubject
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -348,6 +351,9 @@ namespace Qalam.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -370,6 +376,9 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.Property<int?>("SessionsCount")
                         .HasColumnType("int");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -403,6 +412,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("TeacherId");
 
                     b.HasIndex("TeacherSubjectId");
+
+                    b.HasIndex("StartDate", "EndDate");
 
                     b.HasIndex("Status", "IsActive");
 

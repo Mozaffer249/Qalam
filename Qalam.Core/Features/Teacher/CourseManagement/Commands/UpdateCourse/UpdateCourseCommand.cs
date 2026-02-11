@@ -4,11 +4,12 @@ using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Course;
 
-namespace Qalam.Core.Features.Course.Queries.GetCourseById;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
 
-public class GetCourseByIdQuery : IRequest<Response<CourseDetailDto>>, IAuthenticatedRequest
+public class UpdateCourseCommand : IRequest<Response<CourseDetailDto>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }
     public int Id { get; set; }
+    public UpdateCourseDto Data { get; set; } = null!;
 }

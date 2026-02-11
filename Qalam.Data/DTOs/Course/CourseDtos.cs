@@ -9,11 +9,7 @@ public class CreateCourseDto
 {
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
-    public int DomainId { get; set; }
-    public int SubjectId { get; set; }
-    public int? CurriculumId { get; set; }
-    public int? LevelId { get; set; }
-    public int? GradeId { get; set; }
+    public int TeacherSubjectId { get; set; }
     public int TeachingModeId { get; set; }
     public int SessionTypeId { get; set; }
     public bool IsFlexible { get; set; }
@@ -22,8 +18,6 @@ public class CreateCourseDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
-    public DateOnly? StartDate { get; set; }
-    public DateOnly? EndDate { get; set; }
 }
 
 /// <summary>
@@ -33,11 +27,7 @@ public class UpdateCourseDto
 {
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
-    public int DomainId { get; set; }
-    public int SubjectId { get; set; }
-    public int? CurriculumId { get; set; }
-    public int? LevelId { get; set; }
-    public int? GradeId { get; set; }
+    public int TeacherSubjectId { get; set; }
     public int TeachingModeId { get; set; }
     public int SessionTypeId { get; set; }
     public bool IsFlexible { get; set; }
@@ -46,8 +36,6 @@ public class UpdateCourseDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
-    public DateOnly? StartDate { get; set; }
-    public DateOnly? EndDate { get; set; }
 }
 
 /// <summary>
@@ -70,8 +58,6 @@ public class CourseListItemDto
     public CourseStatus Status { get; set; }
     public bool IsActive { get; set; }
     public decimal Price { get; set; }
-    public DateOnly? StartDate { get; set; }
-    public DateOnly? EndDate { get; set; }
 }
 
 /// <summary>
@@ -83,8 +69,6 @@ public class CourseDetailDto
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
     public bool IsActive { get; set; }
-    public DateOnly? StartDate { get; set; }
-    public DateOnly? EndDate { get; set; }
     public int TeacherId { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int DomainId { get; set; }

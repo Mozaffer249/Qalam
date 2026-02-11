@@ -9,7 +9,7 @@ using Qalam.Infrastructure.Abstracts;
 namespace Qalam.Core.Features.Teacher.Queries.GetTeacherSubjects;
 
 public class GetTeacherSubjectsQueryHandler : ResponseHandler,
-    IRequestHandler<GetTeacherSubjectsQuery, Response<TeacherSubjectsResponseDto>>
+    IRequestHandler<GetTeacherSubjectsQuery, Response<List<TeacherSubjectResponseDto>>>
 {
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
@@ -26,7 +26,7 @@ public class GetTeacherSubjectsQueryHandler : ResponseHandler,
         _mapper = mapper;
     }
 
-    public async Task<Response<TeacherSubjectsResponseDto>> Handle(
+    public async Task<Response<List<TeacherSubjectResponseDto>>> Handle(
         GetTeacherSubjectsQuery request,
         CancellationToken cancellationToken)
     {
@@ -34,19 +34,15 @@ public class GetTeacherSubjectsQueryHandler : ResponseHandler,
         var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
         if (teacher == null)
         {
-            return NotFound<TeacherSubjectsResponseDto>("Teacher not found");
+            return NotFound<List<TeacherSubjectResponseDto>>("Teacher not found");
         }
 
         // Get subjects with units
         var subjects = await _teacherSubjectRepository.GetTeacherSubjectsWithUnitsAsync(teacher.Id);
 
         // Map to response DTO using AutoMapper
-        var response = new TeacherSubjectsResponseDto
-        {
-            TeacherId = teacher.Id,
-            Subjects = _mapper.Map<List<TeacherSubjectResponseDto>>(subjects)
-        };
+        var subjectsList = _mapper.Map<List<TeacherSubjectResponseDto>>(subjects);
 
-        return Success(entity: response);
+        return Success(entity: subjectsList);
     }
 }

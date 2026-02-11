@@ -9,7 +9,7 @@ namespace Qalam.Core.Features.Teacher.Queries.GetTeacherSubjects;
 /// <summary>
 /// Query to get all subjects with units for a teacher
 /// </summary>
-public class GetTeacherSubjectsQuery : IRequest<Response<TeacherSubjectsResponseDto>>, IAuthenticatedRequest
+public class GetTeacherSubjectsQuery : IRequest<Response<List<TeacherSubjectResponseDto>>>, IAuthenticatedRequest
 {
     /// <summary>
     /// Automatically populated by UserIdentityBehavior from JWT token.

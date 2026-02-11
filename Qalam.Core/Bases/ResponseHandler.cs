@@ -49,6 +49,15 @@ namespace Qalam.Core.Bases
                 Message = Message ?? _sharedLocalizer?[SharedResourcesKeys.UnAuthorized] ?? "Unauthorized"
             };
         }
+        public Response<T> Forbidden<T>(string? Message = null)
+        {
+            return new Response<T>()
+            {
+                StatusCode = System.Net.HttpStatusCode.Forbidden,
+                Succeeded = false,
+                Message = Message ?? "Access denied"
+            };
+        }
         public Response<T> BadRequest<T>(string? Message = null)
         {
             return new Response<T>()

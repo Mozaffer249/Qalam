@@ -6,7 +6,7 @@ using Qalam.Data.Entity.Common.Enums;
 using CourseEntity = Qalam.Data.Entity.Course.Course;
 using Qalam.Infrastructure.Abstracts;
 
-namespace Qalam.Core.Features.Course.Commands.DeleteCourse;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
 
 public class DeleteCourseCommandHandler : ResponseHandler,
     IRequestHandler<DeleteCourseCommand, Response<string>>
@@ -29,13 +29,16 @@ public class DeleteCourseCommandHandler : ResponseHandler,
     {
         var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
         if (teacher == null)
-            return NotFound<string>("Teacher not found.");
+            return Unauthorized<string>("Not authorized.");
+        
+        if (teacher.Status != TeacherStatus.Active)
+            return BadRequest<string>("Teacher account is not active.");
 
         var course = await _courseRepository.GetByIdAsync(request.Id) as CourseEntity;
         if (course == null)
             return NotFound<string>("Course not found.");
         if (course.TeacherId != teacher.Id)
-            return NotFound<string>("Course not found.");
+            return Forbidden<string>("Access denied.");
 
         var hasEnrollments = await _courseRepository.HasEnrollmentsAsync(course.Id);
 

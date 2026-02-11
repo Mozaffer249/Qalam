@@ -28,28 +28,12 @@ public class Course : AuditableEntity
     /// </summary>
     public bool IsActive { get; set; } = true;
     
-    /// <summary>
-    /// تاريخ بداية الدورة
-    /// </summary>
-    public DateOnly? StartDate { get; set; }
-    
-    /// <summary>
-    /// تاريخ نهاية الدورة
-    /// </summary>
-    public DateOnly? EndDate { get; set; }
-    
     public int TeacherId { get; set; }
     
     /// <summary>
-    /// المجال التعليمي
+    /// المادة المحددة من المعلم (مع المنهج والمستوى والصف والوحدات)
     /// </summary>
-    public int DomainId { get; set; }
-    
-    // المحتوى التعليمي
-    public int SubjectId { get; set; }
-    public int? CurriculumId { get; set; }
-    public int? LevelId { get; set; }
-    public int? GradeId { get; set; }
+    public int TeacherSubjectId { get; set; }
     
     /// <summary>
     /// طريقة التدريس (حضوري/عن بعد)
@@ -95,17 +79,62 @@ public class Course : AuditableEntity
     
     // Navigation Properties
     public Teacher.Teacher Teacher { get; set; } = null!;
-    public EducationDomain Domain { get; set; } = null!;
-    public Subject Subject { get; set; } = null!;
-    public Curriculum? Curriculum { get; set; }
-    public EducationLevel? Level { get; set; }
-    public Grade? Grade { get; set; }
+    public Teacher.TeacherSubject TeacherSubject { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
     public SessionType SessionType { get; set; } = null!;
     
     public ICollection<CourseSession> CourseSessions { get; set; } = new List<CourseSession>();
     public ICollection<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; } = new List<CourseEnrollmentRequest>();
     public ICollection<CourseEnrollment> CourseEnrollments { get; set; } = new List<CourseEnrollment>();
+    
+    // Computed Properties (محسوبة من TeacherSubject)
+    
+    /// <summary>
+    /// المجال التعليمي (محسوب من TeacherSubject)
+    /// </summary>
+    [NotMapped]
+    public int DomainId => TeacherSubject?.Subject?.DomainId ?? 0;
+    
+    /// <summary>
+    /// المادة (محسوبة من TeacherSubject)
+    /// </summary>
+    [NotMapped]
+    public int SubjectId => TeacherSubject?.SubjectId ?? 0;
+    
+    /// <summary>
+    /// المنهج (محسوب من TeacherSubject)
+    /// </summary>
+    [NotMapped]
+    public int? CurriculumId => TeacherSubject?.CurriculumId;
+    
+    /// <summary>
+    /// المستوى (محسوب من TeacherSubject)
+    /// </summary>
+    [NotMapped]
+    public int? LevelId => TeacherSubject?.LevelId;
+    
+    /// <summary>
+    /// الصف (محسوب من TeacherSubject)
+    /// </summary>
+    [NotMapped]
+    public int? GradeId => TeacherSubject?.GradeId;
+    
+    // Navigation Properties للعرض (محسوبة من TeacherSubject)
+    
+    [NotMapped]
+    public EducationDomain? Domain => TeacherSubject?.Subject?.Domain;
+    
+    [NotMapped]
+    public Subject? Subject => TeacherSubject?.Subject;
+    
+    [NotMapped]
+    public Curriculum? Curriculum => TeacherSubject?.Curriculum;
+    
+    [NotMapped]
+    public EducationLevel? Level => TeacherSubject?.Level;
+    
+    [NotMapped]
+    public Grade? Grade => TeacherSubject?.Grade;
     
     /// <summary>
     /// المقاعد المتاحة (للجلسات الجماعية) - غير مخزنة في قاعدة البيانات

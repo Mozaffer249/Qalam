@@ -1,7 +1,7 @@
 using FluentValidation;
 using Qalam.Data.DTOs.Course;
 
-namespace Qalam.Core.Features.Course.Commands.UpdateCourse;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
 
 public class UpdateCourseCommandValidator : AbstractValidator<UpdateCourseCommand>
 {
@@ -11,8 +11,10 @@ public class UpdateCourseCommandValidator : AbstractValidator<UpdateCourseComman
         RuleFor(x => x.Data).NotNull();
         RuleFor(x => x.Data.Title).NotEmpty().MaximumLength(200).When(x => x.Data != null);
         RuleFor(x => x.Data.Description).MaximumLength(2000).When(x => x.Data != null);
-        RuleFor(x => x.Data.DomainId).GreaterThan(0).When(x => x.Data != null);
-        RuleFor(x => x.Data.SubjectId).GreaterThan(0).When(x => x.Data != null);
+        RuleFor(x => x.Data.TeacherSubjectId)
+            .GreaterThan(0)
+            .When(x => x.Data != null)
+            .WithMessage("Please select a subject from your profile");
         RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.SessionTypeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.Price).GreaterThanOrEqualTo(0).When(x => x.Data != null);

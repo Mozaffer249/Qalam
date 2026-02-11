@@ -1,24 +1,24 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
-using Qalam.Core.Features.Course.Commands.CreateCourse;
-using Qalam.Core.Features.Course.Commands.DeleteCourse;
-using Qalam.Core.Features.Course.Commands.UpdateCourse;
-using Qalam.Core.Features.Course.Queries.GetCourseById;
-using Qalam.Core.Features.Course.Queries.GetCoursesList;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.CreateCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
+using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCoursesList;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Results;
 
-namespace Qalam.Api.Controllers.Course;
+namespace Qalam.Api.Controllers.Teacher;
 
 /// <summary>
-/// Course management: teacher creates, updates, deletes and lists their own courses.
+/// Teacher course management: teachers create, update, delete and list their own courses.
 /// </summary>
 [Authorize(Roles = Roles.Teacher)]
 [ApiController]
-[Route(Router.Courses)]
-public class CourseController : AppControllerBase
+[Route("Api/V1/Teacher/[controller]")]
+public class TeacherCourseController : AppControllerBase
 {
     /// <summary>
     /// Get paginated list of the current teacher's courses.
@@ -33,7 +33,7 @@ public class CourseController : AppControllerBase
     /// <summary>
     /// Get course by ID (own course only).
     /// </summary>
-    [HttpGet(Router.SignleRoute)]
+    [HttpGet(Router.SingleRoute)]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCourseById(int id)
@@ -48,28 +48,29 @@ public class CourseController : AppControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command)
+    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseDto dto)
     {
+        var command = new CreateCourseCommand { Data = dto };
         return NewResult(await Mediator.Send(command));
     }
 
     /// <summary>
     /// Update an existing course.
     /// </summary>
-    [HttpPut(Router.SignleRoute)]
+    [HttpPut(Router.SingleRoute)]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateCourse(int id, [FromBody] UpdateCourseCommand command)
+    public async Task<IActionResult> UpdateCourse(int id, [FromBody] UpdateCourseDto dto)
     {
-        command.Id = id;
+        var command = new UpdateCourseCommand { Id = id, Data = dto };
         return NewResult(await Mediator.Send(command));
     }
 
     /// <summary>
     /// Delete a course (soft if has enrollments, hard otherwise).
     /// </summary>
-    [HttpDelete(Router.SignleRoute)]
+    [HttpDelete(Router.SingleRoute)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteCourse(int id)

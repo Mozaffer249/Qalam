@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 
-namespace Qalam.Core.Features.Course.Commands.DeleteCourse;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
 
 public class DeleteCourseCommand : IRequest<Response<string>>, IAuthenticatedRequest
 {

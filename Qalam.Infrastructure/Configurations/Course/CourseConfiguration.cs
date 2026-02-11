@@ -14,12 +14,10 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         
         // Indexes
         builder.HasIndex(e => e.TeacherId);
-        builder.HasIndex(e => e.DomainId);
-        builder.HasIndex(e => e.SubjectId);
+        builder.HasIndex(e => e.TeacherSubjectId);
         builder.HasIndex(e => e.Status);
         builder.HasIndex(e => new { e.Status, e.IsActive });
         builder.HasIndex(e => new { e.TeachingModeId, e.SessionTypeId });
-        builder.HasIndex(e => new { e.StartDate, e.EndDate });
         
         // Properties
         builder.Property(e => e.Title).HasMaxLength(200).IsRequired();
@@ -42,31 +40,11 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         builder.HasOne(e => e.Teacher)
                .WithMany(t => t.Courses)
                .HasForeignKey(e => e.TeacherId)
-               .OnDelete(DeleteBehavior.Restrict); // Prevent cascade path
-        
-        builder.HasOne(e => e.Domain)
-               .WithMany()
-               .HasForeignKey(e => e.DomainId)
                .OnDelete(DeleteBehavior.Restrict);
         
-        builder.HasOne(e => e.Subject)
+        builder.HasOne(e => e.TeacherSubject)
                .WithMany()
-               .HasForeignKey(e => e.SubjectId)
-               .OnDelete(DeleteBehavior.Restrict);
-        
-        builder.HasOne(e => e.Curriculum)
-               .WithMany()
-               .HasForeignKey(e => e.CurriculumId)
-               .OnDelete(DeleteBehavior.Restrict);
-        
-        builder.HasOne(e => e.Level)
-               .WithMany()
-               .HasForeignKey(e => e.LevelId)
-               .OnDelete(DeleteBehavior.Restrict);
-        
-        builder.HasOne(e => e.Grade)
-               .WithMany()
-               .HasForeignKey(e => e.GradeId)
+               .HasForeignKey(e => e.TeacherSubjectId)
                .OnDelete(DeleteBehavior.Restrict);
         
         builder.HasOne(e => e.TeachingMode)

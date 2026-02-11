@@ -6,7 +6,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
 
-namespace Qalam.Core.Features.Course.Queries.GetCourseById;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
 
 public class GetCourseByIdQueryHandler : ResponseHandler,
     IRequestHandler<GetCourseByIdQuery, Response<CourseDetailDto>>
@@ -29,13 +29,13 @@ public class GetCourseByIdQueryHandler : ResponseHandler,
     {
         var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
         if (teacher == null)
-            return NotFound<CourseDetailDto>("Teacher not found.");
+            return Unauthorized<CourseDetailDto>("Not authorized.");
 
         var course = await _courseRepository.GetByIdWithDetailsAsync(request.Id);
         if (course == null)
             return NotFound<CourseDetailDto>("Course not found.");
         if (course.TeacherId != teacher.Id)
-            return NotFound<CourseDetailDto>("Course not found.");
+            return Forbidden<CourseDetailDto>("Access denied.");
 
         return Success(entity: CourseDtoMapper.MapToDetailDto(course));
     }

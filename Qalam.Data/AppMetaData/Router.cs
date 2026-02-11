@@ -2,7 +2,7 @@ namespace Qalam.Data.AppMetaData
 {
     public static class Router
     {
-        public const string SignleRoute = "/{id}";
+        public const string SingleRoute = "/{id}";
 
         public const string root = "Api";
         public const string version = "V1";
@@ -61,7 +61,7 @@ namespace Qalam.Data.AppMetaData
 
         #region Users
         public const string Users = Rule + "Users";
-        public const string UserById = Users + SignleRoute;
+        public const string UserById = Users + SingleRoute;
         #endregion
 
         #region Education
@@ -69,30 +69,30 @@ namespace Qalam.Data.AppMetaData
 
         // Domains
         public const string EducationDomains = Education + "/Domains";
-        public const string EducationDomainById = EducationDomains + SignleRoute;
+        public const string EducationDomainById = EducationDomains + SingleRoute;
 
         // Levels
         public const string EducationLevels = Education + "/Levels";
-        public const string EducationLevelById = EducationLevels + SignleRoute;
+        public const string EducationLevelById = EducationLevels + SingleRoute;
 
         // Grades
         public const string EducationGrades = Education + "/Grades";
-        public const string EducationGradeById = EducationGrades + SignleRoute;
+        public const string EducationGradeById = EducationGrades + SingleRoute;
 
         // Terms
         public const string EducationTerms = Education + "/Terms";
-        public const string EducationTermById = EducationTerms + SignleRoute;
+        public const string EducationTermById = EducationTerms + SingleRoute;
         #endregion
 
         #region Curriculum
         public const string Curriculum = Rule + "Curriculum";
-        public const string CurriculumById = Curriculum + SignleRoute;
+        public const string CurriculumById = Curriculum + SingleRoute;
         public const string CurriculumLevels = Curriculum + "/{id}/Levels";
         #endregion
 
         #region Subjects
         public const string Subjects = Rule + "Subjects";
-        public const string SubjectById = Subjects + SignleRoute;
+        public const string SubjectById = Subjects + SingleRoute;
         public const string SubjectsByGrade = Subjects + "/Grade/{gradeId}";
         public const string SubjectsByDomain = Subjects + "/Domain/{domainId}";
         #endregion
@@ -102,11 +102,11 @@ namespace Qalam.Data.AppMetaData
 
         // Content Units
         public const string ContentUnits = Content + "/Units";
-        public const string ContentUnitById = ContentUnits + SignleRoute;
+        public const string ContentUnitById = ContentUnits + SingleRoute;
 
         // Lessons
         public const string ContentLessons = Content + "/Lessons";
-        public const string ContentLessonById = ContentLessons + SignleRoute;
+        public const string ContentLessonById = ContentLessons + SingleRoute;
         #endregion
 
         #region Quran
@@ -114,7 +114,7 @@ namespace Qalam.Data.AppMetaData
 
         // Quran Levels
         public const string QuranLevels = Quran + "/Levels";
-        public const string QuranLevelById = QuranLevels + SignleRoute;
+        public const string QuranLevelById = QuranLevels + SingleRoute;
 
         // Quran Parts
         public const string QuranParts = Quran + "/Parts";
@@ -128,9 +128,16 @@ namespace Qalam.Data.AppMetaData
         public const string QuranContentTypes = Quran + "/ContentTypes";
         #endregion
 
-        #region Course
+        #region Course (Deprecated - Use Teacher routes)
+        /// <summary>
+        /// DEPRECATED: Course management has been moved to Teacher-specific routes.
+        /// New route: /Api/V1/Teacher/TeacherCourse
+        /// This constant is kept for backward compatibility only.
+        /// </summary>
+        [Obsolete("Use Teacher/TeacherCourse routes instead. This will be removed in a future version.")]
         public const string Courses = Rule + "Courses";
-        public const string CourseById = Courses + SignleRoute;
+        [Obsolete("Use Teacher/TeacherCourse routes instead. This will be removed in a future version.")]
+        public const string CourseById = Courses + SingleRoute;
         #endregion
 
         #region Teaching
@@ -138,19 +145,19 @@ namespace Qalam.Data.AppMetaData
 
         // Teaching Modes
         public const string TeachingModes = Teaching + "/Modes";
-        public const string TeachingModeById = TeachingModes + SignleRoute;
+        public const string TeachingModeById = TeachingModes + SingleRoute;
 
         // Session Types
         public const string SessionTypes = Teaching + "/SessionTypes";
-        public const string SessionTypeById = SessionTypes + SignleRoute;
+        public const string SessionTypeById = SessionTypes + SingleRoute;
 
         // Time Slots
         public const string TimeSlots = Teaching + "/TimeSlots";
-        public const string TimeSlotById = TimeSlots + SignleRoute;
+        public const string TimeSlotById = TimeSlots + SingleRoute;
 
         // Days of Week
         public const string DaysOfWeek = Teaching + "/DaysOfWeek";
-        public const string DayOfWeekById = DaysOfWeek + SignleRoute;
+        public const string DayOfWeekById = DaysOfWeek + SingleRoute;
         #endregion
     }
 }

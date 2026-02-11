@@ -4,7 +4,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Course;
 
-namespace Qalam.Core.Features.Course.Commands.CreateCourse;
+namespace Qalam.Core.Features.Teacher.CourseManagement.Commands.CreateCourse;
 
 public class CreateCourseCommand : IRequest<Response<CourseDetailDto>>, IAuthenticatedRequest
 {
