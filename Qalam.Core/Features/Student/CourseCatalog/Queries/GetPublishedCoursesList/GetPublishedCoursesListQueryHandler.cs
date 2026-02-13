@@ -16,22 +16,38 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
     private const int DescriptionShortMaxLength = 150;
 
     private readonly ICourseRepository _courseRepository;
+    private readonly IStudentRepository _studentRepository;
 
     public GetPublishedCoursesListQueryHandler(
         ICourseRepository courseRepository,
+        IStudentRepository studentRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
+        _studentRepository = studentRepository;
     }
 
     public async Task<Response<PaginatedResult<CourseCatalogItemDto>>> Handle(
         GetPublishedCoursesListQuery request,
         CancellationToken cancellationToken)
     {
+        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
+
+        var effectiveDomainId = request.DomainId ?? student?.DomainId;
+        var effectiveCurriculumId = request.CurriculumId ?? student?.CurriculumId;
+        var effectiveLevelId = request.LevelId ?? student?.LevelId;
+        var effectiveGradeId = request.GradeId ?? student?.GradeId;
+
         var query = _courseRepository.GetPublishedCoursesQueryable();
 
-        if (request.DomainId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == request.DomainId.Value);
+        if (effectiveDomainId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == effectiveDomainId.Value);
+        if (effectiveCurriculumId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.CurriculumId == effectiveCurriculumId.Value);
+        if (effectiveLevelId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.LevelId == effectiveLevelId.Value);
+        if (effectiveGradeId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.GradeId == effectiveGradeId.Value);
         if (request.SubjectId.HasValue)
             query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.SubjectId == request.SubjectId.Value);
         if (request.TeachingModeId.HasValue)

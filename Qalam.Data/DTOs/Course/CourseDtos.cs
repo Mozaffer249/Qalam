@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Course;
@@ -92,6 +93,10 @@ public class CourseDetailDto
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
     public CourseStatus Status { get; set; }
+    /// <summary>
+    /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.
+    /// </summary>
+    public List<TeacherSubjectUnitResponseDto>? Units { get; set; }
 }
 
 /// <summary>
