@@ -1,3 +1,4 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
@@ -15,16 +16,19 @@ public class AddChildCommandHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly UserManager<User> _userManager;
+    private readonly IMapper _mapper;
 
     public AddChildCommandHandler(
         IGuardianRepository guardianRepository,
         IStudentRepository studentRepository,
         UserManager<User> userManager,
+        IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _guardianRepository = guardianRepository;
         _studentRepository = studentRepository;
         _userManager = userManager;
+        _mapper = mapper;
     }
 
     public async Task<Response<int>> Handle(AddChildCommand request, CancellationToken cancellationToken)
@@ -45,21 +49,10 @@ public class AddChildCommandHandler : ResponseHandler,
         if (!createResult.Succeeded)
             return BadRequest<int>(string.Join("; ", createResult.Errors.Select(e => e.Description)));
 
-        var student = new StudentEntity
-        {
-            UserId = childUser.Id,
-            GuardianId = guardian.Id,
-            IsMinor = true,
-            GuardianRelation = dto.GuardianRelation,
-            DateOfBirth = dto.DateOfBirth,
-            Gender = dto.Gender,
-            DomainId = dto.DomainId,
-            CurriculumId = dto.CurriculumId,
-            LevelId = dto.LevelId,
-            GradeId = dto.GradeId,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
+        var student = _mapper.Map<StudentEntity>(dto);
+        student.UserId = childUser.Id;
+        student.GuardianId = guardian.Id;
+        
         await _studentRepository.AddAsync(student);
         await _studentRepository.SaveChangesAsync();
 

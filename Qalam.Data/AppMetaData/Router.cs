@@ -152,6 +152,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentCourses = Rule + "Student/Courses";
         /// <summary>Student course by id: Api/V1/Student/Courses/{id}</summary>
         public const string StudentCourseById = StudentCourses + "/{id}";
+        /// <summary>Guardian's children list: Api/V1/Student/MyChildren</summary>
+        public const string StudentMyChildren = Rule + "Student/MyChildren";
         /// <summary>Student enrollment requests: Api/V1/Student/EnrollmentRequests</summary>
         public const string StudentEnrollmentRequests = Rule + "Student/EnrollmentRequests";
         /// <summary>Student enrollment request by id: Api/V1/Student/EnrollmentRequests/{id}</summary>

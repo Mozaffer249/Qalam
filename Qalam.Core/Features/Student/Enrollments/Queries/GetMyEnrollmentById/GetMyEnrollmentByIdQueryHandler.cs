@@ -1,3 +1,4 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -13,14 +14,17 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
 {
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseEnrollmentRepository _enrollmentRepository;
+    private readonly IMapper _mapper;
 
     public GetMyEnrollmentByIdQueryHandler(
         IStudentRepository studentRepository,
         ICourseEnrollmentRepository enrollmentRepository,
+        IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _enrollmentRepository = enrollmentRepository;
+        _mapper = mapper;
     }
 
     public async Task<Response<EnrollmentDetailDto>> Handle(
@@ -43,23 +47,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         if (enrollment == null || enrollment.StudentId != student.Id)
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
-        var dto = new EnrollmentDetailDto
-        {
-            Id = enrollment.Id,
-            CourseId = enrollment.CourseId,
-            CourseTitle = enrollment.Course?.Title ?? "",
-            CourseDescription = enrollment.Course?.Description,
-            CoursePrice = enrollment.Course?.Price ?? 0,
-            EnrollmentStatus = enrollment.EnrollmentStatus,
-            ApprovedAt = enrollment.ApprovedAt,
-            TeacherDisplayName = enrollment.ApprovedByTeacher?.User != null
-                ? (enrollment.ApprovedByTeacher.User.FirstName + " " + enrollment.ApprovedByTeacher.User.LastName).Trim()
-                : null,
-            TeachingModeId = enrollment.Course?.TeachingModeId ?? 0,
-            TeachingModeNameEn = enrollment.Course?.TeachingMode?.NameEn,
-            SessionTypeId = enrollment.Course?.SessionTypeId ?? 0,
-            SessionTypeNameEn = enrollment.Course?.SessionType?.NameEn
-        };
+        var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
 
         return Success(entity: dto);
     }

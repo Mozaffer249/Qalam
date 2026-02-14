@@ -20,4 +20,17 @@ public class StudentRepository : GenericRepositoryAsync<Student>, IStudentReposi
         return await _students
             .FirstOrDefaultAsync(s => s.UserId == userId);
     }
+
+    public async Task<List<Student>> GetChildrenByGuardianIdAsync(int guardianId)
+    {
+        return await _students
+            .Where(s => s.GuardianId == guardianId && s.IsActive)
+            .Include(s => s.Domain)
+            .Include(s => s.Curriculum)
+            .Include(s => s.Level)
+            .Include(s => s.Grade)
+            .Include(s => s.User)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync();
+    }
 }

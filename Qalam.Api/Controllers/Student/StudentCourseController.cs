@@ -8,8 +8,10 @@ using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequ
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
+using Qalam.Core.Features.Student.Queries.GetMyChildren;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.DTOs.Student;
 using Qalam.Data.Results;
 
 namespace Qalam.Api.Controllers.Student;
@@ -23,10 +25,18 @@ namespace Qalam.Api.Controllers.Student;
 public class StudentCourseController : AppControllerBase
 {
     /// <summary>
-    /// Get paginated list of published courses (catalog). When the student has DomainId, CurriculumId, LevelId, or GradeId set, results are filtered to compatible courses; query params override. UserId is set from JWT.
+    /// Get paginated list of published courses (catalog). 
+    /// Students browse for themselves. Guardians can specify StudentId to browse for a specific child.
+    /// When student profile (DomainId, CurriculumId, LevelId, GradeId) is set, results are filtered to compatible courses; query params override.
     /// </summary>
-    /// <remarks>GET Api/V1/Student/Courses?PageNumber=1&amp;PageSize=10&amp;DomainId=1&amp;CurriculumId=2&amp;LevelId=3&amp;GradeId=4&amp;SubjectId=5&amp;TeachingModeId=1</remarks>
-    [HttpGet("Courses")]
+    /// <remarks>
+    /// GET Api/V1/Student/Courses?PageNumber=1&amp;PageSize=10&amp;StudentId=5&amp;DomainId=1&amp;SubjectId=3
+    /// 
+    /// - **StudentId** (optional): For guardians browsing on behalf of a child
+    /// - **DomainId, CurriculumId, LevelId, GradeId** (optional): Override student's profile filters
+    /// - **SubjectId, TeachingModeId** (optional): Additional filters
+    /// </remarks>
+    [HttpGet(Router.StudentCourses)]
     [ProducesResponseType(typeof(PaginatedResult<CourseCatalogItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPublishedCourses([FromQuery] GetPublishedCoursesListQuery query)
     {
@@ -37,7 +47,7 @@ public class StudentCourseController : AppControllerBase
     /// Get a published course by ID.
     /// </summary>
     /// <remarks>GET Api/V1/Student/Courses/{id}</remarks>
-    [HttpGet("Courses/{id}")]
+    [HttpGet(Router.StudentCourseById)]
     [ProducesResponseType(typeof(CourseCatalogDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPublishedCourseById(int id)
@@ -47,10 +57,23 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
+    /// Get list of my children (for guardians to select when browsing courses).
+    /// </summary>
+    /// <remarks>GET Api/V1/Student/MyChildren</remarks>
+    [HttpGet(Router.StudentMyChildren)]
+    [Authorize(Roles = Roles.Guardian)]
+    [ProducesResponseType(typeof(List<ChildStudentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyChildren()
+    {
+        return NewResult(await Mediator.Send(new GetMyChildrenQuery()));
+    }
+
+    /// <summary>
     /// Request enrollment in a course.
     /// </summary>
     /// <remarks>POST Api/V1/Student/EnrollmentRequests</remarks>
-    [HttpPost("EnrollmentRequests")]
+    [HttpPost(Router.StudentEnrollmentRequests)]
     [ProducesResponseType(typeof(EnrollmentRequestDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RequestEnrollment([FromBody] RequestCourseEnrollmentCommand command)
@@ -62,7 +85,7 @@ public class StudentCourseController : AppControllerBase
     /// Get my enrollment requests (paginated).
     /// </summary>
     /// <remarks>GET Api/V1/Student/EnrollmentRequests</remarks>
-    [HttpGet("EnrollmentRequests")]
+    [HttpGet(Router.StudentEnrollmentRequests)]
     [ProducesResponseType(typeof(PaginatedResult<EnrollmentRequestListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollmentRequests([FromQuery] GetMyEnrollmentRequestsQuery query)
     {
@@ -73,7 +96,7 @@ public class StudentCourseController : AppControllerBase
     /// Get my enrollment request by ID.
     /// </summary>
     /// <remarks>GET Api/V1/Student/EnrollmentRequests/{id}</remarks>
-    [HttpGet("EnrollmentRequests/{id}")]
+    [HttpGet(Router.StudentEnrollmentRequestById)]
     [ProducesResponseType(typeof(EnrollmentRequestDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyEnrollmentRequestById(int id)
@@ -86,7 +109,7 @@ public class StudentCourseController : AppControllerBase
     /// Get my enrollments (paginated).
     /// </summary>
     /// <remarks>GET Api/V1/Student/Enrollments</remarks>
-    [HttpGet("Enrollments")]
+    [HttpGet(Router.StudentEnrollments)]
     [ProducesResponseType(typeof(PaginatedResult<EnrollmentListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollments([FromQuery] GetMyEnrollmentsQuery query)
     {
@@ -97,7 +120,7 @@ public class StudentCourseController : AppControllerBase
     /// Get my enrollment by ID.
     /// </summary>
     /// <remarks>GET Api/V1/Student/Enrollments/{id}</remarks>
-    [HttpGet("Enrollments/{id}")]
+    [HttpGet(Router.StudentEnrollmentById)]
     [ProducesResponseType(typeof(EnrollmentDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyEnrollmentById(int id)

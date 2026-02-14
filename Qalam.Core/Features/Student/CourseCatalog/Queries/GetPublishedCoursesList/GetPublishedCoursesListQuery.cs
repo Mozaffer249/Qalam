@@ -11,6 +11,12 @@ public class GetPublishedCoursesListQuery : IRequest<Response<PaginatedResult<Co
 {
     [BindNever]
     public int UserId { get; set; }
+    
+    /// <summary>
+    /// Optional - Guardian can specify which child to browse for
+    /// </summary>
+    public int? StudentId { get; set; }
+    
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public int? DomainId { get; set; }

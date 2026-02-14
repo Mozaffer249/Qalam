@@ -1,3 +1,4 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -14,14 +15,17 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
 {
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseEnrollmentRepository _enrollmentRepository;
+    private readonly IMapper _mapper;
 
     public GetMyEnrollmentsQueryHandler(
         IStudentRepository studentRepository,
         ICourseEnrollmentRepository enrollmentRepository,
+        IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _enrollmentRepository = enrollmentRepository;
+        _mapper = mapper;
     }
 
     public async Task<Response<PaginatedResult<EnrollmentListItemDto>>> Handle(
@@ -35,21 +39,12 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
         var query = _enrollmentRepository.GetByStudentIdQueryable(student.Id);
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
+        var enrollments = await query
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(e => new EnrollmentListItemDto
-            {
-                Id = e.Id,
-                CourseId = e.CourseId,
-                CourseTitle = e.Course != null ? e.Course.Title : "",
-                EnrollmentStatus = e.EnrollmentStatus,
-                ApprovedAt = e.ApprovedAt,
-                TeacherDisplayName = e.ApprovedByTeacher != null && e.ApprovedByTeacher.User != null
-                    ? (e.ApprovedByTeacher.User.FirstName + " " + e.ApprovedByTeacher.User.LastName).Trim()
-                    : null
-            })
             .ToListAsync(cancellationToken);
+
+        var items = _mapper.Map<List<EnrollmentListItemDto>>(enrollments);
 
         var result = new PaginatedResult<EnrollmentListItemDto>(items, totalCount, request.PageNumber, request.PageSize);
         return Success(entity: result);

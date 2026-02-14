@@ -1,3 +1,4 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -13,14 +14,17 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
 {
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
+    private readonly IMapper _mapper;
 
     public GetMyEnrollmentRequestByIdQueryHandler(
         IStudentRepository studentRepository,
         ICourseEnrollmentRequestRepository requestRepository,
+        IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _requestRepository = requestRepository;
+        _mapper = mapper;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
@@ -41,24 +45,7 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
         if (enrollmentRequest == null || enrollmentRequest.RequestedByStudentId != student.Id)
             return NotFound<EnrollmentRequestDetailDto>("Enrollment request not found.");
 
-        var desc = enrollmentRequest.Course?.Description;
-        var descriptionShort = desc != null && desc.Length > 150 ? desc.Substring(0, 150) + "..." : desc;
-
-        var dto = new EnrollmentRequestDetailDto
-        {
-            Id = enrollmentRequest.Id,
-            CourseId = enrollmentRequest.CourseId,
-            CourseTitle = enrollmentRequest.Course?.Title ?? "",
-            CourseDescriptionShort = descriptionShort,
-            CoursePrice = enrollmentRequest.Course?.Price ?? 0,
-            TeachingModeId = enrollmentRequest.TeachingModeId,
-            TeachingModeNameEn = enrollmentRequest.Course?.TeachingMode?.NameEn,
-            SessionTypeId = enrollmentRequest.Course?.SessionTypeId ?? 0,
-            SessionTypeNameEn = enrollmentRequest.Course?.SessionType?.NameEn,
-            Status = enrollmentRequest.Status,
-            CreatedAt = enrollmentRequest.CreatedAt,
-            Notes = enrollmentRequest.Notes
-        };
+        var dto = _mapper.Map<EnrollmentRequestDetailDto>(enrollmentRequest);
 
         return Success(entity: dto);
     }

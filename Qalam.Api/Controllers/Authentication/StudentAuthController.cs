@@ -18,7 +18,7 @@ public class StudentAuthController : AppControllerBase
     /// <summary>
     /// Send OTP (Screen 1 - phone only). Response includes IsNewUser, masked phone, and message (login vs registration).
     /// </summary>
-    [HttpPost("SendOtp")]
+    [HttpPost(Router.StudentSendOtp)]
     [ProducesResponseType(typeof(StudentSendOtpResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SendOtp([FromBody] StudentSendOtpCommand command)
@@ -36,7 +36,7 @@ public class StudentAuthController : AppControllerBase
     /// - **OptionalSteps**: List of optional steps available to the user
     /// - **NextStepDescription**: Clear description of what to do next
     /// </remarks>
-    [HttpPost("VerifyOtp")]
+    [HttpPost(Router.StudentVerifyOtp)]
     [ProducesResponseType(typeof(StudentRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyOtp([FromBody] StudentVerifyOtpCommand command)
@@ -130,7 +130,7 @@ public class StudentAuthController : AppControllerBase
     /// <response code="200">Registration completed successfully. Returns token and next step information.</response>
     /// <response code="400">Invalid request data or validation errors (e.g., under 18, invalid email, weak password).</response>
     /// <response code="401">Unauthorized - token from VerifyOtp is invalid or expired.</response>
-    [HttpPost("SetAccountTypeAndUsage")]
+    [HttpPost(Router.StudentSetAccountTypeAndUsage)]
     [Authorize]
     [ProducesResponseType(typeof(StudentRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -150,7 +150,7 @@ public class StudentAuthController : AppControllerBase
     /// - **OptionalSteps**: ["AddChildren"] if user is also a guardian, empty otherwise
     /// - **NextStepDescription**: Clear description of completion status
     /// </remarks>
-    [HttpPost("CompleteProfile")]
+    [HttpPost(Router.StudentCompleteProfile)]
     [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
     [ProducesResponseType(typeof(StudentRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -163,7 +163,7 @@ public class StudentAuthController : AppControllerBase
     /// <summary>
     /// Parent adds a child (Student linked to Guardian).
     /// </summary>
-    [HttpPost("AddChild")]
+    [HttpPost(Router.StudentAddChild)]
     [Authorize(Roles = Roles.Guardian)]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

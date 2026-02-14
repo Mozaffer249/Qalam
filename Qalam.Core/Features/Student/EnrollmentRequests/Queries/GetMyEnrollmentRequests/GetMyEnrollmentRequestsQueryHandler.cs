@@ -1,3 +1,4 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -14,14 +15,17 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
 {
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
+    private readonly IMapper _mapper;
 
     public GetMyEnrollmentRequestsQueryHandler(
         IStudentRepository studentRepository,
         ICourseEnrollmentRequestRepository requestRepository,
+        IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _requestRepository = requestRepository;
+        _mapper = mapper;
     }
 
     public async Task<Response<PaginatedResult<EnrollmentRequestListItemDto>>> Handle(
@@ -38,21 +42,12 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
+        var requests = await query
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(r => new EnrollmentRequestListItemDto
-            {
-                Id = r.Id,
-                CourseId = r.CourseId,
-                CourseTitle = r.Course != null ? r.Course.Title : "",
-                TeachingModeId = r.TeachingModeId,
-                TeachingModeNameEn = r.Course != null && r.Course.TeachingMode != null ? r.Course.TeachingMode.NameEn : null,
-                Status = r.Status,
-                CreatedAt = r.CreatedAt,
-                Notes = r.Notes
-            })
             .ToListAsync(cancellationToken);
+
+        var items = _mapper.Map<List<EnrollmentRequestListItemDto>>(requests);
 
         var result = new PaginatedResult<EnrollmentRequestListItemDto>(items, totalCount, request.PageNumber, request.PageSize);
         return Success(entity: result);

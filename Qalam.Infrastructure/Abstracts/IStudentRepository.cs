@@ -6,4 +6,5 @@ namespace Qalam.Infrastructure.Abstracts;
 public interface IStudentRepository : IGenericRepositoryAsync<Student>
 {
     Task<Student?> GetByUserIdAsync(int userId);
+    Task<List<Student>> GetChildrenByGuardianIdAsync(int guardianId);
 }

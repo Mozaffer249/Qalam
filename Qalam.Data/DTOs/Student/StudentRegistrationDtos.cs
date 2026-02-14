@@ -110,6 +110,31 @@ public class AddChildDto
 
 #endregion
 
+#region Guardian's Children
+
+/// <summary>
+/// DTO for listing guardian's children
+/// </summary>
+public class ChildStudentDto
+{
+    public int Id { get; set; }
+    public string FullName { get; set; } = default!;
+    public DateOnly? DateOfBirth { get; set; }
+    public Gender? Gender { get; set; }
+    public GuardianRelation? GuardianRelation { get; set; }
+    public int? DomainId { get; set; }
+    public string? DomainNameEn { get; set; }
+    public int? CurriculumId { get; set; }
+    public string? CurriculumNameEn { get; set; }
+    public int? LevelId { get; set; }
+    public string? LevelNameEn { get; set; }
+    public int? GradeId { get; set; }
+    public string? GradeNameEn { get; set; }
+    public bool IsActive { get; set; }
+}
+
+#endregion
+
 #region Responses
 
 /// <summary>
