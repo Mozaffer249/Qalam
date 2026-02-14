@@ -98,6 +98,9 @@ public class StudentAcademicProfileDto
 public class AddChildDto
 {
     public string FullName { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    public string Password { get; set; } = default!;
+    public string ConfirmPassword { get; set; } = default!;
     public DateOnly DateOfBirth { get; set; }
     public Gender? Gender { get; set; }
     public GuardianRelation? GuardianRelation { get; set; }

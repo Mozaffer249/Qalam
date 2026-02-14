@@ -38,14 +38,31 @@ public class AddChildCommandHandler : ResponseHandler,
             return NotFound<int>("Guardian profile not found. Only parents can add children.");
 
         var dto = request.Child;
-        var unique = $"child_{guardian.Id}_{Guid.NewGuid():N}"[..44];
+
+        User? existingByEmail;
+        try
+        {
+            existingByEmail = await _userManager.FindByEmailAsync(dto.Email?.Trim() ?? "");
+        }
+        catch (InvalidOperationException)
+        {
+            // Identity uses SingleOrDefault; duplicate emails in DB cause "Sequence contains more than one element"
+            return BadRequest<int>("Email is already registered. Please use a different email or contact support.");
+        }
+        if (existingByEmail != null)
+            return BadRequest<int>("Email is already registered.");
+
+        var rawUserName = $"child_{guardian.Id}_{Guid.NewGuid():N}";
+        var unique = rawUserName.Length > 44 ? rawUserName[..44] : rawUserName;
         var childUser = new User
         {
             UserName = unique,
-            FirstName = dto.FullName,
-            IsActive = false
+            FirstName = dto.FullName?.Trim() ?? "",
+            Email = dto.Email?.Trim() ?? "",
+            EmailConfirmed = true,
+            IsActive = true
         };
-        var createResult = await _userManager.CreateAsync(childUser, "TempPass1!");
+        var createResult = await _userManager.CreateAsync(childUser, request.Child.Password);
         if (!createResult.Succeeded)
             return BadRequest<int>(string.Join("; ", createResult.Errors.Select(e => e.Description)));
 

@@ -10,9 +10,9 @@ public class StudentProfile : Profile
     {
         // Student -> ChildStudentDto
         CreateMap<Student, ChildStudentDto>()
-            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => 
-                src.User != null 
-                    ? (src.User.FirstName + " " + src.User.LastName).Trim() 
+            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src =>
+                src.User != null
+                    ? string.Join(" ", new[] { (src.User.FirstName ?? "").Trim(), (src.User.LastName ?? "").Trim() }.Where(s => !string.IsNullOrEmpty(s)))
                     : ""))
             .ForMember(dest => dest.DomainNameEn, opt => opt.MapFrom(src => 
                 src.Domain != null ? src.Domain.NameEn : null))
