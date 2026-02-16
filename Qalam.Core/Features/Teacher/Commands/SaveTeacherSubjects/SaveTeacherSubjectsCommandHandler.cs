@@ -41,19 +41,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             return NotFound<TeacherSubjectsResponseDto>("Teacher not found");
         }
 
-        // Check for duplicate subjects in request
-        var duplicates = request.Subjects
-            .GroupBy(s => s.SubjectId)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToList();
-            
-        if (duplicates.Any())
-        {
-            return BadRequest<TeacherSubjectsResponseDto>(
-                $"Duplicate subjects in request: {string.Join(", ", duplicates)}");
-        }
-
         // Validate subjects exist (optimized - single batch query)
         var subjectIds = request.Subjects.Select(s => s.SubjectId);
         var invalidSubjectIds = await _subjectService.GetInvalidSubjectIdsAsync(subjectIds);

@@ -148,20 +148,29 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
     public async Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjectDtos)
     {
-        var existingSubjectIds = await GetExistingSubjectIdsAsync(teacherId);
+        // Load existing subjects WITH units
+        var existingSubjects = await _teacherSubjects
+            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Include(ts => ts.TeacherSubjectUnits)
+            .ToListAsync();
         
-        // Filter to only new subjects (not already in database)
+        // Generate signatures for existing subjects
+        var existingSignatures = existingSubjects
+            .Select(ts => GetTeacherSubjectSignature(ts))
+            .ToHashSet();
+        
+        // Filter to truly new offerings
         var newSubjects = subjectDtos
-            .Where(dto => !existingSubjectIds.Contains(dto.SubjectId))
+            .Where(dto => !existingSignatures.Contains(GetSignatureFromDto(dto)))
             .ToList();
         
-        // If no new subjects, return existing ones
+        // If nothing new, return existing
         if (!newSubjects.Any())
         {
             return await GetTeacherSubjectsWithUnitsAsync(teacherId);
         }
         
-        // Add only new subjects
+        // Add new teaching offerings
         foreach (var dto in newSubjects)
         {
             var teacherSubject = new TeacherSubject
@@ -177,9 +186,9 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             };
 
             await _teacherSubjects.AddAsync(teacherSubject);
-            await _context.SaveChangesAsync(); // Save to get the ID
+            await _context.SaveChangesAsync(); // Get ID
 
-            // Add units if not teaching full subject
+            // Add units
             if (!dto.CanTeachFullSubject && dto.Units.Any())
             {
                 var units = dto.Units.Select(u => new TeacherSubjectUnit
@@ -196,8 +205,61 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         }
         
         await _context.SaveChangesAsync();
-        
-        // Return all teacher subjects with full data
         return await GetTeacherSubjectsWithUnitsAsync(teacherId);
+    }
+
+    private string GetTeacherSubjectSignature(TeacherSubject ts)
+    {
+        var parts = new List<string> { ts.SubjectId.ToString() };
+        
+        // Academic context
+        if (ts.CurriculumId.HasValue)
+            parts.Add($"C{ts.CurriculumId}");
+        if (ts.LevelId.HasValue)
+            parts.Add($"L{ts.LevelId}");
+        if (ts.GradeId.HasValue)
+            parts.Add($"G{ts.GradeId}");
+        
+        // Scope
+        parts.Add(ts.CanTeachFullSubject ? "FULL" : "PARTIAL");
+        
+        // Units (sorted for consistency)
+        if (ts.TeacherSubjectUnits?.Any() == true)
+        {
+            var unitSigs = ts.TeacherSubjectUnits
+                .OrderBy(u => u.UnitId)
+                .ThenBy(u => u.QuranContentTypeId ?? 0)
+                .ThenBy(u => u.QuranLevelId ?? 0)
+                .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
+            parts.Add($"[{string.Join(",", unitSigs)}]");
+        }
+        
+        return string.Join("_", parts);
+    }
+
+    private string GetSignatureFromDto(TeacherSubjectItemDto dto)
+    {
+        var parts = new List<string> { dto.SubjectId.ToString() };
+        
+        if (dto.CurriculumId.HasValue)
+            parts.Add($"C{dto.CurriculumId}");
+        if (dto.LevelId.HasValue)
+            parts.Add($"L{dto.LevelId}");
+        if (dto.GradeId.HasValue)
+            parts.Add($"G{dto.GradeId}");
+        
+        parts.Add(dto.CanTeachFullSubject ? "FULL" : "PARTIAL");
+        
+        if (dto.Units?.Any() == true)
+        {
+            var unitSigs = dto.Units
+                .OrderBy(u => u.UnitId)
+                .ThenBy(u => u.QuranContentTypeId ?? 0)
+                .ThenBy(u => u.QuranLevelId ?? 0)
+                .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
+            parts.Add($"[{string.Join(",", unitSigs)}]");
+        }
+        
+        return string.Join("_", parts);
     }
 }

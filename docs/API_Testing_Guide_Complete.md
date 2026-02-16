@@ -101,13 +101,41 @@ Before adding subjects, you need to know the subject IDs for each domain. Refere
 - 4 = General Skills
 - 5 = University
 
+---
+
+### Key Concept: Multiple TeacherSubjects Per Subject
+
+**Teachers can create multiple TeacherSubject records for the same subject** with different configurations. Each TeacherSubject represents a distinct teaching offering that can be used to create a separate course.
+
+**Why Multiple TeacherSubjects?**
+
+1. **Course Flexibility:** When creating a course, teacher selects ONE TeacherSubject. To offer different variations (different units, levels, content types), they need separate TeacherSubjects.
+
+2. **Examples:**
+   - Math Grade 10 with units 1-2 (one course)
+   - Math Grade 10 with units 3-4 (another course)
+   - Quran Juz 1 Memorization-Beginner (one course)
+   - Quran Juz 1 Recitation-Advanced (another course)
+
+3. **Uniqueness:** Each TeacherSubject is unique by its complete configuration:
+   - Academic Context (Subject + Curriculum + Level + Grade)
+   - Unit Combinations
+   - Content Types and Levels (for Quran)
+   - Scope (Full Subject vs Specific Units)
+
+**Important:** The system will automatically detect and prevent exact duplicates while allowing different combinations.
+
+---
+
 ### Step 2.1: Add School Subjects
 
 **Endpoint:** `POST /Api/V1/Teacher/TeacherSubject`
 
 **Headers:** `Authorization: Bearer <teacher_token>`
 
-**Request Body:**
+**IMPORTANT:** Teachers can create multiple TeacherSubject records for the same school subject with different unit combinations or grade levels. This allows creating specialized course offerings.
+
+**Example 2.1.1: Math Grade 10 with Units 1-3**
 
 ```json
 {
@@ -118,8 +146,44 @@ Before adding subjects, you need to know the subject IDs for each domain. Refere
       "curriculumId": 1,
       "levelId": 3,
       "gradeId": 10,
-      "units": [1, 2, 3]
-    },
+      "units": [
+        {"unitId": 1},
+        {"unitId": 2},
+        {"unitId": 3}
+      ]
+    }
+  ]
+}
+```
+
+**Example 2.1.2: Add Math Grade 10 with Different Units (4-6)**
+
+Teachers can later add another TeacherSubject for the same subject but with different units:
+
+```json
+{
+  "subjects": [
+    {
+      "subjectId": 1,
+      "canTeachFullSubject": false,
+      "curriculumId": 1,
+      "levelId": 3,
+      "gradeId": 10,
+      "units": [
+        {"unitId": 4},
+        {"unitId": 5},
+        {"unitId": 6}
+      ]
+    }
+  ]
+}
+```
+
+**Example 2.1.3: Full Subject (No Specific Units)**
+
+```json
+{
+  "subjects": [
     {
       "subjectId": 2,
       "canTeachFullSubject": true,
@@ -134,14 +198,22 @@ Before adding subjects, you need to know the subject IDs for each domain. Refere
 
 **Notes:**
 
-- Subject IDs: Get from `GET /Api/V1/Subjects/Domain/1` (School domain)
-- CurriculumId: 1 = Saudi Curriculum
-- LevelId: 1=Elementary, 2=Middle School, 3=High School
-- GradeId: Varies by level
+- **Subject IDs:** Get from `GET /Api/V1/Subjects/Domain/1` (School domain)
+- **Units Structure:** `units` is an array of objects with `unitId` property
+- **CurriculumId:** 1 = Saudi Curriculum (required for school domain)
+- **LevelId:** 1=Elementary, 2=Middle School, 3=High School (required)
+- **GradeId:** Varies by level (required)
+- **Multiple Offerings:** Teachers can create multiple TeacherSubjects for:
+  - Same subject/grade with different unit combinations
+  - Same subject with different grades
+  - Full subject vs specific units
+- **Each TeacherSubject = One Course Offering**
 
-### Step 2.2: Add Quran Subject
+### Step 2.2: Add Quran Subjects (Multiple Examples)
 
-**Request Body:**
+**IMPORTANT:** Teachers can create multiple TeacherSubject records for the same Quran subject with different unit combinations. Each unique combination becomes a separate teaching offering that can be used to create distinct courses.
+
+#### Example 2.2.1: Quran Memorization - Beginner (Specific Surahs)
 
 ```json
 {
@@ -149,9 +221,97 @@ Before adding subjects, you need to know the subject IDs for each domain. Refere
     {
       "subjectId": 499,
       "canTeachFullSubject": false,
-      "quranContentTypeId": 1,
-      "quranLevelId": 2,
-      "units": [1, 2, 3, 4, 5]
+      "units": [
+        {
+          "unitId": 1,
+          "quranContentTypeId": 1,
+          "quranLevelId": 2
+        },
+        {
+          "unitId": 2,
+          "quranContentTypeId": 1,
+          "quranLevelId": 2
+        },
+        {
+          "unitId": 3,
+          "quranContentTypeId": 1,
+          "quranLevelId": 2
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Example 2.2.2: Quran Recitation - Intermediate (Different Content Type)
+
+Teachers can add the same or different Surahs with a different content type:
+
+```json
+{
+  "subjects": [
+    {
+      "subjectId": 499,
+      "canTeachFullSubject": false,
+      "units": [
+        {
+          "unitId": 115,
+          "quranContentTypeId": 2,
+          "quranLevelId": 3
+        },
+        {
+          "unitId": 116,
+          "quranContentTypeId": 2,
+          "quranLevelId": 3
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Example 2.2.3: Quran Tajweed - Advanced (Full Subject)
+
+```json
+{
+  "subjects": [
+    {
+      "subjectId": 499,
+      "canTeachFullSubject": true,
+      "units": []
+    }
+  ]
+}
+```
+
+#### Example 2.2.4: Multiple Quran Offerings in One Request
+
+You can create multiple distinct Quran teaching offerings (e.g., same Surah with different content types) in a single request:
+
+```json
+{
+  "subjects": [
+    {
+      "subjectId": 499,
+      "canTeachFullSubject": false,
+      "units": [
+        {
+          "unitId": 1,
+          "quranContentTypeId": 1,
+          "quranLevelId": 1
+        }
+      ]
+    },
+    {
+      "subjectId": 499,
+      "canTeachFullSubject": false,
+      "units": [
+        {
+          "unitId": 1,
+          "quranContentTypeId": 3,
+          "quranLevelId": 4
+        }
+      ]
     }
   ]
 }
@@ -159,11 +319,18 @@ Before adding subjects, you need to know the subject IDs for each domain. Refere
 
 **Notes:**
 
-- SubjectId: 499 = Holy Quran (from seeded data)
-- QuranContentTypeId: 1=Memorization, 2=Recitation, 3=Tajweed
-- QuranLevelId: 1=Noorani, 2=Beginner, 3=Intermediate, 4=Advanced
-- Units: Quran Parts or Surahs (check ContentUnits)
-- No CurriculumId, LevelId, or GradeId for Quran
+- **SubjectId:** 499 = Holy Quran (single subject in Quran domain)
+- **Units Structure:** `units` is an array of objects, not integers
+- Each unit object has: `unitId`, `quranContentTypeId`, `quranLevelId`
+- **QuranContentTypeId:** 1=Memorization, 2=Recitation, 3=Tajweed
+- **QuranLevelId:** 1=Preparatory, 2=Beginner, 3=Intermediate, 4=Advanced
+- **UnitId:** Surahs (1-114) or Juz/Parts (115+)
+- **Multiple Offerings:** Teachers can create separate TeacherSubjects for:
+  - Same Surah with different content types (Memorization vs Recitation)
+  - Same Surah with different levels (Beginner vs Advanced)
+  - Different Surah combinations
+- **Each TeacherSubject = One Course:** When creating a course, teacher selects ONE TeacherSubject
+- No CurriculumId, LevelId, or GradeId needed for Quran domain
 
 ### Step 2.3: Add Language Subject
 
