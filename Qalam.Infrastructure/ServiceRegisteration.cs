@@ -11,6 +11,7 @@ using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.OpenApi;
 
 namespace Qalam.Infrastructure
 {
@@ -38,7 +39,7 @@ namespace Qalam.Infrastructure
                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
                    option.User.RequireUniqueEmail = false;  // Allow phone-only registration
                    option.SignIn.RequireConfirmedEmail = true;
-                   
+
 
                }).AddEntityFrameworkStores<ApplicationDBContext>().AddDefaultTokenProviders();
             //JWT Authentication
@@ -75,7 +76,8 @@ namespace Qalam.Infrastructure
                    ClockSkew = TimeSpan.Zero, // Remove default 5-minute tolerance
                };
            });
-            //Swagger Gen
+
+            // Swagger Gen - OpenAPI Configuration
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -90,6 +92,9 @@ namespace Qalam.Infrastructure
                     }
                 });
                 c.EnableAnnotations();
+
+                // Add schema filter to show proper default values instead of null for all property types
+                c.SchemaFilter<DefaultValueSchemaFilter>();
 
                 c.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
                 {

@@ -12,7 +12,8 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
 
         builder.HasKey(e => e.Id);
 
-        builder.HasIndex(e => new { e.TeacherId, e.SubjectId }).IsUnique();
+        // Index for performance (not unique - allows multiple TeacherSubjects for same subject with different units)
+        builder.HasIndex(e => new { e.TeacherId, e.SubjectId });
 
         builder.HasOne(e => e.Teacher)
                .WithMany()

@@ -15,6 +15,7 @@ using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Seeder;
 using Qalam.Infrastructure.Seeding;
 using Qalam.Service;
+using Scalar.AspNetCore;
 using Serilog;
 using System.Globalization;
 
@@ -188,7 +189,7 @@ using (var scope = app.Services.CreateScope())
 #endregion
 
 // Configure the HTTP request pipeline.
-// Enable Swagger in all environments
+// Enable Swagger/OpenAPI in all environments
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -196,10 +197,21 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Redirect root to Swagger in Development only
+// Add Scalar UI as a modern alternative to Swagger UI
+app.MapScalarApiReference(options =>
+{
+    options
+        .WithTitle("Qalam API Documentation")
+        .WithTheme(ScalarTheme.Purple)
+        .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient)
+        .WithEndpointPrefix("/scalar/{documentName}")
+        .WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
+});
+
+// Redirect root to Scalar UI in Development
 if (app.Environment.IsDevelopment())
 {
-    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
 }
 
 #region Localization Middleware
