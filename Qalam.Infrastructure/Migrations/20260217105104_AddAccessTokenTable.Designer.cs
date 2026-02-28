@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Qalam.Infrastructure.context;
 
@@ -11,9 +12,11 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDBContext))]
-    partial class ApplicationDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260217105104_AddAccessTokenTable")]
+    partial class AddAccessTokenTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1196,6 +1199,49 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("CurriculumId", "LevelId", "GradeId", "TermId");
 
                     b.ToTable("Subjects", "education");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Identity.AccessToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenString")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccessTokens");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Identity.AuditLog", b =>
@@ -2847,7 +2893,8 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasIndex("TeacherId1");
 
-                    b.HasIndex("TeacherId", "SubjectId");
+                    b.HasIndex("TeacherId", "SubjectId")
+                        .IsUnique();
 
                     b.ToTable("TeacherSubjects", "education");
                 });
@@ -3472,6 +3519,17 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Level");
 
                     b.Navigation("Term");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Identity.AccessToken", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Identity.AuditLog", b =>

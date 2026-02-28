@@ -246,17 +246,17 @@ namespace Qalam.Service.Implementations
             {
                 claims.Add(new Claim("email", user.Email));
             }
-            
+
             if (!string.IsNullOrEmpty(user.PhoneNumber))
             {
                 claims.Add(new Claim("phone", user.PhoneNumber));
             }
-            
+
             if (!string.IsNullOrEmpty(user.FirstName))
             {
                 claims.Add(new Claim("firstName", user.FirstName));
             }
-            
+
             if (!string.IsNullOrEmpty(user.LastName))
             {
                 claims.Add(new Claim("lastName", user.LastName));

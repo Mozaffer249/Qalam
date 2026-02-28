@@ -142,7 +142,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
             .Select(ts => ts.SubjectId)  // Only select SubjectId - optimized
             .ToListAsync();
-        
+
         return subjectIds.ToHashSet();
     }
 
@@ -153,23 +153,26 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
             .Include(ts => ts.TeacherSubjectUnits)
             .ToListAsync();
-        
+
         // Generate signatures for existing subjects
         var existingSignatures = existingSubjects
             .Select(ts => GetTeacherSubjectSignature(ts))
             .ToHashSet();
-        
+
         // Filter to truly new offerings
         var newSubjects = subjectDtos
             .Where(dto => !existingSignatures.Contains(GetSignatureFromDto(dto)))
             .ToList();
-        
-        // If nothing new, return existing
+
+        // If nothing new, return empty list
         if (!newSubjects.Any())
         {
-            return await GetTeacherSubjectsWithUnitsAsync(teacherId);
+            return new List<TeacherSubject>();
         }
-        
+
+        // Track newly added subjects
+        var addedSubjects = new List<TeacherSubject>();
+
         // Add new teaching offerings
         foreach (var dto in newSubjects)
         {
@@ -185,33 +188,52 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _teacherSubjects.AddAsync(teacherSubject);
-            await _context.SaveChangesAsync(); // Get ID
-
-            // Add units
+            // Add units directly to the TeacherSubject collection
+            // EF Core will automatically set the foreign key when saved
             if (!dto.CanTeachFullSubject && dto.Units.Any())
             {
-                var units = dto.Units.Select(u => new TeacherSubjectUnit
+                foreach (var unitDto in dto.Units)
                 {
-                    TeacherSubjectId = teacherSubject.Id,
-                    UnitId = u.UnitId,
-                    QuranContentTypeId = u.QuranContentTypeId,
-                    QuranLevelId = u.QuranLevelId,
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
-
-                await _teacherSubjectUnits.AddRangeAsync(units);
+                    teacherSubject.TeacherSubjectUnits.Add(new TeacherSubjectUnit
+                    {
+                        UnitId = unitDto.UnitId,
+                        QuranContentTypeId = unitDto.QuranContentTypeId,
+                        QuranLevelId = unitDto.QuranLevelId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
+
+            await _teacherSubjects.AddAsync(teacherSubject);
+            addedSubjects.Add(teacherSubject);
         }
-        
+
+        // Save everything in a single transaction
         await _context.SaveChangesAsync();
-        return await GetTeacherSubjectsWithUnitsAsync(teacherId);
+
+        // Reload added subjects with full navigation properties
+        var addedIds = addedSubjects.Select(s => s.Id).ToList();
+        return await _teacherSubjects
+            .AsNoTracking()
+            .Where(ts => addedIds.Contains(ts.Id))
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Include(ts => ts.Curriculum)
+            .Include(ts => ts.Level)
+            .Include(ts => ts.Grade)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.Unit)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranContentType)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranLevel)
+            .ToListAsync();
     }
 
     private string GetTeacherSubjectSignature(TeacherSubject ts)
     {
         var parts = new List<string> { ts.SubjectId.ToString() };
-        
+
         // Academic context
         if (ts.CurriculumId.HasValue)
             parts.Add($"C{ts.CurriculumId}");
@@ -219,10 +241,10 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             parts.Add($"L{ts.LevelId}");
         if (ts.GradeId.HasValue)
             parts.Add($"G{ts.GradeId}");
-        
+
         // Scope
         parts.Add(ts.CanTeachFullSubject ? "FULL" : "PARTIAL");
-        
+
         // Units (sorted for consistency)
         if (ts.TeacherSubjectUnits?.Any() == true)
         {
@@ -233,23 +255,23 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
             parts.Add($"[{string.Join(",", unitSigs)}]");
         }
-        
+
         return string.Join("_", parts);
     }
 
     private string GetSignatureFromDto(TeacherSubjectItemDto dto)
     {
         var parts = new List<string> { dto.SubjectId.ToString() };
-        
+
         if (dto.CurriculumId.HasValue)
             parts.Add($"C{dto.CurriculumId}");
         if (dto.LevelId.HasValue)
             parts.Add($"L{dto.LevelId}");
         if (dto.GradeId.HasValue)
             parts.Add($"G{dto.GradeId}");
-        
+
         parts.Add(dto.CanTeachFullSubject ? "FULL" : "PARTIAL");
-        
+
         if (dto.Units?.Any() == true)
         {
             var unitSigs = dto.Units
@@ -259,7 +281,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
             parts.Add($"[{string.Join(",", unitSigs)}]");
         }
-        
+
         return string.Join("_", parts);
     }
 }
