@@ -74,7 +74,7 @@ public class CourseDetailDto
     public string? TeacherDisplayName { get; set; }
     public int DomainId { get; set; }
     public string? DomainNameEn { get; set; }
-    public int SubjectId { get; set; }
+     public int? TeacherSubjectId { get; set; }
     public string? SubjectNameEn { get; set; }
     public int? CurriculumId { get; set; }
     public string? CurriculumNameEn { get; set; }

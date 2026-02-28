@@ -119,7 +119,7 @@ public class TeacherCourseService : ITeacherCourseService
             Price = dto.Price,
             MaxStudents = dto.MaxStudents,
             CanIncludeInPackages = dto.CanIncludeInPackages,
-            Status = CourseStatus.Draft,
+            Status = CourseStatus.Published,
             CreatedAt = DateTime.UtcNow
         };
 
