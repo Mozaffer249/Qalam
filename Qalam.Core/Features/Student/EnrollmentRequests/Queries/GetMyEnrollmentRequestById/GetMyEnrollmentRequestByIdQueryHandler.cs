@@ -40,6 +40,9 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 .ThenInclude(c => c.TeachingMode)
             .Include(r => r.Course)
                 .ThenInclude(c => c.SessionType)
+            .Include(r => r.SelectedAvailabilities)
+            .Include(r => r.GroupMembers)
+            .Include(r => r.ProposedSessions)
             .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (enrollmentRequest == null || enrollmentRequest.RequestedByStudentId != student.Id)

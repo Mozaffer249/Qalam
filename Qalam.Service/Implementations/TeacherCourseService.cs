@@ -92,6 +92,10 @@ public class TeacherCourseService : ITeacherCourseService
             if (!dto.SessionDurationMinutes.HasValue || dto.SessionDurationMinutes <= 0)
                 throw new InvalidOperationException("SessionDurationMinutes is required when course is not flexible.");
         }
+        else if (dto.SessionsCount.HasValue || dto.SessionDurationMinutes.HasValue)
+        {
+            throw new InvalidOperationException("Flexible courses must have null SessionsCount and SessionDurationMinutes.");
+        }
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
         if (teacherSubject == null || teacherSubject.TeacherId != teacher.Id || !teacherSubject.IsActive)
@@ -103,6 +107,16 @@ public class TeacherCourseService : ITeacherCourseService
         var sessionType = await _sessionTypeRepository.GetByIdAsync(dto.SessionTypeId);
         if (sessionType == null)
             throw new InvalidOperationException("Invalid SessionTypeId.");
+        var isGroupSession = string.Equals(sessionType.Code, "group", StringComparison.OrdinalIgnoreCase);
+        if (isGroupSession)
+        {
+            if (!dto.MaxStudents.HasValue || dto.MaxStudents.Value < 2)
+                throw new InvalidOperationException("MaxStudents is required and must be >= 2 for group courses.");
+        }
+        else if (dto.MaxStudents.HasValue)
+        {
+            throw new InvalidOperationException("MaxStudents must be null for individual courses.");
+        }
 
         var course = new Course
         {
@@ -149,6 +163,10 @@ public class TeacherCourseService : ITeacherCourseService
             if (!dto.SessionDurationMinutes.HasValue || dto.SessionDurationMinutes <= 0)
                 throw new InvalidOperationException("SessionDurationMinutes is required when course is not flexible.");
         }
+        else if (dto.SessionsCount.HasValue || dto.SessionDurationMinutes.HasValue)
+        {
+            throw new InvalidOperationException("Flexible courses must have null SessionsCount and SessionDurationMinutes.");
+        }
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
         if (teacherSubject == null || teacherSubject.TeacherId != teacher.Id || !teacherSubject.IsActive)
@@ -160,6 +178,16 @@ public class TeacherCourseService : ITeacherCourseService
         var sessionType = await _sessionTypeRepository.GetByIdAsync(dto.SessionTypeId);
         if (sessionType == null)
             throw new InvalidOperationException("Invalid SessionTypeId.");
+        var isGroupSessionForUpdate = string.Equals(sessionType.Code, "group", StringComparison.OrdinalIgnoreCase);
+        if (isGroupSessionForUpdate)
+        {
+            if (!dto.MaxStudents.HasValue || dto.MaxStudents.Value < 2)
+                throw new InvalidOperationException("MaxStudents is required and must be >= 2 for group courses.");
+        }
+        else if (dto.MaxStudents.HasValue)
+        {
+            throw new InvalidOperationException("MaxStudents must be null for individual courses.");
+        }
 
         course.Title = dto.Title;
         course.Description = dto.Description;

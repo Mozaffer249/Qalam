@@ -28,12 +28,17 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         // Check Constraints
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Course_SessionsCount",
-            "([IsFlexible] = 1) OR ([SessionsCount] IS NOT NULL AND [SessionsCount] > 0)"
+            "(([IsFlexible] = 0) AND ([SessionsCount] IS NOT NULL) AND ([SessionsCount] > 0)) OR (([IsFlexible] = 1) AND ([SessionsCount] IS NULL))"
         ));
         
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Course_SessionDuration",
-            "([IsFlexible] = 1) OR ([SessionDurationMinutes] IS NOT NULL AND [SessionDurationMinutes] > 0)"
+            "(([IsFlexible] = 0) AND ([SessionDurationMinutes] IS NOT NULL) AND ([SessionDurationMinutes] > 0)) OR (([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL))"
+        ));
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_Course_MaxStudents",
+            "([MaxStudents] IS NULL) OR ([MaxStudents] >= 2)"
         ));
         
         // Relationships
@@ -57,12 +62,6 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
                .HasForeignKey(e => e.SessionTypeId)
                .OnDelete(DeleteBehavior.Restrict);
         
-        // Collections
-        builder.HasMany(e => e.CourseSessions)
-               .WithOne(cs => cs.Course)
-               .HasForeignKey(cs => cs.CourseId)
-               .OnDelete(DeleteBehavior.Cascade);
-        
         builder.HasMany(e => e.CourseEnrollmentRequests)
                .WithOne(cer => cer.Course)
                .HasForeignKey(cer => cer.CourseId)
@@ -71,6 +70,11 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         builder.HasMany(e => e.CourseEnrollments)
                .WithOne(ce => ce.Course)
                .HasForeignKey(ce => ce.CourseId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(e => e.CourseGroupEnrollments)
+               .WithOne(cge => cge.Course)
+               .HasForeignKey(cge => cge.CourseId)
                .OnDelete(DeleteBehavior.Cascade);
     }
 }

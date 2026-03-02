@@ -25,6 +25,7 @@ public class CourseRequestGroupMember : AuditableEntity
     public GroupMemberConfirmationStatus ConfirmationStatus { get; set; } = GroupMemberConfirmationStatus.Pending;
     
     public DateTime? ConfirmedAt { get; set; }
+    public int? ConfirmedByUserId { get; set; }
     
     // Navigation Properties
     public CourseEnrollmentRequest CourseEnrollmentRequest { get; set; } = null!;

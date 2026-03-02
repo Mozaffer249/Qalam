@@ -2,6 +2,7 @@ using AutoMapper;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using System.Linq;
 
 namespace Qalam.Core.Mapping;
 
@@ -117,7 +118,29 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.SessionType != null
                     ? src.Course.SessionType.NameEn
-                    : null));
+                    : null))
+            .ForMember(dest => dest.TotalMinutes, opt => opt.MapFrom(src => src.TotalMinutes))
+            .ForMember(dest => dest.EstimatedTotalPrice, opt => opt.MapFrom(src => src.EstimatedTotalPrice))
+            .ForMember(dest => dest.SelectedAvailabilityIds, opt => opt.MapFrom(src =>
+                src.SelectedAvailabilities.Select(a => a.TeacherAvailabilityId).ToList()))
+            .ForMember(dest => dest.GroupMembers, opt => opt.MapFrom(src =>
+                src.GroupMembers.Select(g => new EnrollmentRequestGroupMemberDto
+                {
+                    StudentId = g.StudentId,
+                    ConfirmationStatus = g.ConfirmationStatus,
+                    ConfirmedAt = g.ConfirmedAt,
+                    ConfirmedByUserId = g.ConfirmedByUserId
+                }).ToList()))
+            .ForMember(dest => dest.ProposedSessions, opt => opt.MapFrom(src =>
+                src.ProposedSessions
+                    .OrderBy(p => p.SessionNumber)
+                    .Select(p => new EnrollmentRequestProposedSessionDto
+                    {
+                        SessionNumber = p.SessionNumber,
+                        DurationMinutes = p.DurationMinutes,
+                        Title = p.Title,
+                        Notes = p.Notes
+                    }).ToList()));
 
         // CourseEnrollment -> EnrollmentListItemDto
         CreateMap<CourseEnrollment, EnrollmentListItemDto>()

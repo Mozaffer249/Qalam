@@ -10,6 +10,39 @@ public class CreateEnrollmentRequestDto
     public int CourseId { get; set; }
     public int TeachingModeId { get; set; }
     public string? Notes { get; set; }
+    public List<int> SelectedAvailabilityIds { get; set; } = new();
+    public List<int> GroupMemberStudentIds { get; set; } = new();
+    public List<CreateProposedSessionDto> ProposedSessions { get; set; } = new();
+}
+
+public class CreateProposedSessionDto
+{
+    public int SessionNumber { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class EnrollmentRequestProposedSessionDto
+{
+    public int SessionNumber { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class EnrollmentRequestGroupMemberDto
+{
+    public int StudentId { get; set; }
+    public GroupMemberConfirmationStatus ConfirmationStatus { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public int? ConfirmedByUserId { get; set; }
+}
+
+public class RespondToGroupEnrollmentInviteDto
+{
+    public int StudentId { get; set; }
+    public GroupMemberConfirmationStatus Decision { get; set; }
 }
 
 /// <summary>
@@ -44,6 +77,11 @@ public class EnrollmentRequestDetailDto
     public RequestStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? Notes { get; set; }
+    public int TotalMinutes { get; set; }
+    public decimal EstimatedTotalPrice { get; set; }
+    public List<int> SelectedAvailabilityIds { get; set; } = new();
+    public List<EnrollmentRequestGroupMemberDto> GroupMembers { get; set; } = new();
+    public List<EnrollmentRequestProposedSessionDto> ProposedSessions { get; set; } = new();
 }
 
 /// <summary>

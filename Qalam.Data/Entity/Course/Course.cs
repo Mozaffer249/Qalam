@@ -83,9 +83,9 @@ public class Course : AuditableEntity
     public TeachingMode TeachingMode { get; set; } = null!;
     public SessionType SessionType { get; set; } = null!;
     
-    public ICollection<CourseSession> CourseSessions { get; set; } = new List<CourseSession>();
     public ICollection<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; } = new List<CourseEnrollmentRequest>();
     public ICollection<CourseEnrollment> CourseEnrollments { get; set; } = new List<CourseEnrollment>();
+    public ICollection<CourseGroupEnrollment> CourseGroupEnrollments { get; set; } = new List<CourseGroupEnrollment>();
     
     // Computed Properties (محسوبة من TeacherSubject)
     

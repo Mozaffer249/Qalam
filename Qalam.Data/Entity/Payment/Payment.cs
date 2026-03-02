@@ -62,4 +62,5 @@ public class Payment : AuditableEntity
     
     public ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();
     public ICollection<CourseEnrollmentPayment> CourseEnrollmentPayments { get; set; } = new List<CourseEnrollmentPayment>();
+    public ICollection<Course.GroupEnrollmentMemberPayment> GroupEnrollmentMemberPayments { get; set; } = new List<Course.GroupEnrollmentMemberPayment>();
 }

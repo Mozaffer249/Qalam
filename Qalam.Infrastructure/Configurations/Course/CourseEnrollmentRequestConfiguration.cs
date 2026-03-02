@@ -19,6 +19,7 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
         
         // Properties
         builder.Property(e => e.Notes).HasMaxLength(400);
+        builder.Property(e => e.EstimatedTotalPrice).HasColumnType("decimal(18,2)");
         
         // Relationships
         builder.HasOne(e => e.Course)
@@ -39,6 +40,11 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
         builder.HasMany(e => e.GroupMembers)
                .WithOne(gm => gm.CourseEnrollmentRequest)
                .HasForeignKey(gm => gm.CourseEnrollmentRequestId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(e => e.ProposedSessions)
+               .WithOne(ps => ps.CourseEnrollmentRequest)
+               .HasForeignKey(ps => ps.CourseEnrollmentRequestId)
                .OnDelete(DeleteBehavior.Cascade);
     }
 }

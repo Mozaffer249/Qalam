@@ -24,5 +24,16 @@ public class UpdateCourseCommandValidator : AbstractValidator<UpdateCourseComman
         RuleFor(x => x.Data.SessionDurationMinutes)
             .NotNull().GreaterThan(0)
             .When(x => x.Data != null && !x.Data.IsFlexible);
+        RuleFor(x => x.Data.SessionsCount)
+            .Null()
+            .When(x => x.Data != null && x.Data.IsFlexible)
+            .WithMessage("SessionsCount must be null when course is flexible.");
+        RuleFor(x => x.Data.SessionDurationMinutes)
+            .Null()
+            .When(x => x.Data != null && x.Data.IsFlexible)
+            .WithMessage("SessionDurationMinutes must be null when course is flexible.");
+        RuleFor(x => x.Data.MaxStudents)
+            .GreaterThanOrEqualTo(2)
+            .When(x => x.Data != null && x.Data.MaxStudents.HasValue);
     }
 }

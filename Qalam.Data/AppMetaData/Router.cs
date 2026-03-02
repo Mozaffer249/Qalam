@@ -158,6 +158,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentRequests = Rule + "Student/EnrollmentRequests";
         /// <summary>Student enrollment request by id: Api/V1/Student/EnrollmentRequests/{id}</summary>
         public const string StudentEnrollmentRequestById = StudentEnrollmentRequests + "/{id}";
+        /// <summary>Respond to group enrollment invite: Api/V1/Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response</summary>
+        public const string StudentEnrollmentRequestMemberResponse = StudentEnrollmentRequests + "/{enrollmentRequestId}/Members/Response";
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";
         /// <summary>Student enrollment by id: Api/V1/Student/Enrollments/{id}</summary>
@@ -185,4 +187,3 @@ namespace Qalam.Data.AppMetaData
         #endregion
     }
 }
-

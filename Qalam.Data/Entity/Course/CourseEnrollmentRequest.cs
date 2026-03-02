@@ -24,6 +24,10 @@ public class CourseEnrollmentRequest : AuditableEntity
     public int TeachingModeId { get; set; }
     
     public RequestStatus Status { get; set; } = RequestStatus.Pending;
+
+    public int TotalMinutes { get; set; }
+
+    public decimal EstimatedTotalPrice { get; set; }
     
     [MaxLength(400)]
     public string? Notes { get; set; }
@@ -34,4 +38,5 @@ public class CourseEnrollmentRequest : AuditableEntity
     
     public ICollection<CourseRequestSelectedAvailability> SelectedAvailabilities { get; set; } = new List<CourseRequestSelectedAvailability>();
     public ICollection<CourseRequestGroupMember> GroupMembers { get; set; } = new List<CourseRequestGroupMember>();
+    public ICollection<CourseRequestProposedSession> ProposedSessions { get; set; } = new List<CourseRequestProposedSession>();
 }

@@ -11,5 +11,24 @@ public class RequestCourseEnrollmentCommandValidator : AbstractValidator<Request
         RuleFor(x => x.Data.CourseId).GreaterThan(0).When(x => x.Data != null).WithMessage("Course is required.");
         RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null).WithMessage("Teaching mode is required.");
         RuleFor(x => x.Data.Notes).MaximumLength(400).When(x => x.Data != null);
+        RuleFor(x => x.Data.SelectedAvailabilityIds)
+            .NotEmpty()
+            .When(x => x.Data != null)
+            .WithMessage("At least one selected availability is required.");
+        RuleForEach(x => x.Data.SelectedAvailabilityIds)
+            .GreaterThan(0)
+            .When(x => x.Data != null);
+        RuleForEach(x => x.Data.GroupMemberStudentIds)
+            .GreaterThan(0)
+            .When(x => x.Data != null);
+        RuleForEach(x => x.Data.ProposedSessions)
+            .ChildRules(ps =>
+            {
+                ps.RuleFor(y => y.SessionNumber).GreaterThan(0);
+                ps.RuleFor(y => y.DurationMinutes).GreaterThan(0);
+                ps.RuleFor(y => y.Title).MaximumLength(150);
+                ps.RuleFor(y => y.Notes).MaximumLength(500);
+            })
+            .When(x => x.Data != null);
     }
 }
