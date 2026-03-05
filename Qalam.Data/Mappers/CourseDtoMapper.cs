@@ -21,7 +21,7 @@ public static class CourseDtoMapper
                 : null,
             DomainId = c.DomainId,
             DomainNameEn = c.Domain?.NameEn,
-            SubjectId = c.SubjectId,
+            TeacherSubjectId = c.TeacherSubjectId,
             SubjectNameEn = c.Subject?.NameEn,
             CurriculumId = c.CurriculumId,
             CurriculumNameEn = c.Curriculum?.NameEn,
