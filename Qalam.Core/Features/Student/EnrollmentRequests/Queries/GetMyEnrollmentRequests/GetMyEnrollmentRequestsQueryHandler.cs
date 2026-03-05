@@ -15,16 +15,19 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
 {
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
+    private readonly IGuardianRepository _guardianRepository;
     private readonly IMapper _mapper;
 
     public GetMyEnrollmentRequestsQueryHandler(
         IStudentRepository studentRepository,
         ICourseEnrollmentRequestRepository requestRepository,
+        IGuardianRepository guardianRepository,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _requestRepository = requestRepository;
+        _guardianRepository = guardianRepository;
         _mapper = mapper;
     }
 
@@ -32,13 +35,45 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
         GetMyEnrollmentRequestsQuery request,
         CancellationToken cancellationToken)
     {
-        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
-        if (student == null)
-            return NotFound<PaginatedResult<EnrollmentRequestListItemDto>>("Student not found.");
+        // Collect all student IDs the current user is authorized to view
+        var authorizedStudentIds = new List<int>();
 
-        var query = _requestRepository.GetByStudentIdQueryable(student.Id);
+        // Check if user has a student profile (adult student or "Both" account type)
+        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
+        if (student != null)
+            authorizedStudentIds.Add(student.Id);
+
+        // Check if user is a guardian — include their children's IDs
+        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+        if (guardian != null)
+        {
+            var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
+            authorizedStudentIds.AddRange(children.Select(c => c.Id));
+        }
+
+        if (authorizedStudentIds.Count == 0)
+            return NotFound<PaginatedResult<EnrollmentRequestListItemDto>>("No student profile found.");
+
+        authorizedStudentIds = authorizedStudentIds.Distinct().ToList();
+
+        // If a specific StudentId filter is provided, validate authorization
+        if (request.StudentId.HasValue && request.StudentId.Value > 0)
+        {
+            if (!authorizedStudentIds.Contains(request.StudentId.Value))
+                return BadRequest<PaginatedResult<EnrollmentRequestListItemDto>>("You are not authorized to view requests for this student.");
+
+            authorizedStudentIds = new List<int> { request.StudentId.Value };
+        }
+
+        var query = _requestRepository.GetTableNoTracking()
+            .Include(r => r.Course).ThenInclude(c => c.TeachingMode)
+            .Include(r => r.Course).ThenInclude(c => c.SessionType)
+            .Where(r => authorizedStudentIds.Contains(r.RequestedByStudentId))
+            .OrderByDescending(r => r.CreatedAt);
+
         if (request.Status.HasValue)
-            query = query.Where(r => r.Status == request.Status.Value);
+            query = (IOrderedQueryable<Data.Entity.Course.CourseEnrollmentRequest>)
+                query.Where(r => r.Status == request.Status.Value);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

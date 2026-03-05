@@ -7,6 +7,11 @@ namespace Qalam.Data.DTOs.Course;
 /// </summary>
 public class CreateEnrollmentRequestDto
 {
+    /// <summary>
+    /// Target student ID. If null, the logged-in user's own student profile is used.
+    /// Guardians must provide their child's StudentId.
+    /// </summary>
+    public int? StudentId { get; set; }
     public int CourseId { get; set; }
     public int TeachingModeId { get; set; }
     public string? Notes { get; set; }
@@ -114,4 +119,13 @@ public class EnrollmentDetailDto
     public string? TeachingModeNameEn { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+}
+
+/// <summary>
+/// Minimal student info for group enrollment search results.
+/// </summary>
+public class StudentSearchResultDto
+{
+    public int StudentId { get; set; }
+    public string FullName { get; set; } = default!;
 }

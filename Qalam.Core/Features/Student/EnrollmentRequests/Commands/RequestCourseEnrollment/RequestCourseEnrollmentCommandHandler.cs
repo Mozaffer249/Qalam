@@ -17,6 +17,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
     private readonly ITeachingModeRepository _teachingModeRepository;
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
+    private readonly IGuardianRepository _guardianRepository;
 
     public RequestCourseEnrollmentCommandHandler(
         IStudentRepository studentRepository,
@@ -24,6 +25,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         ICourseEnrollmentRequestRepository requestRepository,
         ITeachingModeRepository teachingModeRepository,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
+        IGuardianRepository guardianRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
@@ -31,17 +33,40 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _requestRepository = requestRepository;
         _teachingModeRepository = teachingModeRepository;
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
+        _guardianRepository = guardianRepository;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
         RequestCourseEnrollmentCommand request,
         CancellationToken cancellationToken)
     {
-        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
-        if (student == null)
-            return NotFound<EnrollmentRequestDetailDto>("Student not found.");
-
         var dto = request.Data;
+
+        Data.Entity.Student.Student? student;
+        if (dto.StudentId.HasValue && dto.StudentId.Value > 0)
+        {
+            student = await _studentRepository.GetTableNoTracking()
+                .Include(s => s.Guardian)
+                .FirstOrDefaultAsync(s => s.Id == dto.StudentId.Value && s.IsActive, cancellationToken);
+            if (student == null)
+                return NotFound<EnrollmentRequestDetailDto>("Student not found.");
+
+            var canActAsStudent = student.UserId == request.UserId;
+            var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+            var canActAsGuardian = student.IsMinor &&
+                                   student.GuardianId.HasValue &&
+                                   guardian != null &&
+                                   student.GuardianId.Value == guardian.Id;
+
+            if (!canActAsStudent && !canActAsGuardian)
+                return BadRequest<EnrollmentRequestDetailDto>("You are not authorized to make a request for this student.");
+        }
+        else
+        {
+            student = await _studentRepository.GetByUserIdAsync(request.UserId);
+            if (student == null)
+                return NotFound<EnrollmentRequestDetailDto>("Student not found.");
+        }
         var selectedAvailabilityIds = (dto.SelectedAvailabilityIds ?? new List<int>()).Distinct().ToList();
         var groupMemberIds = (dto.GroupMemberStudentIds ?? new List<int>()).Distinct().ToList();
         var proposedSessions = (dto.ProposedSessions ?? new List<CreateProposedSessionDto>())

@@ -8,6 +8,9 @@ public class RequestCourseEnrollmentCommandValidator : AbstractValidator<Request
     public RequestCourseEnrollmentCommandValidator()
     {
         RuleFor(x => x.Data).NotNull();
+        RuleFor(x => x.Data.StudentId).GreaterThan(0)
+            .When(x => x.Data != null && x.Data.StudentId.HasValue)
+            .WithMessage("StudentId must be greater than 0 when provided.");
         RuleFor(x => x.Data.CourseId).GreaterThan(0).When(x => x.Data != null).WithMessage("Course is required.");
         RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null).WithMessage("Teaching mode is required.");
         RuleFor(x => x.Data.Notes).MaximumLength(400).When(x => x.Data != null);

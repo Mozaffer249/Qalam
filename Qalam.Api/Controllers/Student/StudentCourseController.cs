@@ -6,6 +6,7 @@ using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
+using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 using Qalam.Core.Features.Student.Queries.GetMyChildren;
@@ -19,7 +20,7 @@ namespace Qalam.Api.Controllers.Student;
 /// <summary>
 /// Student course catalog, enrollment requests, and my enrollments.
 /// </summary>
-[Authorize(Roles = Roles.Student)]
+[Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
 [ApiController]
 [Route("Api/V1/Student")]
 public class StudentCourseController : AppControllerBase
@@ -126,6 +127,17 @@ public class StudentCourseController : AppControllerBase
     public async Task<IActionResult> GetMyEnrollmentById(int id)
     {
         var query = new GetMyEnrollmentByIdQuery { Id = id };
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Search students by name or email for group enrollment.
+    /// </summary>
+    /// <remarks>GET Api/V1/Student/Students/Search?SearchTerm=ahmed&amp;MaxResults=20</remarks>
+    [HttpGet(Router.StudentSearchForGroup)]
+    [ProducesResponseType(typeof(List<StudentSearchResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchStudentsForGroup([FromQuery] SearchStudentsForGroupQuery query)
+    {
         return NewResult(await Mediator.Send(query));
     }
 }
