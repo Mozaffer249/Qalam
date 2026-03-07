@@ -1,50 +1,108 @@
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MimeKit;
+using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Messaging;
+using Qalam.Data.Helpers;
 using Qalam.Service.Abstracts;
-using Qalam.Service.Models;
-using System;
-using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
 
 namespace Qalam.Service.Implementations
 {
-    /// <summary>
-    /// Proxy implementation of IEmailService that forwards email requests to the MessagingApi microservice
-    /// </summary>
     public class EmailService : IEmailService
     {
-        private readonly HttpClient _httpClient;
-        private readonly string _messagingApiBaseUrl;
+        private readonly EmailSettings _emailSettings;
+        private readonly ILogger<EmailService> _logger;
+        private readonly IRabbitMQService _rabbitMQService;
 
-        public EmailService(HttpClient httpClient, IConfiguration configuration)
+        public EmailService(
+            IOptions<EmailSettings> emailSettings,
+            ILogger<EmailService> logger,
+            IRabbitMQService rabbitMQService)
         {
-            _httpClient = httpClient;
-            _messagingApiBaseUrl = configuration["MessagingApi:BaseUrl"]
-                ?? throw new InvalidOperationException("MessagingApi:BaseUrl configuration is missing");
+            _emailSettings = emailSettings.Value;
+            _logger = logger;
+            _rabbitMQService = rabbitMQService;
         }
 
         public async Task SendEmailAsync(string email, string subject, string message)
         {
-            await SendEmailAsync(email, subject, message, EmailSendingStrategy.Fallback);
+            await SendEmailAsync(email, subject, message, _emailSettings.DefaultStrategy);
         }
 
-        public async Task SendEmailAsync(string email, string subject, string message, EmailSendingStrategy strategy)
+        public async Task SendEmailAsync(string email, string subject, string message, SendingStrategy strategy)
         {
-            var request = new
+            switch (strategy)
+            {
+                case SendingStrategy.Direct:
+                    await SendDirectAsync(email, subject, message);
+                    break;
+                case SendingStrategy.Queued:
+                    await QueueEmailAsync(email, subject, message);
+                    break;
+                case SendingStrategy.Fallback:
+                    await SendWithFallbackAsync(email, subject, message);
+                    break;
+                default:
+                    throw new ArgumentException($"Unknown email sending strategy: {strategy}");
+            }
+        }
+
+        private async Task SendDirectAsync(string email, string subject, string message)
+        {
+            var emailMessage = new MimeMessage();
+            emailMessage.From.Add(new MailboxAddress(_emailSettings.FromName, _emailSettings.FromEmail));
+            emailMessage.To.Add(MailboxAddress.Parse(email));
+            emailMessage.Subject = subject;
+
+            var bodyBuilder = new BodyBuilder
+            {
+                HtmlBody = message,
+                TextBody = message
+            };
+            emailMessage.Body = bodyBuilder.ToMessageBody();
+
+            using var smtpClient = new SmtpClient();
+            await smtpClient.ConnectAsync(_emailSettings.Host, _emailSettings.Port,
+                _emailSettings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
+            await smtpClient.AuthenticateAsync(_emailSettings.UserName, _emailSettings.Password);
+            await smtpClient.SendAsync(emailMessage);
+            await smtpClient.DisconnectAsync(true);
+
+            _logger.LogInformation("Email sent successfully (Direct) to: {Email}", email);
+        }
+
+        private async Task QueueEmailAsync(string email, string subject, string message)
+        {
+            await _rabbitMQService.QueueEmailAsync(new EmailMessage
             {
                 To = email,
                 Subject = subject,
-                Body = message,
-                IsHtml = true,
-                Strategy = strategy.ToIntValue() // Send as enum integer value (0=Direct, 1=Queued, 2=Fallback)
-            };
+                Body = message
+            });
+            _logger.LogInformation("Email queued for delivery to: {Email}", email);
+        }
 
-            var url = $"{_messagingApiBaseUrl}/api/messaging/email";
-
-            var response = await _httpClient.PostAsJsonAsync(url, request);
-
-            if (!response.IsSuccessStatusCode)
+        private async Task SendWithFallbackAsync(string email, string subject, string message)
+        {
+            try
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"Failed to send email via MessagingApi. Status: {response.StatusCode}, Error: {errorContent}");
+                await SendDirectAsync(email, subject, message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send email to: {Email}. Error: {Message}", email, ex.Message);
+                try
+                {
+                    await QueueEmailAsync(email, subject, message);
+                    _logger.LogInformation("Email queued for later delivery (Fallback) to: {Email}", email);
+                }
+                catch (Exception queueEx)
+                {
+                    _logger.LogError(queueEx, "Failed to queue email to: {Email}. Email will be lost.", email);
+                    throw;
+                }
             }
         }
     }

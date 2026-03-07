@@ -52,6 +52,10 @@ namespace Qalam.Infrastructure
 
             services.AddSingleton(jwtSettings);
             services.AddSingleton(emailSettings);
+            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+            services.Configure<SmsSettings>(configuration.GetSection("SmsSettings"));
+            services.Configure<PushNotificationSettings>(configuration.GetSection("PushNotificationSettings"));
+            services.Configure<RabbitMQSettings>(configuration.GetSection("RabbitMQSettings"));
             services.Configure<RateLimitSettings>(configuration.GetSection("RateLimiting"));
             services.Configure<PasswordPolicySettings>(configuration.GetSection("PasswordPolicy"));
 

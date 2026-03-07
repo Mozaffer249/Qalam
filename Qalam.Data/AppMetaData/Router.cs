@@ -187,5 +187,18 @@ namespace Qalam.Data.AppMetaData
         public const string DaysOfWeek = Teaching + "/DaysOfWeek";
         public const string DayOfWeekById = DaysOfWeek + SingleRoute;
         #endregion
+
+        #region Messaging
+        public const string Messaging = Rule + "Messaging";
+        public const string MessagingEmail = Messaging + "/Email";
+        public const string MessagingEmailBulk = Messaging + "/Email/Bulk";
+        public const string MessagingSms = Messaging + "/Sms";
+        public const string MessagingSmsBulk = Messaging + "/Sms/Bulk";
+        public const string MessagingPush = Messaging + "/Push";
+        public const string MessagingPushBulk = Messaging + "/Push/Bulk";
+        public const string MessagingStatus = Messaging + "/Status/{messageId}";
+        public const string MessagingHistory = Messaging + "/History";
+        public const string MessagingHealth = Messaging + "/Health";
+        #endregion
     }
 }

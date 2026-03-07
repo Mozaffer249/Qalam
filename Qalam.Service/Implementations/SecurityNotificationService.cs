@@ -1,6 +1,6 @@
 using Qalam.Data.Entity.Identity;
 using Qalam.Service.Abstracts;
-using Qalam.Service.Models;
+using Qalam.Data.Entity.Common.Enums;
 using System;
 using System.Threading.Tasks;
 
@@ -22,7 +22,7 @@ namespace Qalam.Service.Implementations
             var subject = "Password Changed - Qalam";
             var body = GeneratePasswordChangedEmail(user.FirstName, ipAddress, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
             
             // Mark security event as notified if exists
             await MarkSecurityEventNotified(user.Id, SecurityEventType.PasswordChanged);
@@ -34,7 +34,7 @@ namespace Qalam.Service.Implementations
             var body = GenerateEmailChangedEmail(userName, oldEmail, newEmail, ipAddress, DateTime.UtcNow);
             
             // Notify the OLD email address about the change
-            await _emailService.SendEmailAsync(oldEmail, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(oldEmail, subject, body, SendingStrategy.Queued);
         }
 
         public async Task NotifyNewDeviceLoginAsync(User user, string deviceInfo, string ipAddress)
@@ -42,7 +42,7 @@ namespace Qalam.Service.Implementations
             var subject = "New Device Login Detected - Qalam";
             var body = GenerateNewDeviceLoginEmail(user.FirstName, deviceInfo, ipAddress, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
             
             await MarkSecurityEventNotified(user.Id, SecurityEventType.LoginFromNewDevice);
         }
@@ -52,7 +52,7 @@ namespace Qalam.Service.Implementations
             var subject = "Two-Factor Authentication Enabled - Qalam";
             var body = GenerateTwoFactorEnabledEmail(user.FirstName, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
             
             await MarkSecurityEventNotified(user.Id, SecurityEventType.TwoFactorEnabled);
         }
@@ -62,7 +62,7 @@ namespace Qalam.Service.Implementations
             var subject = "Two-Factor Authentication Disabled - Qalam";
             var body = GenerateTwoFactorDisabledEmail(user.FirstName, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
             
             await MarkSecurityEventNotified(user.Id, SecurityEventType.TwoFactorDisabled);
         }
@@ -72,7 +72,7 @@ namespace Qalam.Service.Implementations
             var subject = "Session Terminated - Qalam";
             var body = GenerateSessionTerminatedEmail(user.FirstName, deviceInfo, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
         }
 
         public async Task NotifySuspiciousActivityAsync(User user, string activity, string ipAddress)
@@ -80,7 +80,7 @@ namespace Qalam.Service.Implementations
             var subject = "Suspicious Activity Detected - Qalam";
             var body = GenerateSuspiciousActivityEmail(user.FirstName, activity, ipAddress, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Direct);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Direct);
             
             await MarkSecurityEventNotified(user.Id, SecurityEventType.SuspiciousActivity);
         }
@@ -90,7 +90,7 @@ namespace Qalam.Service.Implementations
             var subject = "Account Deleted - Qalam";
             var body = GenerateAccountDeletedEmail(user.FirstName, DateTime.UtcNow);
             
-            await _emailService.SendEmailAsync(user.Email!, subject, body, EmailSendingStrategy.Queued);
+            await _emailService.SendEmailAsync(user.Email!, subject, body, SendingStrategy.Queued);
         }
 
         private async Task MarkSecurityEventNotified(int userId, SecurityEventType eventType)

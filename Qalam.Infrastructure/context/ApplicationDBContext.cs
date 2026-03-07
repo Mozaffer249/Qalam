@@ -15,6 +15,7 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Session;
 using Qalam.Data.Entity.Payment;
+using Qalam.Data.Entity.Messaging;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -112,6 +113,9 @@ namespace Qalam.Infrastructure.context
         public DbSet<PaymentItem> PaymentItems { get; set; }
         public DbSet<CourseEnrollmentPayment> CourseEnrollmentPayments { get; set; }
 
+        // Messaging Schema DbSets
+        public DbSet<MessageLog> MessageLogs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -127,6 +131,20 @@ namespace Qalam.Infrastructure.context
             builder.Entity<IdentityUserLogin<int>>().ToTable("UserLogins", "security");
             builder.Entity<IdentityRoleClaim<int>>().ToTable("RoleClaims", "security");
             builder.Entity<IdentityUserToken<int>>().ToTable("UserTokens", "security");
+
+            // Messaging table mapping
+            builder.Entity<MessageLog>(entity =>
+            {
+                entity.ToTable("MessageLogs", "messaging");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.MessageId).IsUnique();
+                entity.HasIndex(e => e.QueuedAt);
+                entity.HasIndex(e => e.Status);
+                entity.Property(e => e.MessageId).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Recipient).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.Subject).HasMaxLength(500);
+                entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            });
 
             // Apply encryption
             builder.UseEncryption(_encryptionProvider);

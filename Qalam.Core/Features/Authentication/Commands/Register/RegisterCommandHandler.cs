@@ -1,18 +1,17 @@
 using System;
 using System.Linq;
-using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Authentication;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.context;
-using Qalam.Service.Models;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Authentication.Commands.Register
 {
@@ -20,26 +19,20 @@ namespace Qalam.Core.Features.Authentication.Commands.Register
     {
         private readonly UserManager<User> _userManager;
         private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
         private readonly ILogger<RegisterCommandHandler> _logger;
         private readonly ApplicationDBContext _context;
-
-        private const string MessagingApiBaseUrlKey = "MessagingApi:BaseUrl";
-        private const string MessagingApiEmailEndpoint = "/api/messaging/email";
 
         public RegisterCommandHandler(
             UserManager<User> userManager,
             IStringLocalizer<AuthenticationResources> authLocalizer,
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration,
+            IEmailService emailService,
             ILogger<RegisterCommandHandler> logger,
             ApplicationDBContext context) : base(authLocalizer)
         {
             _userManager = userManager;
             _authLocalizer = authLocalizer;
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
+            _emailService = emailService;
             _logger = logger;
             _context = context;
         }
@@ -152,15 +145,10 @@ namespace Qalam.Core.Features.Authentication.Commands.Register
         {
             try
             {
-                var messagingApiUrl = _configuration[MessagingApiBaseUrlKey];
-                if (string.IsNullOrEmpty(messagingApiUrl))
-                {
-                    _logger.LogWarning("MessagingApi BaseUrl not configured. Confirmation email not sent.");
-                    return;
-                }
+                var emailSubject = "Confirm Your Email - Qalam";
+                var emailBody = BuildConfirmationEmailBody(user, otpCode);
 
-                var emailRequest = BuildConfirmationEmailRequest(user, otpCode);
-                await SendEmailRequestAsync(messagingApiUrl, emailRequest, cancellationToken);
+                await _emailService.SendEmailAsync(user.Email!, emailSubject, emailBody, SendingStrategy.Queued);
 
                 _logger.LogInformation("Confirmation email queued for {Email}. User ID: {UserId}, OTP: {OtpCode}",
                     user.Email, user.Id, otpCode);
@@ -171,10 +159,9 @@ namespace Qalam.Core.Features.Authentication.Commands.Register
             }
         }
 
-        private object BuildConfirmationEmailRequest(User user, string otpCode)
+        private string BuildConfirmationEmailBody(User user, string otpCode)
         {
-            var emailSubject = "Confirm Your Email - Qalam";
-            var emailBody = $@"
+            return $@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -331,29 +318,6 @@ namespace Qalam.Core.Features.Authentication.Commands.Register
     </div>
 </body>
 </html>";
-
-            return new
-            {
-                to = user.Email,
-                subject = emailSubject,
-                body = emailBody,
-                isHtml = true,
-                strategy = EmailSendingStrategy.Queued.ToIntValue()
-            };
-        }
-
-        private async Task SendEmailRequestAsync(string baseUrl, object emailRequest, CancellationToken cancellationToken)
-        {
-            var httpClient = _httpClientFactory.CreateClient();
-            var endpoint = $"{baseUrl}{MessagingApiEmailEndpoint}";
-            var response = await httpClient.PostAsJsonAsync(endpoint, emailRequest, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning(
-                    "Failed to send welcome email via MessagingApi. Status: {StatusCode}",
-                    response.StatusCode);
-            }
         }
     }
 }

@@ -1,18 +1,17 @@
 using System;
 using System.Linq;
-using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Authentication;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.context;
-using Qalam.Service.Models;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
 {
@@ -20,26 +19,20 @@ namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
     {
         private readonly UserManager<User> _userManager;
         private readonly ApplicationDBContext _context;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
         private readonly ILogger<SendResetPasswordCodeCommandHandler> _logger;
         private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
-
-        private const string MessagingApiBaseUrlKey = "MessagingApi:BaseUrl";
-        private const string MessagingApiEmailEndpoint = "/api/messaging/email";
 
         public SendResetPasswordCodeCommandHandler(
             IStringLocalizer<AuthenticationResources> authLocalizer,
             UserManager<User> userManager,
             ApplicationDBContext context,
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration,
+            IEmailService emailService,
             ILogger<SendResetPasswordCodeCommandHandler> logger) : base(authLocalizer)
         {
             _userManager = userManager;
             _context = context;
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
+            _emailService = emailService;
             _logger = logger;
             _authLocalizer = authLocalizer;
         }
@@ -100,15 +93,10 @@ namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
         {
             try
             {
-                var messagingApiUrl = _configuration[MessagingApiBaseUrlKey];
-                if (string.IsNullOrEmpty(messagingApiUrl))
-                {
-                    _logger.LogWarning("MessagingApi BaseUrl not configured. Reset email not sent.");
-                    return;
-                }
+                var emailSubject = "Password Reset Code - Qalam";
+                var emailBody = BuildPasswordResetEmailBody(user, otpCode);
 
-                var emailRequest = BuildPasswordResetEmailRequest(user, otpCode);
-                await SendEmailRequestAsync(messagingApiUrl, emailRequest, cancellationToken);
+                await _emailService.SendEmailAsync(user.Email!, emailSubject, emailBody, SendingStrategy.Queued);
 
                 _logger.LogInformation("Password reset email queued for {Email}. User ID: {UserId}, OTP: {OtpCode}",
                     user.Email, user.Id, otpCode);
@@ -119,10 +107,9 @@ namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
             }
         }
 
-        private object BuildPasswordResetEmailRequest(User user, string otpCode)
+        private string BuildPasswordResetEmailBody(User user, string otpCode)
         {
-            var emailSubject = "Password Reset Code - Qalam";
-            var emailBody = $@"
+            return $@"
 <!DOCTYPE html>
 <html>
 <head>
@@ -235,29 +222,6 @@ namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
     </div>
 </body>
 </html>";
-
-            return new
-            {
-                to = user.Email,
-                subject = emailSubject,
-                body = emailBody,
-                isHtml = true,
-                strategy = EmailSendingStrategy.Queued.ToIntValue()
-            };
-        }
-
-        private async Task SendEmailRequestAsync(string baseUrl, object emailRequest, CancellationToken cancellationToken)
-        {
-            var httpClient = _httpClientFactory.CreateClient();
-            var endpoint = $"{baseUrl}{MessagingApiEmailEndpoint}";
-            var response = await httpClient.PostAsJsonAsync(endpoint, emailRequest, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning(
-                    "Failed to send password reset email via MessagingApi. Status: {StatusCode}",
-                    response.StatusCode);
-            }
         }
     }
 }

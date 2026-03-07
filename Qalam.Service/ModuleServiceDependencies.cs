@@ -19,8 +19,12 @@ namespace Qalam.Service
             services.AddTransient<ISecurityNotificationService, SecurityNotificationService>();
             services.AddTransient<IRiskAssessmentService, RiskAssessmentService>();
 
-            // Register EmailService
-            services.AddHttpClient<IEmailService, EmailService>();
+            // Messaging Services
+            services.AddSingleton<IRabbitMQService, RabbitMQService>();
+            services.AddTransient<IEmailService, EmailService>();
+            services.AddTransient<ISmsService, SmsService>();
+            services.AddTransient<IPushNotificationService, PushNotificationService>();
+            services.AddTransient<IMessageTrackingService, MessageTrackingService>();
 
             // Teacher Registration Services
             services.AddTransient<IOtpService, OtpService>();

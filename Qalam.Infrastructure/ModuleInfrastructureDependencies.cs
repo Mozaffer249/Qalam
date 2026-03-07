@@ -54,6 +54,9 @@ namespace Qalam.Infrastructure
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();
             services.AddTransient<IDayOfWeekRepository, DayOfWeekRepository>();
 
+            // Messaging Repositories
+            services.AddTransient<IMessageLogRepository, MessageLogRepository>();
+
             // Database Seeder
             services.AddTransient<DatabaseSeeder>();
             services.AddTransient<RoleSeeder>();
