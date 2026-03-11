@@ -1,44 +1,41 @@
-using System;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Qalam.Infrastructure.context;
 
 #nullable disable
 
 namespace Qalam.Infrastructure.Migrations
 {
-    [DbContext(typeof(ApplicationDBContext))]
-    [Migration("20260303090000_FinalizeCourseGroupEnrollmentDesign")]
-    public partial class FinalizeCourseGroupEnrollmentDesign : Migration
+    /// <inheritdoc />
+    public partial class AddMessagingAndFixCascade : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
                 name: "CourseSessions",
                 schema: "course");
 
-            migrationBuilder.AddColumn<decimal>(
-                name: "EstimatedTotalPrice",
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Course_SessionDuration",
                 schema: "course",
-                table: "CourseEnrollmentRequests",
-                type: "decimal(18,2)",
-                nullable: false,
-                defaultValue: 0m);
+                table: "Courses");
 
-            migrationBuilder.AddColumn<int>(
-                name: "TotalMinutes",
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Course_SessionsCount",
                 schema: "course",
-                table: "CourseEnrollmentRequests",
-                type: "int",
-                nullable: false,
-                defaultValue: 0);
+                table: "Courses");
 
-            migrationBuilder.AddColumn<int>(
-                name: "ConfirmedByUserId",
+            migrationBuilder.EnsureSchema(
+                name: "messaging");
+
+            migrationBuilder.AlterColumn<int>(
+                name: "CourseEnrollmentId",
                 schema: "course",
-                table: "CourseRequestGroupMembers",
+                table: "CourseSchedules",
                 type: "int",
-                nullable: true);
+                nullable: true,
+                oldClrType: typeof(int),
+                oldType: "int");
 
             migrationBuilder.AddColumn<int>(
                 name: "CourseGroupEnrollmentId",
@@ -55,14 +52,28 @@ namespace Qalam.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            migrationBuilder.AlterColumn<int>(
-                name: "CourseEnrollmentId",
+            migrationBuilder.AddColumn<int>(
+                name: "ConfirmedByUserId",
                 schema: "course",
-                table: "CourseSchedules",
+                table: "CourseRequestGroupMembers",
                 type: "int",
-                nullable: true,
-                oldClrType: typeof(int),
-                oldType: "int");
+                nullable: true);
+
+            migrationBuilder.AddColumn<decimal>(
+                name: "EstimatedTotalPrice",
+                schema: "course",
+                table: "CourseEnrollmentRequests",
+                type: "decimal(18,2)",
+                nullable: false,
+                defaultValue: 0m);
+
+            migrationBuilder.AddColumn<int>(
+                name: "TotalMinutes",
+                schema: "course",
+                table: "CourseEnrollmentRequests",
+                type: "int",
+                nullable: false,
+                defaultValue: 0);
 
             migrationBuilder.CreateTable(
                 name: "CourseGroupEnrollments",
@@ -134,6 +145,30 @@ namespace Qalam.Infrastructure.Migrations
                         principalTable: "CourseEnrollmentRequests",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MessageLogs",
+                schema: "messaging",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    MessageId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Type = table.Column<int>(type: "int", nullable: false),
+                    Recipient = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    Subject = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    QueuedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ProcessedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeliveredAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    RetryCount = table.Column<int>(type: "int", nullable: false),
+                    Metadata = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MessageLogs", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -215,6 +250,24 @@ namespace Qalam.Infrastructure.Migrations
                 schema: "course",
                 table: "CourseSchedules",
                 sql: "(([CourseEnrollmentId] IS NOT NULL AND [CourseGroupEnrollmentId] IS NULL) OR ([CourseEnrollmentId] IS NULL AND [CourseGroupEnrollmentId] IS NOT NULL))");
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Course_MaxStudents",
+                schema: "course",
+                table: "Courses",
+                sql: "([MaxStudents] IS NULL) OR ([MaxStudents] >= 2)");
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Course_SessionDuration",
+                schema: "course",
+                table: "Courses",
+                sql: "(([IsFlexible] = 0) AND ([SessionDurationMinutes] IS NOT NULL) AND ([SessionDurationMinutes] > 0)) OR (([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL))");
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Course_SessionsCount",
+                schema: "course",
+                table: "Courses",
+                sql: "(([IsFlexible] = 0) AND ([SessionsCount] IS NOT NULL) AND ([SessionsCount] > 0)) OR (([IsFlexible] = 1) AND ([SessionsCount] IS NULL))");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CourseGroupEnrollmentMembers_CourseGroupEnrollmentId",
@@ -298,6 +351,25 @@ namespace Qalam.Infrastructure.Migrations
                 table: "GroupEnrollmentMemberPayments",
                 column: "PaymentId");
 
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageLogs_MessageId",
+                schema: "messaging",
+                table: "MessageLogs",
+                column: "MessageId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageLogs_QueuedAt",
+                schema: "messaging",
+                table: "MessageLogs",
+                column: "QueuedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageLogs_Status",
+                schema: "messaging",
+                table: "MessageLogs",
+                column: "Status");
+
             migrationBuilder.AddForeignKey(
                 name: "FK_CourseSchedules_CourseGroupEnrollments_CourseGroupEnrollmentId",
                 schema: "course",
@@ -306,9 +378,10 @@ namespace Qalam.Infrastructure.Migrations
                 principalSchema: "course",
                 principalTable: "CourseGroupEnrollments",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+                onDelete: ReferentialAction.Restrict);
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
@@ -325,6 +398,10 @@ namespace Qalam.Infrastructure.Migrations
                 schema: "course");
 
             migrationBuilder.DropTable(
+                name: "MessageLogs",
+                schema: "messaging");
+
+            migrationBuilder.DropTable(
                 name: "CourseGroupEnrollmentMembers",
                 schema: "course");
 
@@ -332,30 +409,30 @@ namespace Qalam.Infrastructure.Migrations
                 name: "CourseGroupEnrollments",
                 schema: "course");
 
-            migrationBuilder.DropCheckConstraint(
-                name: "CK_CourseSchedule_EnrollmentLink",
-                schema: "course",
-                table: "CourseSchedules");
-
             migrationBuilder.DropIndex(
                 name: "IX_CourseSchedules_CourseGroupEnrollmentId",
                 schema: "course",
                 table: "CourseSchedules");
 
-            migrationBuilder.DropColumn(
-                name: "EstimatedTotalPrice",
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_CourseSchedule_EnrollmentLink",
                 schema: "course",
-                table: "CourseEnrollmentRequests");
+                table: "CourseSchedules");
 
-            migrationBuilder.DropColumn(
-                name: "TotalMinutes",
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Course_MaxStudents",
                 schema: "course",
-                table: "CourseEnrollmentRequests");
+                table: "Courses");
 
-            migrationBuilder.DropColumn(
-                name: "ConfirmedByUserId",
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Course_SessionDuration",
                 schema: "course",
-                table: "CourseRequestGroupMembers");
+                table: "Courses");
+
+            migrationBuilder.DropCheckConstraint(
+                name: "CK_Course_SessionsCount",
+                schema: "course",
+                table: "Courses");
 
             migrationBuilder.DropColumn(
                 name: "CourseGroupEnrollmentId",
@@ -366,6 +443,21 @@ namespace Qalam.Infrastructure.Migrations
                 name: "DurationMinutes",
                 schema: "course",
                 table: "CourseSchedules");
+
+            migrationBuilder.DropColumn(
+                name: "ConfirmedByUserId",
+                schema: "course",
+                table: "CourseRequestGroupMembers");
+
+            migrationBuilder.DropColumn(
+                name: "EstimatedTotalPrice",
+                schema: "course",
+                table: "CourseEnrollmentRequests");
+
+            migrationBuilder.DropColumn(
+                name: "TotalMinutes",
+                schema: "course",
+                table: "CourseEnrollmentRequests");
 
             migrationBuilder.AlterColumn<int>(
                 name: "CourseEnrollmentId",
@@ -386,13 +478,13 @@ namespace Qalam.Infrastructure.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     CourseId = table.Column<int>(type: "int", nullable: false),
-                    SessionNumber = table.Column<int>(type: "int", nullable: false),
-                    DurationMinutes = table.Column<int>(type: "int", nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<int>(type: "int", nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    DurationMinutes = table.Column<int>(type: "int", nullable: false),
+                    SessionNumber = table.Column<int>(type: "int", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     UpdatedBy = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
@@ -406,6 +498,18 @@ namespace Qalam.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Course_SessionDuration",
+                schema: "course",
+                table: "Courses",
+                sql: "([IsFlexible] = 1) OR ([SessionDurationMinutes] IS NOT NULL AND [SessionDurationMinutes] > 0)");
+
+            migrationBuilder.AddCheckConstraint(
+                name: "CK_Course_SessionsCount",
+                schema: "course",
+                table: "Courses",
+                sql: "([IsFlexible] = 1) OR ([SessionsCount] IS NOT NULL AND [SessionsCount] > 0)");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CourseSessions_CourseId",

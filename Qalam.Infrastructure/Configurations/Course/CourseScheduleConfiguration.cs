@@ -36,7 +36,7 @@ public class CourseScheduleConfiguration : IEntityTypeConfiguration<CourseSchedu
         builder.HasOne(e => e.CourseGroupEnrollment)
                .WithMany(cge => cge.CourseSchedules)
                .HasForeignKey(e => e.CourseGroupEnrollmentId)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.Restrict);
         
         builder.HasOne(e => e.TeacherAvailability)
                .WithMany()

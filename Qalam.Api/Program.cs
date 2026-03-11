@@ -74,10 +74,10 @@ builder.Services.AddInfrastructureDependencies()
                 .AddCoreDependencies()
                 .AddServiceRegisteration(builder.Configuration);
 
-// Background Messaging Consumers
-builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EmailConsumerService>();
-builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SmsConsumerService>();
-builder.Services.AddHostedService<Qalam.Service.BackgroundServices.PushConsumerService>();
+// Background Messaging Consumers (disabled — require RabbitMQ running locally)
+// builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EmailConsumerService>();
+// builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SmsConsumerService>();
+// builder.Services.AddHostedService<Qalam.Service.BackgroundServices.PushConsumerService>();
 
 #endregion
 
