@@ -166,6 +166,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentById = StudentEnrollments + "/{id}";
         /// <summary>Search students for group enrollment: Api/V1/Student/Students/Search</summary>
         public const string StudentSearchForGroup = Rule + "Student/Students/Search";
+        /// <summary>Search students by name or email: Api/V1/Student/Search</summary>
+        public const string StudentSearch = Rule + "Student/Search";
         #endregion
 
         #region Teaching

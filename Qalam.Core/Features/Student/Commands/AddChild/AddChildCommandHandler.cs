@@ -17,18 +17,30 @@ public class AddChildCommandHandler : ResponseHandler,
     private readonly IStudentRepository _studentRepository;
     private readonly UserManager<User> _userManager;
     private readonly IMapper _mapper;
+    private readonly IEducationDomainRepository _domainRepository;
+    private readonly ICurriculumRepository _curriculumRepository;
+    private readonly IEducationLevelRepository _levelRepository;
+    private readonly IGradeRepository _gradeRepository;
 
     public AddChildCommandHandler(
         IGuardianRepository guardianRepository,
         IStudentRepository studentRepository,
         UserManager<User> userManager,
         IMapper mapper,
+        IEducationDomainRepository domainRepository,
+        ICurriculumRepository curriculumRepository,
+        IEducationLevelRepository levelRepository,
+        IGradeRepository gradeRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _guardianRepository = guardianRepository;
         _studentRepository = studentRepository;
         _userManager = userManager;
         _mapper = mapper;
+        _domainRepository = domainRepository;
+        _curriculumRepository = curriculumRepository;
+        _levelRepository = levelRepository;
+        _gradeRepository = gradeRepository;
     }
 
     public async Task<Response<int>> Handle(AddChildCommand request, CancellationToken cancellationToken)
@@ -39,6 +51,7 @@ public class AddChildCommandHandler : ResponseHandler,
 
         var dto = request.Child;
 
+        // Email uniqueness check
         User? existingByEmail;
         try
         {
@@ -46,11 +59,39 @@ public class AddChildCommandHandler : ResponseHandler,
         }
         catch (InvalidOperationException)
         {
-            // Identity uses SingleOrDefault; duplicate emails in DB cause "Sequence contains more than one element"
             return BadRequest<int>("Email is already registered. Please use a different email or contact support.");
         }
         if (existingByEmail != null)
             return BadRequest<int>("Email is already registered.");
+
+        // Education entity existence checks
+        if (dto.DomainId.HasValue)
+        {
+            var domain = await _domainRepository.GetByIdAsync(dto.DomainId.Value);
+            if (domain == null)
+                return BadRequest<int>("Domain not found.");
+        }
+
+        if (dto.CurriculumId.HasValue)
+        {
+            var curriculum = await _curriculumRepository.GetByIdAsync(dto.CurriculumId.Value);
+            if (curriculum == null)
+                return BadRequest<int>("Curriculum not found.");
+        }
+
+        if (dto.LevelId.HasValue)
+        {
+            var level = await _levelRepository.GetByIdAsync(dto.LevelId.Value);
+            if (level == null)
+                return BadRequest<int>("Level not found.");
+        }
+
+        if (dto.GradeId.HasValue)
+        {
+            var grade = await _gradeRepository.GetByIdAsync(dto.GradeId.Value);
+            if (grade == null)
+                return BadRequest<int>("Grade not found.");
+        }
 
         var rawUserName = $"child_{guardian.Id}_{Guid.NewGuid():N}";
         var unique = rawUserName.Length > 44 ? rawUserName[..44] : rawUserName;
@@ -69,7 +110,7 @@ public class AddChildCommandHandler : ResponseHandler,
         var student = _mapper.Map<StudentEntity>(dto);
         student.UserId = childUser.Id;
         student.GuardianId = guardian.Id;
-        
+
         await _studentRepository.AddAsync(student);
         await _studentRepository.SaveChangesAsync();
 

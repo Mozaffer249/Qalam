@@ -138,6 +138,22 @@ public class ChildStudentDto
 
 #endregion
 
+#region Find Student
+
+/// <summary>
+/// DTO for finding a student by email, includes guardian info if linked
+/// </summary>
+public class StudentByEmailDto
+{
+    public int StudentId { get; set; }
+    public string FullName { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    public int? GuardianId { get; set; }
+    public string? GuardianName { get; set; }
+}
+
+#endregion
+
 #region Responses
 
 /// <summary>

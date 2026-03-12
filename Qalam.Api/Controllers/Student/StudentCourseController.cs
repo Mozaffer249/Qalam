@@ -9,6 +9,7 @@ using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequ
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
+using Qalam.Core.Features.Student.Queries.SearchStudents;
 using Qalam.Core.Features.Student.Queries.GetMyChildren;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
@@ -137,6 +138,17 @@ public class StudentCourseController : AppControllerBase
     [HttpGet(Router.StudentSearchForGroup)]
     [ProducesResponseType(typeof(List<StudentSearchResultDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchStudentsForGroup([FromQuery] SearchStudentsForGroupQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Search students by name or email (partial match, paginated). Returns guardian info if linked.
+    /// </summary>
+    /// <remarks>GET Api/V1/Student/Search?searchTerm=ahmed&amp;pageNumber=1&amp;pageSize=10</remarks>
+    [HttpGet(Router.StudentSearch)]
+    [ProducesResponseType(typeof(PaginatedResult<StudentByEmailDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchStudents([FromQuery] SearchStudentsQuery query)
     {
         return NewResult(await Mediator.Send(query));
     }
