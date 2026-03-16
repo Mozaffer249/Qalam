@@ -41,10 +41,10 @@ public class TeacherAvailabilityController : AppControllerBase
     }
 
     /// <summary>
-    /// Save teacher weekly availability schedule (replaces existing)
+    /// Add to teacher weekly availability schedule (skips duplicates)
     /// </summary>
     /// <remarks>
-    /// This endpoint saves the complete weekly schedule at once. Any existing schedule will be replaced.
+    /// This endpoint adds new day/slot combinations to the existing schedule. Duplicate slots are skipped.
     /// 
     /// Example:
     /// ```json

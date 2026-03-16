@@ -37,38 +37,13 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
             return NotFound<TeacherAvailabilityResponseDto>("Teacher not found");
         }
 
-        // Check for duplicate days in request
-        var duplicateDays = request.DaySchedules
-            .GroupBy(d => d.DayOfWeekId)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToList();
-
-        if (duplicateDays.Any())
-        {
-            return BadRequest<TeacherAvailabilityResponseDto>(
-                $"Duplicate days in request: {string.Join(", ", duplicateDays)}");
-        }
-
         // Validate at least one day is provided
-        if (!request.DaySchedules.Any())
+        if (request.DaySchedules.Count == 0)
         {
             return BadRequest<TeacherAvailabilityResponseDto>("At least one day schedule is required");
         }
 
-        // Validate each day has at least one time slot
-        var daysWithoutSlots = request.DaySchedules
-            .Where(d => !d.TimeSlotIds.Any())
-            .Select(d => d.DayOfWeekId)
-            .ToList();
-
-        if (daysWithoutSlots.Any())
-        {
-            return BadRequest<TeacherAvailabilityResponseDto>(
-                $"Days without time slots: {string.Join(", ", daysWithoutSlots)}");
-        }
-
-        // Save availability
+        // Save availability (additive — skips existing slots automatically)
         await _availabilityRepository.SaveTeacherAvailabilityAsync(teacher.Id, request.DaySchedules);
 
         // Return updated availability using the query handler

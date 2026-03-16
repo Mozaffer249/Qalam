@@ -59,30 +59,40 @@ public class TeacherAvailabilityRepository : GenericRepositoryAsync<TeacherAvail
 
     public async Task SaveTeacherAvailabilityAsync(int teacherId, List<DayAvailabilityDto> daySchedules)
     {
-        // Remove existing availability
-        await RemoveAllTeacherAvailabilityAsync(teacherId);
+        // Get existing active slots to avoid duplicates
+        var existingSlots = await _teacherAvailability
+            .Where(ta => ta.TeacherId == teacherId && ta.IsActive)
+            .Select(ta => new { ta.DayOfWeekId, ta.TimeSlotId })
+            .ToListAsync();
 
-        // Add new availability slots
-        var availabilitySlots = new List<TeacherAvailability>();
+        var existingSet = existingSlots
+            .Select(s => (s.DayOfWeekId, s.TimeSlotId))
+            .ToHashSet();
+
+        // Only add new slots that don't already exist
+        var newSlots = new List<TeacherAvailability>();
 
         foreach (var daySchedule in daySchedules)
         {
             foreach (var timeSlotId in daySchedule.TimeSlotIds)
             {
-                availabilitySlots.Add(new TeacherAvailability
+                if (!existingSet.Contains((daySchedule.DayOfWeekId, timeSlotId)))
                 {
-                    TeacherId = teacherId,
-                    DayOfWeekId = daySchedule.DayOfWeekId,
-                    TimeSlotId = timeSlotId,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    newSlots.Add(new TeacherAvailability
+                    {
+                        TeacherId = teacherId,
+                        DayOfWeekId = daySchedule.DayOfWeekId,
+                        TimeSlotId = timeSlotId,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
         }
 
-        if (availabilitySlots.Any())
+        if (newSlots.Any())
         {
-            await _teacherAvailability.AddRangeAsync(availabilitySlots);
+            await _teacherAvailability.AddRangeAsync(newSlots);
             await _context.SaveChangesAsync();
         }
     }
