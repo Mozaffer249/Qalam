@@ -21,7 +21,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
     private readonly IAuthenticationService _authService;
 
     public StudentVerifyOtpCommandHandler(
-        IOtpService otpService,
+        IOtpService otpService, 
         IPhoneOtpRepository otpRepository,
         UserManager<User> userManager,
         IAuthenticationService authService,
@@ -43,7 +43,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
 
         string fullPhoneNumber;
         if (request.OtpCode == "1234")
-            fullPhoneNumber = $"{request.CountryCode}{request.PhoneNumber}";
+            fullPhoneNumber = $"+966{request.PhoneNumber}";
         else
         {
             var otp = await _otpRepository.GetValidOtpAsync(request.PhoneNumber, request.OtpCode);

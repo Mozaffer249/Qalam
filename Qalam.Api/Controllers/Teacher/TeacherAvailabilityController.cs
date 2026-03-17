@@ -87,15 +87,15 @@ public class TeacherAvailabilityController : AppControllerBase
     /// </summary>
     /// <remarks>
     /// ExceptionType values:
-    /// - 1 = Blocked (holiday/unavailable)
-    /// - 2 = Extra (available outside regular schedule)
-    /// 
+    /// - "Blocked" (holiday/unavailable)
+    /// - "Extra" (available outside regular schedule)
+    ///
     /// Example:
     /// ```json
     /// {
     ///   "date": "2026-02-15",
     ///   "timeSlotId": 5,
-    ///   "exceptionType": 1,
+    ///   "exceptionType": "Blocked",
     ///   "reason": "Public holiday"
     /// }
     /// ```

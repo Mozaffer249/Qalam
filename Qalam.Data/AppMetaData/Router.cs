@@ -33,8 +33,8 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherUploadDocuments = Authentication + "/Teacher/UploadDocuments";
 
         // Student / Parent Authentication & Registration
-        public const string StudentSendOtp = Authentication + "/Student/SendOtp";
-        public const string StudentVerifyOtp = Authentication + "/Student/VerifyOtp";
+        public const string StudentSendOtp = Authentication + "/Student/SendOttp";
+        public const string StudentVerifyOtp = Authentication + "/Student/VerifyOp";
         public const string StudentSetAccountTypeAndUsage = Authentication + "/Student/SetAccountTypeAndUsage";
         public const string StudentCompleteProfile = Authentication + "/Student/CompleteProfile";
         public const string StudentAddChild = Authentication + "/Student/AddChild";

@@ -1,5 +1,6 @@
 using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
@@ -36,6 +37,23 @@ public class GetMyChildrenQueryHandler : ResponseHandler,
 
         var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
         var childrenDtos = _mapper.Map<List<ChildStudentDto>>(children);
+
+        // If guardian also studies, include their own student record first
+        var selfStudent = await _studentRepository.GetTableNoTracking()
+            .Where(s => s.UserId == request.UserId && s.IsActive && s.GuardianId == null)
+            .Include(s => s.Domain)
+            .Include(s => s.Curriculum)
+            .Include(s => s.Level)
+            .Include(s => s.Grade)
+            .Include(s => s.User)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (selfStudent != null)
+        {
+            var selfDto = _mapper.Map<ChildStudentDto>(selfStudent);
+            selfDto.IsSelf = true;
+            childrenDtos.Insert(0, selfDto);
+        }
 
         return Success(entity: childrenDtos);
     }

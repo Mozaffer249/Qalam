@@ -10,7 +10,6 @@ namespace Qalam.Core.Features.Authentication.Commands.StudentRegistration;
 /// </summary>
 public class StudentVerifyOtpCommand : IRequest<Response<StudentRegistrationResponseDto>>
 {
-    public string CountryCode { get; set; } = "+966";
     public string PhoneNumber { get; set; } = default!;
     public string OtpCode { get; set; } = default!;
 }

@@ -134,6 +134,7 @@ public class ChildStudentDto
     public int? GradeId { get; set; }
     public string? GradeNameEn { get; set; }
     public bool IsActive { get; set; }
+    public bool IsSelf { get; set; }
 }
 
 #endregion

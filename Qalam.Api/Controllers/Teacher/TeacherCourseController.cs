@@ -25,8 +25,38 @@ public class TeacherCourseController : AppControllerBase
     /// </summary>
     /// <remarks>
     /// GET Api/V1/Teacher/TeacherCourse
-    /// Sample query: ?PageNumber=1&amp;PageSize=10&amp;DomainId=1&amp;Status=0&amp;SubjectId=2
-    /// Sample response: { "data": { "items": [...], "pageNumber": 1, "pageSize": 10, "totalCount": 5 }, "succeeded": true }
+    /// Sample query: ?PageNumber=1&amp;PageSize=10&amp;DomainId=1&amp;Status=Draft&amp;SubjectId=2
+    ///
+    /// Sample response:
+    /// <code>
+    /// {
+    ///   "data": {
+    ///     "items": [
+    ///       {
+    ///         "id": 1,
+    ///         "title": "Mathematics - Grade 10",
+    ///         "descriptionShort": "Full curriculum algebra and geometry.",
+    ///         "teacherId": 5,
+    ///         "domainId": 1,
+    ///         "domainNameEn": "Academic",
+    ///         "subjectId": 2,
+    ///         "subjectNameEn": "Mathematics",
+    ///         "teachingModeId": 1,
+    ///         "teachingModeNameEn": "Online",
+    ///         "sessionTypeId": 1,
+    ///         "sessionTypeNameEn": "Group",
+    ///         "status": "Draft",
+    ///         "isActive": true,
+    ///         "price": 500.00
+    ///       }
+    ///     ],
+    ///     "pageNumber": 1,
+    ///     "pageSize": 10,
+    ///     "totalCount": 5
+    ///   },
+    ///   "succeeded": true
+    /// }
+    /// </code>
     /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedResult<CourseListItemDto>), StatusCodes.Status200OK)]
@@ -40,8 +70,43 @@ public class TeacherCourseController : AppControllerBase
     /// </summary>
     /// <remarks>
     /// GET Api/V1/Teacher/TeacherCourse/{id}
-    /// Sample: GET Api/V1/Teacher/TeacherCourse/1
-    /// Sample response: { "data": { "id": 1, "title": "Math Grade 10", "description": "...", "price": 500, "status": 0, ... }, "succeeded": true }
+    ///
+    /// Sample response:
+    /// <code>
+    /// {
+    ///   "data": {
+    ///     "id": 1,
+    ///     "title": "Mathematics - Grade 10",
+    ///     "description": "Full curriculum algebra and geometry.",
+    ///     "isActive": true,
+    ///     "teacherId": 5,
+    ///     "teacherDisplayName": "Ahmed Ali",
+    ///     "domainId": 1,
+    ///     "domainNameEn": "Academic",
+    ///     "teacherSubjectId": 1,
+    ///     "subjectNameEn": "Mathematics",
+    ///     "curriculumId": 1,
+    ///     "curriculumNameEn": "Saudi National",
+    ///     "levelId": 2,
+    ///     "levelNameEn": "Secondary",
+    ///     "gradeId": 4,
+    ///     "gradeNameEn": "Grade 10",
+    ///     "teachingModeId": 1,
+    ///     "teachingModeNameEn": "Online",
+    ///     "sessionTypeId": 1,
+    ///     "sessionTypeNameEn": "Group",
+    ///     "isFlexible": false,
+    ///     "sessionsCount": 12,
+    ///     "sessionDurationMinutes": 45,
+    ///     "price": 500.00,
+    ///     "maxStudents": 15,
+    ///     "canIncludeInPackages": true,
+    ///     "status": "Draft",
+    ///     "units": null
+    ///   },
+    ///   "succeeded": true
+    /// }
+    /// </code>
     /// </remarks>
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
@@ -88,8 +153,23 @@ public class TeacherCourseController : AppControllerBase
     /// </summary>
     /// <remarks>
     /// PUT Api/V1/Teacher/TeacherCourse/{id}
-    /// Sample: PUT Api/V1/Teacher/TeacherCourse/1
-    /// Sample request body: same as Create (title, description, teacherSubjectId, teachingModeId, sessionTypeId, isFlexible, sessionsCount, sessionDurationMinutes, price, maxStudents, canIncludeInPackages).
+    ///
+    /// Sample request body:
+    /// <code>
+    /// {
+    ///   "title": "Mathematics - Grade 10 (Updated)",
+    ///   "description": "Updated curriculum with new topics.",
+    ///   "teacherSubjectId": 1,
+    ///   "teachingModeId": 1,
+    ///   "sessionTypeId": 1,
+    ///   "isFlexible": false,
+    ///   "sessionsCount": 14,
+    ///   "sessionDurationMinutes": 60,
+    ///   "price": 600,
+    ///   "maxStudents": 20,
+    ///   "canIncludeInPackages": true
+    /// }
+    /// </code>
     /// </remarks>
     [HttpPut("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
@@ -104,7 +184,19 @@ public class TeacherCourseController : AppControllerBase
     /// <summary>
     /// Delete a course (soft if has enrollments, hard otherwise).
     /// </summary>
-    /// <remarks>DELETE Api/V1/Teacher/TeacherCourse/{id}. Sample: DELETE Api/V1/Teacher/TeacherCourse/1</remarks>
+    /// <remarks>
+    /// DELETE Api/V1/Teacher/TeacherCourse/{id}
+    ///
+    /// Soft-deletes if course has enrollments (sets IsActive = false), hard-deletes otherwise.
+    ///
+    /// Sample response:
+    /// <code>
+    /// {
+    ///   "succeeded": true,
+    ///   "message": "Deleted Successfully"
+    /// }
+    /// </code>
+    /// </remarks>
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

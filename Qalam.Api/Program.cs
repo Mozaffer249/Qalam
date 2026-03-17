@@ -36,6 +36,10 @@ builder.Services.Configure<HostOptions>(options =>
 // Add services to the container.
 // Configure DataAnnotations localization
 builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    })
     .AddDataAnnotationsLocalization(options =>
     {
         options.DataAnnotationLocalizerProvider = (type, factory) =>
