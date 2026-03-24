@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Qalam.Data.Entity.Messaging;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -7,11 +8,13 @@ namespace Qalam.Service.Implementations;
 public class FileStorageService : IFileStorageService
 {
     private readonly ILogger<FileStorageService> _logger;
+    private readonly IRabbitMQService _rabbitMQService;
     private readonly string _uploadPath;
 
-    public FileStorageService(ILogger<FileStorageService> logger)
+    public FileStorageService(ILogger<FileStorageService> logger, IRabbitMQService rabbitMQService)
     {
         _logger = logger;
+        _rabbitMQService = rabbitMQService;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teachers");
 
         // Ensure directory exists
@@ -108,5 +111,32 @@ public class FileStorageService : IFileStorageService
             _logger.LogError(ex, "Error deleting file: {Path}", filePath);
             return Task.FromResult(false);
         }
+    }
+
+    public async Task QueueTeacherDocumentUploadAsync(
+        IFormFile file,
+        int teacherId,
+        string documentType,
+        int documentId)
+    {
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        var message = new FileUploadMessage
+        {
+            TeacherId = teacherId,
+            DocumentType = documentType,
+            FileName = file.FileName,
+            ContentType = file.ContentType,
+            FileData = base64Data,
+            EntityId = documentId
+        };
+
+        await _rabbitMQService.QueueFileUploadAsync(message);
+
+        _logger.LogInformation(
+            "File upload queued for teacher {TeacherId}, document {DocumentId}, type {Type}",
+            teacherId, documentId, documentType);
     }
 }

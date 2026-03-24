@@ -95,7 +95,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png" };
             var maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
-            // Validate and save identity document
+            // Validate identity document file
             var isIdentityValid = await _fileStorageService.ValidateFileAsync(
                 request.IdentityDocumentFile,
                 allowedExtensions,
@@ -106,26 +106,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 return BadRequest<string>("Identity document file is invalid or too large");
             }
 
-            var identityFilePath = await _fileStorageService.SaveTeacherDocumentAsync(
-                request.IdentityDocumentFile,
-                teacherId,
-                "identity");
-
-            // Save identity document metadata
-            var identityDoc = new TeacherDocument
-            {
-                TeacherId = teacherId,
-                DocumentType = TeacherDocumentType.IdentityDocument,
-                FilePath = identityFilePath,
-                DocumentNumber = request.DocumentNumber,
-                IdentityType = request.IdentityType,
-                IssuingCountryCode = request.IssuingCountryCode,
-                VerificationStatus = DocumentVerificationStatus.Pending
-            };
-
-            await _documentRepository.AddAsync(identityDoc);
-
-            // Validate and save certificates
+            // Validate all certificate files upfront
             foreach (var cert in request.Certificates)
             {
                 var isCertValid = await _fileStorageService.ValidateFileAsync(
@@ -137,17 +118,31 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 {
                     return BadRequest<string>($"Certificate file '{cert.File.FileName}' is invalid or too large");
                 }
+            }
 
-                var certFilePath = await _fileStorageService.SaveTeacherDocumentAsync(
-                    cert.File,
-                    teacherId,
-                    "certificates");
+            // Create identity document with placeholder path (Wasabi URL will be set by consumer)
+            var identityDoc = new TeacherDocument
+            {
+                TeacherId = teacherId,
+                DocumentType = TeacherDocumentType.IdentityDocument,
+                FilePath = "pending-upload",
+                DocumentNumber = request.DocumentNumber,
+                IdentityType = request.IdentityType,
+                IssuingCountryCode = request.IssuingCountryCode,
+                VerificationStatus = DocumentVerificationStatus.Pending
+            };
 
+            await _documentRepository.AddAsync(identityDoc);
+
+            // Create certificate documents with placeholder paths
+            var certificateDocs = new List<(TeacherDocument Doc, Microsoft.AspNetCore.Http.IFormFile File)>();
+            foreach (var cert in request.Certificates)
+            {
                 var certificate = new TeacherDocument
                 {
                     TeacherId = teacherId,
                     DocumentType = TeacherDocumentType.Certificate,
-                    FilePath = certFilePath,
+                    FilePath = "pending-upload",
                     CertificateTitle = cert.Title,
                     Issuer = cert.Issuer,
                     IssueDate = cert.IssueDate,
@@ -155,10 +150,21 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 };
 
                 await _documentRepository.AddAsync(certificate);
+                certificateDocs.Add((certificate, cert.File));
             }
 
-            // Save all documents to database
+            // Save all documents to database (generates IDs)
             await _documentRepository.SaveChangesAsync();
+
+            // Queue file uploads to RabbitMQ → MessagingApi → Wasabi
+            await _fileStorageService.QueueTeacherDocumentUploadAsync(
+                request.IdentityDocumentFile, teacherId, "identity", identityDoc.Id);
+
+            foreach (var (doc, file) in certificateDocs)
+            {
+                await _fileStorageService.QueueTeacherDocumentUploadAsync(
+                    file, teacherId, "certificates", doc.Id);
+            }
 
             // Update teacher status and location
             await _teacherRegistrationService.CompleteDocumentUploadAsync(

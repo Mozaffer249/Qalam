@@ -15,4 +15,10 @@ public interface IFileStorageService
         long maxSizeBytes);
 
     Task<bool> DeleteFileAsync(string filePath);
+
+    Task QueueTeacherDocumentUploadAsync(
+        IFormFile file,
+        int teacherId,
+        string documentType,
+        int documentId);
 }

@@ -59,9 +59,13 @@ namespace Qalam.Service.Implementations
                     queue: _settings.PushQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.FileUploadQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
                 _initialized = true;
-                _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}",
-                    _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName);
+                _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}, {FileUploadQueue}",
+                    _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName, _settings.FileUploadQueueName);
             }
             catch (Exception ex)
             {
@@ -142,6 +146,31 @@ namespace Qalam.Service.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to queue push notification to: {DeviceToken}", pushMessage.DeviceToken);
+                throw;
+            }
+        }
+
+        public async Task QueueFileUploadAsync(FileUploadMessage fileUploadMessage)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                fileUploadMessage.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(fileUploadMessage);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.FileUploadQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation("File upload queued for teacher: {TeacherId}, document: {EntityId}",
+                    fileUploadMessage.TeacherId, fileUploadMessage.EntityId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to queue file upload for teacher: {TeacherId}", fileUploadMessage.TeacherId);
                 throw;
             }
         }

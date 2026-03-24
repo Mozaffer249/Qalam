@@ -23,17 +23,17 @@ services:
       retries: 5
       start_period: 10s
 
-  # Messaging API
+  # Messaging API (Qalam.MessagingApi — consumes from RabbitMQ, sends email/SMS/push)
   messaging-api:
     build:
-      context: ../Train-Backend/apps/backend
-      dockerfile: Sudan_Train.MessagingApi/Dockerfile
+      context: .
+      dockerfile: Qalam.MessagingApi/Dockerfile
     image: qalam-messaging-api:latest
     container_name: qalam-messaging-api
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__MessagingDb=Server=db37349.public.databaseasp.net;Database=MessagingDb;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
+      - ConnectionStrings__MessagingDb=Server=db37349.public.databaseasp.net;Database=db37349;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
       - RabbitMQSettings__UserName=guest
@@ -42,6 +42,7 @@ services:
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
       - RabbitMQSettings__PushQueueName=push-queue
+      - RabbitMQSettings__FileUploadQueueName=file-upload-queue
       - EmailSettings__Host=${EMAIL_HOST:-smtp.gmail.com}
       - EmailSettings__Port=${EMAIL_PORT:-587}
       - EmailSettings__FromName=${EMAIL_FROM_NAME:-Qalam System}
@@ -53,7 +54,13 @@ services:
       - SmsSettings__AccountSid=${TWILIO_ACCOUNT_SID:-}
       - SmsSettings__AuthToken=${TWILIO_AUTH_TOKEN:-}
       - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}
-      - PushSettings__ServiceAccountKeyPath=${FIREBASE_KEY_PATH:-}
+      - PushNotificationSettings__ServiceAccountKeyPath=${FIREBASE_KEY_PATH:-}
+      - PushNotificationSettings__ProjectId=${FIREBASE_PROJECT_ID:-}
+      - WasabiSettings__AccessKey=${WASABI_ACCESS_KEY:-}
+      - WasabiSettings__SecretKey=${WASABI_SECRET_KEY:-}
+      - WasabiSettings__BucketName=${WASABI_BUCKET:-qalam-storage}
+      - WasabiSettings__Region=${WASABI_REGION:-ap-southeast-1}
+      - WasabiSettings__ServiceUrl=${WASABI_SERVICE_URL:-https://s3.ap-southeast-1.wasabisys.com}
     ports:
       - "5001:80"
     depends_on:
@@ -62,6 +69,12 @@ services:
     networks:
       - qalam-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/messaging/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # Qalam Backend API
   qalam-api:
@@ -114,6 +127,15 @@ services:
       - SecuritySettings__EmailNotifications__NotifyOnPasswordChange=${EMAIL_NOTIFY_PASSWORD_CHANGE:-true}
       - SecuritySettings__EmailNotifications__NotifyOnSessionTerminated=${EMAIL_NOTIFY_SESSION_TERMINATED:-true}
       - SecuritySettings__EmailNotifications__NotifyOnSuspiciousActivity=${EMAIL_NOTIFY_SUSPICIOUS:-true}
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__VirtualHost=/
+      - RabbitMQSettings__EmailQueueName=email-queue
+      - RabbitMQSettings__SmsQueueName=sms-queue
+      - RabbitMQSettings__PushQueueName=push-queue
+      - RabbitMQSettings__FileUploadQueueName=file-upload-queue
     ports:
       - "8080:80"
     volumes:
@@ -122,7 +144,7 @@ services:
       rabbitmq:
         condition: service_healthy
       messaging-api:
-        condition: service_started
+        condition: service_healthy
     networks:
       - qalam-network
     restart: unless-stopped
