@@ -157,12 +157,12 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             await _documentRepository.SaveChangesAsync();
 
             // Queue file uploads to RabbitMQ → MessagingApi → Wasabi
-            await _fileStorageService.QueueTeacherDocumentUploadAsync(
+            await _fileStorageService.QueueTeacherDocUploadAsync(
                 request.IdentityDocumentFile, teacherId, "identity", identityDoc.Id);
 
             foreach (var (doc, file) in certificateDocs)
             {
-                await _fileStorageService.QueueTeacherDocumentUploadAsync(
+                await _fileStorageService.QueueTeacherDocUploadAsync(
                     file, teacherId, "certificates", doc.Id);
             }
 

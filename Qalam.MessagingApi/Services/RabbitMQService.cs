@@ -49,7 +49,8 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
                 _settings.EmailQueueName,
                 _settings.SmsQueueName,
                 _settings.PushQueueName,
-                _settings.FileUploadQueueName
+                _settings.TeacherDocUploadQueueName,
+                _settings.ProfilePicUploadQueueName
             };
 
             foreach (var queue in queues)
@@ -138,18 +139,33 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
         }
     }
 
-    public async Task QueueFileUploadAsync(FileUploadMessage fileUploadMessage)
+    public async Task QueueTeacherDocUploadAsync(TeacherDocUploadMessage message)
     {
         try
         {
-            fileUploadMessage.QueuedAt = DateTime.UtcNow;
-            await PublishAsync(_settings.FileUploadQueueName, fileUploadMessage);
-            _logger.LogInformation("File upload queued for teacher: {TeacherId}, document: {EntityId}",
-                fileUploadMessage.TeacherId, fileUploadMessage.EntityId);
+            message.QueuedAt = DateTime.UtcNow;
+            await PublishAsync(_settings.TeacherDocUploadQueueName, message);
+            _logger.LogInformation("Teacher doc upload queued: TeacherId={TeacherId}, DocId={DocumentId}",
+                message.TeacherId, message.DocumentId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to queue file upload for teacher: {TeacherId}", fileUploadMessage.TeacherId);
+            _logger.LogError(ex, "Failed to queue teacher doc upload: TeacherId={TeacherId}", message.TeacherId);
+            throw;
+        }
+    }
+
+    public async Task QueueProfilePicUploadAsync(ProfilePicUploadMessage message)
+    {
+        try
+        {
+            message.QueuedAt = DateTime.UtcNow;
+            await PublishAsync(_settings.ProfilePicUploadQueueName, message);
+            _logger.LogInformation("Profile pic upload queued: UserId={UserId}", message.UserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue profile pic upload: UserId={UserId}", message.UserId);
             throw;
         }
     }

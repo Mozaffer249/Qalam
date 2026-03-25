@@ -11,16 +11,16 @@ using System.Text.Json;
 
 namespace Qalam.MessagingApi.BackgroundServices;
 
-public class FileUploadConsumerService : BackgroundService
+public class ProfilePicUploadConsumer : BackgroundService
 {
-    private readonly ILogger<FileUploadConsumerService> _logger;
+    private readonly ILogger<ProfilePicUploadConsumer> _logger;
     private readonly RabbitMQSettings _rabbitSettings;
     private readonly IServiceScopeFactory _scopeFactory;
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public FileUploadConsumerService(
-        ILogger<FileUploadConsumerService> logger,
+    public ProfilePicUploadConsumer(
+        ILogger<ProfilePicUploadConsumer> logger,
         IOptions<RabbitMQSettings> rabbitSettings,
         IServiceScopeFactory scopeFactory)
     {
@@ -31,7 +31,7 @@ public class FileUploadConsumerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("FileUploadConsumerService starting...");
+        _logger.LogInformation("ProfilePicUploadConsumer starting...");
 
         try
         {
@@ -48,7 +48,7 @@ public class FileUploadConsumerService : BackgroundService
             _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
             await _channel.QueueDeclareAsync(
-                queue: _rabbitSettings.FileUploadQueueName,
+                queue: _rabbitSettings.ProfilePicUploadQueueName,
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
@@ -63,76 +63,71 @@ public class FileUploadConsumerService : BackgroundService
                 try
                 {
                     var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    var uploadMessage = JsonSerializer.Deserialize<FileUploadMessage>(body);
+                    var message = JsonSerializer.Deserialize<ProfilePicUploadMessage>(body);
 
-                    if (uploadMessage != null)
+                    if (message != null)
                     {
-                        _logger.LogInformation("========== FILE UPLOAD CONSUMER ==========");
-                        _logger.LogInformation("Received: Teacher={TeacherId}, Doc={EntityId}, File={FileName}, Type={ContentType}, DataSize={Size}bytes",
-                            uploadMessage.TeacherId, uploadMessage.EntityId, uploadMessage.FileName,
-                            uploadMessage.ContentType, uploadMessage.FileData.Length);
+                        _logger.LogInformation("========== PROFILE PIC UPLOAD ==========");
+                        _logger.LogInformation("Received: UserId={UserId}, File={FileName}, Size={Size}bytes",
+                            message.UserId, message.FileName, message.FileData.Length);
 
                         using var scope = _scopeFactory.CreateScope();
                         var wasabiService = scope.ServiceProvider.GetRequiredService<IWasabiStorageService>();
                         var dbContext = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
 
-                        // Decode base64 to stream
-                        var fileBytes = Convert.FromBase64String(uploadMessage.FileData);
+                        var fileBytes = Convert.FromBase64String(message.FileData);
                         using var stream = new MemoryStream(fileBytes);
                         _logger.LogInformation("Decoded base64 → {ByteCount} bytes", fileBytes.Length);
 
-                        // Build S3 key: teachers/{teacherId}/{docType}/{guid}.ext
-                        var extension = Path.GetExtension(uploadMessage.FileName);
-                        var key = $"teachers/{uploadMessage.TeacherId}/{uploadMessage.DocumentType}/{Guid.NewGuid()}{extension}";
+                        var extension = Path.GetExtension(message.FileName);
+                        var key = $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
                         _logger.LogInformation("Uploading to Wasabi key: {Key}", key);
 
-                        // Upload to Wasabi
-                        var fileUrl = await wasabiService.UploadFileAsync(key, stream, uploadMessage.ContentType);
+                        var fileUrl = await wasabiService.UploadFileAsync(key, stream, message.ContentType);
                         _logger.LogInformation("Wasabi upload SUCCESS: {Url}", fileUrl);
 
-                        // Update TeacherDocument.FilePath in the database (skip if documentId is 0 = test)
-                        if (uploadMessage.EntityId > 0)
+                        if (message.UserId > 0)
                         {
                             await dbContext.Database.ExecuteSqlRawAsync(
-                                "UPDATE TeacherDocuments SET FilePath = {0} WHERE Id = {1}",
-                                fileUrl, uploadMessage.EntityId);
-                            _logger.LogInformation("DB updated: TeacherDocuments.Id={EntityId} → FilePath={Url}",
-                                uploadMessage.EntityId, fileUrl);
+                                "UPDATE AspNetUsers SET ProfilePictureUrl = {0} WHERE Id = {1}",
+                                fileUrl, message.UserId);
+                            _logger.LogInformation("DB updated: AspNetUsers.Id={UserId} → ProfilePictureUrl={Url}",
+                                message.UserId, fileUrl);
                         }
                         else
                         {
-                            _logger.LogInformation("DocumentId=0 (test mode) — skipped DB update");
+                            _logger.LogInformation("UserId=0 (test mode) — skipped DB update");
                         }
 
-                        _logger.LogInformation("========== UPLOAD COMPLETE ==========");
+                        _logger.LogInformation("========== PROFILE PIC COMPLETE ==========");
                     }
 
                     await _channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to process file upload message");
+                    _logger.LogError(ex, "Failed to process profile pic upload");
                     await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
                 }
             };
 
             await _channel.BasicConsumeAsync(
-                queue: _rabbitSettings.FileUploadQueueName,
+                queue: _rabbitSettings.ProfilePicUploadQueueName,
                 autoAck: false,
                 consumer: consumer,
                 cancellationToken: stoppingToken);
 
-            _logger.LogInformation("FileUploadConsumerService listening on queue: {Queue}", _rabbitSettings.FileUploadQueueName);
+            _logger.LogInformation("ProfilePicUploadConsumer listening on queue: {Queue}", _rabbitSettings.ProfilePicUploadQueueName);
 
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("FileUploadConsumerService stopping...");
+            _logger.LogInformation("ProfilePicUploadConsumer stopping...");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "FileUploadConsumerService encountered an error");
+            _logger.LogError(ex, "ProfilePicUploadConsumer encountered an error");
         }
     }
 

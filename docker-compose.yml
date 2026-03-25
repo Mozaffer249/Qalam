@@ -42,7 +42,8 @@ services:
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
       - RabbitMQSettings__PushQueueName=push-queue
-      - RabbitMQSettings__FileUploadQueueName=file-upload-queue
+      - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
+      - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - EmailSettings__Host=${EMAIL_HOST:-smtp.gmail.com}
       - EmailSettings__Port=${EMAIL_PORT:-587}
       - EmailSettings__FromName=${EMAIL_FROM_NAME:-Qalam System}
@@ -135,7 +136,8 @@ services:
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
       - RabbitMQSettings__PushQueueName=push-queue
-      - RabbitMQSettings__FileUploadQueueName=file-upload-queue
+      - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
+      - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
     ports:
       - "8080:80"
     volumes:

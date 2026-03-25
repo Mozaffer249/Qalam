@@ -53,7 +53,7 @@ public class FileUploadTestController : ControllerBase
             _logger.LogInformation("File validated OK. Queueing to RabbitMQ...");
 
             // Queue to RabbitMQ → MessagingApi → Wasabi
-            await _fileStorageService.QueueTeacherDocumentUploadAsync(
+            await _fileStorageService.QueueTeacherDocUploadAsync(
                 file, teacherId, "test-upload", documentId);
 
             _logger.LogInformation("File queued successfully to file-upload-queue!");

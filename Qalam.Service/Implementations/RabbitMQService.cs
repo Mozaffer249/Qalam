@@ -60,12 +60,17 @@ namespace Qalam.Service.Implementations
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
                 await _channel.QueueDeclareAsync(
-                    queue: _settings.FileUploadQueueName,
+                    queue: _settings.TeacherDocUploadQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.ProfilePicUploadQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
                 _initialized = true;
-                _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}, {FileUploadQueue}",
-                    _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName, _settings.FileUploadQueueName);
+                _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}, {TeacherDocQueue}, {ProfilePicQueue}",
+                    _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName,
+                    _settings.TeacherDocUploadQueueName, _settings.ProfilePicUploadQueueName);
             }
             catch (Exception ex)
             {
@@ -150,27 +155,51 @@ namespace Qalam.Service.Implementations
             }
         }
 
-        public async Task QueueFileUploadAsync(FileUploadMessage fileUploadMessage)
+        public async Task QueueTeacherDocUploadAsync(TeacherDocUploadMessage message)
         {
             try
             {
                 await EnsureInitializedAsync();
-                fileUploadMessage.QueuedAt = DateTime.UtcNow;
+                message.QueuedAt = DateTime.UtcNow;
 
-                var messageJson = JsonSerializer.Serialize(fileUploadMessage);
+                var messageJson = JsonSerializer.Serialize(message);
                 var body = Encoding.UTF8.GetBytes(messageJson);
                 var properties = new BasicProperties { Persistent = true };
 
                 await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.FileUploadQueueName,
+                    exchange: "", routingKey: _settings.TeacherDocUploadQueueName,
                     mandatory: false, basicProperties: properties, body: body);
 
-                _logger.LogInformation("File upload queued for teacher: {TeacherId}, document: {EntityId}",
-                    fileUploadMessage.TeacherId, fileUploadMessage.EntityId);
+                _logger.LogInformation("Teacher doc upload queued: TeacherId={TeacherId}, DocId={DocumentId}",
+                    message.TeacherId, message.DocumentId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to queue file upload for teacher: {TeacherId}", fileUploadMessage.TeacherId);
+                _logger.LogError(ex, "Failed to queue teacher doc upload: TeacherId={TeacherId}", message.TeacherId);
+                throw;
+            }
+        }
+
+        public async Task QueueProfilePicUploadAsync(ProfilePicUploadMessage message)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                message.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(message);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.ProfilePicUploadQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation("Profile pic upload queued: UserId={UserId}", message.UserId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to queue profile pic upload: UserId={UserId}", message.UserId);
                 throw;
             }
         }

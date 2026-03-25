@@ -59,7 +59,7 @@ public class ReuploadTeacherDocumentCommandHandler : ResponseHandler,
                 return BadRequest<string>("Failed to re-upload document. Document may not be in rejected status.");
 
             // Queue file upload to RabbitMQ → MessagingApi → Wasabi
-            await _fileStorageService.QueueTeacherDocumentUploadAsync(
+            await _fileStorageService.QueueTeacherDocUploadAsync(
                 request.File, teacher.Id, "reupload", request.DocumentId);
 
             return Success<string>("Document re-uploaded successfully and is pending review");

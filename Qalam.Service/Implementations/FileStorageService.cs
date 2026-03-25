@@ -113,7 +113,7 @@ public class FileStorageService : IFileStorageService
         }
     }
 
-    public async Task QueueTeacherDocumentUploadAsync(
+    public async Task QueueTeacherDocUploadAsync(
         IFormFile file,
         int teacherId,
         string documentType,
@@ -123,20 +123,41 @@ public class FileStorageService : IFileStorageService
         await file.CopyToAsync(memoryStream);
         var base64Data = Convert.ToBase64String(memoryStream.ToArray());
 
-        var message = new FileUploadMessage
+        var message = new TeacherDocUploadMessage
         {
             TeacherId = teacherId,
             DocumentType = documentType,
             FileName = file.FileName,
             ContentType = file.ContentType,
             FileData = base64Data,
-            EntityId = documentId
+            DocumentId = documentId
         };
 
-        await _rabbitMQService.QueueFileUploadAsync(message);
+        await _rabbitMQService.QueueTeacherDocUploadAsync(message);
 
         _logger.LogInformation(
-            "File upload queued for teacher {TeacherId}, document {DocumentId}, type {Type}",
+            "Teacher doc upload queued: TeacherId={TeacherId}, DocId={DocumentId}, Type={Type}",
             teacherId, documentId, documentType);
+    }
+
+    public async Task QueueProfilePicUploadAsync(
+        IFormFile file,
+        int userId)
+    {
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        var message = new ProfilePicUploadMessage
+        {
+            UserId = userId,
+            FileName = file.FileName,
+            ContentType = file.ContentType,
+            FileData = base64Data
+        };
+
+        await _rabbitMQService.QueueProfilePicUploadAsync(message);
+
+        _logger.LogInformation("Profile pic upload queued: UserId={UserId}", userId);
     }
 }

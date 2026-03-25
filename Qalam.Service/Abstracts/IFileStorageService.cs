@@ -16,9 +16,13 @@ public interface IFileStorageService
 
     Task<bool> DeleteFileAsync(string filePath);
 
-    Task QueueTeacherDocumentUploadAsync(
+    Task QueueTeacherDocUploadAsync(
         IFormFile file,
         int teacherId,
         string documentType,
         int documentId);
+
+    Task QueueProfilePicUploadAsync(
+        IFormFile file,
+        int userId);
 }

@@ -45,7 +45,8 @@ builder.Services.AddScoped<IWasabiStorageService, WasabiStorageService>();
 builder.Services.AddHostedService<EmailConsumerService>();
 builder.Services.AddHostedService<SmsConsumerService>();
 builder.Services.AddHostedService<PushConsumerService>();
-builder.Services.AddHostedService<FileUploadConsumerService>();
+builder.Services.AddHostedService<TeacherDocUploadConsumer>();
+builder.Services.AddHostedService<ProfilePicUploadConsumer>();
 
 // Controllers + Swagger
 builder.Services.AddControllers()
