@@ -1,117 +1,238 @@
-# Command-Line Deployment Guide for RunASP.NET
+# Deploy Qalam to Hostinger VPS
 
-## 🚀 Quick Deployment (Recommended)
+## Prerequisites
 
-Since Web Deploy (msdeploy) is Windows-only, here are your command-line options:
-
----
-
-## Option 1: Direct Upload via Control Panel (Easiest)
-
-1. Open your browser and log in to RunASP.NET control panel
-2. Navigate to File Manager
-3. Run this command to copy the ZIP to desktop for easy access:
-```bash
-cp qalam-deployment.zip ~/Desktop/
-```
-4. Upload `qalam-deployment.zip` and extract it
+- Hostinger VPS with Docker installed
+- A domain (e.g. `qalam.com`) pointed to your VPS IP
+- Your repo pushed to GitHub (with `.env` gitignored)
 
 ---
 
-## Option 2: FTP Deployment (If FTP credentials are available)
-
-**First, verify your FTP credentials from RunASP.NET control panel**, then install `lftp`:
+## Step 1: SSH into VPS
 
 ```bash
-# Install lftp (faster than curl for bulk uploads)
-brew install lftp
-
-# Deploy
-lftp -u site49539,YOUR_FTP_PASSWORD site49539.siteasp.net <<EOF
-set ftp:ssl-allow no
-mirror -R publish /httpdocs
-bye
-EOF
+ssh root@YOUR_VPS_IP
 ```
 
----
-
-## Option 3: Using Docker + Web Deploy (Complex but automated)
-
-If you have Docker installed:
+## Step 2: Install Nginx + Certbot
 
 ```bash
-./deploy-webdeploy.sh
+apt update && apt install -y nginx certbot python3-certbot-nginx
 ```
 
-This runs msdeploy inside a Windows container.
-
----
-
-## Option 4: Manual curl Upload (Slower but works)
-
-If you have valid FTP credentials:
+## Step 3: Clone your repo
 
 ```bash
-cd publish
-
-# Upload each file individually
-for file in *; do
-    curl -T "$file" \
-         --user "site49539:YOUR_PASSWORD" \
-         "ftp://site49539.siteasp.net/httpdocs/$file"
-done
+cd /opt
+git clone https://YOUR_TOKEN@github.com/YOUR_USER/Qalam.git
+cd /opt/Qalam
 ```
 
----
-
-## 📝 Get Your Actual FTP Credentials
-
-The credentials in the publish settings file might be Web Deploy-specific. To get FTP credentials:
-
-1. Log in to RunASP.NET control panel
-2. Go to: **Websites** → **Your Site** → **FTP Accounts**
-3. Note the FTP host, username, and password
-4. Use those in the commands above
-
----
-
-## 🔍 Verify Deployment
-
-After deployment:
+## Step 4: Create `.env`
 
 ```bash
-# Check if API is responding
-curl -I http://qalam.runasp.net/
+cp .env.example .env
+nano .env
+```
 
-# Test Swagger endpoint
-curl http://qalam.runasp.net/swagger/index.html
+Fill in all values:
+
+```env
+# Database
+DB_CONNECTION_STRING=Server=YOUR_DB_HOST;Database=YOUR_DB_NAME;User Id=YOUR_DB_USER;Password=YOUR_DB_PASS;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
+
+# Encryption (MUST match what was used to encrypt existing data - DO NOT change)
+ENCRYPTION_KEY=YOUR_ENCRYPTION_KEY
+
+# RabbitMQ
+RABBITMQ_HOST=localhost
+RABBITMQ_USER=qalam
+RABBITMQ_PASS=STRONG_RABBIT_PASSWORD
+
+# JWT
+JWT_SECRET=YOUR_64_CHAR_PRODUCTION_SECRET_KEY_HERE
+JWT_ISSUER=QalamProject
+JWT_AUDIENCE=QalamProjectUsers
+
+# CORS (comma-separated frontend URLs)
+CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+# Email (SMTP)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_FROM_NAME=Qalam
+EMAIL_FROM_EMAIL=noreply@yourdomain.com
+EMAIL_USERNAME=noreply@yourdomain.com
+EMAIL_PASSWORD=your-gmail-app-password
+
+# Twilio SMS (optional)
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=
+
+# Firebase Push (optional)
+FIREBASE_KEY_PATH=
+FIREBASE_PROJECT_ID=
+
+# Wasabi Cloud Storage
+WASABI_ACCESS_KEY=your-key
+WASABI_SECRET_KEY=your-secret
+WASABI_BUCKET=your-bucket
+WASABI_REGION=ap-southeast-1
+WASABI_SERVICE_URL=https://s3.ap-southeast-1.wasabisys.com
+```
+
+## Step 5: Build & Start
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Check status:
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f qalam-api --tail 50
+```
+
+Wait until you see `Now listening on: http://[::]:80`
+
+## Step 6: DNS Setup
+
+In your domain registrar / Hostinger DNS panel:
+
+| Type | Name  | Value         |
+|------|-------|---------------|
+| A    | `api` | `YOUR_VPS_IP` |
+
+Wait for DNS propagation (can take up to 30 minutes).
+
+## Step 7: Configure Nginx
+
+```bash
+nano /etc/nginx/sites-available/qalam
+```
+
+Paste:
+
+```nginx
+server {
+    server_name api.yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+        client_max_body_size 50M;
+    }
+}
+```
+
+Enable:
+
+```bash
+ln -s /etc/nginx/sites-available/qalam /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+```
+
+## Step 8: SSL Certificate (Free)
+
+```bash
+certbot --nginx -d api.yourdomain.com
+```
+
+Choose **"redirect HTTP to HTTPS"**. Auto-renews every 90 days.
+
+## Step 9: Verify
+
+```bash
+curl https://api.yourdomain.com/Api/V1/Messaging/Health
+```
+
+Expected response:
+
+```json
+{"status":"Healthy","service":"Messaging","timestamp":"..."}
 ```
 
 ---
 
-## ⚡ Fastest Method (What I Recommend)
+## Ongoing Operations
 
-1. **Copy ZIP to accessible location:**
-   ```bash
-   cp qalam-deployment.zip ~/Desktop/
-   ```
+### Update / Redeploy
 
-2. **Upload via Control Panel:**
-   - RunASP.NET Control Panel → File Manager
-   - Upload `qalam-deployment.zip`
-   - Extract to root directory
-   - Delete old files if needed
+```bash
+cd /opt/Qalam
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-This is faster than FTP and more reliable than trying to run Windows tools on macOS.
+### View Logs
+
+```bash
+# All services
+docker compose -f docker-compose.prod.yml logs -f --tail 100
+
+# Specific service
+docker compose -f docker-compose.prod.yml logs -f qalam-api --tail 100
+docker compose -f docker-compose.prod.yml logs -f messaging-api --tail 100
+docker compose -f docker-compose.prod.yml logs -f rabbitmq --tail 100
+```
+
+### Restart a Service
+
+```bash
+docker compose -f docker-compose.prod.yml restart qalam-api
+```
+
+### Stop Everything
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+### Check Disk / Memory
+
+```bash
+docker stats --no-stream
+df -h
+```
 
 ---
 
-## 🆘 If You Need Automated Deployment
+## Architecture
 
-Consider setting up:
-- GitHub Actions (deploy on push)
-- GitLab CI/CD
-- Azure DevOps Pipeline
+```text
+User (https://api.yourdomain.com)
+        |
+        v
+   +---------+
+   |  Nginx  |  port 443 (SSL) -> proxy to 127.0.0.1:8080
+   +---------+
+        |
+        v
+   +------------+         +----------------+         +------------+
+   | qalam-api  | ------> | messaging-api  | ------> | rabbitmq   |
+   | :8080      |         | (internal)     |         | (internal) |
+   +------------+         +----------------+         +------------+
+        |                        |
+        v                        v
+   +----------------------------------+
+   |         SQL Server (remote)      |
+   +----------------------------------+
+```
 
-These can run on Windows agents with native msdeploy support.
+## Security Checklist
+
+- `.env` is gitignored and never committed
+- `appsettings.json` has zero credentials (all empty strings)
+- Encryption key read from environment variables, not source code
+- Only port 8080 exposed, bound to `127.0.0.1` (only Nginx can reach it)
+- RabbitMQ and MessagingApi have no exposed ports
+- SSL via Let's Encrypt with auto-renewal
+- RabbitMQ uses custom credentials (not default `guest/guest`)
