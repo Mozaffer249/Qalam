@@ -27,6 +27,6 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
             sqlOptions.MigrationsAssembly("Qalam.Infrastructure");
         });
 
-        return new ApplicationDBContext(optionsBuilder.Options);
+        return new ApplicationDBContext(optionsBuilder.Options, configuration);
     }
 }

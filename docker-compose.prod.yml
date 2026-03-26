@@ -1,0 +1,137 @@
+name: qalam-platform
+
+services:
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: qalam-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-qalam}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    # No ports exposed to host — only accessible within Docker network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Messaging API
+  messaging-api:
+    build:
+      context: .
+      dockerfile: Qalam.MessagingApi/Dockerfile
+    image: qalam-messaging-api:latest
+    container_name: qalam-messaging-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__MessagingDb=${DB_CONNECTION_STRING}
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS}
+      - RabbitMQSettings__VirtualHost=/
+      - RabbitMQSettings__EmailQueueName=email-queue
+      - RabbitMQSettings__SmsQueueName=sms-queue
+      - RabbitMQSettings__PushQueueName=push-queue
+      - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
+      - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
+      - EmailSettings__Host=${EMAIL_HOST}
+      - EmailSettings__Port=${EMAIL_PORT:-587}
+      - EmailSettings__FromName=${EMAIL_FROM_NAME}
+      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL}
+      - EmailSettings__UserName=${EMAIL_USERNAME}
+      - EmailSettings__Password=${EMAIL_PASSWORD}
+      - EmailSettings__EnableSsl=true
+      - EmailSettings__DefaultStrategy=Direct
+      - SmsSettings__AccountSid=${TWILIO_ACCOUNT_SID:-}
+      - SmsSettings__AuthToken=${TWILIO_AUTH_TOKEN:-}
+      - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}
+      - PushNotificationSettings__ServiceAccountKeyPath=${FIREBASE_KEY_PATH:-}
+      - PushNotificationSettings__ProjectId=${FIREBASE_PROJECT_ID:-}
+      - WasabiSettings__AccessKey=${WASABI_ACCESS_KEY:-}
+      - WasabiSettings__SecretKey=${WASABI_SECRET_KEY:-}
+      - WasabiSettings__BucketName=${WASABI_BUCKET:-qalam-storage}
+      - WasabiSettings__Region=${WASABI_REGION:-ap-southeast-1}
+      - WasabiSettings__ServiceUrl=${WASABI_SERVICE_URL:-https://s3.ap-southeast-1.wasabisys.com}
+    # No ports exposed — internal only
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/messaging/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Qalam Backend API
+  qalam-api:
+    build:
+      context: .
+      dockerfile: Qalam.Api/Dockerfile
+    image: qalam-backend-api:latest
+    container_name: qalam-backend-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__dbcontext=${DB_CONNECTION_STRING}
+      - EncryptionSettings__Key=${ENCRYPTION_KEY}
+      - jwtSettings__Secret=${JWT_SECRET}
+      - jwtSettings__Issuer=${JWT_ISSUER:-QalamProject}
+      - jwtSettings__Audience=${JWT_AUDIENCE:-QalamProjectUsers}
+      - jwtSettings__AccessTokenExpireDate=60
+      - jwtSettings__RefreshTokenExpireDate=43200
+      - jwtSettings__ValidateIssuer=true
+      - jwtSettings__ValidateAudience=true
+      - jwtSettings__ValidateLifeTime=true
+      - jwtSettings__ValidateIssuerSigningKey=true
+      - MessagingApi__BaseUrl=http://messaging-api
+      - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS}
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS}
+      - RabbitMQSettings__VirtualHost=/
+      - RabbitMQSettings__EmailQueueName=email-queue
+      - RabbitMQSettings__SmsQueueName=sms-queue
+      - RabbitMQSettings__PushQueueName=push-queue
+      - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
+      - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
+      - EmailSettings__Host=${EMAIL_HOST}
+      - EmailSettings__Port=${EMAIL_PORT:-587}
+      - EmailSettings__FromName=${EMAIL_FROM_NAME}
+      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL}
+      - EmailSettings__UserName=${EMAIL_USERNAME}
+      - EmailSettings__Password=${EMAIL_PASSWORD}
+      - EmailSettings__EnableSsl=true
+      - EmailSettings__DefaultStrategy=Direct
+    ports:
+      - "127.0.0.1:8080:80" # Only accessible from localhost (Nginx will proxy)
+    volumes:
+      - app_logs:/app/Logs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      messaging-api:
+        condition: service_healthy
+    networks:
+      - qalam-network
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+  app_logs:
+
+networks:
+  qalam-network:
+    driver: bridge

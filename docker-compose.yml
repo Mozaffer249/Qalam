@@ -6,8 +6,8 @@ services:
     image: rabbitmq:3-management
     container_name: qalam-rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-guest}
     ports:
       - "5672:5672" # AMQP port
       - "15672:15672" # Management UI (http://localhost:15672)
@@ -33,11 +33,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__MessagingDb=Server=db37349.public.databaseasp.net;Database=db37349;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
+      - ConnectionStrings__MessagingDb=${DB_CONNECTION_STRING}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=guest
-      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-guest}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS:-guest}
       - RabbitMQSettings__VirtualHost=/
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
@@ -87,8 +87,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__dbcontext=Server=db37349.public.databaseasp.net;Database=db37349;User Id=db37349;Password=Bx3#!Wt5c=9H;Encrypt=False;MultipleActiveResultSets=True;TrustServerCertificate=True
-      - jwtSettings__Secret=${JWT_SECRET:-QalamProjectSecretKey123456789QalamProjectSecretKey123456789}
+      - ConnectionStrings__dbcontext=${DB_CONNECTION_STRING}
+      - EncryptionSettings__Key=${ENCRYPTION_KEY}
+      - jwtSettings__Secret=${JWT_SECRET}
       - jwtSettings__Issuer=${JWT_ISSUER:-QalamProject}
       - jwtSettings__Audience=${JWT_AUDIENCE:-QalamProjectUsers}
       - jwtSettings__AccessTokenExpireDate=${JWT_ACCESS_TOKEN_EXPIRE:-60}
@@ -130,8 +131,8 @@ services:
       - SecuritySettings__EmailNotifications__NotifyOnSuspiciousActivity=${EMAIL_NOTIFY_SUSPICIOUS:-true}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=guest
-      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-guest}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS:-guest}
       - RabbitMQSettings__VirtualHost=/
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue

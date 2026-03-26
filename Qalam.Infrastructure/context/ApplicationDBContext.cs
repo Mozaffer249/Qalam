@@ -16,6 +16,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Session;
 using Qalam.Data.Entity.Payment;
 using Qalam.Data.Entity.Messaging;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -29,9 +30,12 @@ namespace Qalam.Infrastructure.context
     {
         private readonly IEncryptionProvider _encryptionProvider;
 
-        public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options) : base(options)
+        public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options, IConfiguration configuration) : base(options)
         {
-            _encryptionProvider = new GenerateEncryptionProvider("8a4dcaaec64d412380fe4b02193cd26f");
+            var encryptionKey = configuration["EncryptionSettings:Key"];
+            if (string.IsNullOrEmpty(encryptionKey))
+                throw new InvalidOperationException("EncryptionSettings:Key is not configured. Set it in appsettings.json or environment variables.");
+            _encryptionProvider = new GenerateEncryptionProvider(encryptionKey);
         }
 
         // Identity DbSets
