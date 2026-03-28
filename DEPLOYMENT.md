@@ -10,19 +10,19 @@
 
 ## Step 1: SSH into VPS
 
-```bash
+```sh
 ssh root@YOUR_VPS_IP
 ```
 
 ## Step 2: Install Nginx + Certbot
 
-```bash
+```sh
 apt update && apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ## Step 3: Clone your repo
 
-```bash
+```sh
 cd /opt
 git clone https://YOUR_TOKEN@github.com/YOUR_USER/Qalam.git
 cd /opt/Qalam
@@ -30,7 +30,7 @@ cd /opt/Qalam
 
 ## Step 4: Create `.env`
 
-```bash
+```sh
 cp .env.example .env
 nano .env
 ```
@@ -84,13 +84,13 @@ WASABI_SERVICE_URL=https://s3.ap-southeast-1.wasabisys.com
 
 ## Step 5: Build & Start
 
-```bash
+```sh
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Check status:
 
-```bash
+```sh
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f qalam-api --tail 50
 ```
@@ -109,7 +109,7 @@ Wait for DNS propagation (can take up to 30 minutes).
 
 ## Step 7: Configure Nginx
 
-```bash
+```sh
 nano /etc/nginx/sites-available/qalam
 ```
 
@@ -134,7 +134,7 @@ server {
 
 Enable:
 
-```bash
+```sh
 ln -s /etc/nginx/sites-available/qalam /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
@@ -142,7 +142,7 @@ nginx -t && systemctl reload nginx
 
 ## Step 8: SSL Certificate (Free)
 
-```bash
+```sh
 certbot --nginx -d api.yourdomain.com
 ```
 
@@ -150,7 +150,7 @@ Choose **"redirect HTTP to HTTPS"**. Auto-renews every 90 days.
 
 ## Step 9: Verify
 
-```bash
+```sh
 curl https://api.yourdomain.com/Api/V1/Messaging/Health
 ```
 
@@ -166,7 +166,7 @@ Expected response:
 
 ### Update / Redeploy
 
-```bash
+```sh
 cd /opt/Qalam
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
@@ -174,7 +174,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### View Logs
 
-```bash
+```sh
 # All services
 docker compose -f docker-compose.prod.yml logs -f --tail 100
 
@@ -186,19 +186,19 @@ docker compose -f docker-compose.prod.yml logs -f rabbitmq --tail 100
 
 ### Restart a Service
 
-```bash
+```sh
 docker compose -f docker-compose.prod.yml restart qalam-api
 ```
 
 ### Stop Everything
 
-```bash
+```sh
 docker compose -f docker-compose.prod.yml down
 ```
 
 ### Check Disk / Memory
 
-```bash
+```sh
 docker stats --no-stream
 df -h
 ```
@@ -206,26 +206,6 @@ df -h
 ---
 
 ## Architecture
-
-```text
-User (https://api.yourdomain.com)
-        |
-        v
-   +---------+
-   |  Nginx  |  port 443 (SSL) -> proxy to 127.0.0.1:8080
-   +---------+
-        |
-        v
-   +------------+         +----------------+         +------------+
-   | qalam-api  | ------> | messaging-api  | ------> | rabbitmq   |
-   | :8080      |         | (internal)     |         | (internal) |
-   +------------+         +----------------+         +------------+
-        |                        |
-        v                        v
-   +----------------------------------+
-   |         SQL Server (remote)      |
-   +----------------------------------+
-```
 
 ## Security Checklist
 
