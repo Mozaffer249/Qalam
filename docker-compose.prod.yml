@@ -135,3 +135,66 @@ volumes:
 networks:
   qalam-network:
     driver: bridge
+# Add your React frontend to the same docker-compose.prod.yml. Run this on your VPS:
+
+# 1. Clone frontend repo
+
+# cd /opt
+# git clone https://YOUR_TOKEN@github.com/YOUR_USER/your-react-repo.git qalam-frontend
+# 2. Create Dockerfile for frontend
+
+# cat > /opt/qalam-frontend/Dockerfile << 'EOF'
+# FROM node:20-alpine AS build
+# WORKDIR /app
+# COPY package*.json ./
+# RUN npm ci
+# COPY . .
+# ARG VITE_API_URL
+# ENV VITE_API_URL=$VITE_API_URL
+# RUN npm run build
+
+# FROM nginx:alpine
+# COPY --from=build /app/dist /usr/share/nginx/html
+# RUN echo 'server { \
+#     listen 80; \
+#     location / { \
+#         root /usr/share/nginx/html; \
+#         index index.html; \
+#         try_files $uri $uri/ /index.html; \
+#     } \
+# }' > /etc/nginx/conf.d/default.conf
+# EXPOSE 80
+# EOF
+# 3. Add to docker-compose.prod.yml
+# Run on VPS:
+
+
+# cd /opt/Qalam
+# Add this service block before the volumes: line in docker-compose.prod.yml:
+
+
+#   # React Frontend
+#   frontend:
+#     build:
+#       context: /opt/qalam-frontend
+#       dockerfile: Dockerfile
+#       args:
+#         VITE_API_URL: http://187.77.148.34:8080
+#     container_name: qalam-frontend
+#     ports:
+#       - "0.0.0.0:80:80"
+#     networks:
+#       - qalam-network
+#     restart: unless-stopped
+# 4. Build & start
+
+# docker compose -f docker-compose.prod.yml up -d --build
+# ufw allow 80
+# Result
+# Frontend: http://187.77.148.34 (port 80)
+# API: http://187.77.148.34:8080
+# Swagger: http://187.77.148.34:8080/swagger
+# Scalar: http://187.77.148.34:8080/scalar/v1
+# Note: If your frontend uses Create React App instead of Vite, change VITE_API_URL to REACT_APP_API_URL and dist to build in the Dockerfile.
+
+# What's the name of your frontend GitHub repo? I can give you the exact clone command.

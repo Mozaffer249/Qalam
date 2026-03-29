@@ -33,6 +33,7 @@ public class CourseRequestGroupMemberConfiguration : IEntityTypeConfiguration<Co
         builder.HasOne(e => e.InvitedByStudent)
                .WithMany()
                .HasForeignKey(e => e.InvitedByStudentId)
-               .OnDelete(DeleteBehavior.Restrict); // Prevent cascade path
+               .IsRequired(false)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }

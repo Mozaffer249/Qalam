@@ -3,20 +3,21 @@ using Qalam.Data.Entity.Common.Enums;
 namespace Qalam.Data.DTOs.Course;
 
 /// <summary>
-/// DTO for student to request enrollment in a course. RequestedByStudentId from auth.
+/// DTO for requesting enrollment in a course. UserId from auth.
 /// </summary>
 public class CreateEnrollmentRequestDto
 {
     /// <summary>
-    /// Target student ID. If null, the logged-in user's own student profile is used.
-    /// Guardians must provide their child's StudentId.
+    /// الطلاب المملوكين للمستخدم (نفسه و/أو أبنائه)
     /// </summary>
-    public int? StudentId { get; set; }
+    public List<int> StudentIds { get; set; } = new();
     public int CourseId { get; set; }
-    public int TeachingModeId { get; set; }
     public string? Notes { get; set; }
     public List<int> SelectedAvailabilityIds { get; set; } = new();
-    public List<int> GroupMemberStudentIds { get; set; } = new();
+    /// <summary>
+    /// الطلاب المدعوين (يحتاجون قبول الدعوة)
+    /// </summary>
+    public List<int> InvitedStudentIds { get; set; } = new();
     public List<CreateProposedSessionDto> ProposedSessions { get; set; } = new();
 }
 
@@ -39,6 +40,7 @@ public class EnrollmentRequestProposedSessionDto
 public class EnrollmentRequestGroupMemberDto
 {
     public int StudentId { get; set; }
+    public GroupMemberType MemberType { get; set; }
     public GroupMemberConfirmationStatus ConfirmationStatus { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public int? ConfirmedByUserId { get; set; }

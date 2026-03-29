@@ -127,6 +127,7 @@ public class CourseProfile : Profile
                 src.GroupMembers.Select(g => new EnrollmentRequestGroupMemberDto
                 {
                     StudentId = g.StudentId,
+                    MemberType = g.MemberType,
                     ConfirmationStatus = g.ConfirmationStatus,
                     ConfirmedAt = g.ConfirmedAt,
                     ConfirmedByUserId = g.ConfirmedByUserId

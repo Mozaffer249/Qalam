@@ -14,7 +14,7 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
         
         // Indexes
         builder.HasIndex(e => e.CourseId);
-        builder.HasIndex(e => e.RequestedByStudentId);
+        builder.HasIndex(e => e.RequestedByUserId);
         builder.HasIndex(e => e.Status);
         
         // Properties
@@ -27,10 +27,10 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
                .HasForeignKey(e => e.CourseId)
                .OnDelete(DeleteBehavior.Cascade);
         
-        builder.HasOne(e => e.RequestedByStudent)
+        builder.HasOne(e => e.RequestedByUser)
                .WithMany()
-               .HasForeignKey(e => e.RequestedByStudentId)
-               .OnDelete(DeleteBehavior.Restrict); // Prevent cascade path
+               .HasForeignKey(e => e.RequestedByUserId)
+               .OnDelete(DeleteBehavior.Restrict);
         
         builder.HasMany(e => e.SelectedAvailabilities)
                .WithOne(sa => sa.CourseEnrollmentRequest)

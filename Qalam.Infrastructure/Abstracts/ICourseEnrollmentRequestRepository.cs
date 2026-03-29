@@ -5,5 +5,5 @@ namespace Qalam.Infrastructure.Abstracts;
 
 public interface ICourseEnrollmentRequestRepository : IGenericRepositoryAsync<CourseEnrollmentRequest>
 {
-    IQueryable<CourseEnrollmentRequest> GetByStudentIdQueryable(int studentId);
+    IQueryable<CourseEnrollmentRequest> GetByUserIdQueryable(int userId);
 }

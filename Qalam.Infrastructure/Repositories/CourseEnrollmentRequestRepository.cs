@@ -15,11 +15,11 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
         _context = context;
     }
 
-    public IQueryable<CourseEnrollmentRequest> GetByStudentIdQueryable(int studentId)
+    public IQueryable<CourseEnrollmentRequest> GetByUserIdQueryable(int userId)
     {
         return _context.CourseEnrollmentRequests
             .AsNoTracking()
-            .Where(r => r.RequestedByStudentId == studentId)
+            .Where(r => r.RequestedByUserId == userId)
             .Include(r => r.Course)
                 .ThenInclude(c => c.TeachingMode)
             .Include(r => r.Course)

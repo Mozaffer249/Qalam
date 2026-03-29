@@ -43,6 +43,9 @@ public class RespondToGroupEnrollmentInviteCommandHandler : ResponseHandler,
         if (groupMember == null)
             return NotFound<string>("Group member invitation not found.");
 
+        if (groupMember.MemberType != GroupMemberType.Invited)
+            return BadRequest<string>("Only invited members can respond to invitations.");
+
         if (groupMember.ConfirmationStatus != GroupMemberConfirmationStatus.Pending)
             return BadRequest<string>("This invitation has already been handled.");
 
@@ -52,15 +55,23 @@ public class RespondToGroupEnrollmentInviteCommandHandler : ResponseHandler,
         if (targetStudent == null)
             return NotFound<string>("Student not found.");
 
-        var canActAsStudent = targetStudent.UserId == request.UserId;
-        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
-        var canActAsGuardian = targetStudent.IsMinor &&
-                               targetStudent.GuardianId.HasValue &&
-                               guardian != null &&
-                               targetStudent.GuardianId.Value == guardian.Id;
+        // Minor students: ONLY guardian can respond
+        // Non-minor students: ONLY the student themselves can respond
+        if (targetStudent.IsMinor)
+        {
+            var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+            var isGuardian = targetStudent.GuardianId.HasValue
+                          && guardian != null
+                          && targetStudent.GuardianId.Value == guardian.Id;
 
-        if (!canActAsStudent && !canActAsGuardian)
-            return BadRequest<string>("Only the invited student or their guardian can respond to this invitation.");
+            if (!isGuardian)
+                return BadRequest<string>("Only the guardian can respond to invitations for minor students.");
+        }
+        else
+        {
+            if (targetStudent.UserId != request.UserId)
+                return BadRequest<string>("Only the student themselves can respond to this invitation.");
+        }
 
         groupMember.ConfirmationStatus = request.Data.Decision;
         groupMember.ConfirmedAt = DateTime.UtcNow;

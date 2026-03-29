@@ -13,10 +13,6 @@ public class GetMyEnrollmentRequestsQuery : IRequest<Response<PaginatedResult<En
     [BindNever]
     public int UserId { get; set; }
 
-    /// <summary>
-    /// Optional: filter by specific student. Guardians can use this to view a specific child's requests.
-    /// </summary>
-    public int? StudentId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public RequestStatus? Status { get; set; }

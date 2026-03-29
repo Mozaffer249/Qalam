@@ -1,5 +1,4 @@
 using FluentValidation;
-using Qalam.Data.DTOs.Course;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 
@@ -8,12 +7,21 @@ public class RequestCourseEnrollmentCommandValidator : AbstractValidator<Request
     public RequestCourseEnrollmentCommandValidator()
     {
         RuleFor(x => x.Data).NotNull();
-        RuleFor(x => x.Data.StudentId).GreaterThan(0)
-            .When(x => x.Data != null && x.Data.StudentId.HasValue)
-            .WithMessage("StudentId must be greater than 0 when provided.");
         RuleFor(x => x.Data.CourseId).GreaterThan(0).When(x => x.Data != null).WithMessage("Course is required.");
-        RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null).WithMessage("Teaching mode is required.");
         RuleFor(x => x.Data.Notes).MaximumLength(400).When(x => x.Data != null);
+
+        RuleFor(x => x.Data.StudentIds)
+            .NotEmpty()
+            .When(x => x.Data != null)
+            .WithMessage("At least one student is required.");
+        RuleForEach(x => x.Data.StudentIds)
+            .GreaterThan(0)
+            .When(x => x.Data != null);
+
+        RuleForEach(x => x.Data.InvitedStudentIds)
+            .GreaterThan(0)
+            .When(x => x.Data != null);
+
         RuleFor(x => x.Data.SelectedAvailabilityIds)
             .NotEmpty()
             .When(x => x.Data != null)
@@ -21,9 +29,7 @@ public class RequestCourseEnrollmentCommandValidator : AbstractValidator<Request
         RuleForEach(x => x.Data.SelectedAvailabilityIds)
             .GreaterThan(0)
             .When(x => x.Data != null);
-        RuleForEach(x => x.Data.GroupMemberStudentIds)
-            .GreaterThan(0)
-            .When(x => x.Data != null);
+
         RuleForEach(x => x.Data.ProposedSessions)
             .ChildRules(ps =>
             {

@@ -30,3 +30,12 @@ public enum GroupMemberConfirmationStatus
     Confirmed = 2,
     Rejected = 3
 }
+
+/// <summary>
+/// نوع عضو المجموعة (طالب المالك أو مدعو)
+/// </summary>
+public enum GroupMemberType
+{
+    Own = 1,
+    Invited = 2
+}
