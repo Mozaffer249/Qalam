@@ -20,7 +20,9 @@ public class CourseEnrollment : AuditableEntity
     public int ApprovedByTeacherId { get; set; }
     
     public DateTime ApprovedAt { get; set; }
-    
+
+    public DateTime? PaymentDeadline { get; set; }
+
     public EnrollmentStatus EnrollmentStatus { get; set; } = EnrollmentStatus.PendingPayment;
     
     // Navigation Properties

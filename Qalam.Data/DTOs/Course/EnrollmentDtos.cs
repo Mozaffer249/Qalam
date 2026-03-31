@@ -131,3 +131,19 @@ public class StudentSearchResultDto
     public int StudentId { get; set; }
     public string FullName { get; set; } = default!;
 }
+
+/// <summary>
+/// Pending invitation for a student to join a group enrollment request.
+/// </summary>
+public class StudentInvitationListItemDto
+{
+    public int InvitationId { get; set; }
+    public int EnrollmentRequestId { get; set; }
+    public int CourseId { get; set; }
+    public string CourseTitle { get; set; } = default!;
+    public int InvitedStudentId { get; set; }
+    public string? InvitedStudentName { get; set; }
+    public string? RequestedByUserName { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public GroupMemberConfirmationStatus ConfirmationStatus { get; set; }
+}

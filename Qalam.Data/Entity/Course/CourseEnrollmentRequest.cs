@@ -32,6 +32,9 @@ public class CourseEnrollmentRequest : AuditableEntity
     [MaxLength(400)]
     public string? Notes { get; set; }
 
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
     // Navigation Properties
     public Course Course { get; set; } = null!;
     public Identity.User RequestedByUser { get; set; } = null!;

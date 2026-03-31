@@ -19,6 +19,7 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
         
         // Properties
         builder.Property(e => e.Notes).HasMaxLength(400);
+        builder.Property(e => e.RejectionReason).HasMaxLength(500);
         builder.Property(e => e.EstimatedTotalPrice).HasColumnType("decimal(18,2)");
         
         // Relationships

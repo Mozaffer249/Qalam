@@ -17,6 +17,7 @@ public class CourseEnrollmentConfiguration : IEntityTypeConfiguration<CourseEnro
         builder.HasIndex(e => e.StudentId);
         builder.HasIndex(e => e.ApprovedByTeacherId);
         builder.HasIndex(e => e.EnrollmentStatus);
+        builder.HasIndex(e => new { e.EnrollmentStatus, e.PaymentDeadline });
         builder.HasIndex(e => new { e.CourseId, e.StudentId })
                .IsUnique();
         

@@ -71,6 +71,11 @@ builder.Services.AddDbContext<ApplicationDBContext>(option =>
 // Configure Settings
 builder.Services.Configure<Qalam.Service.Models.SecuritySettings>(
     builder.Configuration.GetSection("SecuritySettings"));
+builder.Services.Configure<Qalam.Data.Helpers.EnrollmentSettings>(
+    builder.Configuration.GetSection("EnrollmentSettings"));
+
+// Background Services
+builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();
 
 // Service Registration
 builder.Services.AddInfrastructureDependencies()

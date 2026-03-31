@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -27,5 +28,14 @@ public class CourseEnrollmentRepository : GenericRepositoryAsync<CourseEnrollmen
             .Include(e => e.ApprovedByTeacher)
                 .ThenInclude(t => t.User)
             .OrderByDescending(e => e.ApprovedAt);
+    }
+
+    public async Task<List<CourseEnrollment>> GetExpiredPendingPaymentAsync(DateTime now, CancellationToken ct)
+    {
+        return await _context.CourseEnrollments
+            .Where(e => e.EnrollmentStatus == EnrollmentStatus.PendingPayment
+                     && e.PaymentDeadline != null
+                     && e.PaymentDeadline < now)
+            .ToListAsync(ct);
     }
 }

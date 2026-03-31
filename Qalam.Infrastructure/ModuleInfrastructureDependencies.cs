@@ -49,6 +49,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<ICourseRepository, CourseRepository>();
             services.AddTransient<ICourseEnrollmentRequestRepository, CourseEnrollmentRequestRepository>();
             services.AddTransient<ICourseEnrollmentRepository, CourseEnrollmentRepository>();
+            services.AddTransient<ICourseGroupEnrollmentRepository, CourseGroupEnrollmentRepository>();
 
             // Common Repositories
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();

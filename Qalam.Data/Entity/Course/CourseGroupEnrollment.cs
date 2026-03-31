@@ -12,6 +12,8 @@ public class CourseGroupEnrollment : AuditableEntity
     public EnrollmentStatus Status { get; set; } = EnrollmentStatus.PendingPayment;
     public DateTime? ActivatedAt { get; set; }
 
+    public DateTime? PaymentDeadline { get; set; }
+
     public Course Course { get; set; } = null!;
     public CourseEnrollmentRequest EnrollmentRequest { get; set; } = null!;
     public Student.Student LeaderStudent { get; set; } = null!;

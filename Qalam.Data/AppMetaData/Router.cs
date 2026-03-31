@@ -145,6 +145,15 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherCourse = Rule + "Teacher/TeacherCourse";
         /// <summary>Teacher course by id: Api/V1/Teacher/TeacherCourse/{id}</summary>
         public const string TeacherCourseById = TeacherCourse + "/{id}";
+
+        /// <summary>Teacher enrollment requests: Api/V1/Teacher/EnrollmentRequests</summary>
+        public const string TeacherEnrollmentRequests = Rule + "Teacher/EnrollmentRequests";
+        /// <summary>Teacher enrollment request by id: Api/V1/Teacher/EnrollmentRequests/{id}</summary>
+        public const string TeacherEnrollmentRequestById = TeacherEnrollmentRequests + "/{id}";
+        /// <summary>Approve enrollment request: Api/V1/Teacher/EnrollmentRequests/{id}/Approve</summary>
+        public const string TeacherEnrollmentRequestApprove = TeacherEnrollmentRequestById + "/Approve";
+        /// <summary>Reject enrollment request: Api/V1/Teacher/EnrollmentRequests/{id}/Reject</summary>
+        public const string TeacherEnrollmentRequestReject = TeacherEnrollmentRequestById + "/Reject";
         #endregion
 
         #region Student
@@ -168,6 +177,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentSearchForGroup = Rule + "Student/Students/Search";
         /// <summary>Search students by name or email: Api/V1/Student/Search</summary>
         public const string StudentSearch = Rule + "Student/Search";
+        /// <summary>Student pending invitations: Api/V1/Student/Invitations</summary>
+        public const string StudentInvitations = Rule + "Student/Invitations";
         #endregion
 
         #region Teaching

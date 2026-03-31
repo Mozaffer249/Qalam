@@ -6,6 +6,7 @@ using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
+using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
@@ -128,6 +129,17 @@ public class StudentCourseController : AppControllerBase
     public async Task<IActionResult> GetMyEnrollmentById(int id)
     {
         var query = new GetMyEnrollmentByIdQuery { Id = id };
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Get pending invitations for the user's students (self + children).
+    /// </summary>
+    /// <remarks>GET Api/V1/Student/Invitations</remarks>
+    [HttpGet(Router.StudentInvitations)]
+    [ProducesResponseType(typeof(PaginatedResult<StudentInvitationListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyInvitations([FromQuery] GetMyInvitationsQuery query)
+    {
         return NewResult(await Mediator.Send(query));
     }
 
