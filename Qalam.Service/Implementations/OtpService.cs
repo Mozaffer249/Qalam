@@ -23,15 +23,14 @@ public class OtpService : IOtpService
         _logger = logger;
     }
 
-    public async Task<string> GeneratePhoneOtpAsync(string countryCode, string phoneNumber)
+    public async Task<string?> GeneratePhoneOtpAsync(string countryCode, string phoneNumber)
     {
         // Check if a valid OTP already exists
         var hasValidOtp = await _otpRepository.HasValidOtpAsync(phoneNumber);
         if (hasValidOtp)
         {
             _logger.LogWarning("Valid OTP already exists for phone {Phone}", phoneNumber);
-            throw new InvalidOperationException(
-                "A valid OTP code has already been sent. Please check your phone or wait 5 minutes to request a new one.");
+            return null;
         }
 
         // Remove expired OTPs for cleanup

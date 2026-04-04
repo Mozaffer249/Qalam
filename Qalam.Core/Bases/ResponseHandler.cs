@@ -88,6 +88,16 @@ namespace Qalam.Core.Bases
             };
         }
 
+        public Response<T> TooManyRequests<T>(string? Message = null)
+        {
+            return new Response<T>()
+            {
+                StatusCode = System.Net.HttpStatusCode.TooManyRequests,
+                Succeeded = false,
+                Message = Message ?? "Too many requests. Please try again later."
+            };
+        }
+
         public Response<T> Created<T>(string? Message = null, T? entity = default, object? Meta = null)
         {
             return new Response<T>()

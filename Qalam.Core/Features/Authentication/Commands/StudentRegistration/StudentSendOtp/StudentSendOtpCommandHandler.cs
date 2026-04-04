@@ -45,6 +45,11 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
         var otpCode = await _otpService.GeneratePhoneOtpAsync(
             request.CountryCode,
             request.PhoneNumber);
+
+        if (otpCode is null)
+            return TooManyRequests<StudentSendOtpResponseDto>(
+                "A valid OTP code has already been sent. Please check your phone or wait 5 minutes to request a new one.");
+
         await _otpService.SendOtpSmsAsync(fullPhoneNumber, otpCode);
 
         var maskedPhone = request.PhoneNumber.Length >= 4
