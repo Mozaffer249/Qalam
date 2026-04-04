@@ -48,7 +48,7 @@ public class OtpService : IOtpService
             PhoneNumber = phoneNumber,
             OtpCode = otpCode,
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            ExpiresAt = DateTime.UtcNow.AddSeconds(30),
             IsUsed = false
         };
 
