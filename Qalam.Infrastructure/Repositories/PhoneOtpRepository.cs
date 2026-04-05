@@ -27,7 +27,7 @@ public class PhoneOtpRepository : GenericRepositoryAsync<PhoneConfirmationOtp>, 
         return await _dbContext.PhoneConfirmationOtps
             .AnyAsync(o => o.PhoneNumber == phoneNumber
                         && !o.IsUsed
-                        // && o.ExpiresAt > DateTime.UtcNow
+                         && o.ExpiresAt > DateTime.UtcNow
                         );
     }
 
