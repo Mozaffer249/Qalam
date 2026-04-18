@@ -5,13 +5,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
 
 public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
-    IRequestHandler<GetMyEnrollmentRequestsQuery, Response<PaginatedResult<EnrollmentRequestListItemDto>>>
+    IRequestHandler<GetMyEnrollmentRequestsQuery, Response<List<EnrollmentRequestListItemDto>>>
 {
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
     private readonly IMapper _mapper;
@@ -25,7 +24,7 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
         _mapper = mapper;
     }
 
-    public async Task<Response<PaginatedResult<EnrollmentRequestListItemDto>>> Handle(
+    public async Task<Response<List<EnrollmentRequestListItemDto>>> Handle(
         GetMyEnrollmentRequestsQuery request,
         CancellationToken cancellationToken)
     {
@@ -48,7 +47,20 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
 
         var items = _mapper.Map<List<EnrollmentRequestListItemDto>>(requests);
 
-        var result = new PaginatedResult<EnrollmentRequestListItemDto>(items, totalCount, request.PageNumber, request.PageSize);
-        return Success(entity: result);
+        var totalPages = request.PageSize > 0
+            ? (int)Math.Ceiling(totalCount / (double)request.PageSize)
+            : 0;
+
+        var meta = new
+        {
+            totalCount,
+            pageNumber = request.PageNumber,
+            pageSize = request.PageSize,
+            totalPages,
+            hasPreviousPage = request.PageNumber > 1,
+            hasNextPage = request.PageNumber < totalPages
+        };
+
+        return Success(entity: items, Meta: meta);
     }
 }

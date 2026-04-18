@@ -89,7 +89,7 @@ public class StudentCourseController : AppControllerBase
     /// </summary>
     /// <remarks>GET Api/V1/Student/EnrollmentRequests</remarks>
     [HttpGet(Router.StudentEnrollmentRequests)]
-    [ProducesResponseType(typeof(PaginatedResult<EnrollmentRequestListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<EnrollmentRequestListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollmentRequests([FromQuery] GetMyEnrollmentRequestsQuery query)
     {
         return NewResult(await Mediator.Send(query));
