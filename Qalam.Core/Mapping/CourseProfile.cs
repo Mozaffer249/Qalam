@@ -88,7 +88,19 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
                 src.MaxStudents.HasValue
                     ? src.MaxStudents.Value - src.CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
-                    : (int?)null));
+                    : (int?)null))
+            .ForMember(dest => dest.Sessions, opt => opt.MapFrom(src =>
+                src.Sessions
+                    .OrderBy(s => s.SessionNumber)
+                    .Select(s => new CourseSessionDto
+                    {
+                        Id = s.Id,
+                        SessionNumber = s.SessionNumber,
+                        DurationMinutes = s.DurationMinutes,
+                        Title = s.Title,
+                        Notes = s.Notes
+                    })
+                    .ToList()));
 
         // CourseEnrollmentRequest -> EnrollmentRequestListItemDto
         CreateMap<CourseEnrollmentRequest, EnrollmentRequestListItemDto>()

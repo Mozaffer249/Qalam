@@ -169,4 +169,5 @@ public class CourseCatalogDetailDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
+    public List<CourseSessionDto>? Sessions { get; set; }
 }
