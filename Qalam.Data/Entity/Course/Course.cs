@@ -51,11 +51,6 @@ public class Course : AuditableEntity
     public bool IsFlexible { get; set; }
     
     /// <summary>
-    /// عدد الجلسات (للدورات غير المرنة)
-    /// </summary>
-    public int? SessionsCount { get; set; }
-    
-    /// <summary>
     /// مدة الجلسة بالدقائق
     /// </summary>
     public int? SessionDurationMinutes { get; set; }
@@ -86,6 +81,7 @@ public class Course : AuditableEntity
     public ICollection<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; } = new List<CourseEnrollmentRequest>();
     public ICollection<CourseEnrollment> CourseEnrollments { get; set; } = new List<CourseEnrollment>();
     public ICollection<CourseGroupEnrollment> CourseGroupEnrollments { get; set; } = new List<CourseGroupEnrollment>();
+    public ICollection<CourseSession> Sessions { get; set; } = new List<CourseSession>();
     
     // Computed Properties (محسوبة من TeacherSubject)
     
@@ -143,4 +139,12 @@ public class Course : AuditableEntity
     public int AvailableSeats => MaxStudents.HasValue 
         ? MaxStudents.Value - CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
         : int.MaxValue;
+
+    /// <summary>
+    /// عدد الجلسات (محسوب من Sessions للدورات غير المرنة)
+    /// </summary>
+    [NotMapped]
+    public int? SessionsCount => IsFlexible
+        ? null
+        : (Sessions != null && Sessions.Count > 0 ? Sessions.Count : (int?)null);
 }

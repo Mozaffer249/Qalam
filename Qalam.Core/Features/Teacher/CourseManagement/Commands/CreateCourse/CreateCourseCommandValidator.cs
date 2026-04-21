@@ -17,16 +17,9 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
         RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.SessionTypeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.Price).GreaterThanOrEqualTo(0).When(x => x.Data != null);
-        RuleFor(x => x.Data.SessionsCount)
-            .NotNull().GreaterThan(0)
-            .When(x => x.Data != null && !x.Data.IsFlexible);
         RuleFor(x => x.Data.SessionDurationMinutes)
             .NotNull().GreaterThan(0)
             .When(x => x.Data != null && !x.Data.IsFlexible);
-        RuleFor(x => x.Data.SessionsCount)
-            .Null()
-            .When(x => x.Data != null && x.Data.IsFlexible)
-            .WithMessage("SessionsCount must be null when course is flexible.");
         RuleFor(x => x.Data.SessionDurationMinutes)
             .Null()
             .When(x => x.Data != null && x.Data.IsFlexible)
@@ -34,5 +27,26 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
         RuleFor(x => x.Data.MaxStudents)
             .GreaterThanOrEqualTo(2)
             .When(x => x.Data != null && x.Data.MaxStudents.HasValue);
+
+        RuleFor(x => x.Data.Sessions)
+            .NotNull()
+            .Must(list => list != null && list.Count > 0)
+            .When(x => x.Data != null && !x.Data.IsFlexible)
+            .WithMessage("Sessions are required when course is not flexible.");
+
+        RuleFor(x => x.Data.Sessions)
+            .Must(list => list == null || list.Count == 0)
+            .When(x => x.Data != null && x.Data.IsFlexible)
+            .WithMessage("Sessions must be empty when course is flexible.");
+
+        When(x => x.Data != null && x.Data.Sessions != null && x.Data.Sessions.Count > 0, () =>
+        {
+            RuleForEach(x => x.Data.Sessions).ChildRules(s =>
+            {
+                s.RuleFor(i => i.DurationMinutes).GreaterThan(0);
+                s.RuleFor(i => i.Title).MaximumLength(150);
+                s.RuleFor(i => i.Notes).MaximumLength(500);
+            });
+        });
     }
 }

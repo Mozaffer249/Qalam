@@ -50,6 +50,21 @@ public static class CourseDtoMapper
                 .ToList();
         }
 
+        if (c.Sessions != null && c.Sessions.Count > 0)
+        {
+            dto.Sessions = c.Sessions
+                .OrderBy(s => s.SessionNumber)
+                .Select(s => new CourseSessionDto
+                {
+                    Id = s.Id,
+                    SessionNumber = s.SessionNumber,
+                    DurationMinutes = s.DurationMinutes,
+                    Title = s.Title,
+                    Notes = s.Notes
+                })
+                .ToList();
+        }
+
         return dto;
     }
 

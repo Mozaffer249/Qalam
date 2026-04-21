@@ -38,6 +38,7 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.Teacher)
                 .ThenInclude(t => t.User)
             .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Sessions)
             .FirstOrDefaultAsync(c => c.Id == courseId);
     }
 
@@ -81,6 +82,7 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.Teacher)
                 .ThenInclude(t => t.User)
             .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Sessions)
             .OrderByDescending(c => c.CreatedAt);
     }
 }

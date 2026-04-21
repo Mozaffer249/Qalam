@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Qalam.Infrastructure.context;
 
@@ -11,9 +12,11 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDBContext))]
-    partial class ApplicationDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260421182139_AddCourseSessions")]
+    partial class AddCourseSessions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -368,6 +371,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("SessionTypeId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SessionsCount")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -410,6 +416,8 @@ namespace Qalam.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_Course_MaxStudents", "([MaxStudents] IS NULL) OR ([MaxStudents] >= 2)");
 
                             t.HasCheckConstraint("CK_Course_SessionDuration", "(([IsFlexible] = 0) AND ([SessionDurationMinutes] IS NOT NULL) AND ([SessionDurationMinutes] > 0)) OR (([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL))");
+
+                            t.HasCheckConstraint("CK_Course_SessionsCount", "(([IsFlexible] = 0) AND ([SessionsCount] IS NOT NULL) AND ([SessionsCount] > 0)) OR (([IsFlexible] = 1) AND ([SessionsCount] IS NULL))");
                         });
                 });
 

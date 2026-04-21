@@ -14,11 +14,27 @@ public class CreateCourseDto
     public int TeachingModeId { get; set; }
     public int SessionTypeId { get; set; }
     public bool IsFlexible { get; set; }
-    public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
+    public List<CreateCourseSessionDto>? Sessions { get; set; }
+}
+
+public class CourseSessionDto
+{
+    public int Id { get; set; }
+    public int SessionNumber { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class CreateCourseSessionDto
+{
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
 }
 
 /// <summary>
@@ -32,7 +48,6 @@ public class UpdateCourseDto
     public int TeachingModeId { get; set; }
     public int SessionTypeId { get; set; }
     public bool IsFlexible { get; set; }
-    public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
@@ -97,6 +112,7 @@ public class CourseDetailDto
     /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.
     /// </summary>
     public List<TeacherSubjectUnitResponseDto>? Units { get; set; }
+    public List<CourseSessionDto>? Sessions { get; set; }
 }
 
 /// <summary>

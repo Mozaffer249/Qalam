@@ -27,11 +27,6 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         
         // Check Constraints
         builder.ToTable(t => t.HasCheckConstraint(
-            "CK_Course_SessionsCount",
-            "(([IsFlexible] = 0) AND ([SessionsCount] IS NOT NULL) AND ([SessionsCount] > 0)) OR (([IsFlexible] = 1) AND ([SessionsCount] IS NULL))"
-        ));
-        
-        builder.ToTable(t => t.HasCheckConstraint(
             "CK_Course_SessionDuration",
             "(([IsFlexible] = 0) AND ([SessionDurationMinutes] IS NOT NULL) AND ([SessionDurationMinutes] > 0)) OR (([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL))"
         ));
