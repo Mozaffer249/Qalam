@@ -96,17 +96,23 @@ public class TeacherCourseController : AppControllerBase
     ///     "sessionTypeId": 1,
     ///     "sessionTypeNameEn": "Group",
     ///     "isFlexible": false,
-    ///     "sessionsCount": 12,
+    ///     "sessionsCount": 3,
     ///     "sessionDurationMinutes": 45,
     ///     "price": 500.00,
     ///     "maxStudents": 15,
     ///     "canIncludeInPackages": true,
-    ///     "status": "Draft",
-    ///     "units": null
+    ///     "status": "Published",
+    ///     "units": null,
+    ///     "sessions": [
+    ///       { "id": 101, "sessionNumber": 1, "durationMinutes": 45, "title": "Intro",      "notes": null },
+    ///       { "id": 102, "sessionNumber": 2, "durationMinutes": 45, "title": "Equations",  "notes": null },
+    ///       { "id": 103, "sessionNumber": 3, "durationMinutes": 60, "title": "Quadratics", "notes": "Bring calculator." }
+    ///     ]
     ///   },
     ///   "succeeded": true
     /// }
     /// </code>
+    /// `sessionsCount` is derived from `sessions.length` on read (null for flexible courses).
     /// </remarks>
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
@@ -118,11 +124,16 @@ public class TeacherCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Create a new course (Draft).
+    /// Create a new course (Published).
     /// </summary>
     /// <remarks>
     /// POST Api/V1/Teacher/TeacherCourse
-    /// Sample request body:
+    ///
+    /// Two modes:
+    /// - Non-flexible (`isFlexible = false`): `sessionDurationMinutes` is required, and `sessions` must be a non-empty list. The array order is the session order — the server assigns `sessionNumber = 1..N`. Do NOT send `sessionNumber`.
+    /// - Flexible (`isFlexible = true`): `sessionDurationMinutes` must be null and `sessions` must be null/empty.
+    ///
+    /// Sample request body (non-flexible):
     /// <code>
     /// {
     ///   "title": "Mathematics - Grade 10",
@@ -131,13 +142,35 @@ public class TeacherCourseController : AppControllerBase
     ///   "teachingModeId": 1,
     ///   "sessionTypeId": 1,
     ///   "isFlexible": false,
-    ///   "sessionsCount": 12,
     ///   "sessionDurationMinutes": 45,
     ///   "price": 500,
     ///   "maxStudents": 15,
-    ///   "canIncludeInPackages": true
+    ///   "canIncludeInPackages": true,
+    ///   "sessions": [
+    ///     { "durationMinutes": 45, "title": "Intro",      "notes": null },
+    ///     { "durationMinutes": 45, "title": "Equations",  "notes": null },
+    ///     { "durationMinutes": 60, "title": "Quadratics", "notes": "Bring calculator." }
+    ///   ]
     /// }
     /// </code>
+    ///
+    /// Sample request body (flexible):
+    /// <code>
+    /// {
+    ///   "title": "On-demand Tutoring",
+    ///   "teacherSubjectId": 1,
+    ///   "teachingModeId": 2,
+    ///   "sessionTypeId": 1,
+    ///   "isFlexible": true,
+    ///   "sessionDurationMinutes": null,
+    ///   "price": 40,
+    ///   "maxStudents": null,
+    ///   "canIncludeInPackages": false,
+    ///   "sessions": null
+    /// }
+    /// </code>
+    ///
+    /// On success returns the full <see cref="CourseDetailDto"/> with `status = Published` and `sessions[]` ordered by `sessionNumber` ascending.
     /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
@@ -163,13 +196,14 @@ public class TeacherCourseController : AppControllerBase
     ///   "teachingModeId": 1,
     ///   "sessionTypeId": 1,
     ///   "isFlexible": false,
-    ///   "sessionsCount": 14,
     ///   "sessionDurationMinutes": 60,
     ///   "price": 600,
     ///   "maxStudents": 20,
     ///   "canIncludeInPackages": true
     /// }
     /// </code>
+    ///
+    /// Note: this endpoint does not edit `sessions[]`. Use the dedicated session management endpoints to change the session outline.
     /// </remarks>
     [HttpPut("{id}")]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]

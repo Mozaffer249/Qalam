@@ -49,7 +49,11 @@ public class StudentCourseController : AppControllerBase
     /// <summary>
     /// Get a published course by ID.
     /// </summary>
-    /// <remarks>GET Api/V1/Student/Courses/{id}</remarks>
+    /// <remarks>
+    /// GET Api/V1/Student/Courses/{id}
+    ///
+    /// Returns the full course detail including `sessions[]` (ordered by `sessionNumber` ascending). For flexible courses `sessions` is empty and `sessionsCount` is null.
+    /// </remarks>
     [HttpGet(Router.StudentCourseById)]
     [ProducesResponseType(typeof(CourseCatalogDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -73,9 +77,72 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Request enrollment in a course.
+    /// Request enrollment in a course (self, children, and/or invited students).
     /// </summary>
-    /// <remarks>POST Api/V1/Student/EnrollmentRequests</remarks>
+    /// <remarks>
+    /// POST Api/V1/Student/EnrollmentRequests
+    ///
+    /// Rules:
+    /// - `data.courseId` is required.
+    /// - `data.studentIds` — students owned by the caller (self and/or children) that are enrolled immediately on approval.
+    /// - `data.invitedStudentIds` — students that will receive an invitation and must accept before being added to the group.
+    /// - `data.selectedAvailabilityIds` — teacher availability slots chosen for this request.
+    /// - `data.proposedSessions` — only required for flexible courses. For fixed courses the session outline is taken from the course.
+    ///   `sessionNumber` here is 1-based and must be unique within the array.
+    ///
+    /// Sample request body (fixed course, single student):
+    /// <code>
+    /// {
+    ///   "data": {
+    ///     "courseId": 1,
+    ///     "studentIds": [ 42 ],
+    ///     "invitedStudentIds": [],
+    ///     "selectedAvailabilityIds": [ 10, 11 ],
+    ///     "notes": "Prefers evening sessions.",
+    ///     "proposedSessions": []
+    ///   }
+    /// }
+    /// </code>
+    ///
+    /// Sample request body (flexible course, group with invites):
+    /// <code>
+    /// {
+    ///   "data": {
+    ///     "courseId": 7,
+    ///     "studentIds": [ 42 ],
+    ///     "invitedStudentIds": [ 55, 61 ],
+    ///     "selectedAvailabilityIds": [ 21 ],
+    ///     "notes": null,
+    ///     "proposedSessions": [
+    ///       { "sessionNumber": 1, "durationMinutes": 60, "title": "Kickoff",    "notes": null },
+    ///       { "sessionNumber": 2, "durationMinutes": 60, "title": "Practice",   "notes": null },
+    ///       { "sessionNumber": 3, "durationMinutes": 90, "title": "Assessment", "notes": "Final quiz." }
+    ///     ]
+    ///   }
+    /// }
+    /// </code>
+    ///
+    /// Sample response:
+    /// <code>
+    /// {
+    ///   "data": {
+    ///     "id": 123,
+    ///     "courseId": 1,
+    ///     "courseTitle": "Mathematics - Grade 10",
+    ///     "status": "Pending",
+    ///     "totalMinutes": 540,
+    ///     "estimatedTotalPrice": 450.00,
+    ///     "selectedAvailabilityIds": [ 10, 11 ],
+    ///     "groupMembers": [
+    ///       { "studentId": 42, "memberType": "Owner",  "confirmationStatus": "Confirmed", "confirmedAt": "2026-04-18T10:00:00Z" },
+    ///       { "studentId": 55, "memberType": "Invited", "confirmationStatus": "Pending",  "confirmedAt": null }
+    ///     ],
+    ///     "proposedSessions": []
+    ///   },
+    ///   "succeeded": true
+    /// }
+    /// </code>
+    /// </remarks>
     [HttpPost(Router.StudentEnrollmentRequests)]
     [ProducesResponseType(typeof(EnrollmentRequestDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -87,7 +154,12 @@ public class StudentCourseController : AppControllerBase
     /// <summary>
     /// Get my enrollment requests (paginated).
     /// </summary>
-    /// <remarks>GET Api/V1/Student/EnrollmentRequests</remarks>
+    /// <remarks>
+    /// GET Api/V1/Student/EnrollmentRequests?PageNumber=1&amp;PageSize=10
+    ///
+    /// `data` is a flat list of <see cref="EnrollmentRequestListItemDto"/>. Pagination metadata
+    /// (`totalCount`, `pageNumber`, `pageSize`, `totalPages`, `hasPreviousPage`, `hasNextPage`) is returned in the top-level `meta` field.
+    /// </remarks>
     [HttpGet(Router.StudentEnrollmentRequests)]
     [ProducesResponseType(typeof(List<EnrollmentRequestListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollmentRequests([FromQuery] GetMyEnrollmentRequestsQuery query)
