@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Curriculum.Queries.GetCurriculumsList;
 
 public class GetCurriculumsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetCurriculumsListQuery, Response<PaginatedResult<CurriculumDto>>>
+    IRequestHandler<GetCurriculumsListQuery, Response<List<CurriculumDto>>>
 {
     private readonly ICurriculumService _curriculumService;
 
@@ -20,7 +19,7 @@ public class GetCurriculumsListQueryHandler : ResponseHandler,
         _curriculumService = curriculumService;
     }
 
-    public async Task<Response<PaginatedResult<CurriculumDto>>> Handle(
+    public async Task<Response<List<CurriculumDto>>> Handle(
         GetCurriculumsListQuery request,
         CancellationToken cancellationToken)
     {
@@ -30,6 +29,8 @@ public class GetCurriculumsListQueryHandler : ResponseHandler,
             request.Search,
             request.DomainId);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }

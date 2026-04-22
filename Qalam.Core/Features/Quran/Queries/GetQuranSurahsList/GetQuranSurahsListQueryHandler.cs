@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Quran;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Quran.Queries.GetQuranSurahsList;
 
 public class GetQuranSurahsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetQuranSurahsListQuery, Response<PaginatedResult<QuranSurah>>>
+    IRequestHandler<GetQuranSurahsListQuery, Response<List<QuranSurah>>>
 {
     private readonly IQuranService _quranService;
 
@@ -20,7 +19,7 @@ public class GetQuranSurahsListQueryHandler : ResponseHandler,
         _quranService = quranService;
     }
 
-    public async Task<Response<PaginatedResult<QuranSurah>>> Handle(
+    public async Task<Response<List<QuranSurah>>> Handle(
         GetQuranSurahsListQuery request,
         CancellationToken cancellationToken)
     {
@@ -30,6 +29,8 @@ public class GetQuranSurahsListQueryHandler : ResponseHandler,
             request.PartNumber,
             request.Search);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }

@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Teaching;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teaching.Queries.GetTeachingModesList;
 
 public class GetTeachingModesListQueryHandler : ResponseHandler,
-    IRequestHandler<GetTeachingModesListQuery, Response<PaginatedResult<TeachingMode>>>
+    IRequestHandler<GetTeachingModesListQuery, Response<List<TeachingMode>>>
 {
     private readonly ITeachingConfigurationService _teachingService;
 
@@ -20,7 +19,7 @@ public class GetTeachingModesListQueryHandler : ResponseHandler,
         _teachingService = teachingService;
     }
 
-    public async Task<Response<PaginatedResult<TeachingMode>>> Handle(
+    public async Task<Response<List<TeachingMode>>> Handle(
         GetTeachingModesListQuery request,
         CancellationToken cancellationToken)
     {
@@ -29,6 +28,8 @@ public class GetTeachingModesListQueryHandler : ResponseHandler,
             request.PageSize,
             request.Search);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }

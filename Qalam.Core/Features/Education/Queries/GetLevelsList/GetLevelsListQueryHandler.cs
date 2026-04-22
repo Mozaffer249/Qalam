@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Queries.GetLevelsList;
 
 public class GetLevelsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetLevelsListQuery, Response<PaginatedResult<EducationLevelDto>>>
+    IRequestHandler<GetLevelsListQuery, Response<List<EducationLevelDto>>>
 {
     private readonly IGradeService _gradeService;
 
@@ -20,7 +19,7 @@ public class GetLevelsListQueryHandler : ResponseHandler,
         _gradeService = gradeService;
     }
 
-    public async Task<Response<PaginatedResult<EducationLevelDto>>> Handle(
+    public async Task<Response<List<EducationLevelDto>>> Handle(
         GetLevelsListQuery request,
         CancellationToken cancellationToken)
     {
@@ -31,6 +30,8 @@ public class GetLevelsListQueryHandler : ResponseHandler,
             request.CurriculumId,
             request.Search);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }

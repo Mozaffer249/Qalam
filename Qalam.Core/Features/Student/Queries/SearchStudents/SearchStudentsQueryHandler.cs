@@ -4,13 +4,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Student;
-using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Student.Queries.SearchStudents;
 
 public class SearchStudentsQueryHandler : ResponseHandler,
-    IRequestHandler<SearchStudentsQuery, Response<PaginatedResult<StudentByEmailDto>>>
+    IRequestHandler<SearchStudentsQuery, Response<List<StudentByEmailDto>>>
 {
     private readonly IStudentRepository _studentRepository;
 
@@ -21,7 +20,7 @@ public class SearchStudentsQueryHandler : ResponseHandler,
         _studentRepository = studentRepository;
     }
 
-    public async Task<Response<PaginatedResult<StudentByEmailDto>>> Handle(
+    public async Task<Response<List<StudentByEmailDto>>> Handle(
         SearchStudentsQuery request,
         CancellationToken cancellationToken)
     {
@@ -55,7 +54,8 @@ public class SearchStudentsQueryHandler : ResponseHandler,
             })
             .ToListAsync(cancellationToken);
 
-        var result = new PaginatedResult<StudentByEmailDto>(items, totalCount, request.PageNumber, request.PageSize);
-        return Success(entity: result);
+        return Success(
+            entity: items,
+            Meta: BuildPaginationMeta(request.PageNumber, request.PageSize, totalCount));
     }
 }

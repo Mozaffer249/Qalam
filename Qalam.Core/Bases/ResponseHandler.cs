@@ -109,6 +109,24 @@ namespace Qalam.Core.Bases
                 Meta = Meta
             };
         }
+
+        /// <summary>
+        /// Builds the standard pagination metadata object returned in the `meta` field
+        /// of paginated list endpoints. Keep all paginated handlers consistent by using this.
+        /// </summary>
+        protected static object BuildPaginationMeta(int pageNumber, int pageSize, int totalCount)
+        {
+            var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalCount / (double)pageSize) : 0;
+            return new
+            {
+                totalCount,
+                pageNumber,
+                pageSize,
+                totalPages,
+                hasPreviousPage = pageNumber > 1,
+                hasNextPage = pageNumber < totalPages
+            };
+        }
     }
 
 

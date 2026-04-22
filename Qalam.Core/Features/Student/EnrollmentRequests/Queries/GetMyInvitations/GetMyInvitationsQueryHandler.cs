@@ -4,13 +4,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 
 public class GetMyInvitationsQueryHandler : ResponseHandler,
-    IRequestHandler<GetMyInvitationsQuery, Response<PaginatedResult<StudentInvitationListItemDto>>>
+    IRequestHandler<GetMyInvitationsQuery, Response<List<StudentInvitationListItemDto>>>
 {
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
@@ -27,7 +26,7 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
         _requestRepository = requestRepository;
     }
 
-    public async Task<Response<PaginatedResult<StudentInvitationListItemDto>>> Handle(
+    public async Task<Response<List<StudentInvitationListItemDto>>> Handle(
         GetMyInvitationsQuery request,
         CancellationToken cancellationToken)
     {
@@ -45,7 +44,7 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
         }
 
         if (studentIds.Count == 0)
-            return NotFound<PaginatedResult<StudentInvitationListItemDto>>("No student profile found.");
+            return NotFound<List<StudentInvitationListItemDto>>("No student profile found.");
 
         studentIds = studentIds.Distinct().ToList();
 
@@ -75,7 +74,8 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
             ConfirmationStatus = gm.ConfirmationStatus
         }).ToList();
 
-        var result = new PaginatedResult<StudentInvitationListItemDto>(items, totalCount, request.PageNumber, request.PageSize);
-        return Success(entity: result);
+        return Success(
+            entity: items,
+            Meta: BuildPaginationMeta(request.PageNumber, request.PageSize, totalCount));
     }
 }

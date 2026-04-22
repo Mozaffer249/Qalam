@@ -15,7 +15,6 @@ using Qalam.Core.Features.Student.Queries.GetMyChildren;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
-using Qalam.Data.Results;
 
 namespace Qalam.Api.Controllers.Student;
 
@@ -185,7 +184,7 @@ public class StudentCourseController : AppControllerBase
     /// </summary>
     /// <remarks>GET Api/V1/Student/Enrollments</remarks>
     [HttpGet(Router.StudentEnrollments)]
-    [ProducesResponseType(typeof(PaginatedResult<EnrollmentListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<EnrollmentListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollments([FromQuery] GetMyEnrollmentsQuery query)
     {
         return NewResult(await Mediator.Send(query));
@@ -209,7 +208,7 @@ public class StudentCourseController : AppControllerBase
     /// </summary>
     /// <remarks>GET Api/V1/Student/Invitations</remarks>
     [HttpGet(Router.StudentInvitations)]
-    [ProducesResponseType(typeof(PaginatedResult<StudentInvitationListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<StudentInvitationListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyInvitations([FromQuery] GetMyInvitationsQuery query)
     {
         return NewResult(await Mediator.Send(query));
@@ -231,7 +230,7 @@ public class StudentCourseController : AppControllerBase
     /// </summary>
     /// <remarks>GET Api/V1/Student/Search?searchTerm=ahmed&amp;pageNumber=1&amp;pageSize=10</remarks>
     [HttpGet(Router.StudentSearch)]
-    [ProducesResponseType(typeof(PaginatedResult<StudentByEmailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<StudentByEmailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchStudents([FromQuery] SearchStudentsQuery query)
     {
         return NewResult(await Mediator.Send(query));

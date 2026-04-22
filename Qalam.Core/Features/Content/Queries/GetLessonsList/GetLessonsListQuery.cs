@@ -1,11 +1,10 @@
 using MediatR;
 using Qalam.Core.Bases;
 using Qalam.Data.Entity.Education;
-using Qalam.Data.Results;
 
 namespace Qalam.Core.Features.Content.Queries.GetLessonsList;
 
-public class GetLessonsListQuery : IRequest<Response<PaginatedResult<Lesson>>>
+public class GetLessonsListQuery : IRequest<Response<List<Lesson>>>
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;

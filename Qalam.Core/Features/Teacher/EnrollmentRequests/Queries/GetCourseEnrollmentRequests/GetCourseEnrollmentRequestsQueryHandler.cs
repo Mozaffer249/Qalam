@@ -4,13 +4,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.EnrollmentRequests.Queries.GetCourseEnrollmentRequests;
 
 public class GetCourseEnrollmentRequestsQueryHandler : ResponseHandler,
-    IRequestHandler<GetCourseEnrollmentRequestsQuery, Response<PaginatedResult<TeacherEnrollmentRequestListItemDto>>>
+    IRequestHandler<GetCourseEnrollmentRequestsQuery, Response<List<TeacherEnrollmentRequestListItemDto>>>
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseRepository _courseRepository;
@@ -27,17 +26,17 @@ public class GetCourseEnrollmentRequestsQueryHandler : ResponseHandler,
         _requestRepository = requestRepository;
     }
 
-    public async Task<Response<PaginatedResult<TeacherEnrollmentRequestListItemDto>>> Handle(
+    public async Task<Response<List<TeacherEnrollmentRequestListItemDto>>> Handle(
         GetCourseEnrollmentRequestsQuery request,
         CancellationToken cancellationToken)
     {
         var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
         if (teacher == null)
-            return NotFound<PaginatedResult<TeacherEnrollmentRequestListItemDto>>("Teacher profile not found.");
+            return NotFound<List<TeacherEnrollmentRequestListItemDto>>("Teacher profile not found.");
 
         var course = await _courseRepository.GetByIdAsync(request.CourseId);
         if (course == null || course.TeacherId != teacher.Id)
-            return NotFound<PaginatedResult<TeacherEnrollmentRequestListItemDto>>("Course not found or does not belong to you.");
+            return NotFound<List<TeacherEnrollmentRequestListItemDto>>("Course not found or does not belong to you.");
 
         var query = _requestRepository.GetByCourseIdQueryable(request.CourseId);
 
@@ -68,7 +67,8 @@ public class GetCourseEnrollmentRequestsQueryHandler : ResponseHandler,
             SessionTypeNameEn = r.Course?.SessionType?.NameEn
         }).ToList();
 
-        var result = new PaginatedResult<TeacherEnrollmentRequestListItemDto>(items, totalCount, request.PageNumber, request.PageSize);
-        return Success(entity: result);
+        return Success(
+            entity: items,
+            Meta: BuildPaginationMeta(request.PageNumber, request.PageSize, totalCount));
     }
 }

@@ -1,11 +1,10 @@
 using MediatR;
 using Qalam.Core.Bases;
 using Qalam.Data.DTOs;
-using Qalam.Data.Results;
 
 namespace Qalam.Core.Features.Education.Queries.GetLevelsList;
 
-public class GetLevelsListQuery : IRequest<Response<PaginatedResult<EducationLevelDto>>>
+public class GetLevelsListQuery : IRequest<Response<List<EducationLevelDto>>>
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;

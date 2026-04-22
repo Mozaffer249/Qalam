@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
 
 public class GetEducationDomainsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetEducationDomainsListQuery, Response<PaginatedResult<EducationDomainDto>>>
+    IRequestHandler<GetEducationDomainsListQuery, Response<List<EducationDomainDto>>>
 {
     private readonly IEducationDomainService _domainService;
 
@@ -20,7 +19,7 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
         _domainService = domainService;
     }
 
-    public async Task<Response<PaginatedResult<EducationDomainDto>>> Handle(
+    public async Task<Response<List<EducationDomainDto>>> Handle(
         GetEducationDomainsListQuery request,
         CancellationToken cancellationToken)
     {
@@ -29,6 +28,8 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             request.PageSize,
             request.Search);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }

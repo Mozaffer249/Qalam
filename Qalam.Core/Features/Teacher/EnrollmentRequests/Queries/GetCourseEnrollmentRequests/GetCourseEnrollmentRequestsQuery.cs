@@ -4,11 +4,10 @@ using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
-using Qalam.Data.Results;
 
 namespace Qalam.Core.Features.Teacher.EnrollmentRequests.Queries.GetCourseEnrollmentRequests;
 
-public class GetCourseEnrollmentRequestsQuery : IRequest<Response<PaginatedResult<TeacherEnrollmentRequestListItemDto>>>, IAuthenticatedRequest
+public class GetCourseEnrollmentRequestsQuery : IRequest<Response<List<TeacherEnrollmentRequestListItemDto>>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }

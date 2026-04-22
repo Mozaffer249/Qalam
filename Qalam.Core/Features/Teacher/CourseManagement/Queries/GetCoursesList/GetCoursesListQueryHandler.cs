@@ -34,17 +34,9 @@ public class GetCoursesListQueryHandler : ResponseHandler,
                 request.SubjectId,
                 cancellationToken);
 
-            var meta = new
-            {
-                totalCount = result.TotalCount,
-                pageNumber = result.PageNumber,
-                pageSize = result.PageSize,
-                totalPages = result.TotalPages,
-                hasPreviousPage = result.HasPreviousPage,
-                hasNextPage = result.HasNextPage
-            };
-
-            return Success(entity: result.Items, Meta: meta);
+            return Success(
+                entity: result.Items,
+                Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
         }
         catch (InvalidOperationException)
         {

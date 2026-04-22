@@ -8,7 +8,6 @@ using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCoursesList;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Results;
 
 namespace Qalam.Api.Controllers.Teacher;
 
@@ -59,7 +58,7 @@ public class TeacherCourseController : AppControllerBase
     /// </code>
     /// </remarks>
     [HttpGet]
-    [ProducesResponseType(typeof(PaginatedResult<CourseListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<CourseListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCourses([FromQuery] GetCoursesListQuery query)
     {
         return NewResult(await Mediator.Send(query));

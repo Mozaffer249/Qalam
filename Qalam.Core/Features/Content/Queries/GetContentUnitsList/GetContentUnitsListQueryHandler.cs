@@ -3,13 +3,12 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Education;
-using Qalam.Data.Results;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Content.Queries.GetContentUnitsList;
 
 public class GetContentUnitsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetContentUnitsListQuery, Response<PaginatedResult<ContentUnit>>>
+    IRequestHandler<GetContentUnitsListQuery, Response<List<ContentUnit>>>
 {
     private readonly IContentManagementService _contentService;
 
@@ -20,7 +19,7 @@ public class GetContentUnitsListQueryHandler : ResponseHandler,
         _contentService = contentService;
     }
 
-    public async Task<Response<PaginatedResult<ContentUnit>>> Handle(
+    public async Task<Response<List<ContentUnit>>> Handle(
         GetContentUnitsListQuery request,
         CancellationToken cancellationToken)
     {
@@ -32,6 +31,8 @@ public class GetContentUnitsListQueryHandler : ResponseHandler,
             request.UnitTypeCode,
             request.Search);
 
-        return Success(entity: result);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }
