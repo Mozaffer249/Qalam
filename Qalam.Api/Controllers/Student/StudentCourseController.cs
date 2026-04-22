@@ -40,7 +40,7 @@ public class StudentCourseController : AppControllerBase
     /// - **SubjectId, TeachingModeId** (optional): Additional filters
     /// </remarks>
     [HttpGet(Router.StudentCourses)]
-    [ProducesResponseType(typeof(PaginatedResult<CourseCatalogItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<CourseCatalogItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPublishedCourses([FromQuery] GetPublishedCoursesListQuery query)
     {
         return NewResult(await Mediator.Send(query));

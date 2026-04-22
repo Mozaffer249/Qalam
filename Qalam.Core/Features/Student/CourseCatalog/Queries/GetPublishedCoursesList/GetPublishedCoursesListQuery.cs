@@ -3,11 +3,10 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Results;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 
-public class GetPublishedCoursesListQuery : IRequest<Response<PaginatedResult<CourseCatalogItemDto>>>, IAuthenticatedRequest
+public class GetPublishedCoursesListQuery : IRequest<Response<List<CourseCatalogItemDto>>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }
