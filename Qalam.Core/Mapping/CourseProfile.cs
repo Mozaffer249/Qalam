@@ -64,22 +64,28 @@ public class CourseProfile : Profile
                     ? src.TeacherSubject.Subject.NameEn
                     : null))
             .ForMember(dest => dest.CurriculumId, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null ? src.TeacherSubject.CurriculumId : null))
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                    ? src.TeacherSubject.Subject.CurriculumId
+                    : null))
             .ForMember(dest => dest.CurriculumNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Curriculum != null
-                    ? src.TeacherSubject.Curriculum.NameEn
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Curriculum != null
+                    ? src.TeacherSubject.Subject.Curriculum.NameEn
                     : null))
             .ForMember(dest => dest.LevelId, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null ? src.TeacherSubject.LevelId : null))
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                    ? src.TeacherSubject.Subject.LevelId
+                    : null))
             .ForMember(dest => dest.LevelNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Level != null
-                    ? src.TeacherSubject.Level.NameEn
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Level != null
+                    ? src.TeacherSubject.Subject.Level.NameEn
                     : null))
             .ForMember(dest => dest.GradeId, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null ? src.TeacherSubject.GradeId : null))
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                    ? src.TeacherSubject.Subject.GradeId
+                    : null))
             .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Grade != null
-                    ? src.TeacherSubject.Grade.NameEn
+                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Grade != null
+                    ? src.TeacherSubject.Subject.Grade.NameEn
                     : null))
             .ForMember(dest => dest.TeachingModeNameEn, opt => opt.MapFrom(src =>
                 src.TeachingMode != null ? src.TeachingMode.NameEn : null))

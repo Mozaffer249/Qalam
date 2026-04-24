@@ -27,9 +27,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Curriculum)
-            .Include(ts => ts.Level)
-            .Include(ts => ts.Grade)
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.TeacherSubjectUnits)
@@ -47,9 +44,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.Id == teacherSubjectId)
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Curriculum)
-            .Include(ts => ts.Level)
-            .Include(ts => ts.Grade)
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.TeacherSubjectUnits)
@@ -72,9 +66,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             {
                 TeacherId = teacherId,
                 SubjectId = subjectDto.SubjectId,
-                CurriculumId = subjectDto.CurriculumId,
-                LevelId = subjectDto.LevelId,
-                GradeId = subjectDto.GradeId,
                 CanTeachFullSubject = subjectDto.CanTeachFullSubject,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -180,9 +171,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             {
                 TeacherId = teacherId,
                 SubjectId = dto.SubjectId,
-                CurriculumId = dto.CurriculumId,
-                LevelId = dto.LevelId,
-                GradeId = dto.GradeId,
                 CanTeachFullSubject = dto.CanTeachFullSubject,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -218,9 +206,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => addedIds.Contains(ts.Id))
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Curriculum)
-            .Include(ts => ts.Level)
-            .Include(ts => ts.Grade)
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.TeacherSubjectUnits)
@@ -234,18 +219,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     {
         var parts = new List<string> { ts.SubjectId.ToString() };
 
-        // Academic context
-        if (ts.CurriculumId.HasValue)
-            parts.Add($"C{ts.CurriculumId}");
-        if (ts.LevelId.HasValue)
-            parts.Add($"L{ts.LevelId}");
-        if (ts.GradeId.HasValue)
-            parts.Add($"G{ts.GradeId}");
-
-        // Scope
         parts.Add(ts.CanTeachFullSubject ? "FULL" : "PARTIAL");
 
-        // Units (sorted for consistency)
         if (ts.TeacherSubjectUnits?.Any() == true)
         {
             var unitSigs = ts.TeacherSubjectUnits
@@ -262,13 +237,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     private string GetSignatureFromDto(TeacherSubjectItemDto dto)
     {
         var parts = new List<string> { dto.SubjectId.ToString() };
-
-        if (dto.CurriculumId.HasValue)
-            parts.Add($"C{dto.CurriculumId}");
-        if (dto.LevelId.HasValue)
-            parts.Add($"L{dto.LevelId}");
-        if (dto.GradeId.HasValue)
-            parts.Add($"G{dto.GradeId}");
 
         parts.Add(dto.CanTeachFullSubject ? "FULL" : "PARTIAL");
 

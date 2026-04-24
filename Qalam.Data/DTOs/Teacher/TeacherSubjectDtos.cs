@@ -16,16 +16,13 @@ public class SaveTeacherSubjectsDto
 public class TeacherSubjectItemDto
 {
     public int SubjectId { get; set; }
-    public int? CurriculumId { get; set; }
-    public int? LevelId { get; set; }
-    public int? GradeId { get; set; }
-    
+
     /// <summary>
     /// هل يمكنه تدريس المادة كاملة؟
     /// true = المادة كاملة، false = وحدات محددة فقط
     /// </summary>
     public bool CanTeachFullSubject { get; set; } = true;
-    
+
     /// <summary>
     /// الوحدات المحددة (مطلوبة إذا CanTeachFullSubject = false)
     /// </summary>
@@ -75,22 +72,10 @@ public class TeacherSubjectResponseDto
     public string SubjectNameAr { get; set; } = default!;
     public string SubjectNameEn { get; set; } = default!;
     public string? DomainCode { get; set; }
-    
-    public int? CurriculumId { get; set; }
-    public string? CurriculumNameAr { get; set; }
-    public string? CurriculumNameEn { get; set; }
-    
-    public int? LevelId { get; set; }
-    public string? LevelNameAr { get; set; }
-    public string? LevelNameEn { get; set; }
-    
-    public int? GradeId { get; set; }
-    public string? GradeNameAr { get; set; }
-    public string? GradeNameEn { get; set; }
-    
+
     public bool CanTeachFullSubject { get; set; }
     public bool IsActive { get; set; }
-    
+
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 }
 

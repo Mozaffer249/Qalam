@@ -64,11 +64,11 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         if (effectiveDomainId.HasValue)
             query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == effectiveDomainId.Value);
         if (effectiveCurriculumId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.CurriculumId == effectiveCurriculumId.Value);
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.CurriculumId == effectiveCurriculumId.Value);
         if (effectiveLevelId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.LevelId == effectiveLevelId.Value);
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.LevelId == effectiveLevelId.Value);
         if (effectiveGradeId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.GradeId == effectiveGradeId.Value);
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.GradeId == effectiveGradeId.Value);
         if (request.SubjectId.HasValue)
             query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.SubjectId == request.SubjectId.Value);
         if (request.TeachingModeId.HasValue)

@@ -98,39 +98,39 @@ public class Course : AuditableEntity
     public int SubjectId => TeacherSubject?.SubjectId ?? 0;
     
     /// <summary>
-    /// المنهج (محسوب من TeacherSubject)
+    /// المنهج (محسوب من Subject عبر TeacherSubject)
     /// </summary>
     [NotMapped]
-    public int? CurriculumId => TeacherSubject?.CurriculumId;
-    
+    public int? CurriculumId => TeacherSubject?.Subject?.CurriculumId;
+
     /// <summary>
-    /// المستوى (محسوب من TeacherSubject)
+    /// المستوى (محسوب من Subject عبر TeacherSubject)
     /// </summary>
     [NotMapped]
-    public int? LevelId => TeacherSubject?.LevelId;
-    
+    public int? LevelId => TeacherSubject?.Subject?.LevelId;
+
     /// <summary>
-    /// الصف (محسوب من TeacherSubject)
+    /// الصف (محسوب من Subject عبر TeacherSubject)
     /// </summary>
     [NotMapped]
-    public int? GradeId => TeacherSubject?.GradeId;
-    
-    // Navigation Properties للعرض (محسوبة من TeacherSubject)
-    
+    public int? GradeId => TeacherSubject?.Subject?.GradeId;
+
+    // Navigation Properties للعرض (محسوبة من Subject عبر TeacherSubject)
+
     [NotMapped]
     public EducationDomain? Domain => TeacherSubject?.Subject?.Domain;
-    
+
     [NotMapped]
     public Subject? Subject => TeacherSubject?.Subject;
-    
+
     [NotMapped]
-    public Curriculum? Curriculum => TeacherSubject?.Curriculum;
-    
+    public Curriculum? Curriculum => TeacherSubject?.Subject?.Curriculum;
+
     [NotMapped]
-    public EducationLevel? Level => TeacherSubject?.Level;
-    
+    public EducationLevel? Level => TeacherSubject?.Subject?.Level;
+
     [NotMapped]
-    public Grade? Grade => TeacherSubject?.Grade;
+    public Grade? Grade => TeacherSubject?.Subject?.Grade;
     
     /// <summary>
     /// المقاعد المتاحة (للجلسات الجماعية) - غير مخزنة في قاعدة البيانات
