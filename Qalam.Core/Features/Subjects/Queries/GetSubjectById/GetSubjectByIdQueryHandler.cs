@@ -2,13 +2,13 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Subjects.Queries.GetSubjectById;
 
 public class GetSubjectByIdQueryHandler : ResponseHandler,
-    IRequestHandler<GetSubjectByIdQuery, Response<Subject>>
+    IRequestHandler<GetSubjectByIdQuery, Response<SubjectDto>>
 {
     private readonly ISubjectService _subjectService;
 
@@ -19,14 +19,14 @@ public class GetSubjectByIdQueryHandler : ResponseHandler,
         _subjectService = subjectService;
     }
 
-    public async Task<Response<Subject>> Handle(
+    public async Task<Response<SubjectDto>> Handle(
         GetSubjectByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var subject = await _subjectService.GetSubjectWithDetailsAsync(request.Id);
-        
+        var subject = await _subjectService.GetSubjectDtoByIdAsync(request.Id);
+
         if (subject == null)
-            return NotFound<Subject>("Subject not found");
+            return NotFound<SubjectDto>("Subject not found");
 
         return Success(entity: subject);
     }

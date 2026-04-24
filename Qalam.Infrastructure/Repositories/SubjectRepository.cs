@@ -48,8 +48,12 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .Select(s => new SubjectDto
             {
                 Id = s.Id,
+                DomainId = s.DomainId,
+                CurriculumId = s.CurriculumId,
+                LevelId = s.LevelId,
                 GradeId = s.GradeId,
                 TermId = s.TermId,
+                Code = s.Code,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
                 DescriptionAr = s.DescriptionAr,
