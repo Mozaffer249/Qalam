@@ -54,10 +54,21 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
             student = await _studentRepository.GetByUserIdAsync(request.UserId);
         }
 
-        var effectiveDomainId = request.DomainId ?? student?.DomainId;
-        var effectiveCurriculumId = request.CurriculumId ?? student?.CurriculumId;
-        var effectiveLevelId = request.LevelId ?? student?.LevelId;
-        var effectiveGradeId = request.GradeId ?? student?.GradeId;
+        // If the client sent any explicit filter, respect only the explicit filters.
+        // Otherwise fall back to the student's profile so the default browse view
+        // is automatically scoped to what that student studies.
+        bool hasExplicitFilter =
+            request.DomainId.HasValue ||
+            request.CurriculumId.HasValue ||
+            request.LevelId.HasValue ||
+            request.GradeId.HasValue ||
+            request.SubjectId.HasValue ||
+            request.TeachingModeId.HasValue;
+
+        int? effectiveDomainId = hasExplicitFilter ? request.DomainId : student?.DomainId;
+        int? effectiveCurriculumId = hasExplicitFilter ? request.CurriculumId : student?.CurriculumId;
+        int? effectiveLevelId = hasExplicitFilter ? request.LevelId : student?.LevelId;
+        int? effectiveGradeId = hasExplicitFilter ? request.GradeId : student?.GradeId;
 
         var query = _courseRepository.GetPublishedCoursesQueryable();
 
