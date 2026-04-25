@@ -6,7 +6,6 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
-using StudentEntity = Qalam.Data.Entity.Student.Student;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 
@@ -35,12 +34,13 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         GetPublishedCoursesListQuery request,
         CancellationToken cancellationToken)
     {
-        StudentEntity? student = null;
-
+        // When a guardian browses on behalf of a specific child, validate the link.
+        // The student's profile is NOT used to narrow the catalog - only the
+        // explicit query filters are applied. If no filter is sent, all published
+        // courses are returned.
         if (request.StudentId.HasValue)
         {
-            student = await _studentRepository.GetByIdAsync(request.StudentId.Value);
-
+            var student = await _studentRepository.GetByIdAsync(request.StudentId.Value);
             if (student == null)
                 return NotFound<List<CourseCatalogItemDto>>("Student not found.");
 
@@ -49,37 +49,17 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                 return Forbidden<List<CourseCatalogItemDto>>(
                     "You don't have permission to browse courses for this student.");
         }
-        else
-        {
-            student = await _studentRepository.GetByUserIdAsync(request.UserId);
-        }
-
-        // If the client sent any explicit filter, respect only the explicit filters.
-        // Otherwise fall back to the student's profile so the default browse view
-        // is automatically scoped to what that student studies.
-        bool hasExplicitFilter =
-            request.DomainId.HasValue ||
-            request.CurriculumId.HasValue ||
-            request.LevelId.HasValue ||
-            request.GradeId.HasValue ||
-            request.SubjectId.HasValue ||
-            request.TeachingModeId.HasValue;
-
-        int? effectiveDomainId = hasExplicitFilter ? request.DomainId : student?.DomainId;
-        int? effectiveCurriculumId = hasExplicitFilter ? request.CurriculumId : student?.CurriculumId;
-        int? effectiveLevelId = hasExplicitFilter ? request.LevelId : student?.LevelId;
-        int? effectiveGradeId = hasExplicitFilter ? request.GradeId : student?.GradeId;
 
         var query = _courseRepository.GetPublishedCoursesQueryable();
 
-        if (effectiveDomainId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == effectiveDomainId.Value);
-        if (effectiveCurriculumId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.CurriculumId == effectiveCurriculumId.Value);
-        if (effectiveLevelId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.LevelId == effectiveLevelId.Value);
-        if (effectiveGradeId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.GradeId == effectiveGradeId.Value);
+        if (request.DomainId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == request.DomainId.Value);
+        if (request.CurriculumId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.CurriculumId == request.CurriculumId.Value);
+        if (request.LevelId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.LevelId == request.LevelId.Value);
+        if (request.GradeId.HasValue)
+            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.GradeId == request.GradeId.Value);
         if (request.SubjectId.HasValue)
             query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.SubjectId == request.SubjectId.Value);
         if (request.TeachingModeId.HasValue)
