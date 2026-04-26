@@ -13,22 +13,30 @@ public class CourseEnrollment : AuditableEntity
     
     public int CourseId { get; set; }
     public int StudentId { get; set; }
-    
+
+    /// <summary>
+    /// معرف طلب التسجيل الأصلي (مطلوب لتوليد الجدول من Availabilities/ProposedSessions)
+    /// </summary>
+    public int? EnrollmentRequestId { get; set; }
+
     /// <summary>
     /// معرف المعلم الذي وافق
     /// </summary>
     public int ApprovedByTeacherId { get; set; }
-    
+
     public DateTime ApprovedAt { get; set; }
 
     public DateTime? PaymentDeadline { get; set; }
 
+    public DateTime? ActivatedAt { get; set; }
+
     public EnrollmentStatus EnrollmentStatus { get; set; } = EnrollmentStatus.PendingPayment;
-    
+
     // Navigation Properties
     public Course Course { get; set; } = null!;
     public Student.Student Student { get; set; } = null!;
     public Teacher.Teacher ApprovedByTeacher { get; set; } = null!;
+    public CourseEnrollmentRequest? EnrollmentRequest { get; set; }
     
     public ICollection<CourseSchedule> CourseSchedules { get; set; } = new List<CourseSchedule>();
     public ICollection<CourseEnrollmentPayment> CourseEnrollmentPayments { get; set; } = new List<CourseEnrollmentPayment>();

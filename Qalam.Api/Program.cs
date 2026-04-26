@@ -73,6 +73,8 @@ builder.Services.Configure<Qalam.Service.Models.SecuritySettings>(
     builder.Configuration.GetSection("SecuritySettings"));
 builder.Services.Configure<Qalam.Data.Helpers.EnrollmentSettings>(
     builder.Configuration.GetSection("EnrollmentSettings"));
+builder.Services.Configure<Qalam.Data.Helpers.PaymentSettings>(
+    builder.Configuration.GetSection("PaymentSettings"));
 
 // Background Services
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();

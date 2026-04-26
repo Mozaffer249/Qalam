@@ -7,4 +7,9 @@ public interface ICourseEnrollmentRepository : IGenericRepositoryAsync<CourseEnr
 {
     IQueryable<CourseEnrollment> GetByStudentIdQueryable(int studentId);
     Task<List<CourseEnrollment>> GetExpiredPendingPaymentAsync(DateTime now, CancellationToken ct);
+
+    /// <summary>
+    /// Tracking load with everything the payment + schedule-generation flow needs.
+    /// </summary>
+    Task<CourseEnrollment?> GetByIdForPaymentAsync(int id, CancellationToken ct);
 }

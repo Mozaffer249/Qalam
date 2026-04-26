@@ -179,6 +179,15 @@ namespace Qalam.Data.AppMetaData
         public const string StudentSearch = Rule + "Student/Search";
         /// <summary>Student pending invitations: Api/V1/Student/Invitations</summary>
         public const string StudentInvitations = Rule + "Student/Invitations";
+
+        /// <summary>Pay an individual enrollment: Api/V1/Student/Payments/Enrollment</summary>
+        public const string StudentPayEnrollment = Rule + "Student/Payments/Enrollment";
+        /// <summary>Pay a group enrollment member: Api/V1/Student/Payments/GroupMember</summary>
+        public const string StudentPayGroupMember = Rule + "Student/Payments/GroupMember";
+        /// <summary>Individual payment summary: Api/V1/Student/Payments/Enrollment/{enrollmentId}/Summary</summary>
+        public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollment/{enrollmentId}/Summary";
+        /// <summary>Group payment summary: Api/V1/Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary</summary>
+        public const string StudentGroupEnrollmentPaymentSummary = Rule + "Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary";
         #endregion
 
         #region Teaching

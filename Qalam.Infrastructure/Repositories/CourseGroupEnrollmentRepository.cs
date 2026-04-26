@@ -22,6 +22,22 @@ public class CourseGroupEnrollmentRepository : GenericRepositoryAsync<CourseGrou
             .Where(e => e.Status == EnrollmentStatus.PendingPayment
                      && e.PaymentDeadline != null
                      && e.PaymentDeadline < now)
+            .Include(e => e.Members)
             .ToListAsync(ct);
+    }
+
+    public async Task<CourseGroupEnrollment?> GetByIdForPaymentAsync(int id, CancellationToken ct)
+    {
+        return await _context.CourseGroupEnrollments
+            .Include(e => e.Course).ThenInclude(c => c.SessionType)
+            .Include(e => e.Course).ThenInclude(c => c.TeachingMode)
+            .Include(e => e.Course).ThenInclude(c => c.Sessions)
+            .Include(e => e.Members).ThenInclude(m => m.Student).ThenInclude(s => s.User)
+            .Include(e => e.Members).ThenInclude(m => m.Student).ThenInclude(s => s.Guardian)
+            .Include(e => e.EnrollmentRequest).ThenInclude(r => r.SelectedAvailabilities)
+                .ThenInclude(sa => sa.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(e => e.EnrollmentRequest).ThenInclude(r => r.ProposedSessions)
+            .FirstOrDefaultAsync(e => e.Id == id, ct);
     }
 }

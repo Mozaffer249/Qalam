@@ -113,6 +113,7 @@ public class ApproveEnrollmentRequestCommandHandler : ResponseHandler,
                 {
                     CourseId = enrollmentRequest.CourseId,
                     StudentId = studentMember.StudentId,
+                    EnrollmentRequestId = enrollmentRequest.Id,
                     ApprovedByTeacherId = teacher.Id,
                     ApprovedAt = DateTime.UtcNow,
                     PaymentDeadline = paymentDeadline,

@@ -70,6 +70,15 @@ public class EnrollmentExpirationService : BackgroundService
         foreach (var groupEnrollment in expiredGroup)
         {
             groupEnrollment.Status = EnrollmentStatus.Cancelled;
+
+            // Mark still-pending members as Cancelled. Members that have already
+            // Succeeded stay Succeeded — refund handling is out of scope here.
+            foreach (var member in groupEnrollment.Members)
+            {
+                if (member.PaymentStatus == PaymentStatus.Pending)
+                    member.PaymentStatus = PaymentStatus.Cancelled;
+            }
+
             await groupEnrollmentRepo.UpdateAsync(groupEnrollment);
             _logger.LogInformation("Cancelled expired group enrollment {Id} (CourseId: {CourseId}).",
                 groupEnrollment.Id, groupEnrollment.CourseId);

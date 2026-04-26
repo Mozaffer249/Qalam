@@ -38,4 +38,19 @@ public class CourseEnrollmentRepository : GenericRepositoryAsync<CourseEnrollmen
                      && e.PaymentDeadline < now)
             .ToListAsync(ct);
     }
+
+    public async Task<CourseEnrollment?> GetByIdForPaymentAsync(int id, CancellationToken ct)
+    {
+        return await _context.CourseEnrollments
+            .Include(e => e.Student).ThenInclude(s => s.User)
+            .Include(e => e.Student).ThenInclude(s => s.Guardian)
+            .Include(e => e.Course).ThenInclude(c => c.SessionType)
+            .Include(e => e.Course).ThenInclude(c => c.TeachingMode)
+            .Include(e => e.Course).ThenInclude(c => c.Sessions)
+            .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedAvailabilities)
+                .ThenInclude(sa => sa.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.ProposedSessions)
+            .FirstOrDefaultAsync(e => e.Id == id, ct);
+    }
 }

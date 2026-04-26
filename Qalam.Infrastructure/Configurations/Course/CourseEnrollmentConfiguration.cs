@@ -18,10 +18,16 @@ public class CourseEnrollmentConfiguration : IEntityTypeConfiguration<CourseEnro
         builder.HasIndex(e => e.ApprovedByTeacherId);
         builder.HasIndex(e => e.EnrollmentStatus);
         builder.HasIndex(e => new { e.EnrollmentStatus, e.PaymentDeadline });
+        builder.HasIndex(e => e.EnrollmentRequestId);
         builder.HasIndex(e => new { e.CourseId, e.StudentId })
                .IsUnique();
-        
+
         // Relationships
+        builder.HasOne(e => e.EnrollmentRequest)
+               .WithMany()
+               .HasForeignKey(e => e.EnrollmentRequestId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(e => e.Course)
                .WithMany(c => c.CourseEnrollments)
                .HasForeignKey(e => e.CourseId)
