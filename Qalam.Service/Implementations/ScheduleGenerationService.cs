@@ -1,63 +1,92 @@
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
 
 public class ScheduleGenerationService : IScheduleGenerationService
 {
+    private const int MaxBlackoutAdvances = 52;
+
     private record SessionTemplate(int SessionNumber, int DurationMinutes, string? Title, string? Notes);
 
-    public List<CourseSchedule> Generate(
+    public ScheduleGenerationResult Preview(
         Course course,
         CourseEnrollmentRequest request,
-        int? courseEnrollmentId,
-        int? courseGroupEnrollmentId,
-        DateOnly startDate)
+        IReadOnlyList<TeacherAvailability> slots,
+        IReadOnlyCollection<TeacherAvailabilityException> blockedExceptions,
+        IReadOnlySet<(DateOnly Date, int TeacherAvailabilityId)> existingScheduledSlots,
+        DateOnly effectiveStart,
+        DateOnly? hardEndDate)
     {
-        if ((courseEnrollmentId.HasValue) == (courseGroupEnrollmentId.HasValue))
-            throw new ArgumentException("Exactly one of courseEnrollmentId or courseGroupEnrollmentId must be provided.");
-
         var sessions = BuildSessionList(course, request);
-        if (sessions.Count == 0)
-            return new List<CourseSchedule>();
+        var emitted = new List<ProposedScheduleSlot>(sessions.Count);
+        var conflicts = new List<ScheduleConflict>();
 
-        var slots = request.SelectedAvailabilities
-            .Where(sa => sa.TeacherAvailability != null)
-            .OrderBy(sa => sa.TeacherAvailability.DayOfWeekId)
-            .ThenBy(sa => sa.TeacherAvailability.TimeSlot != null ? sa.TeacherAvailability.TimeSlot.StartTime : TimeSpan.Zero)
-            .Select(sa => sa.TeacherAvailability)
-            .ToList();
+        if (sessions.Count == 0)
+            return new ScheduleGenerationResult(emitted, conflicts, true);
 
         if (slots.Count == 0)
-            throw new InvalidOperationException("Cannot generate schedules: enrollment request has no selected availabilities.");
+            throw new InvalidOperationException("Cannot preview schedules: no selected availabilities provided.");
 
-        var schedules = new List<CourseSchedule>(sessions.Count);
-        var sessionIndex = 0;
-        var slotIndex = 0;
-        var cursor = startDate;
-
-        while (sessionIndex < sessions.Count)
+        // Index blackouts by (Date, TimeSlotId) for O(1) lookup.
+        var blackoutSet = new HashSet<(DateOnly Date, int TimeSlotId)>();
+        foreach (var ex in blockedExceptions)
         {
-            var slot = slots[slotIndex];
+            if (ex.ExceptionType == AvailabilityExceptionType.Blocked)
+                blackoutSet.Add((ex.Date, ex.TimeSlotId));
+        }
+
+        var slotIndex = 0;
+        var cursor = effectiveStart;
+        var sortedSlots = slots
+            .OrderBy(s => s.DayOfWeekId)
+            .ThenBy(s => s.TimeSlot != null ? s.TimeSlot.StartTime : TimeSpan.Zero)
+            .ToList();
+
+        for (var sessionIndex = 0; sessionIndex < sessions.Count; sessionIndex++)
+        {
+            var slot = sortedSlots[slotIndex];
             var nextDate = NextOnOrAfter(cursor, slot.DayOfWeekId);
 
-            schedules.Add(new CourseSchedule
+            // Skip Blocked exceptions silently — advance one week, retry.
+            var attempt = 0;
+            while (blackoutSet.Contains((nextDate, slot.TimeSlotId)) && attempt < MaxBlackoutAdvances)
             {
-                CourseEnrollmentId = courseEnrollmentId,
-                CourseGroupEnrollmentId = courseGroupEnrollmentId,
-                Date = nextDate,
-                TeacherAvailabilityId = slot.Id,
-                DurationMinutes = sessions[sessionIndex].DurationMinutes,
-                TeachingModeId = course.TeachingModeId,
-                LocationId = null, // TODO: resolve for in-person teaching mode
-                Status = ScheduleStatus.Scheduled
-            });
+                nextDate = nextDate.AddDays(7);
+                attempt++;
+            }
 
-            sessionIndex++;
+            // Out-of-window?
+            if (hardEndDate.HasValue && nextDate > hardEndDate.Value)
+            {
+                return new ScheduleGenerationResult(emitted, conflicts, FitsInWindow: false);
+            }
+
+            // Hard conflict with an already-Scheduled row?
+            if (existingScheduledSlots.Contains((nextDate, slot.Id)))
+            {
+                conflicts.Add(new ScheduleConflict(
+                    sessions[sessionIndex].SessionNumber,
+                    nextDate,
+                    slot.Id,
+                    $"Date {nextDate:yyyy-MM-dd} on this availability is already booked."));
+                // Continue computing remaining sessions so the user sees ALL conflicts at once.
+            }
+            else
+            {
+                emitted.Add(new ProposedScheduleSlot(
+                    sessions[sessionIndex].SessionNumber,
+                    nextDate,
+                    slot.Id,
+                    sessions[sessionIndex].DurationMinutes,
+                    sessions[sessionIndex].Title,
+                    sessions[sessionIndex].Notes));
+            }
+
             slotIndex++;
-
-            if (slotIndex >= slots.Count)
+            if (slotIndex >= sortedSlots.Count)
             {
                 slotIndex = 0;
                 cursor = nextDate.AddDays(1);
@@ -68,7 +97,51 @@ public class ScheduleGenerationService : IScheduleGenerationService
             }
         }
 
-        return schedules;
+        return new ScheduleGenerationResult(emitted, conflicts, FitsInWindow: true);
+    }
+
+    public List<CourseSchedule> Generate(
+        Course course,
+        CourseEnrollmentRequest request,
+        int? courseEnrollmentId,
+        int? courseGroupEnrollmentId,
+        DateOnly startDate)
+    {
+        if (courseEnrollmentId.HasValue == courseGroupEnrollmentId.HasValue)
+            throw new ArgumentException("Exactly one of courseEnrollmentId or courseGroupEnrollmentId must be provided.");
+
+        var slots = request.SelectedAvailabilities
+            .Select(sa => sa.TeacherAvailability)
+            .Where(ta => ta != null)
+            .ToList();
+
+        // Generate without external conflict info — caller is responsible for re-validating
+        // against existing CourseSchedules before persisting (race-loser handling lives in the
+        // pay handler). Blocked exceptions are NOT honored here because Generate is an
+        // unconditional persistence path; if the caller wants blackout-aware generation they
+        // should run Preview first and validate.
+        var result = Preview(
+            course,
+            request,
+            slots,
+            blockedExceptions: Array.Empty<TeacherAvailabilityException>(),
+            existingScheduledSlots: new HashSet<(DateOnly, int)>(),
+            effectiveStart: startDate,
+            hardEndDate: null);
+
+        return result.Slots
+            .Select(s => new CourseSchedule
+            {
+                CourseEnrollmentId = courseEnrollmentId,
+                CourseGroupEnrollmentId = courseGroupEnrollmentId,
+                Date = s.Date,
+                TeacherAvailabilityId = s.TeacherAvailabilityId,
+                DurationMinutes = s.DurationMinutes,
+                TeachingModeId = course.TeachingModeId,
+                LocationId = null, // TODO: resolve for in-person teaching mode
+                Status = ScheduleStatus.Scheduled
+            })
+            .ToList();
     }
 
     private static List<SessionTemplate> BuildSessionList(Course course, CourseEnrollmentRequest request)

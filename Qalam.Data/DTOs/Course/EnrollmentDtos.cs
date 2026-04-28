@@ -19,6 +19,25 @@ public class CreateEnrollmentRequestDto
     /// </summary>
     public List<int> InvitedStudentIds { get; set; } = new();
     public List<CreateProposedSessionDto> ProposedSessions { get; set; } = new();
+
+    /// <summary>التاريخ المفضل لبدء الدورة (مطلوب). يجب أن يكون اليوم أو لاحقاً.</summary>
+    public DateOnly PreferredStartDate { get; set; }
+
+    /// <summary>التاريخ المفضل لانتهاء الدورة (مطلوب). يجب أن يستوعب جميع الجلسات.</summary>
+    public DateOnly PreferredEndDate { get; set; }
+}
+
+/// <summary>
+/// Concrete schedule slot proposed by the algorithm (date + slot + duration).
+/// Returned in detail views so the user/teacher can see actual booking dates.
+/// </summary>
+public class ProposedScheduleSlotDto
+{
+    public int SessionNumber { get; set; }
+    public DateOnly Date { get; set; }
+    public int TeacherAvailabilityId { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
 }
 
 public class CreateProposedSessionDto
@@ -65,6 +84,8 @@ public class EnrollmentRequestListItemDto
     public RequestStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? Notes { get; set; }
+    public DateOnly PreferredStartDate { get; set; }
+    public DateOnly PreferredEndDate { get; set; }
 }
 
 /// <summary>
@@ -89,6 +110,10 @@ public class EnrollmentRequestDetailDto
     public List<int> SelectedAvailabilityIds { get; set; } = new();
     public List<EnrollmentRequestGroupMemberDto> GroupMembers { get; set; } = new();
     public List<EnrollmentRequestProposedSessionDto> ProposedSessions { get; set; } = new();
+    public DateOnly PreferredStartDate { get; set; }
+    public DateOnly PreferredEndDate { get; set; }
+    /// <summary>Concrete schedule dates the algorithm would generate for this request (computed on read).</summary>
+    public List<ProposedScheduleSlotDto> ProposedScheduleDates { get; set; } = new();
 }
 
 /// <summary>

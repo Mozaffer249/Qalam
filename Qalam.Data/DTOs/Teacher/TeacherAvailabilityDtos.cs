@@ -92,3 +92,50 @@ public class AvailabilityExceptionResponseDto
 }
 
 #endregion
+
+#region Student-Facing Date-Range View
+
+/// <summary>Status of a single slot on a specific date.</summary>
+public enum AvailabilitySlotStatus
+{
+    Free = 0,
+    Booked = 1,   // a CourseSchedule with Status=Scheduled exists for this (Date, TeacherAvailabilityId)
+    Blocked = 2   // a TeacherAvailabilityException with ExceptionType=Blocked exists for this (Date, TimeSlotId)
+}
+
+/// <summary>
+/// Materialised slot for a specific date — derived from the weekly TeacherAvailability template
+/// plus per-date overrides (exceptions) and existing bookings (CourseSchedules).
+/// </summary>
+public class AvailabilitySlotByDateDto
+{
+    public int TeacherAvailabilityId { get; set; }
+    public int TimeSlotId { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? LabelEn { get; set; }
+    public AvailabilitySlotStatus Status { get; set; }
+}
+
+public class AvailabilityDayDto
+{
+    public DateOnly Date { get; set; }
+    public int DayOfWeekId { get; set; }
+    public string DayNameEn { get; set; } = default!;
+    public List<AvailabilitySlotByDateDto> Slots { get; set; } = new();
+}
+
+/// <summary>
+/// Response for "what dates / slots is this teacher actually free on?".
+/// Only days that have at least one matching weekly availability are included.
+/// </summary>
+public class TeacherAvailabilityByRangeDto
+{
+    public int TeacherId { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public List<AvailabilityDayDto> Days { get; set; } = new();
+}
+
+#endregion

@@ -29,6 +29,16 @@ public class CourseEnrollmentRequest : AuditableEntity
 
     public decimal EstimatedTotalPrice { get; set; }
 
+    /// <summary>
+    /// التاريخ المفضل لبدء الدورة (مطلوب)
+    /// </summary>
+    public DateOnly PreferredStartDate { get; set; }
+
+    /// <summary>
+    /// التاريخ المفضل لانتهاء الدورة (مطلوب)
+    /// </summary>
+    public DateOnly PreferredEndDate { get; set; }
+
     [MaxLength(400)]
     public string? Notes { get; set; }
 

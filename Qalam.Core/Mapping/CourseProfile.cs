@@ -159,7 +159,9 @@ public class CourseProfile : Profile
                         DurationMinutes = p.DurationMinutes,
                         Title = p.Title,
                         Notes = p.Notes
-                    }).ToList()));
+                    }).ToList()))
+            // ProposedScheduleDates are computed at read-time by the query handler, not mapped from entity.
+            .ForMember(dest => dest.ProposedScheduleDates, opt => opt.Ignore());
 
         // CourseEnrollment -> EnrollmentListItemDto
         CreateMap<CourseEnrollment, EnrollmentListItemDto>()

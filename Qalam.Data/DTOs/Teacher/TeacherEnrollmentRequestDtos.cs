@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Teacher;
@@ -15,6 +16,8 @@ public class TeacherEnrollmentRequestListItemDto
     public int GroupMemberCount { get; set; }
     public string? TeachingModeNameEn { get; set; }
     public string? SessionTypeNameEn { get; set; }
+    public DateOnly PreferredStartDate { get; set; }
+    public DateOnly PreferredEndDate { get; set; }
 }
 
 public class TeacherEnrollmentRequestDetailDto
@@ -34,6 +37,10 @@ public class TeacherEnrollmentRequestDetailDto
     public List<int> SelectedAvailabilityIds { get; set; } = new();
     public List<TeacherEnrollmentRequestGroupMemberDto> GroupMembers { get; set; } = new();
     public List<TeacherEnrollmentRequestProposedSessionDto> ProposedSessions { get; set; } = new();
+    public DateOnly PreferredStartDate { get; set; }
+    public DateOnly PreferredEndDate { get; set; }
+    /// <summary>Concrete schedule dates the algorithm would generate for this request (computed on read).</summary>
+    public List<ProposedScheduleSlotDto> ProposedScheduleDates { get; set; } = new();
 }
 
 public class TeacherEnrollmentRequestGroupMemberDto

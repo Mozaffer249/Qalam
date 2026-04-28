@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Student.Availability.Queries.GetTeacherAvailabilityByRange;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
@@ -15,6 +16,7 @@ using Qalam.Core.Features.Student.Queries.GetMyChildren;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
+using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Api.Controllers.Student;
 
@@ -233,6 +235,40 @@ public class StudentCourseController : AppControllerBase
     [ProducesResponseType(typeof(List<StudentByEmailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchStudents([FromQuery] SearchStudentsQuery query)
     {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Teacher availability for a date range — calendar-style view with per-date slot status.
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Student/Teachers/{teacherId}/Availability?fromDate=2026-04-28&amp;toDate=2026-05-28
+    ///
+    /// Defaults: if `fromDate` is omitted it falls back to today; if `toDate` is omitted it
+    /// falls back to fromDate + 30 days. The server caps the range at fromDate + 90 days.
+    ///
+    /// Each returned day lists the teacher's weekly slots that fall on that DayOfWeek, with
+    /// their per-date status:
+    /// - **Free** — bookable
+    /// - **Booked** — a CourseSchedule already exists on this (date, slot)
+    /// - **Blocked** — the teacher has a Blocked AvailabilityException on this (date, timeslot)
+    ///
+    /// Days where the teacher has no recurring availability are omitted.
+    /// </remarks>
+    [HttpGet(Router.StudentTeacherAvailability)]
+    [ProducesResponseType(typeof(TeacherAvailabilityByRangeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTeacherAvailabilityByRange(
+        int teacherId,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate)
+    {
+        var query = new GetTeacherAvailabilityByRangeQuery
+        {
+            TeacherId = teacherId,
+            FromDate = fromDate,
+            ToDate = toDate
+        };
         return NewResult(await Mediator.Send(query));
     }
 }

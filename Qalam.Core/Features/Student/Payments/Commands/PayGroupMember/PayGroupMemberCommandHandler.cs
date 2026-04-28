@@ -20,6 +20,8 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
     private readonly IPaymentRepository _paymentRepository;
     private readonly IGroupEnrollmentMemberPaymentRepository _memberPaymentRepository;
     private readonly IGuardianRepository _guardianRepository;
+    private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
+    private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly PaymentSettings _settings;
 
@@ -28,6 +30,8 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
         IPaymentRepository paymentRepository,
         IGroupEnrollmentMemberPaymentRepository memberPaymentRepository,
         IGuardianRepository guardianRepository,
+        ITeacherAvailabilityRepository teacherAvailabilityRepository,
+        ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
         IOptions<PaymentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
@@ -36,6 +40,8 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
         _paymentRepository = paymentRepository;
         _memberPaymentRepository = memberPaymentRepository;
         _guardianRepository = guardianRepository;
+        _teacherAvailabilityRepository = teacherAvailabilityRepository;
+        _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
         _settings = settings.Value;
     }
@@ -151,12 +157,64 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
                 group.Status = EnrollmentStatus.Active;
                 group.ActivatedAt = now;
 
-                var schedules = _scheduleGenerator.Generate(
+                // Compute effective start; never go into the past.
+                var today = DateOnly.FromDateTime(now);
+                var effectiveStart = group.EnrollmentRequest!.PreferredStartDate < today
+                    ? today
+                    : group.EnrollmentRequest.PreferredStartDate;
+
+                // Race-loser check: re-validate against existing CourseSchedules right
+                // before we persist (mock provider; rollback is clean).
+                var slots = group.EnrollmentRequest.SelectedAvailabilities
+                    .Select(sa => sa.TeacherAvailability)
+                    .Where(ta => ta != null)
+                    .ToList();
+
+                var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
+                    group.Course!.TeacherId,
+                    effectiveStart,
+                    group.EnrollmentRequest.PreferredEndDate);
+
+                var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+                    effectiveStart,
+                    group.EnrollmentRequest.PreferredEndDate,
+                    slots.Select(s => s.Id).ToList(),
+                    cancellationToken);
+
+                var preview = _scheduleGenerator.Preview(
                     group.Course!,
                     group.EnrollmentRequest!,
-                    courseEnrollmentId: null,
-                    courseGroupEnrollmentId: group.Id,
-                    startDate: DateOnly.FromDateTime(now));
+                    slots,
+                    blockedExceptions,
+                    existingScheduledSlots,
+                    effectiveStart,
+                    group.EnrollmentRequest.PreferredEndDate);
+
+                if (preview.Conflicts.Count > 0)
+                {
+                    await _groupRepository.RollBackAsync();
+                    return BadRequest<PaymentResultDto>(
+                        "Some of your scheduled dates were just booked by another student. Please re-submit with different dates.");
+                }
+
+                if (!preview.FitsInWindow)
+                {
+                    await _groupRepository.RollBackAsync();
+                    return BadRequest<PaymentResultDto>(
+                        $"Schedule no longer fits before {group.EnrollmentRequest.PreferredEndDate:yyyy-MM-dd}. Please re-submit with a longer window.");
+                }
+
+                var schedules = preview.Slots
+                    .Select(s => new Qalam.Data.Entity.Course.CourseSchedule
+                    {
+                        Date = s.Date,
+                        TeacherAvailabilityId = s.TeacherAvailabilityId,
+                        DurationMinutes = s.DurationMinutes,
+                        TeachingModeId = group.Course!.TeachingModeId,
+                        LocationId = null,
+                        Status = ScheduleStatus.Scheduled
+                    })
+                    .ToList();
 
                 foreach (var s in schedules)
                     group.CourseSchedules.Add(s);

@@ -188,6 +188,9 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollment/{enrollmentId}/Summary";
         /// <summary>Group payment summary: Api/V1/Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary</summary>
         public const string StudentGroupEnrollmentPaymentSummary = Rule + "Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary";
+
+        /// <summary>Teacher availability for a date range (calendar view): Api/V1/Student/Teachers/{teacherId}/Availability</summary>
+        public const string StudentTeacherAvailability = Rule + "Student/Teachers/{teacherId}/Availability";
         #endregion
 
         #region Teaching

@@ -39,5 +39,15 @@ public class RequestCourseEnrollmentCommandValidator : AbstractValidator<Request
                 ps.RuleFor(y => y.Notes).MaximumLength(500);
             })
             .When(x => x.Data != null);
+
+        RuleFor(x => x.Data.PreferredStartDate)
+            .Must(d => d >= DateOnly.FromDateTime(DateTime.UtcNow))
+            .When(x => x.Data != null)
+            .WithMessage("PreferredStartDate must be today or later.");
+
+        RuleFor(x => x.Data.PreferredEndDate)
+            .Must((cmd, end) => end >= cmd.Data.PreferredStartDate)
+            .When(x => x.Data != null)
+            .WithMessage("PreferredEndDate must be on or after PreferredStartDate.");
     }
 }

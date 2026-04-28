@@ -6,6 +6,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 
@@ -17,6 +18,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
     private readonly IGuardianRepository _guardianRepository;
+    private readonly ICourseScheduleRepository _scheduleRepository;
+    private readonly IScheduleGenerationService _scheduleGenerator;
 
     public RequestCourseEnrollmentCommandHandler(
         IStudentRepository studentRepository,
@@ -24,6 +27,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         ICourseEnrollmentRequestRepository requestRepository,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
         IGuardianRepository guardianRepository,
+        ICourseScheduleRepository scheduleRepository,
+        IScheduleGenerationService scheduleGenerator,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
@@ -31,6 +36,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _requestRepository = requestRepository;
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
         _guardianRepository = guardianRepository;
+        _scheduleRepository = scheduleRepository;
+        _scheduleGenerator = scheduleGenerator;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
@@ -109,6 +116,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             return BadRequest<EnrollmentRequestDetailDto>("At least one selected availability is required.");
 
         var selectedAvailabilities = await _teacherAvailabilityRepository.GetTableNoTracking()
+            .Include(a => a.TimeSlot)
+            .Include(a => a.DayOfWeek)
             .Where(a => selectedAvailabilityIds.Contains(a.Id))
             .ToListAsync(cancellationToken);
         if (selectedAvailabilities.Count != selectedAvailabilityIds.Count)
@@ -169,6 +178,57 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
 
         var estimatedTotalPrice = Math.Round((totalMinutes / 60m) * course.Price, 2, MidpointRounding.AwayFromZero);
 
+        // 9b. Compute schedule preview, reject on conflict / doesn't-fit.
+        // Build a transient request shell so the generator's BuildSessionList works for flexible
+        // courses (it reads ProposedSessions off the entity).
+        var transientRequest = new Qalam.Data.Entity.Course.CourseEnrollmentRequest
+        {
+            ProposedSessions = proposedSessions
+                .Select(p => new Qalam.Data.Entity.Course.CourseRequestProposedSession
+                {
+                    SessionNumber = p.SessionNumber,
+                    DurationMinutes = p.DurationMinutes,
+                    Title = p.Title,
+                    Notes = p.Notes
+                })
+                .ToList()
+        };
+
+        var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
+            course.TeacherId,
+            dto.PreferredStartDate,
+            dto.PreferredEndDate);
+
+        var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+            dto.PreferredStartDate,
+            dto.PreferredEndDate,
+            selectedAvailabilityIds,
+            cancellationToken);
+
+        var preview = _scheduleGenerator.Preview(
+            course,
+            transientRequest,
+            selectedAvailabilities,
+            blockedExceptions,
+            existingScheduledSlots,
+            effectiveStart: dto.PreferredStartDate,
+            hardEndDate: dto.PreferredEndDate);
+
+        if (preview.Conflicts.Count > 0)
+        {
+            var firstFew = string.Join("; ",
+                preview.Conflicts.Take(3).Select(c => $"session {c.SessionNumber}: {c.Date:yyyy-MM-dd}"));
+            return BadRequest<EnrollmentRequestDetailDto>(
+                $"The following dates are already booked: {firstFew}. Please pick a different start date or different availability slots.");
+        }
+
+        if (!preview.FitsInWindow)
+        {
+            var sessionTotal = course.IsFlexible ? proposedSessions.Count : (course.Sessions?.Count ?? 0);
+            return BadRequest<EnrollmentRequestDetailDto>(
+                $"Selected slots can only fit {preview.Slots.Count} of {sessionTotal} sessions before {dto.PreferredEndDate:yyyy-MM-dd}. Extend the end date or add another availability slot.");
+        }
+
         // 10. Create entity
         var enrollmentRequest = new Qalam.Data.Entity.Course.CourseEnrollmentRequest
         {
@@ -178,7 +238,9 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             Status = RequestStatus.Pending,
             Notes = dto.Notes != null && dto.Notes.Length > 400 ? dto.Notes.Substring(0, 400) : dto.Notes,
             TotalMinutes = totalMinutes,
-            EstimatedTotalPrice = estimatedTotalPrice
+            EstimatedTotalPrice = estimatedTotalPrice,
+            PreferredStartDate = dto.PreferredStartDate,
+            PreferredEndDate = dto.PreferredEndDate
         };
 
         // Own students — auto-confirmed
@@ -266,6 +328,18 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                     DurationMinutes = p.DurationMinutes,
                     Title = p.Title,
                     Notes = p.Notes
+                })
+                .ToList(),
+            PreferredStartDate = enrollmentRequest.PreferredStartDate,
+            PreferredEndDate = enrollmentRequest.PreferredEndDate,
+            ProposedScheduleDates = preview.Slots
+                .Select(s => new ProposedScheduleSlotDto
+                {
+                    SessionNumber = s.SessionNumber,
+                    Date = s.Date,
+                    TeacherAvailabilityId = s.TeacherAvailabilityId,
+                    DurationMinutes = s.DurationMinutes,
+                    Title = s.Title
                 })
                 .ToList()
         };

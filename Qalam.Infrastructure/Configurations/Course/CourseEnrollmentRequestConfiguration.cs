@@ -16,11 +16,14 @@ public class CourseEnrollmentRequestConfiguration : IEntityTypeConfiguration<Cou
         builder.HasIndex(e => e.CourseId);
         builder.HasIndex(e => e.RequestedByUserId);
         builder.HasIndex(e => e.Status);
-        
+        builder.HasIndex(e => e.PreferredStartDate);
+
         // Properties
         builder.Property(e => e.Notes).HasMaxLength(400);
         builder.Property(e => e.RejectionReason).HasMaxLength(500);
         builder.Property(e => e.EstimatedTotalPrice).HasColumnType("decimal(18,2)");
+        builder.Property(e => e.PreferredStartDate).HasColumnType("date");
+        builder.Property(e => e.PreferredEndDate).HasColumnType("date");
         
         // Relationships
         builder.HasOne(e => e.Course)
