@@ -164,6 +164,11 @@ public class StudentRegistrationResponseDto
 {
     public string? Token { get; set; }
     public int CurrentStep { get; set; }
+
+    /// <summary>
+    /// Identity roles for the authenticated user at response time.
+    /// </summary>
+    public List<string> Roles { get; set; } = new();
     
     /// <summary>
     /// Primary next step name (e.g., "CompleteAcademicProfile", "AddChildren", "Dashboard")

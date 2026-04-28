@@ -4,6 +4,7 @@ using Qalam.Api.Base;
 using Qalam.Core.Features.Student.Availability.Queries.GetTeacherAvailabilityByRange;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
+using Qalam.Core.Features.Student.CourseCatalog.Queries.GetRecommendedCourses;
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
@@ -25,7 +26,6 @@ namespace Qalam.Api.Controllers.Student;
 /// </summary>
 [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
 [ApiController]
-[Route("Api/V1/Student")]
 public class StudentCourseController : AppControllerBase
 {
     /// <summary>
@@ -43,6 +43,20 @@ public class StudentCourseController : AppControllerBase
     [HttpGet(Router.StudentCourses)]
     [ProducesResponseType(typeof(List<CourseCatalogItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPublishedCourses([FromQuery] GetPublishedCoursesListQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Get 4 recommended published courses for a specific student (domain-based).
+    /// Requester must own the student (self) or be the student's guardian.
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Student/Courses/Recommended?StudentId=5
+    /// </remarks>
+    [HttpGet(Router.StudentRecommendedCourses)]
+    [ProducesResponseType(typeof(List<CourseCatalogItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRecommendedCourses([FromQuery] GetRecommendedCoursesQuery query)
     {
         return NewResult(await Mediator.Send(query));
     }
