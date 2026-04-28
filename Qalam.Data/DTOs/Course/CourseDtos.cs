@@ -148,6 +148,7 @@ public class CourseCatalogDetailDto
     public int Id { get; set; }
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
+    public int TeacherId { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int DomainId { get; set; }
     public string? DomainNameEn { get; set; }

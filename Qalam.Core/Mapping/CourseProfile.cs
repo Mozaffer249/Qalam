@@ -45,6 +45,7 @@ public class CourseProfile : Profile
 
         // Course -> CourseCatalogDetailDto
         CreateMap<Course, CourseCatalogDetailDto>()
+            .ForMember(dest => dest.TeacherId, opt => opt.MapFrom(src => src.TeacherId))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.Teacher != null && src.Teacher.User != null
                     ? (src.Teacher.User.FirstName + " " + src.Teacher.User.LastName).Trim()

@@ -139,3 +139,39 @@ public class TeacherAvailabilityByRangeDto
 }
 
 #endregion
+
+#region Student-Facing Weekday-Grouped Date-Range View
+
+public class AvailabilitySlotDateStatusDto
+{
+    public DateOnly Date { get; set; }
+    public AvailabilitySlotStatus Status { get; set; }
+}
+
+public class AvailabilitySlotByWeekdayDto
+{
+    public int TeacherAvailabilityId { get; set; }
+    public int TimeSlotId { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? LabelEn { get; set; }
+    public List<AvailabilitySlotDateStatusDto> Dates { get; set; } = new();
+}
+
+public class AvailabilityWeekdayDto
+{
+    public int DayOfWeekId { get; set; }
+    public string DayNameEn { get; set; } = default!;
+    public List<AvailabilitySlotByWeekdayDto> Slots { get; set; } = new();
+}
+
+public class TeacherAvailabilityByWeekdayRangeDto
+{
+    public int TeacherId { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public List<AvailabilityWeekdayDto> Weekdays { get; set; } = new();
+}
+
+#endregion

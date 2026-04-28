@@ -6,7 +6,7 @@ using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Core.Features.Student.Availability.Queries.GetTeacherAvailabilityByRange;
 
-public class GetTeacherAvailabilityByRangeQuery : IRequest<Response<TeacherAvailabilityByRangeDto>>, IAuthenticatedRequest
+public class GetTeacherAvailabilityByRangeQuery : IRequest<Response<TeacherAvailabilityByWeekdayRangeDto>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }

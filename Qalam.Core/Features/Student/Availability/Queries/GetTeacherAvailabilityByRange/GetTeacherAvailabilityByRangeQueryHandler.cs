@@ -10,7 +10,7 @@ using Qalam.Infrastructure.Abstracts;
 namespace Qalam.Core.Features.Student.Availability.Queries.GetTeacherAvailabilityByRange;
 
 public class GetTeacherAvailabilityByRangeQueryHandler : ResponseHandler,
-    IRequestHandler<GetTeacherAvailabilityByRangeQuery, Response<TeacherAvailabilityByRangeDto>>
+    IRequestHandler<GetTeacherAvailabilityByRangeQuery, Response<TeacherAvailabilityByWeekdayRangeDto>>
 {
     private const int DefaultRangeDays = 30;
     private const int MaxRangeDays = 90;
@@ -30,20 +30,20 @@ public class GetTeacherAvailabilityByRangeQueryHandler : ResponseHandler,
         _scheduleRepository = scheduleRepository;
     }
 
-    public async Task<Response<TeacherAvailabilityByRangeDto>> Handle(
+    public async Task<Response<TeacherAvailabilityByWeekdayRangeDto>> Handle(
         GetTeacherAvailabilityByRangeQuery request,
         CancellationToken cancellationToken)
     {
         var teacher = await _teacherRepository.GetByIdAsync(request.TeacherId);
         if (teacher == null)
-            return NotFound<TeacherAvailabilityByRangeDto>("Teacher not found.");
+            return NotFound<TeacherAvailabilityByWeekdayRangeDto>("Teacher not found.");
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var fromDate = request.FromDate ?? today;
         var toDate = request.ToDate ?? fromDate.AddDays(DefaultRangeDays);
 
         if (toDate < fromDate)
-            return BadRequest<TeacherAvailabilityByRangeDto>("ToDate must be on or after FromDate.");
+            return BadRequest<TeacherAvailabilityByWeekdayRangeDto>("ToDate must be on or after FromDate.");
 
         // Cap range to avoid pathological responses.
         var maxAllowed = fromDate.AddDays(MaxRangeDays);
@@ -59,12 +59,12 @@ public class GetTeacherAvailabilityByRangeQueryHandler : ResponseHandler,
 
         if (weeklySlots.Count == 0)
         {
-            return Success(entity: new TeacherAvailabilityByRangeDto
+            return Success(entity: new TeacherAvailabilityByWeekdayRangeDto
             {
                 TeacherId = request.TeacherId,
                 FromDate = fromDate,
                 ToDate = toDate,
-                Days = new List<AvailabilityDayDto>()
+                Weekdays = new List<AvailabilityWeekdayDto>()
             });
         }
 
@@ -84,52 +84,71 @@ public class GetTeacherAvailabilityByRangeQueryHandler : ResponseHandler,
             .GroupBy(s => s.DayOfWeekId)
             .ToDictionary(g => g.Key, g => g.OrderBy(s => s.TimeSlot != null ? s.TimeSlot.StartTime : TimeSpan.Zero).ToList());
 
-        var days = new List<AvailabilityDayDto>();
-        for (var date = fromDate; date <= toDate; date = date.AddDays(1))
-        {
-            var dotNetDow = (int)date.DayOfWeek;             // 0=Sunday … 6=Saturday
-            var dayOfWeekId = dotNetDow + 1;                  // matches DayOfWeekMaster.Id (1=Sunday)
+        static int UiWeekdaySortKey(int dayOfWeekId) => dayOfWeekId == 7 ? 0 : dayOfWeekId; // Saturday first
 
-            if (!slotsByDayOfWeek.TryGetValue(dayOfWeekId, out var dailySlots))
-                continue;
-
-            var slotDtos = dailySlots.Select(slot =>
+        var weekdays = slotsByDayOfWeek
+            .Select(kvp =>
             {
-                AvailabilitySlotStatus status;
-                if (bookedSet.Contains((date, slot.Id)))
-                    status = AvailabilitySlotStatus.Booked;
-                else if (blackoutSet.Contains((date, slot.TimeSlotId)))
-                    status = AvailabilitySlotStatus.Blocked;
-                else
-                    status = AvailabilitySlotStatus.Free;
+                var dayOfWeekId = kvp.Key;
+                var dailySlots = kvp.Value;
 
-                return new AvailabilitySlotByDateDto
+                // Collect all dates in range matching this weekday
+                var matchingDates = new List<DateOnly>();
+                for (var date = fromDate; date <= toDate; date = date.AddDays(1))
                 {
-                    TeacherAvailabilityId = slot.Id,
-                    TimeSlotId = slot.TimeSlotId,
-                    StartTime = slot.TimeSlot?.StartTime ?? TimeSpan.Zero,
-                    EndTime = slot.TimeSlot?.EndTime ?? TimeSpan.Zero,
-                    DurationMinutes = slot.TimeSlot?.DurationMinutes ?? 0,
-                    LabelEn = slot.TimeSlot?.LabelEn,
-                    Status = status
+                    var dotNetDow = (int)date.DayOfWeek; // 0=Sunday … 6=Saturday
+                    var currentDayOfWeekId = dotNetDow + 1;
+                    if (currentDayOfWeekId == dayOfWeekId)
+                        matchingDates.Add(date);
+                }
+
+                var slotDtos = dailySlots.Select(slot =>
+                {
+                    var dateStatuses = matchingDates.Select(date =>
+                    {
+                        AvailabilitySlotStatus status;
+                        if (bookedSet.Contains((date, slot.Id)))
+                            status = AvailabilitySlotStatus.Booked;
+                        else if (blackoutSet.Contains((date, slot.TimeSlotId)))
+                            status = AvailabilitySlotStatus.Blocked;
+                        else
+                            status = AvailabilitySlotStatus.Free;
+
+                        return new AvailabilitySlotDateStatusDto
+                        {
+                            Date = date,
+                            Status = status
+                        };
+                    }).ToList();
+
+                    return new AvailabilitySlotByWeekdayDto
+                    {
+                        TeacherAvailabilityId = slot.Id,
+                        TimeSlotId = slot.TimeSlotId,
+                        StartTime = slot.TimeSlot?.StartTime ?? TimeSpan.Zero,
+                        EndTime = slot.TimeSlot?.EndTime ?? TimeSpan.Zero,
+                        DurationMinutes = slot.TimeSlot?.DurationMinutes ?? 0,
+                        LabelEn = slot.TimeSlot?.LabelEn,
+                        Dates = dateStatuses
+                    };
+                }).ToList();
+
+                return new AvailabilityWeekdayDto
+                {
+                    DayOfWeekId = dayOfWeekId,
+                    DayNameEn = dailySlots.FirstOrDefault()?.DayOfWeek?.NameEn ?? string.Empty,
+                    Slots = slotDtos
                 };
-            }).ToList();
+            })
+            .OrderBy(w => UiWeekdaySortKey(w.DayOfWeekId))
+            .ToList();
 
-            days.Add(new AvailabilityDayDto
-            {
-                Date = date,
-                DayOfWeekId = dayOfWeekId,
-                DayNameEn = dailySlots[0].DayOfWeek?.NameEn ?? string.Empty,
-                Slots = slotDtos
-            });
-        }
-
-        return Success(entity: new TeacherAvailabilityByRangeDto
+        return Success(entity: new TeacherAvailabilityByWeekdayRangeDto
         {
             TeacherId = request.TeacherId,
             FromDate = fromDate,
             ToDate = toDate,
-            Days = days
+            Weekdays = weekdays
         });
     }
 }

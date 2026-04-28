@@ -270,7 +270,7 @@ public class StudentCourseController : AppControllerBase
     /// Days where the teacher has no recurring availability are omitted.
     /// </remarks>
     [HttpGet(Router.StudentTeacherAvailability)]
-    [ProducesResponseType(typeof(TeacherAvailabilityByRangeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TeacherAvailabilityByWeekdayRangeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTeacherAvailabilityByRange(
         int teacherId,
