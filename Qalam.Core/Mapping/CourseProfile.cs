@@ -146,6 +146,9 @@ public class CourseProfile : Profile
                 src.GroupMembers.Select(g => new EnrollmentRequestGroupMemberDto
                 {
                     StudentId = g.StudentId,
+                    StudentName = g.Student != null && g.Student.User != null
+                        ? ((g.Student.User.FirstName ?? "") + " " + (g.Student.User.LastName ?? "")).Trim()
+                        : null,
                     MemberType = g.MemberType,
                     ConfirmationStatus = g.ConfirmationStatus,
                     ConfirmedAt = g.ConfirmedAt,

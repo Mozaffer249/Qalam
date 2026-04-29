@@ -52,6 +52,8 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 .ThenInclude(sa => sa.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
             .Include(r => r.GroupMembers)
+                .ThenInclude(gm => gm.Student)
+                    .ThenInclude(s => s.User)
             .Include(r => r.ProposedSessions)
             .FirstOrDefaultAsync(r => r.Id == request.Id && r.RequestedByUserId == request.UserId, cancellationToken);
 

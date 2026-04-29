@@ -59,6 +59,7 @@ public class EnrollmentRequestProposedSessionDto
 public class EnrollmentRequestGroupMemberDto
 {
     public int StudentId { get; set; }
+    public string? StudentName { get; set; }
     public GroupMemberType MemberType { get; set; }
     public GroupMemberConfirmationStatus ConfirmationStatus { get; set; }
     public DateTime? ConfirmedAt { get; set; }
