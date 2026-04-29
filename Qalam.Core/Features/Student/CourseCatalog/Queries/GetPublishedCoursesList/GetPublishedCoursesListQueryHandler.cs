@@ -10,7 +10,7 @@ using Qalam.Infrastructure.Abstracts;
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 
 public class GetPublishedCoursesListQueryHandler : ResponseHandler,
-    IRequestHandler<GetPublishedCoursesListQuery, Response<List<CourseCatalogItemDto>>>
+    IRequestHandler<GetPublishedCoursesListQuery, Response<List<CourseCatalogIndexItemDto>>>
 {
     private readonly ICourseRepository _courseRepository;
     private readonly IStudentRepository _studentRepository;
@@ -30,7 +30,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         _mapper = mapper;
     }
 
-    public async Task<Response<List<CourseCatalogItemDto>>> Handle(
+    public async Task<Response<List<CourseCatalogIndexItemDto>>> Handle(
         GetPublishedCoursesListQuery request,
         CancellationToken cancellationToken)
     {
@@ -42,11 +42,11 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         {
             var student = await _studentRepository.GetByIdAsync(request.StudentId.Value);
             if (student == null)
-                return NotFound<List<CourseCatalogItemDto>>("Student not found.");
+                return NotFound<List<CourseCatalogIndexItemDto>>("Student not found.");
 
             var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
             if (guardian == null || student.GuardianId != guardian.Id)
-                return Forbidden<List<CourseCatalogItemDto>>(
+                return Forbidden<List<CourseCatalogIndexItemDto>>(
                     "You don't have permission to browse courses for this student.");
         }
 
@@ -67,12 +67,89 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var courses = await query
+        var items = await query
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .ToListAsync(cancellationToken);
+            .Select(c => new CourseCatalogIndexItemDto
+            {
+                Id = c.Id,
+                Title = c.Title,
+                ImageUrl = c.ImageUrl,
+                Price = c.Price,
+                TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
+                    ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
+                    : null,
+                TeacherAverageReview = c.Teacher != null
+                    ? (c.Teacher.TeacherReviews
+                          .Where(r => r.IsApproved)
+                          .Select(r => (decimal?)r.Rating)
+                          .Average() ?? 0m)
+                    : 0m,
 
-        var items = _mapper.Map<List<CourseCatalogItemDto>>(courses);
+                DomainNameEn = c.TeacherSubject != null &&
+                               c.TeacherSubject.Subject != null &&
+                               c.TeacherSubject.Subject.Domain != null
+                    ? c.TeacherSubject.Subject.Domain.NameEn
+                    : null,
+                DomainNameAr = c.TeacherSubject != null &&
+                               c.TeacherSubject.Subject != null &&
+                               c.TeacherSubject.Subject.Domain != null
+                    ? c.TeacherSubject.Subject.Domain.NameAr
+                    : null,
+
+                SubjectNameEn = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                    ? c.TeacherSubject.Subject.NameEn
+                    : null,
+                SubjectNameAr = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                    ? c.TeacherSubject.Subject.NameAr
+                    : null,
+
+                CurriculumNameEn = c.TeacherSubject != null &&
+                                   c.TeacherSubject.Subject != null &&
+                                   c.TeacherSubject.Subject.Curriculum != null
+                    ? c.TeacherSubject.Subject.Curriculum.NameEn
+                    : null,
+                CurriculumNameAr = c.TeacherSubject != null &&
+                                   c.TeacherSubject.Subject != null &&
+                                   c.TeacherSubject.Subject.Curriculum != null
+                    ? c.TeacherSubject.Subject.Curriculum.NameAr
+                    : null,
+
+                LevelNameEn = c.TeacherSubject != null &&
+                              c.TeacherSubject.Subject != null &&
+                              c.TeacherSubject.Subject.Level != null
+                    ? c.TeacherSubject.Subject.Level.NameEn
+                    : null,
+                LevelNameAr = c.TeacherSubject != null &&
+                              c.TeacherSubject.Subject != null &&
+                              c.TeacherSubject.Subject.Level != null
+                    ? c.TeacherSubject.Subject.Level.NameAr
+                    : null,
+
+                GradeNameEn = c.TeacherSubject != null &&
+                              c.TeacherSubject.Subject != null &&
+                              c.TeacherSubject.Subject.Grade != null
+                    ? c.TeacherSubject.Subject.Grade.NameEn
+                    : null,
+                GradeNameAr = c.TeacherSubject != null &&
+                              c.TeacherSubject.Subject != null &&
+                              c.TeacherSubject.Subject.Grade != null
+                    ? c.TeacherSubject.Subject.Grade.NameAr
+                    : null,
+
+                TeachingModeNameEn = c.TeachingMode != null ? c.TeachingMode.NameEn : null,
+                TeachingModeNameAr = c.TeachingMode != null ? c.TeachingMode.NameAr : null,
+
+                SessionTypeNameEn = c.SessionType != null ? c.SessionType.NameEn : null,
+                SessionTypeNameAr = c.SessionType != null ? c.SessionType.NameAr : null,
+
+                SessionsCount = c.IsFlexible ? null : c.Sessions.Count,
+                SessionDurationMinutes = c.SessionDurationMinutes,
+                TotalDurationMinutes = !c.IsFlexible && c.SessionDurationMinutes.HasValue
+                    ? (int?)(c.Sessions.Count * c.SessionDurationMinutes.Value)
+                    : null
+            })
+            .ToListAsync(cancellationToken);
 
         var totalPages = request.PageSize > 0
             ? (int)Math.Ceiling(totalCount / (double)request.PageSize)

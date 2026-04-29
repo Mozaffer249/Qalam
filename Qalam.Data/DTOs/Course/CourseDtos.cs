@@ -124,6 +124,9 @@ public class CourseCatalogItemDto
     public string Title { get; set; } = default!;
     public string? DescriptionShort { get; set; }
     public string? TeacherDisplayName { get; set; }
+    public string? TeacherBio { get; set; }
+    public decimal TeacherAverageReview { get; set; }
+    public int EnrollmentsCount { get; set; }
     public int DomainId { get; set; }
     public string? DomainNameEn { get; set; }
     public int SubjectId { get; set; }
@@ -171,4 +174,43 @@ public class CourseCatalogDetailDto
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
     public List<CourseSessionDto>? Sessions { get; set; }
+}
+
+/// <summary>
+/// Student catalog index item (slim UI model).
+/// </summary>
+public class CourseCatalogIndexItemDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = default!;
+    public string? ImageUrl { get; set; }
+    public decimal Price { get; set; }
+
+    public string? TeacherDisplayName { get; set; }
+    public decimal TeacherAverageReview { get; set; }
+
+    public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
+
+    public string? CurriculumNameEn { get; set; }
+    public string? CurriculumNameAr { get; set; }
+
+    public string? LevelNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
+
+    public string? GradeNameEn { get; set; }
+    public string? GradeNameAr { get; set; }
+
+    public string? SubjectNameEn { get; set; }
+    public string? SubjectNameAr { get; set; }
+
+    public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeNameAr { get; set; }
+
+    public string? SessionTypeNameEn { get; set; }
+    public string? SessionTypeNameAr { get; set; }
+
+    public int? SessionsCount { get; set; }
+    public int? SessionDurationMinutes { get; set; }
+    public int? TotalDurationMinutes { get; set; }
 }

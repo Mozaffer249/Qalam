@@ -22,6 +22,11 @@ public class Course : AuditableEntity
     /// وصف الدورة
     /// </summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Optional image URL for course cards/details.
+    /// </summary>
+    public string? ImageUrl { get; set; }
     
     /// <summary>
     /// هل الدورة نشطة؟

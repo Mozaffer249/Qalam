@@ -6,7 +6,7 @@ using Qalam.Data.DTOs.Course;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 
-public class GetPublishedCoursesListQuery : IRequest<Response<List<CourseCatalogItemDto>>>, IAuthenticatedRequest
+public class GetPublishedCoursesListQuery : IRequest<Response<List<CourseCatalogIndexItemDto>>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }
