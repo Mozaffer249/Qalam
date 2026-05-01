@@ -11,8 +11,10 @@ public class RespondToGroupEnrollmentInviteCommandValidator : AbstractValidator<
         RuleFor(x => x.Data).NotNull();
         RuleFor(x => x.Data.StudentId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.Decision)
-            .Must(d => d == GroupMemberConfirmationStatus.Confirmed || d == GroupMemberConfirmationStatus.Rejected)
+            .Must(d => d == GroupMemberConfirmationStatus.Confirmed
+                || d == GroupMemberConfirmationStatus.Rejected
+                || d == GroupMemberConfirmationStatus.Cancelled)
             .When(x => x.Data != null)
-            .WithMessage("Decision must be Confirmed or Rejected.");
+            .WithMessage("Decision must be Confirmed, Rejected, or Cancelled.");
     }
 }

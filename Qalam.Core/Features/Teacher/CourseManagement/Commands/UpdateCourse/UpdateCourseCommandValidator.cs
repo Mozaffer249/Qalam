@@ -19,8 +19,8 @@ public class UpdateCourseCommandValidator : AbstractValidator<UpdateCourseComman
         RuleFor(x => x.Data.SessionTypeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.Price).GreaterThanOrEqualTo(0).When(x => x.Data != null);
         RuleFor(x => x.Data.SessionDurationMinutes)
-            .NotNull().GreaterThan(0)
-            .When(x => x.Data != null && !x.Data.IsFlexible);
+            .GreaterThan(0)
+            .When(x => x.Data != null && !x.Data.IsFlexible && x.Data.SessionDurationMinutes.HasValue);
         RuleFor(x => x.Data.SessionDurationMinutes)
             .Null()
             .When(x => x.Data != null && x.Data.IsFlexible)

@@ -87,8 +87,8 @@ public class TeacherCourseService : ITeacherCourseService
 
         if (!dto.IsFlexible)
         {
-            if (!dto.SessionDurationMinutes.HasValue || dto.SessionDurationMinutes <= 0)
-                throw new InvalidOperationException("SessionDurationMinutes is required when course is not flexible.");
+            if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
+                throw new InvalidOperationException("SessionDurationMinutes must be greater than zero when provided.");
             if (dto.Sessions == null || dto.Sessions.Count == 0)
                 throw new InvalidOperationException("Sessions are required when course is not flexible.");
         }
@@ -174,8 +174,8 @@ public class TeacherCourseService : ITeacherCourseService
 
         if (!dto.IsFlexible)
         {
-            if (!dto.SessionDurationMinutes.HasValue || dto.SessionDurationMinutes <= 0)
-                throw new InvalidOperationException("SessionDurationMinutes is required when course is not flexible.");
+            if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
+                throw new InvalidOperationException("SessionDurationMinutes must be greater than zero when provided.");
         }
         else if (dto.SessionDurationMinutes.HasValue)
         {

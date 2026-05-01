@@ -26,9 +26,11 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
         builder.Property(e => e.Price).HasColumnType("decimal(18,2)");
         
         // Check Constraints
+        // Flexible courses: SessionDurationMinutes must be null.
+        // Fixed courses: optional column; when set must be > 0 (per-session durations may live on CourseSessions).
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Course_SessionDuration",
-            "(([IsFlexible] = 0) AND ([SessionDurationMinutes] IS NOT NULL) AND ([SessionDurationMinutes] > 0)) OR (([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL))"
+            "(([IsFlexible] = 1) AND ([SessionDurationMinutes] IS NULL)) OR (([IsFlexible] = 0) AND (([SessionDurationMinutes] IS NULL) OR ([SessionDurationMinutes] > 0)))"
         ));
 
         builder.ToTable(t => t.HasCheckConstraint(

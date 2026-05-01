@@ -1,5 +1,7 @@
 # Enrollment Flow — Frontend Integration Guide
 
+**Design / UX (Arabic):** For screen-by-screen journeys, human-readable request/response descriptions, and Mermaid diagrams aimed at the design team, see **[DESIGN_COURSE_ENROLLMENT_JOURNEY_AR.md](DESIGN_COURSE_ENROLLMENT_JOURNEY_AR.md)**.
+
 This is the front-end-facing guide. It walks through the **complete cycle** —
 discovery → request → approval → payment → activation → schedules — with the
 exact endpoints, payloads, status codes, and lifecycle transitions you need
