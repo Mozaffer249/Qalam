@@ -221,7 +221,13 @@ public class StudentCourseController : AppControllerBase
     /// <summary>
     /// Get my enrollment by ID.
     /// </summary>
-    /// <remarks>GET Api/V1/Student/Enrollments/{id}</remarks>
+    /// <remarks>
+    /// GET Api/V1/Student/Enrollments/{id}
+    ///
+    /// Response includes <c>sessions</c> (saved <c>CourseSchedule</c> rows) with
+    /// <c>canStart</c> when enrollment is Active, the session is Scheduled, and current UTC
+    /// is within the time slot window on the session date.
+    /// </remarks>
     [HttpGet(Router.StudentEnrollmentById)]
     [ProducesResponseType(typeof(EnrollmentDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

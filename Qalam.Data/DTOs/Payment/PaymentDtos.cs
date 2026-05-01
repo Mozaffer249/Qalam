@@ -8,7 +8,8 @@ namespace Qalam.Data.DTOs.Payment;
 public class PayEnrollmentRequestDto
 {
     /// <summary>
-    /// The CourseEnrollment to pay for. Required.
+    /// Primary key of <c>CourseEnrollment</c> — the same <c>id</c> returned by GET Student/Enrollments.
+    /// Do not send the enrollment <em>request</em> id (GET Student/EnrollmentRequests).
     /// </summary>
     public int EnrollmentId { get; set; }
 }

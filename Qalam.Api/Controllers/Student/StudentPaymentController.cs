@@ -30,6 +30,9 @@ public class StudentPaymentController : AppControllerBase
     ///
     /// On success the enrollment becomes Active, schedules are generated from the
     /// originating request's SelectedAvailabilities and ProposedSessions / Course.Sessions.
+    ///
+    /// <c>data.enrollmentId</c> must be <c>CourseEnrollment.Id</c> from GET Student/Enrollments (field <c>id</c>),
+    /// not <c>CourseEnrollmentRequest.Id</c> from enrollment requests.
     /// </remarks>
     [HttpPost(Router.StudentPayEnrollment)]
     [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]

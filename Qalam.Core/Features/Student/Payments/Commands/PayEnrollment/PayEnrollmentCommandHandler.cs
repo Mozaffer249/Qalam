@@ -55,7 +55,10 @@ public class PayEnrollmentCommandHandler : ResponseHandler,
 
         var enrollment = await _enrollmentRepository.GetByIdForPaymentAsync(enrollmentId, cancellationToken);
         if (enrollment == null)
-            return NotFound<PaymentResultDto>("Enrollment not found.");
+        {
+            return NotFound<PaymentResultDto>(
+                "Enrollment not found. Use CourseEnrollment.Id from GET Student/Enrollments as enrollmentId — not the enrollment request id from Student/EnrollmentRequests.");
+        }
 
         if (enrollment.EnrollmentStatus != EnrollmentStatus.PendingPayment)
             return BadRequest<PaymentResultDto>("Only pending-payment enrollments can be paid.");

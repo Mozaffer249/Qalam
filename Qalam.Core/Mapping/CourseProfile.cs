@@ -207,6 +207,7 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.SessionType != null
                     ? src.Course.SessionType.NameEn
-                    : null));
+                    : null))
+            .ForMember(dest => dest.Sessions, opt => opt.Ignore());
     }
 }

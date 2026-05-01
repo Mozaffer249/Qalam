@@ -97,6 +97,10 @@ public class RespondToGroupEnrollmentInviteDto
 /// </summary>
 public class EnrollmentRequestListItemDto
 {
+    /// <summary>
+    /// Pending/approval request row id (<c>CourseEnrollmentRequest</c>). Do not use this for payment;
+    /// after approval, call GET Student/Enrollments and use <see cref="EnrollmentListItemDto.Id"/> as <c>enrollmentId</c>.
+    /// </summary>
     public int Id { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
@@ -142,12 +146,53 @@ public class EnrollmentRequestDetailDto
 /// </summary>
 public class EnrollmentListItemDto
 {
+    /// <summary>
+    /// Approved course enrollment id (<c>CourseEnrollment</c>). Pass this value as <c>data.enrollmentId</c>
+    /// for POST Student/Payments/Enrollment (not the enrollment <em>request</em> id from pending requests).
+    /// </summary>
     public int Id { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
     public EnrollmentStatus EnrollmentStatus { get; set; }
     public DateTime ApprovedAt { get; set; }
     public string? TeacherDisplayName { get; set; }
+}
+
+/// <summary>
+/// One persisted schedule row for GET enrollment detail (student view).
+/// </summary>
+public class EnrollmentSessionItemDto
+{
+    /// <summary>
+    /// <see cref="CourseSchedule"/> id.
+    /// </summary>
+    public int ScheduleId { get; set; }
+
+    public DateOnly Date { get; set; }
+
+    /// <summary>
+    /// Session outline title from the enrollment request (<c>CourseRequestProposedSession</c>) or course template (<c>CourseSession</c>), when available.
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Weekly slot start time on <see cref="Date"/> (from teacher time slot). Null if availability/time slot was not loaded.
+    /// </summary>
+    public TimeSpan? StartTime { get; set; }
+
+    /// <summary>
+    /// Weekly slot end time on <see cref="Date"/> (from teacher time slot).
+    /// </summary>
+    public TimeSpan? EndTime { get; set; }
+
+    public int DurationMinutes { get; set; }
+
+    public ScheduleStatus Status { get; set; }
+
+    /// <summary>
+    /// True when enrollment is Active, status is Scheduled, and current UTC lies within the session window on that date.
+    /// </summary>
+    public bool CanStart { get; set; }
 }
 
 /// <summary>
@@ -167,6 +212,11 @@ public class EnrollmentDetailDto
     public string? TeachingModeNameEn { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+
+    /// <summary>
+    /// Scheduled sessions after payment (from <see cref="CourseSchedule"/>). Empty if none generated yet.
+    /// </summary>
+    public List<EnrollmentSessionItemDto> Sessions { get; set; } = new();
 }
 
 /// <summary>
