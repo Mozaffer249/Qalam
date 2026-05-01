@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -20,6 +21,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
+    private readonly ITeacherAvailabilityCalendarService _availabilityCalendar;
 
     public RequestCourseEnrollmentCommandHandler(
         IStudentRepository studentRepository,
@@ -29,6 +31,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         IGuardianRepository guardianRepository,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
+        ITeacherAvailabilityCalendarService availabilityCalendar,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
@@ -38,6 +41,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _guardianRepository = guardianRepository;
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
+        _availabilityCalendar = availabilityCalendar;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
@@ -64,15 +68,29 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         if (ownedStudentIds.Count == 0)
             return NotFound<EnrollmentRequestDetailDto>("No student profile found for this user.");
 
-        // 2. Validate StudentIds — each must be in the owned set
-        var studentIds = dto.StudentIds.Distinct().ToList();
-        if (studentIds.Count == 0)
-            return BadRequest<EnrollmentRequestDetailDto>("At least one student is required.");
+        // 2. Resolve StudentIds — empty means enroll the requester only (requires a linked student profile)
+        var studentIdsFromDto = (dto.StudentIds ?? new List<int>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
 
-        foreach (var sid in studentIds)
+        List<int> studentIds;
+        if (studentIdsFromDto.Count == 0)
         {
-            if (!ownedStudentIds.Contains(sid))
-                return BadRequest<EnrollmentRequestDetailDto>($"You are not authorized to enroll student {sid}.");
+            if (ownStudent == null)
+                return BadRequest<EnrollmentRequestDetailDto>(
+                    "Specify studentIds for the learners to enroll. Include child ids if you are enrolling only children; your account has no student profile to infer self-enrollment.");
+
+            studentIds = new List<int> { ownStudent.Id };
+        }
+        else
+        {
+            studentIds = studentIdsFromDto;
+            foreach (var sid in studentIds)
+            {
+                if (!ownedStudentIds.Contains(sid))
+                    return BadRequest<EnrollmentRequestDetailDto>($"You are not authorized to enroll student {sid}.");
+            }
         }
 
         // 3. Validate InvitedStudentIds
@@ -110,31 +128,20 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         if (hasPending)
             return BadRequest<EnrollmentRequestDetailDto>("You already have a pending enrollment request for this course.");
 
-        // 6. Validate selected availabilities
-        var selectedAvailabilityIds = (dto.SelectedAvailabilityIds ?? new List<int>()).Distinct().ToList();
-        if (selectedAvailabilityIds.Count == 0)
-            return BadRequest<EnrollmentRequestDetailDto>("At least one selected availability is required.");
-
-        var selectedAvailabilities = await _teacherAvailabilityRepository.GetTableNoTracking()
-            .Include(a => a.TimeSlot)
-            .Include(a => a.DayOfWeek)
-            .Where(a => selectedAvailabilityIds.Contains(a.Id))
-            .ToListAsync(cancellationToken);
-        if (selectedAvailabilities.Count != selectedAvailabilityIds.Count)
-            return BadRequest<EnrollmentRequestDetailDto>("One or more selected availability ids are invalid.");
-        if (selectedAvailabilities.Any(a => a.TeacherId != course.TeacherId || !a.IsActive))
-            return BadRequest<EnrollmentRequestDetailDto>("Selected availabilities must belong to the course teacher and be active.");
+        // 6. Validate selected session dates (from availability API cells)
+        var selectedSlots = (dto.SelectedSessionSlots ?? new List<SelectedSessionSlotDto>())
+            .OrderBy(s => s.SessionNumber)
+            .ToList();
+        if (selectedSlots.Count == 0)
+            return BadRequest<EnrollmentRequestDetailDto>("At least one session date selection is required.");
 
         // 7. Validate flexible/proposed sessions
         var proposedSessions = (dto.ProposedSessions ?? new List<CreateProposedSessionDto>())
             .OrderBy(p => p.SessionNumber)
             .ToList();
 
-        if (course.IsFlexible)
+        if (course.IsFlexible && proposedSessions.Count > 0)
         {
-            if (proposedSessions.Count == 0)
-                return BadRequest<EnrollmentRequestDetailDto>("ProposedSessions are required for flexible courses.");
-
             for (var i = 0; i < proposedSessions.Count; i++)
             {
                 if (proposedSessions[i].SessionNumber != i + 1)
@@ -168,19 +175,90 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                 return BadRequest<EnrollmentRequestDetailDto>("Invited students are only allowed for group courses.");
         }
 
-        // 9. Calculate pricing
-        var totalMinutes = course.IsFlexible
-            ? proposedSessions.Sum(s => s.DurationMinutes)
-            : (course.SessionsCount ?? 0) * (course.SessionDurationMinutes ?? 0);
+        for (var i = 0; i < selectedSlots.Count; i++)
+        {
+            if (selectedSlots[i].SessionNumber != i + 1)
+                return BadRequest<EnrollmentRequestDetailDto>("Session numbers must be sequential starting from 1.");
+        }
+
+        var duplicateKeys = selectedSlots
+            .Select(s => (s.Date, s.TeacherAvailabilityId))
+            .GroupBy(x => x)
+            .Where(g => g.Count() > 1)
+            .ToList();
+        if (duplicateKeys.Count > 0)
+            return BadRequest<EnrollmentRequestDetailDto>("Duplicate selections for the same date and time slot are not allowed.");
+
+        var selectedAvailabilityIds = selectedSlots.Select(s => s.TeacherAvailabilityId).Distinct().ToList();
+        var selectedAvailabilities = await _teacherAvailabilityRepository.GetTableNoTracking()
+            .Include(a => a.TimeSlot)
+            .Include(a => a.DayOfWeek)
+            .Where(a => selectedAvailabilityIds.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+        if (selectedAvailabilities.Count != selectedAvailabilityIds.Count)
+            return BadRequest<EnrollmentRequestDetailDto>("One or more selected availability ids are invalid.");
+        if (selectedAvailabilities.Any(a => a.TeacherId != course.TeacherId || !a.IsActive))
+            return BadRequest<EnrollmentRequestDetailDto>("Selected availabilities must belong to the course teacher and be active.");
+
+        var availabilityById = selectedAvailabilities.ToDictionary(a => a.Id);
+
+        var totalMinutes = !course.IsFlexible
+            ? FixedCourseTotalMinutes(course)
+            : proposedSessions.Count > 0
+                ? proposedSessions.Sum(s => s.DurationMinutes)
+                : selectedSlots.Sum(s =>
+                    availabilityById.TryGetValue(s.TeacherAvailabilityId, out var a) && a.TimeSlot != null
+                        ? a.TimeSlot.ResolveDurationMinutes()
+                        : 0);
 
         if (totalMinutes <= 0)
-            return BadRequest<EnrollmentRequestDetailDto>("Total duration must be greater than zero.");
+        {
+            var hint = course.IsFlexible && proposedSessions.Count == 0
+                ? " For flexible enrollment without proposed sessions, each chosen availability must use a time band with duration greater than zero."
+                : string.Empty;
+            return BadRequest<EnrollmentRequestDetailDto>("Total duration must be greater than zero." + hint);
+        }
 
         var estimatedTotalPrice = Math.Round((totalMinutes / 60m) * course.Price, 2, MidpointRounding.AwayFromZero);
 
-        // 9b. Compute schedule preview, reject on conflict / doesn't-fit.
-        // Build a transient request shell so the generator's BuildSessionList works for flexible
-        // courses (it reads ProposedSessions off the entity).
+        var calendarPairs = selectedSlots
+            .Select(s => (s.Date, s.TeacherAvailabilityId))
+            .ToList();
+        var statuses = await _availabilityCalendar.GetSlotStatusesAsync(course.TeacherId, calendarPairs, cancellationToken);
+        foreach (var slot in selectedSlots)
+        {
+            if (!statuses.TryGetValue((slot.Date, slot.TeacherAvailabilityId), out var st) || st != AvailabilitySlotStatus.Free)
+            {
+                return BadRequest<EnrollmentRequestDetailDto>(
+                    $"The chosen slot on {slot.Date:yyyy-MM-dd} is no longer available. Refresh availability and pick another date.");
+            }
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var resolvedStart = dto.PreferredStartDate ?? today;
+        if (resolvedStart < today)
+            resolvedStart = today;
+
+        const int defaultPersistedWindowYears = 2;
+        var persistedEnd = dto.PreferredEndDate ?? resolvedStart.AddYears(defaultPersistedWindowYears);
+        DateOnly? previewHardEnd = dto.PreferredEndDate;
+
+        if (previewHardEnd.HasValue)
+        {
+            foreach (var s in selectedSlots)
+            {
+                if (s.Date > previewHardEnd.Value)
+                    return BadRequest<EnrollmentRequestDetailDto>(
+                        $"All session dates must be on or before PreferredEndDate ({previewHardEnd.Value:yyyy-MM-dd}).");
+            }
+        }
+
+        foreach (var s in selectedSlots)
+        {
+            if (s.Date < today)
+                return BadRequest<EnrollmentRequestDetailDto>("Session dates cannot be in the past.");
+        }
+
         var transientRequest = new Qalam.Data.Entity.Course.CourseEnrollmentRequest
         {
             ProposedSessions = proposedSessions
@@ -196,37 +274,39 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
 
         var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
             course.TeacherId,
-            dto.PreferredStartDate,
-            dto.PreferredEndDate);
+            resolvedStart,
+            persistedEnd);
 
         var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
-            dto.PreferredStartDate,
-            dto.PreferredEndDate,
+            resolvedStart,
+            persistedEnd,
             selectedAvailabilityIds,
             cancellationToken);
 
-        var preview = _scheduleGenerator.Preview(
+        var selectionsOrdered = selectedSlots.Select(s => (s.Date, s.TeacherAvailabilityId)).ToList();
+        var preview = _scheduleGenerator.PreviewExplicit(
             course,
             transientRequest,
-            selectedAvailabilities,
+            selectionsOrdered,
+            availabilityById,
             blockedExceptions,
             existingScheduledSlots,
-            effectiveStart: dto.PreferredStartDate,
-            hardEndDate: dto.PreferredEndDate);
+            previewHardEnd);
 
         if (preview.Conflicts.Count > 0)
         {
             var firstFew = string.Join("; ",
                 preview.Conflicts.Take(3).Select(c => $"session {c.SessionNumber}: {c.Date:yyyy-MM-dd}"));
             return BadRequest<EnrollmentRequestDetailDto>(
-                $"The following dates are already booked: {firstFew}. Please pick a different start date or different availability slots.");
+                $"Scheduling conflict: {firstFew}. Pick different dates or slots.");
         }
 
         if (!preview.FitsInWindow)
         {
-            var sessionTotal = course.IsFlexible ? proposedSessions.Count : (course.Sessions?.Count ?? 0);
             return BadRequest<EnrollmentRequestDetailDto>(
-                $"Selected slots can only fit {preview.Slots.Count} of {sessionTotal} sessions before {dto.PreferredEndDate:yyyy-MM-dd}. Extend the end date or add another availability slot.");
+                previewHardEnd.HasValue
+                    ? $"One or more sessions fall after the preferred end date ({previewHardEnd.Value:yyyy-MM-dd})."
+                    : "Schedule validation failed for the preferred date window.");
         }
 
         // 10. Create entity
@@ -239,8 +319,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             Notes = dto.Notes != null && dto.Notes.Length > 400 ? dto.Notes.Substring(0, 400) : dto.Notes,
             TotalMinutes = totalMinutes,
             EstimatedTotalPrice = estimatedTotalPrice,
-            PreferredStartDate = dto.PreferredStartDate,
-            PreferredEndDate = dto.PreferredEndDate
+            PreferredStartDate = resolvedStart,
+            PreferredEndDate = persistedEnd
         };
 
         // Own students — auto-confirmed
@@ -272,6 +352,15 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             .Select(id => new Qalam.Data.Entity.Course.CourseRequestSelectedAvailability
             {
                 TeacherAvailabilityId = id
+            })
+            .ToList();
+
+        enrollmentRequest.SelectedSessionSlots = selectedSlots
+            .Select(s => new Qalam.Data.Entity.Course.CourseRequestSelectedSessionSlot
+            {
+                SessionNumber = s.SessionNumber,
+                TeacherAvailabilityId = s.TeacherAvailabilityId,
+                SessionDate = s.Date
             })
             .ToList();
 
@@ -309,7 +398,14 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             Notes = enrollmentRequest.Notes,
             TotalMinutes = enrollmentRequest.TotalMinutes,
             EstimatedTotalPrice = enrollmentRequest.EstimatedTotalPrice,
-            SelectedAvailabilityIds = enrollmentRequest.SelectedAvailabilities.Select(a => a.TeacherAvailabilityId).ToList(),
+            SelectedSessionSlots = selectedSlots
+                .Select(s => new SelectedSessionSlotDto
+                {
+                    SessionNumber = s.SessionNumber,
+                    TeacherAvailabilityId = s.TeacherAvailabilityId,
+                    Date = s.Date
+                })
+                .ToList(),
             GroupMembers = enrollmentRequest.GroupMembers
                 .Select(g => new EnrollmentRequestGroupMemberDto
                 {
@@ -345,5 +441,23 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         };
 
         return Success(entity: result);
+    }
+
+    /// <summary>
+    /// Non-flexible courses store duration per <see cref="CourseSession"/>; <see cref="Course.SessionDurationMinutes"/> may be null.
+    /// Prefer summing sessions when present so pricing matches catalog totals.
+    /// </summary>
+    private static int FixedCourseTotalMinutes(Qalam.Data.Entity.Course.Course course)
+    {
+        var sessionCountNav = course.Sessions?.Count ?? 0;
+        var sumSessions = sessionCountNav > 0 ? course.Sessions!.Sum(s => s.DurationMinutes) : 0;
+
+        var countForUniform = course.SessionsCount ?? sessionCountNav;
+        var uniformProduct = countForUniform * (course.SessionDurationMinutes ?? 0);
+
+        if (sumSessions > 0)
+            return sumSessions;
+
+        return uniformProduct;
     }
 }

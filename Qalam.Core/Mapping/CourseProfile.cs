@@ -140,8 +140,16 @@ public class CourseProfile : Profile
                     : null))
             .ForMember(dest => dest.TotalMinutes, opt => opt.MapFrom(src => src.TotalMinutes))
             .ForMember(dest => dest.EstimatedTotalPrice, opt => opt.MapFrom(src => src.EstimatedTotalPrice))
-            .ForMember(dest => dest.SelectedAvailabilityIds, opt => opt.MapFrom(src =>
-                src.SelectedAvailabilities.Select(a => a.TeacherAvailabilityId).ToList()))
+            .ForMember(dest => dest.SelectedSessionSlots, opt => opt.MapFrom(src =>
+                src.SelectedSessionSlots
+                    .OrderBy(x => x.SessionNumber)
+                    .Select(x => new SelectedSessionSlotDto
+                    {
+                        SessionNumber = x.SessionNumber,
+                        TeacherAvailabilityId = x.TeacherAvailabilityId,
+                        Date = x.SessionDate
+                    })
+                    .ToList()))
             .ForMember(dest => dest.GroupMembers, opt => opt.MapFrom(src =>
                 src.GroupMembers.Select(g => new EnrollmentRequestGroupMemberDto
                 {

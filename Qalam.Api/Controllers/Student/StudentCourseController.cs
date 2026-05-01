@@ -99,9 +99,11 @@ public class StudentCourseController : AppControllerBase
     ///
     /// Rules:
     /// - `data.courseId` is required.
-    /// - `data.studentIds` — students owned by the caller (self and/or children) that are enrolled immediately on approval.
+    /// - `data.studentIds` — optional; omit or `[]` to enroll **only yourself** (server uses your linked student id).
+    ///   Send explicit ids to enroll children only, or yourself plus children (all must be owned by the caller).
     /// - `data.invitedStudentIds` — students that will receive an invitation and must accept before being added to the group.
-    /// - `data.selectedAvailabilityIds` — teacher availability slots chosen for this request.
+    /// - `data.selectedSessionSlots` — one row per course session: `sessionNumber`, `teacherAvailabilityId`, and `date`
+    ///   (calendar cells from GET teacher availability by date range).
     /// - `data.proposedSessions` — only required for flexible courses. For fixed courses the session outline is taken from the course.
     ///   `sessionNumber` here is 1-based and must be unique within the array.
     ///
@@ -110,9 +112,12 @@ public class StudentCourseController : AppControllerBase
     /// {
     ///   "data": {
     ///     "courseId": 1,
-    ///     "studentIds": [ 42 ],
+    ///     "studentIds": [],
     ///     "invitedStudentIds": [],
-    ///     "selectedAvailabilityIds": [ 10, 11 ],
+    ///     "selectedSessionSlots": [
+    ///       { "sessionNumber": 1, "teacherAvailabilityId": 26, "date": "2026-05-03" },
+    ///       { "sessionNumber": 2, "teacherAvailabilityId": 27, "date": "2026-05-10" }
+    ///     ],
     ///     "notes": "Prefers evening sessions.",
     ///     "proposedSessions": []
     ///   }
@@ -126,7 +131,11 @@ public class StudentCourseController : AppControllerBase
     ///     "courseId": 7,
     ///     "studentIds": [ 42 ],
     ///     "invitedStudentIds": [ 55, 61 ],
-    ///     "selectedAvailabilityIds": [ 21 ],
+    ///     "selectedSessionSlots": [
+    ///       { "sessionNumber": 1, "teacherAvailabilityId": 26, "date": "2026-05-03" },
+    ///       { "sessionNumber": 2, "teacherAvailabilityId": 26, "date": "2026-05-10" },
+    ///       { "sessionNumber": 3, "teacherAvailabilityId": 26, "date": "2026-05-17" }
+    ///     ],
     ///     "notes": null,
     ///     "proposedSessions": [
     ///       { "sessionNumber": 1, "durationMinutes": 60, "title": "Kickoff",    "notes": null },
@@ -147,7 +156,10 @@ public class StudentCourseController : AppControllerBase
     ///     "status": "Pending",
     ///     "totalMinutes": 540,
     ///     "estimatedTotalPrice": 450.00,
-    ///     "selectedAvailabilityIds": [ 10, 11 ],
+    ///     "selectedSessionSlots": [
+    ///       { "sessionNumber": 1, "teacherAvailabilityId": 26, "date": "2026-05-03" },
+    ///       { "sessionNumber": 2, "teacherAvailabilityId": 27, "date": "2026-05-10" }
+    ///     ],
     ///     "groupMembers": [
     ///       { "studentId": 42, "memberType": "Owner",  "confirmationStatus": "Confirmed", "confirmedAt": "2026-04-18T10:00:00Z" },
     ///       { "studentId": 55, "memberType": "Invited", "confirmationStatus": "Pending",  "confirmedAt": null }

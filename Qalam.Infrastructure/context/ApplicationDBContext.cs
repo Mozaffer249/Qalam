@@ -98,6 +98,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<Course> Courses { get; set; }
         public DbSet<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; }
         public DbSet<CourseRequestSelectedAvailability> CourseRequestSelectedAvailabilities { get; set; }
+        public DbSet<CourseRequestSelectedSessionSlot> CourseRequestSelectedSessionSlots { get; set; }
         public DbSet<CourseRequestGroupMember> CourseRequestGroupMembers { get; set; }
         public DbSet<CourseRequestProposedSession> CourseRequestProposedSessions { get; set; }
         public DbSet<CourseSession> CourseSessions { get; set; }

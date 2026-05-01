@@ -1,3 +1,4 @@
+using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Teacher;
@@ -100,6 +101,105 @@ public class ScheduleGenerationService : IScheduleGenerationService
         return new ScheduleGenerationResult(emitted, conflicts, FitsInWindow: true);
     }
 
+    public ScheduleGenerationResult PreviewExplicit(
+        Course course,
+        CourseEnrollmentRequest request,
+        IReadOnlyList<(DateOnly Date, int TeacherAvailabilityId)> selectionsInSessionOrder,
+        IReadOnlyDictionary<int, TeacherAvailability> availabilityById,
+        IReadOnlyCollection<TeacherAvailabilityException> blockedExceptions,
+        IReadOnlySet<(DateOnly Date, int TeacherAvailabilityId)> existingScheduledSlots,
+        DateOnly? hardEndDate)
+    {
+        var sessions = BuildSessionList(course, request);
+        if (sessions.Count == 0 && course.IsFlexible && selectionsInSessionOrder.Count > 0)
+            sessions = BuildFlexibleImplicitSessionTemplates(selectionsInSessionOrder, availabilityById);
+
+        var emitted = new List<ProposedScheduleSlot>(sessions.Count);
+        var conflicts = new List<ScheduleConflict>();
+
+        if (sessions.Count == 0)
+            return new ScheduleGenerationResult(emitted, conflicts, true);
+
+        if (selectionsInSessionOrder.Count != sessions.Count)
+            throw new ArgumentException("Explicit selections count must match course session count.");
+
+        var blackoutSet = new HashSet<(DateOnly Date, int TimeSlotId)>();
+        foreach (var ex in blockedExceptions)
+        {
+            if (ex.ExceptionType == AvailabilityExceptionType.Blocked)
+                blackoutSet.Add((ex.Date, ex.TimeSlotId));
+        }
+
+        for (var i = 0; i < sessions.Count; i++)
+        {
+            var template = sessions[i];
+            var (date, taId) = selectionsInSessionOrder[i];
+
+            if (hardEndDate.HasValue && date > hardEndDate.Value)
+                return new ScheduleGenerationResult(emitted, conflicts, FitsInWindow: false);
+
+            if (!availabilityById.TryGetValue(taId, out var slot))
+            {
+                conflicts.Add(new ScheduleConflict(
+                    template.SessionNumber,
+                    date,
+                    taId,
+                    "Unknown or invalid teacher availability slot."));
+                continue;
+            }
+
+            if (!ExplicitDateMatchesWeeklySlot(date, slot.DayOfWeekId))
+            {
+                conflicts.Add(new ScheduleConflict(
+                    template.SessionNumber,
+                    date,
+                    taId,
+                    $"Date {date:yyyy-MM-dd} does not match this weekly slot."));
+                continue;
+            }
+
+            if (existingScheduledSlots.Contains((date, slot.Id)))
+            {
+                conflicts.Add(new ScheduleConflict(
+                    template.SessionNumber,
+                    date,
+                    slot.Id,
+                    $"Date {date:yyyy-MM-dd} on this availability is already booked."));
+                continue;
+            }
+
+            if (blackoutSet.Contains((date, slot.TimeSlotId)))
+            {
+                conflicts.Add(new ScheduleConflict(
+                    template.SessionNumber,
+                    date,
+                    slot.Id,
+                    "This time is blocked on that date."));
+                continue;
+            }
+
+            emitted.Add(new ProposedScheduleSlot(
+                template.SessionNumber,
+                date,
+                slot.Id,
+                template.DurationMinutes,
+                template.Title,
+                template.Notes));
+        }
+
+        return new ScheduleGenerationResult(emitted, conflicts, FitsInWindow: true);
+    }
+
+    /// <summary>
+    /// Weekday rules aligned with the teacher availability calendar (DayOfWeekMaster id 1–7).
+    /// </summary>
+    private static bool ExplicitDateMatchesWeeklySlot(DateOnly date, int dayOfWeekId)
+    {
+        var dotNetDow = (int)date.DayOfWeek;
+        var currentDayOfWeekId = dotNetDow + 1;
+        return currentDayOfWeekId == dayOfWeekId;
+    }
+
     public List<CourseSchedule> Generate(
         Course course,
         CourseEnrollmentRequest request,
@@ -110,24 +210,53 @@ public class ScheduleGenerationService : IScheduleGenerationService
         if (courseEnrollmentId.HasValue == courseGroupEnrollmentId.HasValue)
             throw new ArgumentException("Exactly one of courseEnrollmentId or courseGroupEnrollmentId must be provided.");
 
-        var slots = request.SelectedAvailabilities
-            .Select(sa => sa.TeacherAvailability)
-            .Where(ta => ta != null)
-            .ToList();
+        ScheduleGenerationResult result;
+        if (request.SelectedSessionSlots != null && request.SelectedSessionSlots.Count > 0)
+        {
+            var ordered = request.SelectedSessionSlots.OrderBy(s => s.SessionNumber).ToList();
+            var selections = ordered.Select(s => (s.SessionDate, s.TeacherAvailabilityId)).ToList();
+            var availabilityById = new Dictionary<int, TeacherAvailability>();
+            foreach (var row in ordered)
+            {
+                if (row.TeacherAvailability != null)
+                    availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
+            }
+            foreach (var sa in request.SelectedAvailabilities)
+            {
+                if (sa.TeacherAvailability != null)
+                    availabilityById[sa.TeacherAvailability.Id] = sa.TeacherAvailability;
+            }
 
-        // Generate without external conflict info — caller is responsible for re-validating
-        // against existing CourseSchedules before persisting (race-loser handling lives in the
-        // pay handler). Blocked exceptions are NOT honored here because Generate is an
-        // unconditional persistence path; if the caller wants blackout-aware generation they
-        // should run Preview first and validate.
-        var result = Preview(
-            course,
-            request,
-            slots,
-            blockedExceptions: Array.Empty<TeacherAvailabilityException>(),
-            existingScheduledSlots: new HashSet<(DateOnly, int)>(),
-            effectiveStart: startDate,
-            hardEndDate: null);
+            result = PreviewExplicit(
+                course,
+                request,
+                selections,
+                availabilityById,
+                blockedExceptions: Array.Empty<TeacherAvailabilityException>(),
+                existingScheduledSlots: new HashSet<(DateOnly, int)>(),
+                hardEndDate: null);
+        }
+        else
+        {
+            var slots = request.SelectedAvailabilities
+                .Select(sa => sa.TeacherAvailability)
+                .Where(ta => ta != null)
+                .ToList();
+
+            // Generate without external conflict info — caller is responsible for re-validating
+            // against existing CourseSchedules before persisting (race-loser handling lives in the
+            // pay handler). Blocked exceptions are NOT honored here because Generate is an
+            // unconditional persistence path; if the caller wants blackout-aware generation they
+            // should run Preview first and validate.
+            result = Preview(
+                course,
+                request,
+                slots,
+                blockedExceptions: Array.Empty<TeacherAvailabilityException>(),
+                existingScheduledSlots: new HashSet<(DateOnly, int)>(),
+                effectiveStart: startDate,
+                hardEndDate: null);
+        }
 
         return result.Slots
             .Select(s => new CourseSchedule
@@ -158,6 +287,28 @@ public class ScheduleGenerationService : IScheduleGenerationService
             .OrderBy(s => s.SessionNumber)
             .Select(s => new SessionTemplate(s.SessionNumber, s.DurationMinutes, s.Title, s.Notes))
             .ToList();
+    }
+
+    /// <summary>
+    /// Flexible course with no stored <see cref="CourseEnrollmentRequest.ProposedSessions"/>: derive one template per explicit
+    /// calendar pick using each slot's time band duration (same source as pricing in the enrollment handler).
+    /// </summary>
+    private static List<SessionTemplate> BuildFlexibleImplicitSessionTemplates(
+        IReadOnlyList<(DateOnly Date, int TeacherAvailabilityId)> selectionsInSessionOrder,
+        IReadOnlyDictionary<int, TeacherAvailability> availabilityById)
+    {
+        var list = new List<SessionTemplate>(selectionsInSessionOrder.Count);
+        for (var i = 0; i < selectionsInSessionOrder.Count; i++)
+        {
+            var (_, taId) = selectionsInSessionOrder[i];
+            var durationMinutes = 0;
+            if (availabilityById.TryGetValue(taId, out var ta) && ta.TimeSlot != null)
+                durationMinutes = ta.TimeSlot.ResolveDurationMinutes();
+
+            list.Add(new SessionTemplate(i + 1, durationMinutes, null, null));
+        }
+
+        return list;
     }
 
     /// <summary>

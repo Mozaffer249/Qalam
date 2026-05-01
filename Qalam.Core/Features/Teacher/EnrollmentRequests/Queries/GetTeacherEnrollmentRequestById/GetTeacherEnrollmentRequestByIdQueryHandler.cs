@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -54,6 +55,12 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
             .Include(r => r.SelectedAvailabilities)
                 .ThenInclude(sa => sa.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
+            .Include(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.DayOfWeek)
             .Include(r => r.ProposedSessions)
             .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
@@ -78,7 +85,15 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
             RejectionReason = enrollmentRequest.RejectionReason,
             PreferredStartDate = enrollmentRequest.PreferredStartDate,
             PreferredEndDate = enrollmentRequest.PreferredEndDate,
-            SelectedAvailabilityIds = enrollmentRequest.SelectedAvailabilities.Select(a => a.TeacherAvailabilityId).ToList(),
+            SelectedSessionSlots = enrollmentRequest.SelectedSessionSlots
+                .OrderBy(x => x.SessionNumber)
+                .Select(x => new SelectedSessionSlotDto
+                {
+                    SessionNumber = x.SessionNumber,
+                    TeacherAvailabilityId = x.TeacherAvailabilityId,
+                    Date = x.SessionDate
+                })
+                .ToList(),
             GroupMembers = enrollmentRequest.GroupMembers.Select(gm => new TeacherEnrollmentRequestGroupMemberDto
             {
                 StudentId = gm.StudentId,
@@ -100,35 +115,43 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 }).ToList()
         };
 
-        // Concrete proposed dates the teacher will see while approving.
-        var slots = enrollmentRequest.SelectedAvailabilities
-            .Select(sa => sa.TeacherAvailability)
-            .Where(ta => ta != null)
-            .ToList();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var effectiveStart = enrollmentRequest.PreferredStartDate < today ? today : enrollmentRequest.PreferredStartDate;
 
-        if (slots.Count > 0)
+        var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
+            teacher.Id,
+            effectiveStart,
+            enrollmentRequest.PreferredEndDate);
+
+        if (enrollmentRequest.SelectedSessionSlots != null && enrollmentRequest.SelectedSessionSlots.Count > 0)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var effectiveStart = enrollmentRequest.PreferredStartDate < today ? today : enrollmentRequest.PreferredStartDate;
-
-            var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
-                teacher.Id,
-                effectiveStart,
-                enrollmentRequest.PreferredEndDate);
+            var ordered = enrollmentRequest.SelectedSessionSlots.OrderBy(x => x.SessionNumber).ToList();
+            var selections = ordered.Select(x => (x.SessionDate, x.TeacherAvailabilityId)).ToList();
+            var availabilityById = new Dictionary<int, TeacherAvailability>();
+            foreach (var row in ordered)
+            {
+                if (row.TeacherAvailability != null)
+                    availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
+            }
+            foreach (var sa in enrollmentRequest.SelectedAvailabilities)
+            {
+                if (sa.TeacherAvailability != null)
+                    availabilityById[sa.TeacherAvailability.Id] = sa.TeacherAvailability;
+            }
 
             var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
                 effectiveStart,
                 enrollmentRequest.PreferredEndDate,
-                slots.Select(s => s.Id).ToList(),
+                availabilityById.Keys.ToList(),
                 cancellationToken);
 
-            var preview = _scheduleGenerator.Preview(
+            var preview = _scheduleGenerator.PreviewExplicit(
                 enrollmentRequest.Course,
                 enrollmentRequest,
-                slots,
+                selections,
+                availabilityById,
                 blockedExceptions,
                 existingScheduledSlots,
-                effectiveStart,
                 enrollmentRequest.PreferredEndDate);
 
             dto.ProposedScheduleDates = preview.Slots
@@ -141,6 +164,42 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
                     Title = s.Title
                 })
                 .ToList();
+        }
+        else
+        {
+            var slots = enrollmentRequest.SelectedAvailabilities
+                .Select(sa => sa.TeacherAvailability)
+                .Where(ta => ta != null)
+                .ToList();
+
+            if (slots.Count > 0)
+            {
+                var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+                    effectiveStart,
+                    enrollmentRequest.PreferredEndDate,
+                    slots.Select(s => s.Id).ToList(),
+                    cancellationToken);
+
+                var preview = _scheduleGenerator.Preview(
+                    enrollmentRequest.Course,
+                    enrollmentRequest,
+                    slots,
+                    blockedExceptions,
+                    existingScheduledSlots,
+                    effectiveStart,
+                    enrollmentRequest.PreferredEndDate);
+
+                dto.ProposedScheduleDates = preview.Slots
+                    .Select(s => new ProposedScheduleSlotDto
+                    {
+                        SessionNumber = s.SessionNumber,
+                        Date = s.Date,
+                        TeacherAvailabilityId = s.TeacherAvailabilityId,
+                        DurationMinutes = s.DurationMinutes,
+                        Title = s.Title
+                    })
+                    .ToList();
+            }
         }
 
         return Success(entity: dto);

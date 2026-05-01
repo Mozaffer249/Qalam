@@ -54,6 +54,12 @@ public class CourseEnrollmentRepository : GenericRepositoryAsync<CourseEnrollmen
                 .ThenInclude(sa => sa.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.ProposedSessions)
+            .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.DayOfWeek)
             .FirstOrDefaultAsync(e => e.Id == id, ct);
     }
 }

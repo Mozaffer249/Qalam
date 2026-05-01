@@ -7,6 +7,7 @@ using Qalam.Data.DTOs.Payment;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Payment;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -165,30 +166,68 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
 
                 // Race-loser check: re-validate against existing CourseSchedules right
                 // before we persist (mock provider; rollback is clean).
-                var slots = group.EnrollmentRequest.SelectedAvailabilities
-                    .Select(sa => sa.TeacherAvailability)
-                    .Where(ta => ta != null)
-                    .ToList();
+                var enrollmentRequest = group.EnrollmentRequest!;
 
                 var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
                     group.Course!.TeacherId,
                     effectiveStart,
-                    group.EnrollmentRequest.PreferredEndDate);
+                    enrollmentRequest.PreferredEndDate);
 
-                var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
-                    effectiveStart,
-                    group.EnrollmentRequest.PreferredEndDate,
-                    slots.Select(s => s.Id).ToList(),
-                    cancellationToken);
+                ScheduleGenerationResult preview;
 
-                var preview = _scheduleGenerator.Preview(
-                    group.Course!,
-                    group.EnrollmentRequest!,
-                    slots,
-                    blockedExceptions,
-                    existingScheduledSlots,
-                    effectiveStart,
-                    group.EnrollmentRequest.PreferredEndDate);
+                if (enrollmentRequest.SelectedSessionSlots != null && enrollmentRequest.SelectedSessionSlots.Count > 0)
+                {
+                    var ordered = enrollmentRequest.SelectedSessionSlots.OrderBy(s => s.SessionNumber).ToList();
+                    var selections = ordered.Select(s => (s.SessionDate, s.TeacherAvailabilityId)).ToList();
+                    var availabilityById = new Dictionary<int, TeacherAvailability>();
+                    foreach (var row in ordered)
+                    {
+                        if (row.TeacherAvailability != null)
+                            availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
+                    }
+                    foreach (var sa in enrollmentRequest.SelectedAvailabilities)
+                    {
+                        if (sa.TeacherAvailability != null)
+                            availabilityById[sa.TeacherAvailability.Id] = sa.TeacherAvailability;
+                    }
+
+                    var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+                        effectiveStart,
+                        enrollmentRequest.PreferredEndDate,
+                        availabilityById.Keys.ToList(),
+                        cancellationToken);
+
+                    preview = _scheduleGenerator.PreviewExplicit(
+                        group.Course!,
+                        enrollmentRequest,
+                        selections,
+                        availabilityById,
+                        blockedExceptions,
+                        existingScheduledSlots,
+                        enrollmentRequest.PreferredEndDate);
+                }
+                else
+                {
+                    var slots = enrollmentRequest.SelectedAvailabilities
+                        .Select(sa => sa.TeacherAvailability)
+                        .Where(ta => ta != null)
+                        .ToList();
+
+                    var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+                        effectiveStart,
+                        enrollmentRequest.PreferredEndDate,
+                        slots.Select(s => s.Id).ToList(),
+                        cancellationToken);
+
+                    preview = _scheduleGenerator.Preview(
+                        group.Course!,
+                        enrollmentRequest,
+                        slots,
+                        blockedExceptions,
+                        existingScheduledSlots,
+                        effectiveStart,
+                        enrollmentRequest.PreferredEndDate);
+                }
 
                 if (preview.Conflicts.Count > 0)
                 {

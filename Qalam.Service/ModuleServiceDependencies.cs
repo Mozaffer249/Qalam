@@ -51,6 +51,7 @@ namespace Qalam.Service
 
             // Course / Schedule Services
             services.AddTransient<IScheduleGenerationService, ScheduleGenerationService>();
+            services.AddTransient<ITeacherAvailabilityCalendarService, TeacherAvailabilityCalendarService>();
 
             return services;
         }

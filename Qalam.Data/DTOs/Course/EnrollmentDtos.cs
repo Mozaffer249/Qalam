@@ -8,28 +8,48 @@ namespace Qalam.Data.DTOs.Course;
 public class CreateEnrollmentRequestDto
 {
     /// <summary>
-    /// الطلاب المملوكين للمستخدم (نفسه و/أو أبنائه)
+    /// Learners to enroll that the caller owns (self and/or guardian children).
+    /// Omit or send an empty list to enroll only the authenticated user (resolved server-side from their student profile).
+    /// Send explicit ids when enrolling only children, or yourself together with children.
     /// </summary>
     public List<int> StudentIds { get; set; } = new();
     public int CourseId { get; set; }
     public string? Notes { get; set; }
-    public List<int> SelectedAvailabilityIds { get; set; } = new();
+    /// <summary>
+    /// One entry per course session: concrete date and teacher weekly slot (from availability API).
+    /// </summary>
+    public List<SelectedSessionSlotDto> SelectedSessionSlots { get; set; } = new();
     /// <summary>
     /// الطلاب المدعوين (يحتاجون قبول الدعوة)
     /// </summary>
     public List<int> InvitedStudentIds { get; set; } = new();
+    /// <summary>
+    /// Optional per-session outline (duration, titles) for flexible courses. When omitted, the server derives
+    /// duration from each chosen availability time slot and does not require a fixed session count beyond the calendar picks.
+    /// </summary>
     public List<CreateProposedSessionDto> ProposedSessions { get; set; } = new();
 
-    /// <summary>التاريخ المفضل لبدء الدورة (مطلوب). يجب أن يكون اليوم أو لاحقاً.</summary>
-    public DateOnly PreferredStartDate { get; set; }
+    /// <summary>
+    /// Optional preferred first session date. When omitted, the server uses today (UTC).
+    /// </summary>
+    public DateOnly? PreferredStartDate { get; set; }
 
-    /// <summary>التاريخ المفضل لانتهاء الدورة (مطلوب). يجب أن يستوعب جميع الجلسات.</summary>
-    public DateOnly PreferredEndDate { get; set; }
+    /// <summary>
+    /// Optional latest date to complete all sessions. When omitted, submit-time scheduling
+    /// does not enforce an end window; a default range is stored for payment/detail flows.
+    /// </summary>
+    public DateOnly? PreferredEndDate { get; set; }
+}
+
+public class SelectedSessionSlotDto
+{
+    public int SessionNumber { get; set; }
+    public int TeacherAvailabilityId { get; set; }
+    public DateOnly Date { get; set; }
 }
 
 /// <summary>
-/// Concrete schedule slot proposed by the algorithm (date + slot + duration).
-/// Returned in detail views so the user/teacher can see actual booking dates.
+/// Concrete schedule slot (date + slot + duration) for each session.
 /// </summary>
 public class ProposedScheduleSlotDto
 {
@@ -108,12 +128,12 @@ public class EnrollmentRequestDetailDto
     public string? Notes { get; set; }
     public int TotalMinutes { get; set; }
     public decimal EstimatedTotalPrice { get; set; }
-    public List<int> SelectedAvailabilityIds { get; set; } = new();
+    public List<SelectedSessionSlotDto> SelectedSessionSlots { get; set; } = new();
     public List<EnrollmentRequestGroupMemberDto> GroupMembers { get; set; } = new();
     public List<EnrollmentRequestProposedSessionDto> ProposedSessions { get; set; } = new();
     public DateOnly PreferredStartDate { get; set; }
     public DateOnly PreferredEndDate { get; set; }
-    /// <summary>Concrete schedule dates the algorithm would generate for this request (computed on read).</summary>
+    /// <summary>Concrete schedule dates for this request (computed on read).</summary>
     public List<ProposedScheduleSlotDto> ProposedScheduleDates { get; set; } = new();
 }
 

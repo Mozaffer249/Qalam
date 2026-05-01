@@ -50,6 +50,7 @@ public class CourseEnrollmentRequest : AuditableEntity
     public Identity.User RequestedByUser { get; set; } = null!;
 
     public ICollection<CourseRequestSelectedAvailability> SelectedAvailabilities { get; set; } = new List<CourseRequestSelectedAvailability>();
+    public ICollection<CourseRequestSelectedSessionSlot> SelectedSessionSlots { get; set; } = new List<CourseRequestSelectedSessionSlot>();
     public ICollection<CourseRequestGroupMember> GroupMembers { get; set; } = new List<CourseRequestGroupMember>();
     public ICollection<CourseRequestProposedSession> ProposedSessions { get; set; } = new List<CourseRequestProposedSession>();
 }

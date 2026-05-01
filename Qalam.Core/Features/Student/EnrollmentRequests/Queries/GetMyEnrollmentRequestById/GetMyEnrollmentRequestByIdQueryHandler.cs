@@ -51,6 +51,12 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
             .Include(r => r.SelectedAvailabilities)
                 .ThenInclude(sa => sa.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
+            .Include(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(r => r.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.DayOfWeek)
             .Include(r => r.GroupMembers)
                 .ThenInclude(gm => gm.Student)
                     .ThenInclude(s => s.User)
@@ -70,14 +76,6 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
         Qalam.Data.Entity.Course.CourseEnrollmentRequest enrollmentRequest,
         CancellationToken ct)
     {
-        var slots = enrollmentRequest.SelectedAvailabilities
-            .Select(sa => sa.TeacherAvailability)
-            .Where(ta => ta != null)
-            .ToList();
-
-        if (slots.Count == 0)
-            return new List<ProposedScheduleSlotDto>();
-
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var effectiveStart = enrollmentRequest.PreferredStartDate < today ? today : enrollmentRequest.PreferredStartDate;
 
@@ -86,22 +84,73 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
             effectiveStart,
             enrollmentRequest.PreferredEndDate);
 
-        var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+        if (enrollmentRequest.SelectedSessionSlots != null && enrollmentRequest.SelectedSessionSlots.Count > 0)
+        {
+            var ordered = enrollmentRequest.SelectedSessionSlots.OrderBy(x => x.SessionNumber).ToList();
+            var selections = ordered.Select(x => (x.SessionDate, x.TeacherAvailabilityId)).ToList();
+            var availabilityById = new Dictionary<int, Qalam.Data.Entity.Teacher.TeacherAvailability>();
+            foreach (var row in ordered)
+            {
+                if (row.TeacherAvailability != null)
+                    availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
+            }
+            foreach (var sa in enrollmentRequest.SelectedAvailabilities)
+            {
+                if (sa.TeacherAvailability != null)
+                    availabilityById[sa.TeacherAvailability.Id] = sa.TeacherAvailability;
+            }
+
+            var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
+                effectiveStart,
+                enrollmentRequest.PreferredEndDate,
+                availabilityById.Keys.ToList(),
+                ct);
+
+            var preview = _scheduleGenerator.PreviewExplicit(
+                enrollmentRequest.Course,
+                enrollmentRequest,
+                selections,
+                availabilityById,
+                blockedExceptions,
+                existingScheduledSlots,
+                enrollmentRequest.PreferredEndDate);
+
+            return preview.Slots
+                .Select(s => new ProposedScheduleSlotDto
+                {
+                    SessionNumber = s.SessionNumber,
+                    Date = s.Date,
+                    TeacherAvailabilityId = s.TeacherAvailabilityId,
+                    DurationMinutes = s.DurationMinutes,
+                    Title = s.Title
+                })
+                .ToList();
+        }
+
+        var slots = enrollmentRequest.SelectedAvailabilities
+            .Select(sa => sa.TeacherAvailability)
+            .Where(ta => ta != null)
+            .ToList();
+
+        if (slots.Count == 0)
+            return new List<ProposedScheduleSlotDto>();
+
+        var existingSlots = await _scheduleRepository.GetScheduledSlotsAsync(
             effectiveStart,
             enrollmentRequest.PreferredEndDate,
             slots.Select(s => s.Id).ToList(),
             ct);
 
-        var preview = _scheduleGenerator.Preview(
+        var roundRobinPreview = _scheduleGenerator.Preview(
             enrollmentRequest.Course,
             enrollmentRequest,
             slots,
             blockedExceptions,
-            existingScheduledSlots,
+            existingSlots,
             effectiveStart,
             enrollmentRequest.PreferredEndDate);
 
-        return preview.Slots
+        return roundRobinPreview.Slots
             .Select(s => new ProposedScheduleSlotDto
             {
                 SessionNumber = s.SessionNumber,

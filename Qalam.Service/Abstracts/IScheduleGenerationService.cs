@@ -42,6 +42,18 @@ public interface IScheduleGenerationService
         DateOnly? hardEndDate);
 
     /// <summary>
+    /// Uses concrete per-session dates (aligned with the teacher availability calendar API).
+    /// </summary>
+    ScheduleGenerationResult PreviewExplicit(
+        Course course,
+        CourseEnrollmentRequest request,
+        IReadOnlyList<(DateOnly Date, int TeacherAvailabilityId)> selectionsInSessionOrder,
+        IReadOnlyDictionary<int, TeacherAvailability> availabilityById,
+        IReadOnlyCollection<TeacherAvailabilityException> blockedExceptions,
+        IReadOnlySet<(DateOnly Date, int TeacherAvailabilityId)> existingScheduledSlots,
+        DateOnly? hardEndDate);
+
+    /// <summary>
     /// Materialises CourseSchedule entities for an enrollment that just became fully paid.
     /// Caller must attach the returned schedules to the appropriate enrollment navigation
     /// collection and save the DbContext.

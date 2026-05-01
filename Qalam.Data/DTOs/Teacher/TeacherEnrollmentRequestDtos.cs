@@ -34,12 +34,12 @@ public class TeacherEnrollmentRequestDetailDto
     public string? SessionTypeNameEn { get; set; }
     public string? Notes { get; set; }
     public string? RejectionReason { get; set; }
-    public List<int> SelectedAvailabilityIds { get; set; } = new();
+    public List<SelectedSessionSlotDto> SelectedSessionSlots { get; set; } = new();
     public List<TeacherEnrollmentRequestGroupMemberDto> GroupMembers { get; set; } = new();
     public List<TeacherEnrollmentRequestProposedSessionDto> ProposedSessions { get; set; } = new();
     public DateOnly PreferredStartDate { get; set; }
     public DateOnly PreferredEndDate { get; set; }
-    /// <summary>Concrete schedule dates the algorithm would generate for this request (computed on read).</summary>
+    /// <summary>Concrete schedule dates for this request (computed on read).</summary>
     public List<ProposedScheduleSlotDto> ProposedScheduleDates { get; set; } = new();
 }
 
