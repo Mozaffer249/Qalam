@@ -11,6 +11,10 @@ public class GetRecommendedCoursesQuery : IRequest<Response<List<CourseCatalogIt
     [BindNever]
     public int UserId { get; set; }
 
+    /// <summary>
+    /// Learner to personalize recommendations (domain). Omit or 0 = use the authenticated user's linked student profile.
+    /// Guardians without their own student row must pass an explicit child id.
+    /// </summary>
     public int StudentId { get; set; }
 }
 

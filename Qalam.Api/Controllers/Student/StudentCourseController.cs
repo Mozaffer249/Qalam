@@ -52,7 +52,11 @@ public class StudentCourseController : AppControllerBase
     /// Requester must own the student (self) or be the student's guardian.
     /// </summary>
     /// <remarks>
+    /// GET Api/V1/Student/Courses/Recommended
     /// GET Api/V1/Student/Courses/Recommended?StudentId=5
+    ///
+    /// When StudentId is omitted, the server uses the authenticated user's linked student profile.
+    /// Guardians without a student profile must pass an explicit child StudentId.
     /// </remarks>
     [HttpGet(Router.StudentRecommendedCourses)]
     [ProducesResponseType(typeof(List<CourseCatalogItemDto>), StatusCodes.Status200OK)]

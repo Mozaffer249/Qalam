@@ -146,9 +146,9 @@ public class EnrollmentRequestDetailDto
 /// </summary>
 public class EnrollmentListItemDto
 {
-    /// <summary>
-    /// Approved course enrollment id (<c>CourseEnrollment</c>). Pass this value as <c>data.enrollmentId</c>
-    /// for POST Student/Payments/Enrollment (not the enrollment <em>request</em> id from pending requests).
+    /// <summary>ollment</c>). Pass this value as <c>data.enrollmentId</c>
+    /// for POST Student/Payments/Enro
+    /// Approved course enrollment id (<c>CourseEnrllment (not the enrollment <em>request</em> id from pending requests).
     /// </summary>
     public int Id { get; set; }
     public int CourseId { get; set; }

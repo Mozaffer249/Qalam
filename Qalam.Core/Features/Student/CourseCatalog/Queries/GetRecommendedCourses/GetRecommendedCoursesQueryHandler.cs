@@ -8,6 +8,7 @@ using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using StudentProfile = Qalam.Data.Entity.Student.Student;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetRecommendedCourses;
 
@@ -36,9 +37,22 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
         GetRecommendedCoursesQuery request,
         CancellationToken cancellationToken)
     {
-        var student = await _studentRepository.GetByIdAsync(request.StudentId);
-        if (student == null)
-            return NotFound<List<CourseCatalogItemDto>>("Student not found.");
+        StudentProfile student;
+        if (request.StudentId <= 0)
+        {
+            var ownStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
+            if (ownStudent == null)
+                return BadRequest<List<CourseCatalogItemDto>>(
+                    "Specify StudentId for which learner to recommend courses for. Your account has no student profile to infer self.");
+
+            student = ownStudent;
+        }
+        else
+        {
+            student = await _studentRepository.GetByIdAsync(request.StudentId);
+            if (student == null)
+                return NotFound<List<CourseCatalogItemDto>>("Student not found.");
+        }
 
         var isSelf = student.UserId == request.UserId;
         if (!isSelf)
