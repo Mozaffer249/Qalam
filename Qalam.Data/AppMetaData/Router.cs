@@ -154,6 +154,13 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherEnrollmentRequestApprove = TeacherEnrollmentRequestById + "/Approve";
         /// <summary>Reject enrollment request: Api/V1/Teacher/EnrollmentRequests/{id}/Reject</summary>
         public const string TeacherEnrollmentRequestReject = TeacherEnrollmentRequestById + "/Reject";
+
+        /// <summary>Active enrollments per course (mixed individual + group): Api/V1/Teacher/Courses/{courseId}/Enrollments</summary>
+        public const string TeacherCourseEnrollments = Rule + "Teacher/Courses/{courseId}/Enrollments";
+        /// <summary>Individual enrollment detail: Api/V1/Teacher/Enrollments/{id}</summary>
+        public const string TeacherEnrollmentById = Rule + "Teacher/Enrollments/{id}";
+        /// <summary>Group enrollment detail: Api/V1/Teacher/GroupEnrollments/{id}</summary>
+        public const string TeacherGroupEnrollmentById = Rule + "Teacher/GroupEnrollments/{id}";
         #endregion
 
         #region Student
