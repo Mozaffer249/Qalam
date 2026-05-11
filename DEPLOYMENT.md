@@ -1,5 +1,7 @@
 # Deploy Qalam to Hostinger VPS
 
+**Same server: API + multiple frontends (Nginx subdomains + HTTPS):** see [NGINX_SUBDOMAIN_DEPLOYMENT.md](NGINX_SUBDOMAIN_DEPLOYMENT.md).
+
 ## Prerequisites
 
 - Hostinger VPS with Docker installed

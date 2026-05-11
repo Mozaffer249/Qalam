@@ -8,13 +8,13 @@ The Docker setup includes:
 - **Qalam API** (Port 8080) - Main backend API
 - **MessagingApi** (Port 5001) - Email/SMS/Push notification microservice
 - **RabbitMQ** (Ports 5672, 15672) - Message broker for async processing
-- **Remote Database** - SQL Server on `db37349.public.databaseasp.net`
+- **Remote Database** - SQL Server (connection string in your `.env` as `DB_CONNECTION_STRING`)
 
 ## Prerequisites
 
 - Docker Desktop installed and running
 - Access to the remote database server
-- MessagingApi project available at `../Train-Backend/apps/backend/Sudan_Train.MessagingApi`
+- `Qalam.MessagingApi` in this repository (built by `docker-compose` from `Qalam.MessagingApi/Dockerfile`)
 
 ## Quick Start
 
@@ -67,7 +67,19 @@ The Docker setup includes:
 
 ## Environment Variables
 
-You can customize the configuration using environment variables or a `.env` file:
+You can customize the configuration using environment variables or a `.env` file in the **same directory** as `docker-compose.yml` (Compose loads it automatically).
+
+### Required for `docker compose up` (main + messaging)
+
+Copy [`.env.example`](.env.example) to `.env` and set at least:
+
+| Variable | Used by | Notes |
+|----------|---------|--------|
+| `DB_CONNECTION_STRING` | **qalam-api** (`ConnectionStrings__dbcontext`) and **messaging-api** (`ConnectionStrings__MessagingDb`) | Must be a valid SQL Server connection string starting with `Server=` or `Data Source=`. If empty, Messaging API fails migrations with *ConnectionString has not been initialized*. |
+| `ENCRYPTION_KEY` | **qalam-api** (`EncryptionSettings__Key`) | Required by `ApplicationDBContext` for column encryption. If empty: *EncryptionSettings:Key is not configured*. Same key must be used for any DB that already has encrypted columns. |
+| `JWT_SECRET` | **qalam-api** | Signing key for JWT tokens. |
+
+If any required value is missing, `docker compose` will **fail at startup** with an explicit interpolation error (see `docker-compose.yml`).
 
 ### Database Connection
 ```bash
