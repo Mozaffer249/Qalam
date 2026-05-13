@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
@@ -101,6 +102,15 @@ public class StudentCourseController : AppControllerBase
     /// <remarks>
     /// POST Api/V1/Student/EnrollmentRequests
     ///
+    /// Approval rule (driven by <c>Course.IsFlexible</c>):
+    /// - **Fixed course** (`IsFlexible = false`) — sessions are pre-validated, so the request
+    ///   **auto-approves on submit**. Individual: an `Enrollment` row in `PendingPayment` is created
+    ///   immediately; the response carries `status = "Approved"`. Group: the request is `Approved`
+    ///   but the `Enrollment` row is created only after the **last invitee responds**.
+    /// - **Flexible course** (`IsFlexible = true`) — the student's proposed sessions need the
+    ///   teacher's review. Response carries `status = "Pending"`; teacher approves via
+    ///   POST `/Teacher/EnrollmentRequests/{id}/Approve`.
+    ///
     /// Rules:
     /// - `data.courseId` is required.
     /// - `data.studentIds` — optional; omit or `[]` to enroll **only yourself** (server uses your linked student id).
@@ -108,10 +118,17 @@ public class StudentCourseController : AppControllerBase
     /// - `data.invitedStudentIds` — students that will receive an invitation and must accept before being added to the group.
     /// - `data.selectedSessionSlots` — one row per course session: `sessionNumber`, `teacherAvailabilityId`, and `date`
     ///   (calendar cells from GET teacher availability by date range).
-    /// - `data.proposedSessions` — only required for flexible courses. For fixed courses the session outline is taken from the course.
-    ///   `sessionNumber` here is 1-based and must be unique within the array.
+    /// - `data.proposedSessions` — required for flexible courses; rejected for fixed courses.
+    ///   For flexible: each entry's `title`, `durationMinutes`, `notes` become the literal
+    ///   `CourseSchedule` titles/durations once payment activates the enrollment.
+    ///   `sessionNumber` is 1-based and unique within the array.
     ///
-    /// Sample request body (fixed course, single student):
+    /// Next step after success:
+    /// - Fixed individual → call POST `/Student/Payments/Participants` with the participant id from the new enrollment.
+    /// - Fixed group → wait for invitees to respond; once all responded, leader pays per-member share.
+    /// - Flexible → wait for teacher approval; when status flips to Approved, pay per-participant.
+    ///
+    /// Sample request (fixed course, single student) — auto-approves:
     /// <code>
     /// {
     ///   "data": {
@@ -128,7 +145,7 @@ public class StudentCourseController : AppControllerBase
     /// }
     /// </code>
     ///
-    /// Sample request body (flexible course, group with invites):
+    /// Sample request (flexible course, group with invites):
     /// <code>
     /// {
     ///   "data": {
@@ -150,14 +167,14 @@ public class StudentCourseController : AppControllerBase
     /// }
     /// </code>
     ///
-    /// Sample response:
+    /// Sample response (fixed individual, auto-approved):
     /// <code>
     /// {
     ///   "data": {
     ///     "id": 123,
     ///     "courseId": 1,
     ///     "courseTitle": "Mathematics - Grade 10",
-    ///     "status": "Pending",
+    ///     "status": "Approved",
     ///     "totalMinutes": 540,
     ///     "estimatedTotalPrice": 450.00,
     ///     "selectedSessionSlots": [
@@ -165,8 +182,7 @@ public class StudentCourseController : AppControllerBase
     ///       { "sessionNumber": 2, "teacherAvailabilityId": 27, "date": "2026-05-10" }
     ///     ],
     ///     "groupMembers": [
-    ///       { "studentId": 42, "memberType": "Owner",  "confirmationStatus": "Confirmed", "confirmedAt": "2026-04-18T10:00:00Z" },
-    ///       { "studentId": 55, "memberType": "Invited", "confirmationStatus": "Pending",  "confirmedAt": null }
+    ///       { "studentId": 42, "memberType": "Own", "confirmationStatus": "Confirmed", "confirmedAt": "2026-04-18T10:00:00Z" }
     ///     ],
     ///     "proposedSessions": []
     ///   },
@@ -212,9 +228,21 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Get my enrollments (paginated).
+    /// Get my enrollments (paginated). Unified — covers both individual and group enrollments
+    /// in one list; <c>kind</c> tells them apart.
     /// </summary>
-    /// <remarks>GET Api/V1/Student/Enrollments</remarks>
+    /// <remarks>
+    /// GET Api/V1/Student/Enrollments?PageNumber=1&amp;PageSize=10
+    ///
+    /// Each row carries:
+    /// - `id` — the <c>Enrollment</c> primary key (use for the detail endpoint and payment summary).
+    /// - `kind` — `Individual` or `Group`.
+    /// - `enrollmentStatus` — `PendingPayment` | `Active` | `Completed` | `Cancelled`.
+    /// - `participantCount` — `1` for Individual, N for Group.
+    /// - `leaderStudentName` — populated for Group, null for Individual.
+    ///
+    /// Group enrollments appear here for every member (the per-member payment status lives on the participant row).
+    /// </remarks>
     [HttpGet(Router.StudentEnrollments)]
     [ProducesResponseType(typeof(List<EnrollmentListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyEnrollments([FromQuery] GetMyEnrollmentsQuery query)
@@ -223,14 +251,20 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Get my enrollment by ID.
+    /// Get my enrollment by ID. Returns the unified shape with <c>participants[]</c> (length 1
+    /// for Individual, N for Group) plus the generated session schedule.
     /// </summary>
     /// <remarks>
     /// GET Api/V1/Student/Enrollments/{id}
     ///
-    /// Response includes <c>sessions</c> (saved <c>CourseSchedule</c> rows) with
-    /// <c>canStart</c> when enrollment is Active, the session is Scheduled, and current UTC
-    /// is within the time slot window on the session date.
+    /// Response highlights:
+    /// - `kind` and `leaderStudentId` (null for Individual).
+    /// - `participants[]` — each entry carries `id` (use as `participantId` in payment), `studentId`,
+    ///   `studentFullName`, `paymentStatus`, `paidAt`.
+    /// - `sessions[]` — saved `CourseSchedule` rows. Empty until the enrollment is `Active`
+    ///   (i.e., all participants have paid). `canStart = true` only when enrollment is Active,
+    ///   the schedule is `Scheduled`, and current UTC is within the time-slot window on the
+    ///   session date.
     /// </remarks>
     [HttpGet(Router.StudentEnrollmentById)]
     [ProducesResponseType(typeof(EnrollmentDetailDto), StatusCodes.Status200OK)]
