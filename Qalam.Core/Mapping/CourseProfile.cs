@@ -40,7 +40,7 @@ public class CourseProfile : Profile
                 src.SessionType != null ? src.SessionType.NameEn : null))
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
                 src.MaxStudents.HasValue
-                    ? src.MaxStudents.Value - src.CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
+                    ? src.MaxStudents.Value - src.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
                     : (int?)null));
 
         // Course -> CourseCatalogDetailDto
@@ -94,7 +94,7 @@ public class CourseProfile : Profile
                 src.SessionType != null ? src.SessionType.NameEn : null))
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
                 src.MaxStudents.HasValue
-                    ? src.MaxStudents.Value - src.CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
+                    ? src.MaxStudents.Value - src.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
                     : (int?)null))
             .ForMember(dest => dest.Sessions, opt => opt.MapFrom(src =>
                 src.Sessions
@@ -175,17 +175,29 @@ public class CourseProfile : Profile
             // ProposedScheduleDates are computed at read-time by the query handler, not mapped from entity.
             .ForMember(dest => dest.ProposedScheduleDates, opt => opt.Ignore());
 
-        // CourseEnrollment -> EnrollmentListItemDto
-        CreateMap<CourseEnrollment, EnrollmentListItemDto>()
+        // Enrollment -> EnrollmentListItemDto
+        CreateMap<Enrollment, EnrollmentListItemDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.ApprovedByTeacher != null && src.ApprovedByTeacher.User != null
                     ? (src.ApprovedByTeacher.User.FirstName + " " + src.ApprovedByTeacher.User.LastName).Trim()
+                    : null))
+            .ForMember(dest => dest.ParticipantCount, opt => opt.MapFrom(src => src.Participants.Count))
+            .ForMember(dest => dest.LeaderStudentName, opt => opt.MapFrom(src =>
+                src.LeaderStudent != null && src.LeaderStudent.User != null
+                    ? ((src.LeaderStudent.User.FirstName ?? "") + " " + (src.LeaderStudent.User.LastName ?? "")).Trim()
                     : null));
 
-        // CourseEnrollment -> EnrollmentDetailDto
-        CreateMap<CourseEnrollment, EnrollmentDetailDto>()
+        // EnrollmentParticipant -> EnrollmentParticipantDto
+        CreateMap<EnrollmentParticipant, EnrollmentParticipantDto>()
+            .ForMember(dest => dest.StudentFullName, opt => opt.MapFrom(src =>
+                src.Student != null && src.Student.User != null
+                    ? ((src.Student.User.FirstName ?? "") + " " + (src.Student.User.LastName ?? "")).Trim()
+                    : null));
+
+        // Enrollment -> EnrollmentDetailDto (Sessions list is composed by the handler from CourseSchedules)
+        CreateMap<Enrollment, EnrollmentDetailDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
             .ForMember(dest => dest.CourseDescription, opt => opt.MapFrom(src =>

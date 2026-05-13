@@ -155,12 +155,10 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Reject enrollment request: Api/V1/Teacher/EnrollmentRequests/{id}/Reject</summary>
         public const string TeacherEnrollmentRequestReject = TeacherEnrollmentRequestById + "/Reject";
 
-        /// <summary>Active enrollments per course (mixed individual + group): Api/V1/Teacher/Courses/{courseId}/Enrollments</summary>
+        /// <summary>Enrollments per course (unified — kind tells individual vs group): Api/V1/Teacher/Courses/{courseId}/Enrollments</summary>
         public const string TeacherCourseEnrollments = Rule + "Teacher/Courses/{courseId}/Enrollments";
-        /// <summary>Individual enrollment detail: Api/V1/Teacher/Enrollments/{id}</summary>
+        /// <summary>Enrollment detail (unified — individual or group): Api/V1/Teacher/Enrollments/{id}</summary>
         public const string TeacherEnrollmentById = Rule + "Teacher/Enrollments/{id}";
-        /// <summary>Group enrollment detail: Api/V1/Teacher/GroupEnrollments/{id}</summary>
-        public const string TeacherGroupEnrollmentById = Rule + "Teacher/GroupEnrollments/{id}";
         #endregion
 
         #region Student
@@ -189,14 +187,10 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Student pending invitations: Api/V1/Student/Invitations</summary>
         public const string StudentInvitations = Rule + "Student/Invitations";
 
-        /// <summary>Pay an individual enrollment: Api/V1/Student/Payments/Enrollment</summary>
-        public const string StudentPayEnrollment = Rule + "Student/Payments/Enrollment";
-        /// <summary>Pay a group enrollment member: Api/V1/Student/Payments/GroupMember</summary>
-        public const string StudentPayGroupMember = Rule + "Student/Payments/GroupMember";
-        /// <summary>Individual payment summary: Api/V1/Student/Payments/Enrollment/{enrollmentId}/Summary</summary>
-        public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollment/{enrollmentId}/Summary";
-        /// <summary>Group payment summary: Api/V1/Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary</summary>
-        public const string StudentGroupEnrollmentPaymentSummary = Rule + "Student/Payments/GroupEnrollment/{groupEnrollmentId}/Summary";
+        /// <summary>Pay one participant of an enrollment (individual = the only participant; group = one member). Api/V1/Student/Payments/Participants</summary>
+        public const string StudentPayEnrollmentParticipant = Rule + "Student/Payments/Participants";
+        /// <summary>Unified enrollment payment summary: Api/V1/Student/Payments/Enrollments/{enrollmentId}/Summary</summary>
+        public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollments/{enrollmentId}/Summary";
 
         /// <summary>Teacher availability for a date range (calendar view): Api/V1/Student/Teachers/{teacherId}/Availability</summary>
         public const string StudentTeacherAvailability = Rule + "Student/Teachers/{teacherId}/Availability";

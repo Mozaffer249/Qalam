@@ -3,29 +3,16 @@ using Qalam.Data.Entity.Common.Enums;
 namespace Qalam.Data.DTOs.Payment;
 
 /// <summary>
-/// Body for paying an individual enrollment.
+/// Body for paying for a single enrollment participant. Individual enrollments have
+/// exactly one participant; group enrollments have one per member.
 /// </summary>
-public class PayEnrollmentRequestDto
+public class PayEnrollmentParticipantRequestDto
 {
     /// <summary>
-    /// Primary key of <c>CourseEnrollment</c> — the same <c>id</c> returned by GET Student/Enrollments.
-    /// Do not send the enrollment <em>request</em> id (GET Student/EnrollmentRequests).
+    /// Primary key of <c>EnrollmentParticipant</c> — found on
+    /// GET Student/Enrollments (per-row participant id) or in the enrollment detail view.
     /// </summary>
-    public int EnrollmentId { get; set; }
-}
-
-/// <summary>
-/// Body for paying for a single member of a group enrollment.
-/// </summary>
-public class PayGroupMemberRequestDto
-{
-    public int GroupEnrollmentId { get; set; }
-
-    /// <summary>
-    /// The student that this payment is for (member being paid for, not the payer).
-    /// The caller (= payer) is resolved from auth: self if adult, guardian if minor.
-    /// </summary>
-    public int StudentId { get; set; }
+    public int ParticipantId { get; set; }
 }
 
 /// <summary>
@@ -46,22 +33,9 @@ public class PaymentResultDto
     public int SchedulesCreated { get; set; }
 }
 
-/// <summary>
-/// Payment summary for an individual enrollment.
-/// </summary>
-public class EnrollmentPaymentSummaryDto
+public class EnrollmentParticipantPaymentSummaryDto
 {
-    public int EnrollmentId { get; set; }
-    public EnrollmentStatus EnrollmentStatus { get; set; }
-    public decimal AmountDue { get; set; }
-    public decimal AmountPaid { get; set; }
-    public PaymentStatus PaymentStatus { get; set; }
-    public DateTime? PaymentDeadline { get; set; }
-    public string Currency { get; set; } = "SAR";
-}
-
-public class GroupEnrollmentMemberPaymentSummaryDto
-{
+    public int ParticipantId { get; set; }
     public int StudentId { get; set; }
     public string? StudentName { get; set; }
     public PaymentStatus PaymentStatus { get; set; }
@@ -70,17 +44,18 @@ public class GroupEnrollmentMemberPaymentSummaryDto
 }
 
 /// <summary>
-/// Payment summary for a group enrollment.
+/// Unified payment summary. Individual: one participant; Group: one per member.
 /// </summary>
-public class GroupEnrollmentPaymentSummaryDto
+public class EnrollmentPaymentSummaryDto
 {
-    public int GroupEnrollmentId { get; set; }
-    public EnrollmentStatus Status { get; set; }
+    public int EnrollmentId { get; set; }
+    public EnrollmentKind Kind { get; set; }
+    public EnrollmentStatus EnrollmentStatus { get; set; }
     public DateTime? PaymentDeadline { get; set; }
     public DateTime? ActivatedAt { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal AmountPaid { get; set; }
     public decimal AmountRemaining { get; set; }
     public string Currency { get; set; } = "SAR";
-    public List<GroupEnrollmentMemberPaymentSummaryDto> Members { get; set; } = new();
+    public List<EnrollmentParticipantPaymentSummaryDto> Participants { get; set; } = new();
 }

@@ -40,3 +40,12 @@ public enum GroupMemberType
     Own = 1,
     Invited = 2
 }
+
+/// <summary>
+/// شكل التسجيل: فردي أو جماعي
+/// </summary>
+public enum EnrollmentKind
+{
+    Individual = 1,
+    Group = 2
+}

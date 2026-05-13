@@ -64,14 +64,6 @@ public class CourseConfiguration : IEntityTypeConfiguration<Qalam.Data.Entity.Co
                .HasForeignKey(cer => cer.CourseId)
                .OnDelete(DeleteBehavior.Cascade);
         
-        builder.HasMany(e => e.CourseEnrollments)
-               .WithOne(ce => ce.Course)
-               .HasForeignKey(ce => ce.CourseId)
-               .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasMany(e => e.CourseGroupEnrollments)
-               .WithOne(cge => cge.Course)
-               .HasForeignKey(cge => cge.CourseId)
-               .OnDelete(DeleteBehavior.Cascade);
+        // The Enrollments <-> Course relationship is owned by EnrollmentConfiguration.
     }
 }

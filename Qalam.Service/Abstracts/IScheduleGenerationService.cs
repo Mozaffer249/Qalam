@@ -55,13 +55,12 @@ public interface IScheduleGenerationService
 
     /// <summary>
     /// Materialises CourseSchedule entities for an enrollment that just became fully paid.
-    /// Caller must attach the returned schedules to the appropriate enrollment navigation
+    /// Caller must attach the returned schedules to the enrollment's CourseSchedules navigation
     /// collection and save the DbContext.
     /// </summary>
     List<CourseSchedule> Generate(
         Course course,
         CourseEnrollmentRequest request,
-        int? courseEnrollmentId,
-        int? courseGroupEnrollmentId,
+        int enrollmentId,
         DateOnly startDate);
 }

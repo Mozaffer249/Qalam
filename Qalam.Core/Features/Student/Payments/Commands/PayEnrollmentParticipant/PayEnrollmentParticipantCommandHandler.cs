@@ -12,24 +12,24 @@ using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
-namespace Qalam.Core.Features.Student.Payments.Commands.PayGroupMember;
+namespace Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
 
-public class PayGroupMemberCommandHandler : ResponseHandler,
-    IRequestHandler<PayGroupMemberCommand, Response<PaymentResultDto>>
+public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
+    IRequestHandler<PayEnrollmentParticipantCommand, Response<PaymentResultDto>>
 {
-    private readonly ICourseGroupEnrollmentRepository _groupRepository;
+    private readonly IEnrollmentParticipantRepository _participantRepository;
     private readonly IPaymentRepository _paymentRepository;
-    private readonly IGroupEnrollmentMemberPaymentRepository _memberPaymentRepository;
+    private readonly IEnrollmentPaymentRepository _enrollmentPaymentRepository;
     private readonly IGuardianRepository _guardianRepository;
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly PaymentSettings _settings;
 
-    public PayGroupMemberCommandHandler(
-        ICourseGroupEnrollmentRepository groupRepository,
+    public PayEnrollmentParticipantCommandHandler(
+        IEnrollmentParticipantRepository participantRepository,
         IPaymentRepository paymentRepository,
-        IGroupEnrollmentMemberPaymentRepository memberPaymentRepository,
+        IEnrollmentPaymentRepository enrollmentPaymentRepository,
         IGuardianRepository guardianRepository,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
         ICourseScheduleRepository scheduleRepository,
@@ -37,9 +37,9 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
         IOptions<PaymentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
-        _groupRepository = groupRepository;
+        _participantRepository = participantRepository;
         _paymentRepository = paymentRepository;
-        _memberPaymentRepository = memberPaymentRepository;
+        _enrollmentPaymentRepository = enrollmentPaymentRepository;
         _guardianRepository = guardianRepository;
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
         _scheduleRepository = scheduleRepository;
@@ -48,37 +48,35 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
     }
 
     public async Task<Response<PaymentResultDto>> Handle(
-        PayGroupMemberCommand request,
+        PayEnrollmentParticipantCommand request,
         CancellationToken cancellationToken)
     {
-        var dto = request.Data;
+        var participantId = request.Data.ParticipantId;
 
-        var group = await _groupRepository.GetByIdForPaymentAsync(dto.GroupEnrollmentId, cancellationToken);
-        if (group == null)
-            return NotFound<PaymentResultDto>("Group enrollment not found.");
+        var participant = await _participantRepository.GetByIdForPaymentAsync(participantId, cancellationToken);
+        if (participant == null)
+            return NotFound<PaymentResultDto>("Enrollment participant not found.");
 
-        if (group.Status != EnrollmentStatus.PendingPayment)
-            return BadRequest<PaymentResultDto>("Only pending-payment group enrollments can be paid.");
+        var enrollment = participant.Enrollment;
+
+        if (enrollment.EnrollmentStatus != EnrollmentStatus.PendingPayment)
+            return BadRequest<PaymentResultDto>("Only pending-payment enrollments can be paid.");
 
         var now = DateTime.UtcNow;
-        if (group.PaymentDeadline.HasValue && group.PaymentDeadline.Value < now)
+        if (enrollment.PaymentDeadline.HasValue && enrollment.PaymentDeadline.Value < now)
             return BadRequest<PaymentResultDto>("Payment deadline has expired.");
 
-        if (group.EnrollmentRequest == null)
-            return BadRequest<PaymentResultDto>("Group enrollment is missing its originating request — cannot generate schedules.");
+        if (enrollment.EnrollmentRequest == null)
+            return BadRequest<PaymentResultDto>("Enrollment is missing its originating request — cannot generate schedules.");
 
-        var member = group.Members.FirstOrDefault(m => m.StudentId == dto.StudentId);
-        if (member == null)
-            return NotFound<PaymentResultDto>("Member not found in this group enrollment.");
+        if (participant.PaymentStatus == PaymentStatus.Succeeded)
+            return BadRequest<PaymentResultDto>("This participant has already paid.");
 
-        if (member.PaymentStatus == PaymentStatus.Succeeded)
-            return BadRequest<PaymentResultDto>("This member has already paid.");
+        if (participant.PaymentStatus == PaymentStatus.Cancelled)
+            return BadRequest<PaymentResultDto>("This participant's payment was cancelled.");
 
-        if (member.PaymentStatus == PaymentStatus.Cancelled)
-            return BadRequest<PaymentResultDto>("This member's payment was cancelled.");
-
-        // Authorization on the target student (NOT the leader / request owner).
-        var targetStudent = member.Student;
+        // Authorization on the target student.
+        var targetStudent = participant.Student;
         if (targetStudent == null)
             return BadRequest<PaymentResultDto>("Target student record is unavailable.");
 
@@ -94,29 +92,37 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
         else
         {
             if (targetStudent.UserId != request.UserId)
-                return BadRequest<PaymentResultDto>("Only the student themselves can pay for this membership.");
+                return BadRequest<PaymentResultDto>("Only the student themselves can pay for this participation.");
         }
 
-        // Compute the per-member share. The last payer absorbs any rounding remainder
-        // so that the sum of all member payments equals EstimatedTotalPrice exactly.
-        var totalAmount = group.EnrollmentRequest.EstimatedTotalPrice;
-        var memberCount = group.Members.Count;
-        if (memberCount <= 0)
-            return BadRequest<PaymentResultDto>("Group enrollment has no members.");
+        // Compute this participant's share. Individual: full amount. Group: equal split, with
+        // the LAST pending payer absorbing rounding remainder so the sum equals total exactly.
+        var totalAmount = enrollment.EnrollmentRequest.EstimatedTotalPrice;
+        var participantCount = enrollment.Participants.Count;
+        if (participantCount <= 0)
+            return BadRequest<PaymentResultDto>("Enrollment has no participants.");
 
-        var baseShare = Math.Round(totalAmount / memberCount, 2, MidpointRounding.AwayFromZero);
-        var succeededCount = group.Members.Count(m => m.PaymentStatus == PaymentStatus.Succeeded);
-        var pendingCount = group.Members.Count(m => m.PaymentStatus == PaymentStatus.Pending);
-        var isLastPending = pendingCount == 1;
+        decimal share;
+        if (enrollment.Kind == EnrollmentKind.Individual)
+        {
+            share = totalAmount;
+        }
+        else
+        {
+            var baseShare = Math.Round(totalAmount / participantCount, 2, MidpointRounding.AwayFromZero);
+            var succeededCount = enrollment.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
+            var pendingCount = enrollment.Participants.Count(p => p.PaymentStatus == PaymentStatus.Pending);
+            var isLastPending = pendingCount == 1;
 
-        var share = isLastPending
-            ? totalAmount - (baseShare * succeededCount)
-            : baseShare;
+            share = isLastPending
+                ? totalAmount - (baseShare * succeededCount)
+                : baseShare;
+        }
 
         if (share <= 0)
-            return BadRequest<PaymentResultDto>("Computed member share must be greater than zero.");
+            return BadRequest<PaymentResultDto>("Computed participant share must be greater than zero.");
 
-        var transaction = await _groupRepository.BeginTransactionAsync();
+        var transaction = await _participantRepository.BeginTransactionAsync();
         try
         {
             var payment = new Payment
@@ -134,42 +140,40 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
             payment.PaymentItems.Add(new PaymentItem
             {
                 ItemType = PaymentItemType.CourseEnrollment,
-                ReferenceId = group.Id,
-                Description = group.Course?.Title,
+                ReferenceId = enrollment.Id,
+                Description = enrollment.Course?.Title,
                 Amount = share
             });
             await _paymentRepository.AddAsync(payment);
 
-            await _memberPaymentRepository.AddAsync(new GroupEnrollmentMemberPayment
+            await _enrollmentPaymentRepository.AddAsync(new EnrollmentPayment
             {
-                CourseGroupEnrollmentMemberId = member.Id,
+                EnrollmentParticipantId = participant.Id,
                 PaymentId = payment.Id,
                 Status = PaymentStatus.Succeeded
             });
 
-            member.PaymentStatus = PaymentStatus.Succeeded;
-            member.PaidAt = now;
+            participant.PaymentStatus = PaymentStatus.Succeeded;
+            participant.PaidAt = now;
 
-            var allPaid = group.Members.All(m => m.PaymentStatus == PaymentStatus.Succeeded);
+            var allPaid = enrollment.Participants.All(p => p.PaymentStatus == PaymentStatus.Succeeded);
             var schedulesCreated = 0;
 
             if (allPaid)
             {
-                group.Status = EnrollmentStatus.Active;
-                group.ActivatedAt = now;
+                enrollment.EnrollmentStatus = EnrollmentStatus.Active;
+                enrollment.ActivatedAt = now;
 
-                // Compute effective start; never go into the past.
                 var today = DateOnly.FromDateTime(now);
-                var effectiveStart = group.EnrollmentRequest!.PreferredStartDate < today
+                var enrollmentRequest = enrollment.EnrollmentRequest!;
+                var effectiveStart = enrollmentRequest.PreferredStartDate < today
                     ? today
-                    : group.EnrollmentRequest.PreferredStartDate;
+                    : enrollmentRequest.PreferredStartDate;
 
-                // Race-loser check: re-validate against existing CourseSchedules right
-                // before we persist (mock provider; rollback is clean).
-                var enrollmentRequest = group.EnrollmentRequest!;
-
+                // Race-loser re-check: if a competing student paid for the same slot between
+                // our submit and now, reject before persisting (mock provider — clean rollback).
                 var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
-                    group.Course!.TeacherId,
+                    enrollment.Course!.TeacherId,
                     effectiveStart,
                     enrollmentRequest.PreferredEndDate);
 
@@ -198,7 +202,7 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
                         cancellationToken);
 
                     preview = _scheduleGenerator.PreviewExplicit(
-                        group.Course!,
+                        enrollment.Course!,
                         enrollmentRequest,
                         selections,
                         availabilityById,
@@ -220,7 +224,7 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
                         cancellationToken);
 
                     preview = _scheduleGenerator.Preview(
-                        group.Course!,
+                        enrollment.Course!,
                         enrollmentRequest,
                         slots,
                         blockedExceptions,
@@ -231,38 +235,36 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
 
                 if (preview.Conflicts.Count > 0)
                 {
-                    await _groupRepository.RollBackAsync();
+                    await _participantRepository.RollBackAsync();
                     return BadRequest<PaymentResultDto>(
                         "Some of your scheduled dates were just booked by another student. Please re-submit with different dates.");
                 }
 
                 if (!preview.FitsInWindow)
                 {
-                    await _groupRepository.RollBackAsync();
+                    await _participantRepository.RollBackAsync();
                     return BadRequest<PaymentResultDto>(
-                        $"Schedule no longer fits before {group.EnrollmentRequest.PreferredEndDate:yyyy-MM-dd}. Please re-submit with a longer window.");
+                        $"Schedule no longer fits before {enrollmentRequest.PreferredEndDate:yyyy-MM-dd}. Please re-submit with a longer window.");
                 }
 
-                var schedules = preview.Slots
-                    .Select(s => new Qalam.Data.Entity.Course.CourseSchedule
+                foreach (var s in preview.Slots)
+                {
+                    enrollment.CourseSchedules.Add(new CourseSchedule
                     {
                         Date = s.Date,
                         TeacherAvailabilityId = s.TeacherAvailabilityId,
                         DurationMinutes = s.DurationMinutes,
-                        TeachingModeId = group.Course!.TeachingModeId,
+                        TeachingModeId = enrollment.Course!.TeachingModeId,
                         LocationId = null,
                         Status = ScheduleStatus.Scheduled
-                    })
-                    .ToList();
+                    });
+                }
 
-                foreach (var s in schedules)
-                    group.CourseSchedules.Add(s);
-
-                schedulesCreated = schedules.Count;
+                schedulesCreated = preview.Slots.Count;
             }
 
-            await _groupRepository.SaveChangesAsync();
-            await _groupRepository.CommitAsync();
+            await _participantRepository.SaveChangesAsync();
+            await _participantRepository.CommitAsync();
 
             return Success(entity: new PaymentResultDto
             {
@@ -277,7 +279,7 @@ public class PayGroupMemberCommandHandler : ResponseHandler,
         }
         catch
         {
-            await _groupRepository.RollBackAsync();
+            await _participantRepository.RollBackAsync();
             throw;
         }
     }

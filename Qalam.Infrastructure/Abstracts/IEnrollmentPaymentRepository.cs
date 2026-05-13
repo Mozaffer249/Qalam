@@ -3,6 +3,6 @@ using Qalam.Infrastructure.InfrastructureBases;
 
 namespace Qalam.Infrastructure.Abstracts;
 
-public interface ICourseEnrollmentPaymentRepository : IGenericRepositoryAsync<CourseEnrollmentPayment>
+public interface IEnrollmentPaymentRepository : IGenericRepositoryAsync<EnrollmentPayment>
 {
 }

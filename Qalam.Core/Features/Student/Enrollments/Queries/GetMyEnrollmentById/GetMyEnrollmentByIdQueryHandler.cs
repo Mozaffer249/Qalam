@@ -16,12 +16,12 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     IRequestHandler<GetMyEnrollmentByIdQuery, Response<EnrollmentDetailDto>>
 {
     private readonly IStudentRepository _studentRepository;
-    private readonly ICourseEnrollmentRepository _enrollmentRepository;
+    private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
 
     public GetMyEnrollmentByIdQueryHandler(
         IStudentRepository studentRepository,
-        ICourseEnrollmentRepository enrollmentRepository,
+        IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -51,15 +51,20 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                 .ThenInclude(r => r.SelectedSessionSlots)
             .Include(e => e.ApprovedByTeacher)
                 .ThenInclude(t => t.User)
+            .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
+            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
                     .ThenInclude(ta => ta.TimeSlot)
             .FirstOrDefaultAsync(e => e.Id == request.Id, cancellationToken);
 
-        if (enrollment == null || enrollment.StudentId != student.Id)
+        if (enrollment == null || enrollment.Participants.All(p => p.StudentId != student.Id))
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
+        dto.Participants = enrollment.Participants
+            .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
+            .ToList();
 
         var utcNow = DateTime.UtcNow;
         var schedules = enrollment.CourseSchedules != null

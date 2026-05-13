@@ -84,8 +84,7 @@ public class Course : AuditableEntity
     public SessionType SessionType { get; set; } = null!;
     
     public ICollection<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; } = new List<CourseEnrollmentRequest>();
-    public ICollection<CourseEnrollment> CourseEnrollments { get; set; } = new List<CourseEnrollment>();
-    public ICollection<CourseGroupEnrollment> CourseGroupEnrollments { get; set; } = new List<CourseGroupEnrollment>();
+    public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
     public ICollection<CourseSession> Sessions { get; set; } = new List<CourseSession>();
     
     // Computed Properties (محسوبة من TeacherSubject)
@@ -141,8 +140,8 @@ public class Course : AuditableEntity
     /// المقاعد المتاحة (للجلسات الجماعية) - غير مخزنة في قاعدة البيانات
     /// </summary>
     [NotMapped]
-    public int AvailableSeats => MaxStudents.HasValue 
-        ? MaxStudents.Value - CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
+    public int AvailableSeats => MaxStudents.HasValue
+        ? MaxStudents.Value - Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
         : int.MaxValue;
 
     /// <summary>

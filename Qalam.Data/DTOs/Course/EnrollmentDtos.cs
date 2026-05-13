@@ -142,20 +142,34 @@ public class EnrollmentRequestDetailDto
 }
 
 /// <summary>
-/// My enrollment list item.
+/// My enrollment list item (unified — individual or group).
 /// </summary>
 public class EnrollmentListItemDto
 {
-    /// <summary>ollment</c>). Pass this value as <c>data.enrollmentId</c>
-    /// for POST Student/Payments/Enro
-    /// Approved course enrollment id (<c>CourseEnrllment (not the enrollment <em>request</em> id from pending requests).
+    /// <summary>
+    /// <see cref="Enrollment"/> primary key.
     /// </summary>
     public int Id { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
+    public EnrollmentKind Kind { get; set; }
     public EnrollmentStatus EnrollmentStatus { get; set; }
     public DateTime ApprovedAt { get; set; }
     public string? TeacherDisplayName { get; set; }
+    public int ParticipantCount { get; set; }
+    public string? LeaderStudentName { get; set; }
+}
+
+/// <summary>
+/// A single participant in a unified enrollment (one row for individual, N rows for group).
+/// </summary>
+public class EnrollmentParticipantDto
+{
+    public int Id { get; set; }
+    public int StudentId { get; set; }
+    public string? StudentFullName { get; set; }
+    public PaymentStatus PaymentStatus { get; set; }
+    public DateTime? PaidAt { get; set; }
 }
 
 /// <summary>
@@ -196,7 +210,7 @@ public class EnrollmentSessionItemDto
 }
 
 /// <summary>
-/// My enrollment detail (full enrollment + course + teacher).
+/// My enrollment detail (full enrollment + course + teacher + participants).
 /// </summary>
 public class EnrollmentDetailDto
 {
@@ -205,13 +219,21 @@ public class EnrollmentDetailDto
     public string CourseTitle { get; set; } = default!;
     public string? CourseDescription { get; set; }
     public decimal CoursePrice { get; set; }
+    public EnrollmentKind Kind { get; set; }
+    public int? LeaderStudentId { get; set; }
     public EnrollmentStatus EnrollmentStatus { get; set; }
     public DateTime ApprovedAt { get; set; }
+    public DateTime? ActivatedAt { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+
+    /// <summary>
+    /// Participants in this enrollment. One row for Individual; N rows for Group.
+    /// </summary>
+    public List<EnrollmentParticipantDto> Participants { get; set; } = new();
 
     /// <summary>
     /// Scheduled sessions after payment (from <see cref="CourseSchedule"/>). Empty if none generated yet.

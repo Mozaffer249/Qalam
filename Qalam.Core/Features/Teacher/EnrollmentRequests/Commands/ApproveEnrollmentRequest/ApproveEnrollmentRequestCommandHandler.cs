@@ -5,9 +5,9 @@ using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
-using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.EnrollmentRequests.Commands.ApproveEnrollmentRequest;
 
@@ -16,22 +16,19 @@ public class ApproveEnrollmentRequestCommandHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
-    private readonly ICourseEnrollmentRepository _enrollmentRepository;
-    private readonly ICourseGroupEnrollmentRepository _groupEnrollmentRepository;
+    private readonly IEnrollmentApprovalService _approvalService;
     private readonly EnrollmentSettings _settings;
 
     public ApproveEnrollmentRequestCommandHandler(
         ITeacherRepository teacherRepository,
         ICourseEnrollmentRequestRepository requestRepository,
-        ICourseEnrollmentRepository enrollmentRepository,
-        ICourseGroupEnrollmentRepository groupEnrollmentRepository,
+        IEnrollmentApprovalService approvalService,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _requestRepository = requestRepository;
-        _enrollmentRepository = enrollmentRepository;
-        _groupEnrollmentRepository = groupEnrollmentRepository;
+        _approvalService = approvalService;
         _settings = settings.Value;
     }
 
@@ -54,75 +51,25 @@ public class ApproveEnrollmentRequestCommandHandler : ResponseHandler,
         if (enrollmentRequest.Course.TeacherId != teacher.Id)
             return BadRequest<string>("This request does not belong to your course.");
 
+        // Fixed courses auto-approve on submit; manual teacher approval is meaningless.
+        if (!enrollmentRequest.Course.IsFlexible)
+            return BadRequest<string>(
+                "This course is fixed — approval is automatic on submit. No teacher action is required.");
+
         if (enrollmentRequest.Status != RequestStatus.Pending)
             return BadRequest<string>("Only pending requests can be approved.");
 
-        var confirmedMembers = enrollmentRequest.GroupMembers
-            .Where(gm => gm.ConfirmationStatus == GroupMemberConfirmationStatus.Confirmed)
-            .ToList();
-
-        if (confirmedMembers.Count == 0)
-            return BadRequest<string>("No confirmed group members found.");
-
         var paymentDeadline = DateTime.UtcNow.AddHours(_settings.PaymentDeadlineHours);
-        var isGroupCourse = string.Equals(enrollmentRequest.Course.SessionType?.Code, "group", StringComparison.OrdinalIgnoreCase);
 
         var transaction = await _requestRepository.BeginTransactionAsync();
         try
         {
-            if (isGroupCourse)
-            {
-                var leaderMember = confirmedMembers
-                    .FirstOrDefault(gm => gm.MemberType == GroupMemberType.Own)
-                    ?? confirmedMembers.First();
-
-                var groupEnrollment = new CourseGroupEnrollment
-                {
-                    CourseId = enrollmentRequest.CourseId,
-                    EnrollmentRequestId = enrollmentRequest.Id,
-                    LeaderStudentId = leaderMember.StudentId,
-                    Status = EnrollmentStatus.PendingPayment,
-                    PaymentDeadline = paymentDeadline
-                };
-
-                await _groupEnrollmentRepository.AddAsync(groupEnrollment);
-                await _groupEnrollmentRepository.SaveChangesAsync();
-
-                var members = confirmedMembers.Select(gm => new CourseGroupEnrollmentMember
-                {
-                    CourseGroupEnrollmentId = groupEnrollment.Id,
-                    StudentId = gm.StudentId,
-                    PaymentStatus = PaymentStatus.Pending
-                }).ToList();
-
-                await _groupEnrollmentRepository.GetTableAsTracking()
-                    .Where(g => g.Id == groupEnrollment.Id)
-                    .Include(g => g.Members)
-                    .LoadAsync(cancellationToken);
-
-                foreach (var member in members)
-                    groupEnrollment.Members.Add(member);
-
-                await _groupEnrollmentRepository.SaveChangesAsync();
-            }
-            else
-            {
-                var studentMember = confirmedMembers.First();
-
-                var enrollment = new CourseEnrollment
-                {
-                    CourseId = enrollmentRequest.CourseId,
-                    StudentId = studentMember.StudentId,
-                    EnrollmentRequestId = enrollmentRequest.Id,
-                    ApprovedByTeacherId = teacher.Id,
-                    ApprovedAt = DateTime.UtcNow,
-                    PaymentDeadline = paymentDeadline,
-                    EnrollmentStatus = EnrollmentStatus.PendingPayment
-                };
-
-                await _enrollmentRepository.AddAsync(enrollment);
-                await _enrollmentRepository.SaveChangesAsync();
-            }
+            await _approvalService.CreatePendingPaymentArtifactsAsync(
+                enrollmentRequest,
+                enrollmentRequest.Course,
+                teacher.Id,
+                paymentDeadline,
+                cancellationToken);
 
             enrollmentRequest.Status = RequestStatus.Approved;
             await _requestRepository.SaveChangesAsync();

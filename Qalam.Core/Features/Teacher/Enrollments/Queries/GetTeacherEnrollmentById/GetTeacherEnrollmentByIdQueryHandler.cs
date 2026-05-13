@@ -18,12 +18,12 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
     IRequestHandler<GetTeacherEnrollmentByIdQuery, Response<TeacherEnrollmentDetailDto>>
 {
     private readonly ITeacherRepository _teacherRepository;
-    private readonly ICourseEnrollmentRepository _enrollmentRepository;
+    private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly PaymentSettings _paymentSettings;
 
     public GetTeacherEnrollmentByIdQueryHandler(
         ITeacherRepository teacherRepository,
-        ICourseEnrollmentRepository enrollmentRepository,
+        IEnrollmentRepository enrollmentRepository,
         IOptions<PaymentSettings> paymentSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -44,14 +44,13 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
             .Include(e => e.Course).ThenInclude(c => c.TeachingMode)
             .Include(e => e.Course).ThenInclude(c => c.SessionType)
             .Include(e => e.Course).ThenInclude(c => c.Sessions)
-            .Include(e => e.Student).ThenInclude(s => s.User)
+            .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
+            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.ProposedSessions)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
                     .ThenInclude(ta => ta.TimeSlot)
-            .Include(e => e.CourseEnrollmentPayments)
-                .ThenInclude(cep => cep.Payment)
             .FirstOrDefaultAsync(e => e.Id == request.Id, cancellationToken);
 
         if (enrollment == null)
@@ -60,14 +59,42 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
         if (enrollment.Course.TeacherId != teacher.Id)
             return NotFound<TeacherEnrollmentDetailDto>("Enrollment does not belong to your course.");
 
-        var amountDue = enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
-        var amountPaid = enrollment.CourseEnrollmentPayments
-            .Where(cep => cep.Status == PaymentStatus.Succeeded && cep.Payment != null)
-            .Sum(cep => cep.Payment.TotalAmount);
+        var totalAmount = enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        var participantCount = enrollment.Participants.Count;
+        var baseShare = participantCount > 0
+            ? Math.Round(totalAmount / participantCount, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+        var succeededCount = enrollment.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
 
-        var paymentStatus = (amountDue > 0m && amountPaid >= amountDue)
-            ? PaymentStatus.Succeeded
-            : PaymentStatus.Pending;
+        var amountPaid = succeededCount == participantCount && participantCount > 0
+            ? totalAmount
+            : baseShare * succeededCount;
+
+        var participants = enrollment.Participants
+            .OrderBy(p => p.Id)
+            .Select(p =>
+            {
+                var isLastPending = enrollment.Kind == EnrollmentKind.Group
+                                 && p.PaymentStatus == PaymentStatus.Pending
+                                 && enrollment.Participants.Count(x => x.PaymentStatus == PaymentStatus.Pending) == 1;
+                var share = enrollment.Kind == EnrollmentKind.Individual
+                    ? totalAmount
+                    : (isLastPending ? totalAmount - (baseShare * succeededCount) : baseShare);
+
+                return new TeacherEnrollmentParticipantDto
+                {
+                    ParticipantId = p.Id,
+                    StudentId = p.StudentId,
+                    StudentName = p.Student?.User != null
+                        ? (p.Student.User.FirstName + " " + p.Student.User.LastName).Trim()
+                        : null,
+                    IsMinor = p.Student?.IsMinor ?? false,
+                    PaymentStatus = p.PaymentStatus,
+                    PaidAt = p.PaidAt,
+                    Share = share
+                };
+            })
+            .ToList();
 
         var dto = new TeacherEnrollmentDetailDto
         {
@@ -76,22 +103,20 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
             CourseTitle = enrollment.Course.Title,
             TeachingModeNameEn = enrollment.Course.TeachingMode?.NameEn,
             SessionTypeNameEn = enrollment.Course.SessionType?.NameEn,
-            Student = new TeacherEnrollmentStudentDto
-            {
-                StudentId = enrollment.StudentId,
-                StudentName = enrollment.Student?.User != null
-                    ? (enrollment.Student.User.FirstName + " " + enrollment.Student.User.LastName).Trim()
-                    : null,
-                IsMinor = enrollment.Student?.IsMinor ?? false
-            },
+            Kind = enrollment.Kind,
+            LeaderStudentId = enrollment.LeaderStudentId,
+            LeaderStudentName = enrollment.LeaderStudent?.User != null
+                ? (enrollment.LeaderStudent.User.FirstName + " " + enrollment.LeaderStudent.User.LastName).Trim()
+                : null,
             EnrollmentStatus = enrollment.EnrollmentStatus,
             ApprovedAt = enrollment.ApprovedAt,
             ActivatedAt = enrollment.ActivatedAt,
             PaymentDeadline = enrollment.PaymentDeadline,
-            AmountDue = amountDue,
+            TotalAmount = totalAmount,
             AmountPaid = amountPaid,
-            PaymentStatus = paymentStatus,
-            Currency = _paymentSettings.DefaultCurrency
+            AmountRemaining = totalAmount - amountPaid,
+            Currency = _paymentSettings.DefaultCurrency,
+            Participants = participants
         };
 
         var utcNow = DateTime.UtcNow;

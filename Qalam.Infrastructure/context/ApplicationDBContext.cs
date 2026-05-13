@@ -102,10 +102,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<CourseRequestGroupMember> CourseRequestGroupMembers { get; set; }
         public DbSet<CourseRequestProposedSession> CourseRequestProposedSessions { get; set; }
         public DbSet<CourseSession> CourseSessions { get; set; }
-        public DbSet<CourseEnrollment> CourseEnrollments { get; set; }
-        public DbSet<CourseGroupEnrollment> CourseGroupEnrollments { get; set; }
-        public DbSet<CourseGroupEnrollmentMember> CourseGroupEnrollmentMembers { get; set; }
-        public DbSet<GroupEnrollmentMemberPayment> GroupEnrollmentMemberPayments { get; set; }
+        public DbSet<Enrollment> Enrollments { get; set; }
+        public DbSet<EnrollmentParticipant> EnrollmentParticipants { get; set; }
         public DbSet<CourseSchedule> CourseSchedules { get; set; }
 
         // Session Schema DbSets
@@ -117,7 +115,7 @@ namespace Qalam.Infrastructure.context
         // Payment Schema DbSets
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentItem> PaymentItems { get; set; }
-        public DbSet<CourseEnrollmentPayment> CourseEnrollmentPayments { get; set; }
+        public DbSet<EnrollmentPayment> EnrollmentPayments { get; set; }
 
         // Messaging Schema DbSets
         public DbSet<MessageLog> MessageLogs { get; set; }

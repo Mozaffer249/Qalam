@@ -14,20 +14,17 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseRepository _courseRepository;
-    private readonly ICourseEnrollmentRepository _enrollmentRepository;
-    private readonly ICourseGroupEnrollmentRepository _groupEnrollmentRepository;
+    private readonly IEnrollmentRepository _enrollmentRepository;
 
     public GetCourseEnrollmentsListQueryHandler(
         ITeacherRepository teacherRepository,
         ICourseRepository courseRepository,
-        ICourseEnrollmentRepository enrollmentRepository,
-        ICourseGroupEnrollmentRepository groupEnrollmentRepository,
+        IEnrollmentRepository enrollmentRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
-        _groupEnrollmentRepository = groupEnrollmentRepository;
     }
 
     public async Task<Response<List<TeacherEnrollmentListItemDto>>> Handle(
@@ -42,90 +39,59 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
         if (course == null || course.TeacherId != teacher.Id)
             return NotFound<List<TeacherEnrollmentListItemDto>>("Course not found or does not belong to you.");
 
-        // ── Individual enrollments
-        var indQuery = _enrollmentRepository.GetTableNoTracking()
-            .Include(e => e.Student).ThenInclude(s => s.User)
+        var query = _enrollmentRepository.GetTableNoTracking()
+            .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
+            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.CourseSchedules)
-            .Include(e => e.CourseEnrollmentPayments)
             .Where(e => e.CourseId == request.CourseId);
 
         if (request.Status.HasValue)
-            indQuery = indQuery.Where(e => e.EnrollmentStatus == request.Status.Value);
+            query = query.Where(e => e.EnrollmentStatus == request.Status.Value);
 
-        var individualRows = await indQuery
-            .OrderByDescending(e => e.ApprovedAt)
+        var enrollments = await query
+            .OrderByDescending(e => e.ActivatedAt ?? e.ApprovedAt)
             .ToListAsync(cancellationToken);
 
-        // ── Group enrollments
-        var grpQuery = _groupEnrollmentRepository.GetTableNoTracking()
-            .Include(g => g.LeaderStudent).ThenInclude(s => s.User)
-            .Include(g => g.Members)
-            .Include(g => g.CourseSchedules)
-            .Where(g => g.CourseId == request.CourseId);
+        var totalCount = enrollments.Count;
 
-        if (request.Status.HasValue)
-            grpQuery = grpQuery.Where(g => g.Status == request.Status.Value);
-
-        var groupRows = await grpQuery
-            .OrderByDescending(g => g.CreatedAt)
-            .ToListAsync(cancellationToken);
-
-        // ── Merge into a single mixed list, sorted by most recent activity
-        var items = new List<TeacherEnrollmentListItemDto>(individualRows.Count + groupRows.Count);
-
-        foreach (var e in individualRows)
-        {
-            var paidCount = e.CourseEnrollmentPayments.Count(p => p.Status == PaymentStatus.Succeeded);
-            items.Add(new TeacherEnrollmentListItemDto
-            {
-                Id = e.Id,
-                Kind = TeacherEnrollmentKind.Individual,
-                CourseId = e.CourseId,
-                CourseTitle = course.Title,
-                DisplayName = e.Student?.User != null
-                    ? (e.Student.User.FirstName + " " + e.Student.User.LastName).Trim()
-                    : $"Student #{e.StudentId}",
-                EnrollmentStatus = e.EnrollmentStatus,
-                ApprovedAt = e.ApprovedAt,
-                ActivatedAt = e.ActivatedAt,
-                PaymentDeadline = e.PaymentDeadline,
-                MemberCount = 1,
-                PaidMemberCount = paidCount > 0 ? 1 : 0,
-                SessionsCount = e.CourseSchedules.Count
-            });
-        }
-
-        foreach (var g in groupRows)
-        {
-            var leaderName = g.LeaderStudent?.User != null
-                ? (g.LeaderStudent.User.FirstName + " " + g.LeaderStudent.User.LastName).Trim()
-                : $"Student #{g.LeaderStudentId}";
-
-            items.Add(new TeacherEnrollmentListItemDto
-            {
-                Id = g.Id,
-                Kind = TeacherEnrollmentKind.Group,
-                CourseId = g.CourseId,
-                CourseTitle = course.Title,
-                DisplayName = $"Group of {g.Members.Count} — Leader: {leaderName}",
-                EnrollmentStatus = g.Status,
-                ApprovedAt = g.CreatedAt,
-                ActivatedAt = g.ActivatedAt,
-                PaymentDeadline = g.PaymentDeadline,
-                MemberCount = g.Members.Count,
-                PaidMemberCount = g.Members.Count(m => m.PaymentStatus == PaymentStatus.Succeeded),
-                SessionsCount = g.CourseSchedules.Count
-            });
-        }
-
-        var ordered = items
-            .OrderByDescending(i => i.ActivatedAt ?? i.ApprovedAt)
-            .ToList();
-
-        var totalCount = ordered.Count;
-        var page = ordered
+        var page = enrollments
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
+            .Select(e =>
+            {
+                string displayName;
+                if (e.Kind == EnrollmentKind.Individual)
+                {
+                    var only = e.Participants.FirstOrDefault();
+                    var student = only?.Student;
+                    displayName = student?.User != null
+                        ? (student.User.FirstName + " " + student.User.LastName).Trim()
+                        : $"Student #{only?.StudentId ?? 0}";
+                }
+                else
+                {
+                    var leaderName = e.LeaderStudent?.User != null
+                        ? (e.LeaderStudent.User.FirstName + " " + e.LeaderStudent.User.LastName).Trim()
+                        : $"Student #{e.LeaderStudentId}";
+                    displayName = $"Group of {e.Participants.Count} — Leader: {leaderName}";
+                }
+
+                return new TeacherEnrollmentListItemDto
+                {
+                    Id = e.Id,
+                    Kind = e.Kind,
+                    CourseId = e.CourseId,
+                    CourseTitle = course.Title,
+                    DisplayName = displayName,
+                    EnrollmentStatus = e.EnrollmentStatus,
+                    ApprovedAt = e.ApprovedAt,
+                    ActivatedAt = e.ActivatedAt,
+                    PaymentDeadline = e.PaymentDeadline,
+                    ParticipantCount = e.Participants.Count,
+                    PaidParticipantCount = e.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded),
+                    SessionsCount = e.CourseSchedules.Count
+                };
+            })
             .ToList();
 
         var totalPages = request.PageSize > 0

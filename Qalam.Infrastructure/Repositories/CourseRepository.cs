@@ -37,16 +37,16 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.SessionType)
             .Include(c => c.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Enrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
             .Include(c => c.Sessions)
             .FirstOrDefaultAsync(c => c.Id == courseId);
     }
 
     public async Task<bool> HasEnrollmentsAsync(int courseId)
     {
-        return await _context.Set<CourseEnrollment>()
-            .AnyAsync(e => e.CourseId == courseId && 
-                          (e.EnrollmentStatus == EnrollmentStatus.Active || 
+        return await _context.Set<Enrollment>()
+            .AnyAsync(e => e.CourseId == courseId &&
+                          (e.EnrollmentStatus == EnrollmentStatus.Active ||
                            e.EnrollmentStatus == EnrollmentStatus.Completed));
     }
 
@@ -61,7 +61,7 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.TeacherSubject.Subject.Grade)
             .Include(c => c.TeachingMode)
             .Include(c => c.SessionType)
-            .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Enrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
             .Where(c => c.TeacherId == teacherId)
             .OrderByDescending(c => c.CreatedAt);
     }
@@ -81,7 +81,7 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.SessionType)
             .Include(c => c.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(c => c.CourseEnrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Enrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
             .Include(c => c.Sessions)
             .OrderByDescending(c => c.CreatedAt);
     }

@@ -47,44 +47,29 @@ public class EnrollmentExpirationService : BackgroundService
     private async Task CheckAndExpireEnrollments(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var enrollmentRepo = scope.ServiceProvider.GetRequiredService<ICourseEnrollmentRepository>();
-        var groupEnrollmentRepo = scope.ServiceProvider.GetRequiredService<ICourseGroupEnrollmentRepository>();
+        var enrollmentRepo = scope.ServiceProvider.GetRequiredService<IEnrollmentRepository>();
 
         var now = DateTime.UtcNow;
 
-        // Expire individual enrollments
-        var expiredIndividual = await enrollmentRepo.GetExpiredPendingPaymentAsync(now, ct);
-        foreach (var enrollment in expiredIndividual)
+        var expired = await enrollmentRepo.GetExpiredPendingPaymentAsync(now, ct);
+        foreach (var enrollment in expired)
         {
             enrollment.EnrollmentStatus = EnrollmentStatus.Cancelled;
-            await enrollmentRepo.UpdateAsync(enrollment);
-            _logger.LogInformation("Cancelled expired individual enrollment {Id} (CourseId: {CourseId}).",
-                enrollment.Id, enrollment.CourseId);
-        }
 
-        if (expiredIndividual.Count > 0)
-            await enrollmentRepo.SaveChangesAsync();
-
-        // Expire group enrollments
-        var expiredGroup = await groupEnrollmentRepo.GetExpiredPendingPaymentAsync(now, ct);
-        foreach (var groupEnrollment in expiredGroup)
-        {
-            groupEnrollment.Status = EnrollmentStatus.Cancelled;
-
-            // Mark still-pending members as Cancelled. Members that have already
-            // Succeeded stay Succeeded — refund handling is out of scope here.
-            foreach (var member in groupEnrollment.Members)
+            // Mark still-pending participants as Cancelled. Already-Succeeded participants
+            // stay Succeeded; refund handling is out of scope here.
+            foreach (var participant in enrollment.Participants)
             {
-                if (member.PaymentStatus == PaymentStatus.Pending)
-                    member.PaymentStatus = PaymentStatus.Cancelled;
+                if (participant.PaymentStatus == PaymentStatus.Pending)
+                    participant.PaymentStatus = PaymentStatus.Cancelled;
             }
 
-            await groupEnrollmentRepo.UpdateAsync(groupEnrollment);
-            _logger.LogInformation("Cancelled expired group enrollment {Id} (CourseId: {CourseId}).",
-                groupEnrollment.Id, groupEnrollment.CourseId);
+            await enrollmentRepo.UpdateAsync(enrollment);
+            _logger.LogInformation("Cancelled expired enrollment {Id} (CourseId: {CourseId}, Kind: {Kind}).",
+                enrollment.Id, enrollment.CourseId, enrollment.Kind);
         }
 
-        if (expiredGroup.Count > 0)
-            await groupEnrollmentRepo.SaveChangesAsync();
+        if (expired.Count > 0)
+            await enrollmentRepo.SaveChangesAsync();
     }
 }

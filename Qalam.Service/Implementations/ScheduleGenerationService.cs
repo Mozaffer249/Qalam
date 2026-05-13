@@ -203,13 +203,9 @@ public class ScheduleGenerationService : IScheduleGenerationService
     public List<CourseSchedule> Generate(
         Course course,
         CourseEnrollmentRequest request,
-        int? courseEnrollmentId,
-        int? courseGroupEnrollmentId,
+        int enrollmentId,
         DateOnly startDate)
     {
-        if (courseEnrollmentId.HasValue == courseGroupEnrollmentId.HasValue)
-            throw new ArgumentException("Exactly one of courseEnrollmentId or courseGroupEnrollmentId must be provided.");
-
         ScheduleGenerationResult result;
         if (request.SelectedSessionSlots != null && request.SelectedSessionSlots.Count > 0)
         {
@@ -261,8 +257,7 @@ public class ScheduleGenerationService : IScheduleGenerationService
         return result.Slots
             .Select(s => new CourseSchedule
             {
-                CourseEnrollmentId = courseEnrollmentId,
-                CourseGroupEnrollmentId = courseGroupEnrollmentId,
+                EnrollmentId = enrollmentId,
                 Date = s.Date,
                 TeacherAvailabilityId = s.TeacherAvailabilityId,
                 DurationMinutes = s.DurationMinutes,

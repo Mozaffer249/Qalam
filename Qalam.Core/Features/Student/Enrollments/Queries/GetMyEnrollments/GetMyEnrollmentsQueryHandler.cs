@@ -13,12 +13,12 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
     IRequestHandler<GetMyEnrollmentsQuery, Response<List<EnrollmentListItemDto>>>
 {
     private readonly IStudentRepository _studentRepository;
-    private readonly ICourseEnrollmentRepository _enrollmentRepository;
+    private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
 
     public GetMyEnrollmentsQueryHandler(
         IStudentRepository studentRepository,
-        ICourseEnrollmentRepository enrollmentRepository,
+        IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {

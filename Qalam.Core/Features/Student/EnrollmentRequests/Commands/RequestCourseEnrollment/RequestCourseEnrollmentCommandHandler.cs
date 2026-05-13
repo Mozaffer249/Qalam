@@ -1,11 +1,13 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -22,6 +24,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly ITeacherAvailabilityCalendarService _availabilityCalendar;
+    private readonly IEnrollmentApprovalService _approvalService;
+    private readonly EnrollmentSettings _settings;
 
     public RequestCourseEnrollmentCommandHandler(
         IStudentRepository studentRepository,
@@ -32,6 +36,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
         ITeacherAvailabilityCalendarService availabilityCalendar,
+        IEnrollmentApprovalService approvalService,
+        IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
@@ -42,6 +48,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
         _availabilityCalendar = availabilityCalendar;
+        _approvalService = approvalService;
+        _settings = settings.Value;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
@@ -310,12 +318,15 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         }
 
         // 10. Create entity
+        // Fixed courses auto-approve on submit (no teacher review needed since sessions and slots are pre-validated);
+        // flexible courses go through Pending → teacher approval.
+        var initialStatus = course.IsFlexible ? RequestStatus.Pending : RequestStatus.Approved;
         var enrollmentRequest = new Qalam.Data.Entity.Course.CourseEnrollmentRequest
         {
             CourseId = dto.CourseId,
             RequestedByUserId = request.UserId,
             TeachingModeId = course.TeachingModeId,
-            Status = RequestStatus.Pending,
+            Status = initialStatus,
             Notes = dto.Notes != null && dto.Notes.Length > 400 ? dto.Notes.Substring(0, 400) : dto.Notes,
             TotalMinutes = totalMinutes,
             EstimatedTotalPrice = estimatedTotalPrice,
@@ -374,8 +385,43 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             })
             .ToList();
 
-        await _requestRepository.AddAsync(enrollmentRequest);
-        await _requestRepository.SaveChangesAsync();
+        // For fixed courses, auto-approval also creates the post-approval enrollment artifacts inline.
+        // For fixed groups WITH pending invitees, defer artifact creation until the last invitee responds
+        // (see RespondToGroupEnrollmentInviteCommandHandler).
+        if (!course.IsFlexible)
+        {
+            var paymentDeadline = DateTime.UtcNow.AddHours(_settings.PaymentDeadlineHours);
+            var hasPendingInvitees = invitedIds.Count > 0;
+
+            var transaction = await _requestRepository.BeginTransactionAsync();
+            try
+            {
+                await _requestRepository.AddAsync(enrollmentRequest);
+                await _requestRepository.SaveChangesAsync();
+
+                if (!hasPendingInvitees)
+                {
+                    await _approvalService.CreatePendingPaymentArtifactsAsync(
+                        enrollmentRequest,
+                        course,
+                        course.TeacherId,
+                        paymentDeadline,
+                        cancellationToken);
+                }
+
+                await _requestRepository.CommitAsync();
+            }
+            catch
+            {
+                await _requestRepository.RollBackAsync();
+                throw;
+            }
+        }
+        else
+        {
+            await _requestRepository.AddAsync(enrollmentRequest);
+            await _requestRepository.SaveChangesAsync();
+        }
 
         // 11. Build response
         var descriptionShort = course.Description != null && course.Description.Length > 150

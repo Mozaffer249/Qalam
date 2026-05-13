@@ -48,14 +48,13 @@ namespace Qalam.Infrastructure
             // Course Repositories
             services.AddTransient<ICourseRepository, CourseRepository>();
             services.AddTransient<ICourseEnrollmentRequestRepository, CourseEnrollmentRequestRepository>();
-            services.AddTransient<ICourseEnrollmentRepository, CourseEnrollmentRepository>();
-            services.AddTransient<ICourseGroupEnrollmentRepository, CourseGroupEnrollmentRepository>();
+            services.AddTransient<IEnrollmentRepository, EnrollmentRepository>();
+            services.AddTransient<IEnrollmentParticipantRepository, EnrollmentParticipantRepository>();
             services.AddTransient<ICourseScheduleRepository, CourseScheduleRepository>();
 
             // Payment Repositories
             services.AddTransient<IPaymentRepository, PaymentRepository>();
-            services.AddTransient<ICourseEnrollmentPaymentRepository, CourseEnrollmentPaymentRepository>();
-            services.AddTransient<IGroupEnrollmentMemberPaymentRepository, GroupEnrollmentMemberPaymentRepository>();
+            services.AddTransient<IEnrollmentPaymentRepository, EnrollmentPaymentRepository>();
 
             // Common Repositories
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();

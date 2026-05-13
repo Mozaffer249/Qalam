@@ -93,7 +93,7 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                           .Select(r => (decimal?)r.Rating)
                           .Average() ?? 0m)
                     : 0m,
-                EnrollmentsCount = c.CourseEnrollments.Count(e =>
+                EnrollmentsCount = c.Enrollments.Count(e =>
                     e.EnrollmentStatus == EnrollmentStatus.Active ||
                     e.EnrollmentStatus == EnrollmentStatus.Completed),
                 DomainId = c.TeacherSubject != null && c.TeacherSubject.Subject != null
@@ -115,7 +115,7 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                 Price = c.Price,
                 MaxStudents = c.MaxStudents,
                 AvailableSeats = c.MaxStudents.HasValue
-                    ? c.MaxStudents.Value - c.CourseEnrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
+                    ? c.MaxStudents.Value - c.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
                     : (int?)null,
                 IsFlexible = c.IsFlexible,
                 SessionsCount = c.SessionsCount,
