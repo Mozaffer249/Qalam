@@ -159,35 +159,48 @@ var app = builder.Build();
 
 #region Database Migration and Seeding
 
-// Apply migrations and seed database
+// Apply migrations and seed database.
+// Auto-migration policy:
+//   - Development / Staging: ON by default.
+//   - Production: OFF unless MIGRATE_ON_STARTUP=true (see docs/OPERATIONS_RUNBOOK.md for the manual prod migration step).
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDBContext>();
+        var migrateOnStartupRaw = builder.Configuration["MIGRATE_ON_STARTUP"];
+        var migrateOnStartupOverride = string.Equals(migrateOnStartupRaw, "true", StringComparison.OrdinalIgnoreCase);
+        var shouldMigrate = !app.Environment.IsProduction() || migrateOnStartupOverride;
 
-        Log.Information("Checking database and applying migrations...");
+        if (shouldMigrate)
+        {
+            Log.Information("Checking database and applying migrations (environment: {Env}, override: {Override})...",
+                app.Environment.EnvironmentName, migrateOnStartupOverride);
+            await context.Database.MigrateAsync();
+            Log.Information("Database migrations applied successfully");
+        }
+        else
+        {
+            Log.Information(
+                "Skipping auto-migration in {Env} (MIGRATE_ON_STARTUP={Value}). " +
+                "Run `dotnet ef database update` manually before promoting a build (see OPERATIONS_RUNBOOK.md).",
+                app.Environment.EnvironmentName,
+                migrateOnStartupRaw ?? "(unset)");
+        }
 
-        // Apply migrations - this will create the database if it doesn't exist
-        // MigrateAsync() handles everything: creates DB, applies all pending migrations
-        await context.Database.MigrateAsync();
-
-        Log.Information("Database migrations applied successfully");
-
-        // Now seed the data
+        // Seed reference data (idempotent — safe to run every boot).
         Log.Information("Starting database seeding...");
-
-        // Seed all data using our seeders
         await Qalam.Infrastructure.Seeding.DatabaseSeeder.SeedAllAsync(context);
 
-        // Seed Identity data (roles and admin user)
-        Log.Information("Seeding roles and admin user...");
+        // Seed Identity data (roles always; default admin only when SEED_DEFAULT_ADMIN=true).
+        Log.Information("Seeding roles and (gated) admin user...");
         var roleManager = services.GetRequiredService<RoleManager<Role>>();
         var userManager = services.GetRequiredService<UserManager<User>>();
+        var seederLogger = services.GetService<ILogger<Program>>();
 
         await RolesSeeder.SeedAsync(roleManager);
-        await AdminUserSeeder.SeedAsync(userManager);
+        await AdminUserSeeder.SeedAsync(userManager, builder.Configuration, seederLogger);
 
         Log.Information("Database seeding completed successfully!");
     }
