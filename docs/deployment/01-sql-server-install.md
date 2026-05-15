@@ -287,8 +287,9 @@ BACKUP_DIR=/var/opt/mssql/backups
 
 for DB in qalam_staging qalam_messaging_staging qalam_prod qalam_messaging_prod; do
   OUT="${BACKUP_DIR}/${DB}_${TS}.bak"
+  # NOTE: no WITH COMPRESSION — not supported on Express Edition. gzip below handles compression instead.
   /opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U SA -P "$SA_PWD" -C \
-    -Q "BACKUP DATABASE [${DB}] TO DISK = N'${OUT}' WITH NOFORMAT, NOINIT, NAME = '${DB}-${TS}', SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10"
+    -Q "BACKUP DATABASE [${DB}] TO DISK = N'${OUT}' WITH NOFORMAT, NOINIT, NAME = '${DB}-${TS}', SKIP, NOREWIND, NOUNLOAD, STATS = 10"
   gzip -f "${OUT}"
 done
 
