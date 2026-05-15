@@ -13,21 +13,24 @@
 #
 # Idempotent: safe to re-run. Each phase checks before doing.
 #
-# Run on a fresh Ubuntu 22.04 VPS as root (or with sudo):
-#   sudo bash scripts/bootstrap-vps-staging.sh
+# Run on a fresh Ubuntu 22.04 VPS as root (or with sudo).
+# Pass CERTBOT_EMAIL via env var so you never have to edit a tracked file
+# (avoids `git pull` conflicts):
+#
+#   CERTBOT_EMAIL=you@example.com bash scripts/bootstrap-vps-staging.sh
+#
+# Optional: override the repo path with REPO_PATH=/some/other/path
 #
 # Prereqs:
 #   - Repo already cloned at $REPO_PATH (default /opt/qalam-backend/Qalam)
 #   - DNS A record for api-staging.qalam.net.sa already points at this VPS
-#   - You have edited the CERTBOT_EMAIL variable below
 # ==============================================================================
 
 set -euo pipefail
 
-# ====================== EDIT THESE TWO LINES =================================
-CERTBOT_EMAIL="you@example.com"        # ← change to your email before running
-REPO_PATH="/opt/qalam-backend/Qalam"   # ← change if your clone is elsewhere
-# ============================================================================
+# Required: pass via environment.
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
+REPO_PATH="${REPO_PATH:-/opt/qalam-backend/Qalam}"
 
 DOMAIN_STAGING="api-staging.qalam.net.sa"
 SECRETS_FILE="/root/.qalam-staging-secrets"
@@ -60,8 +63,9 @@ gen_or_read() {
 banner "Phase 0 — preflight"
 require_root
 
-if [[ "$CERTBOT_EMAIL" == "you@example.com" ]]; then
-  fail "Edit the CERTBOT_EMAIL variable at the top of this script before running."
+if [[ -z "$CERTBOT_EMAIL" || "$CERTBOT_EMAIL" == "you@example.com" ]]; then
+  fail "Set CERTBOT_EMAIL before running. Example:
+  CERTBOT_EMAIL=you@example.com bash scripts/bootstrap-vps-staging.sh"
 fi
 
 [[ -d "$REPO_PATH" ]] || fail "Repo not found at $REPO_PATH. Clone first or edit REPO_PATH at the top."
