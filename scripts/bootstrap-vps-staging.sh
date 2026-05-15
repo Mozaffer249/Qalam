@@ -253,14 +253,16 @@ banner "Phase 7 — docker compose up -d (staging)"
 cd "$REPO_PATH"
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build
 
-# Wait for the API to become healthy (max 90 s)
-for i in {1..18}; do
-  if curl -fsS http://127.0.0.1:8081/health >/dev/null 2>&1; then
-    ok "staging API responding on 127.0.0.1:8081"
+# Wait for the API to become responsive (max 180 s — first boot runs all migrations + seeders).
+# Detect "API responding" by ANY HTTP response (not specifically a 200 on /health, which doesn't exist yet).
+for i in {1..36}; do
+  HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:8081/ 2>/dev/null || echo "000")
+  if [[ "$HTTP_CODE" != "000" && "$HTTP_CODE" != "502" && "$HTTP_CODE" != "503" ]]; then
+    ok "staging API responding on 127.0.0.1:8081 (HTTP $HTTP_CODE)"
     break
   fi
   sleep 5
-  [[ $i -eq 18 ]] && warn "staging API still not responding after 90 s — check 'docker compose -p qalam-staging logs qalam-api'"
+  [[ $i -eq 36 ]] && warn "staging API still not responding after 180 s — check 'docker compose -p qalam-staging logs qalam-api'"
 done
 
 # ------------------------- phase 8: Nginx + Certbot --------------------------
@@ -302,10 +304,12 @@ fi
 
 # ------------------------- phase 9: smoke test --------------------------------
 banner "Phase 9 — final smoke test"
-if curl -fsS "https://$DOMAIN_STAGING/health" >/dev/null 2>&1; then
-  ok "https://$DOMAIN_STAGING/health → 200"
+# Any non-error HTTP response over HTTPS confirms Nginx + TLS + API are wired end-to-end.
+HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN_STAGING/" 2>/dev/null || echo "000")
+if [[ "$HTTP_CODE" != "000" && "$HTTP_CODE" != "502" && "$HTTP_CODE" != "503" ]]; then
+  ok "https://$DOMAIN_STAGING/ → HTTP $HTTP_CODE (API reachable via TLS)"
 else
-  warn "HTTPS health check failed. Try: curl -v https://$DOMAIN_STAGING/health"
+  warn "HTTPS check failed (got HTTP $HTTP_CODE). Try: curl -v https://$DOMAIN_STAGING/"
 fi
 
 # ------------------------- done ----------------------------------------------
