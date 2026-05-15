@@ -1,17 +1,16 @@
 # Deployment
 
-The previous version of this file documented an early single-stack VPS deploy on Hostinger. It is **superseded** by the staging + production setup in [`docs/`](./docs/).
+Follow these **in order** on the VPS. All guides live in [`docs/deployment/`](./docs/deployment/README.md).
 
-Follow these in order:
+| Step | Guide |
+|------|--------|
+| 1 | [`01-sql-server-install.md`](./docs/deployment/01-sql-server-install.md) — SQL Server 2022, loopback only, four DBs |
+| — | [`sql-bootstrap-qalam.sql`](./docs/deployment/sql-bootstrap-qalam.sql) — run during step 1 §6 |
+| 2 | [`02-after-sql-bootstrap.md`](./docs/deployment/02-after-sql-bootstrap.md) — verify SQL → staging Docker → HTTPS |
+| 3 | [`03-staging-setup.md`](./docs/deployment/03-staging-setup.md) — `api-staging.qalam.net.sa` |
+| 4 | [`04-production-setup.md`](./docs/deployment/04-production-setup.md) — `api.qalam.net.sa` |
+| 5 | [`05-nginx-subdomains.md`](./docs/deployment/05-nginx-subdomains.md) — frontend SPA vhosts + Certbot |
 
-1. **[`docs/SQL_SERVER_INSTALL.md`](./docs/SQL_SERVER_INSTALL.md)** — install SQL Server 2022 natively on Ubuntu 22.04, bound to 127.0.0.1 only, with the four databases + two SQL logins used by both environments.
-2. **[`docs/STAGING_SETUP.md`](./docs/STAGING_SETUP.md)** — bring up `api-staging.qalam.net.sa` (auto-migrate on, demo admin seeded).
-3. **[`docs/PRODUCTION_SETUP.md`](./docs/PRODUCTION_SETUP.md)** — bring up `api.qalam.net.sa` (manual migration, default-admin gated).
-4. **[`docs/OPERATIONS_RUNBOOK.md`](./docs/OPERATIONS_RUNBOOK.md)** — day-2 ops: migrations, backups, restore, secret rotation, log lookups, common failure modes.
+**Day-2 ops:** [`docs/OPERATIONS_RUNBOOK.md`](./docs/OPERATIONS_RUNBOOK.md)
 
-Reference material (read once, then forget):
-
-- [`DOCKER_README.md`](./DOCKER_README.md) — local-dev Docker Compose flow.
-- [`NGINX_SUBDOMAIN_DEPLOYMENT.md`](./NGINX_SUBDOMAIN_DEPLOYMENT.md) — Nginx vhost patterns. The staging/prod guides above include the specific vhost blocks you actually need.
-
-If anything in `docs/` ever drifts from reality, fix it there — this file should remain a one-screen pointer.
+**Local Docker dev:** [`DOCKER_README.md`](./DOCKER_README.md)

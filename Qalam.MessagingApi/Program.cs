@@ -48,7 +48,7 @@ builder.Services.AddHostedService<PushConsumerService>();
 builder.Services.AddHostedService<TeacherDocUploadConsumer>();
 builder.Services.AddHostedService<ProfilePicUploadConsumer>();
 
-// Controllers + Swagger
+// Controllers + Swagger 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

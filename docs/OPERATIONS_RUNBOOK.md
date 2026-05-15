@@ -5,7 +5,7 @@ Day-2 procedures for the Qalam staging + production stacks running on the VPS.
 All commands assume:
 - You are the `deploy` user on the VPS (`sudo -iu deploy`), with `sudo` for the SQL Server / Nginx / Certbot bits.
 - Compose project names: `qalam-staging` and `qalam-prod`.
-- Compose files: `docker-compose.staging.yml` (in `/opt/qalam-staging`), `docker-compose.prod.yml` (in `/opt/qalam-prod`).
+- Compose files: `docker-compose.staging.yml` and `docker-compose.prod.yml` in one repo (e.g. `/opt/qalam-backend/Qalam`).
 
 ---
 
@@ -18,13 +18,13 @@ Production has `MIGRATE_ON_STARTUP=false`. Migrations are applied manually, in a
 #    git push origin v0.2.0
 
 # 2. On the VPS, fetch the tag in staging FIRST and run staging through it.
-cd /opt/qalam-staging
+cd /opt/qalam-backend/Qalam
 git fetch --tags && git checkout v0.2.0
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build
 # Staging auto-migrates; smoke-test it before touching prod.
 
 # 3. Once staging is green, do the same in prod — but apply migrations explicitly first.
-cd /opt/qalam-prod
+cd /opt/qalam-backend/Qalam
 git fetch --tags && git checkout v0.2.0
 
 # Rebuild the image but don't start it yet.
@@ -52,7 +52,7 @@ If the migration fails: the throwaway container exits non-zero, **prod stays on 
 
 ## 2. Nightly backup
 
-Already installed by [`SQL_SERVER_INSTALL.md`](./SQL_SERVER_INSTALL.md). It runs at 02:00, dumps `.bak` for each of the four DBs to `/var/opt/mssql/backups`, gzips, and prunes anything older than 14 days.
+Already installed by [`deployment/01-sql-server-install.md`](./deployment/01-sql-server-install.md). It runs at 02:00, dumps `.bak` for each of the four DBs to `/var/opt/mssql/backups`, gzips, and prunes anything older than 14 days.
 
 Check it ran last night:
 
@@ -124,7 +124,7 @@ docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up 
 This invalidates **every** outstanding access + refresh token immediately. Users will be forced to re-login. Communicate accordingly.
 
 ```bash
-cd /opt/qalam-prod
+cd /opt/qalam-backend/Qalam
 NEW_SECRET="$(openssl rand -base64 48)"
 sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${NEW_SECRET}|" .env.prod
 
@@ -132,7 +132,7 @@ docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up 
 # Old tokens → 401 once the container is up.
 ```
 
-Repeat the same for staging when needed (`/opt/qalam-staging/.env.staging`).
+Repeat the same for staging when needed (`.env.staging` in the same repo).
 
 ---
 
@@ -146,7 +146,7 @@ NEW_PWD="$(openssl rand -base64 24)"
 sudo bash -c "sqlcmd -S 127.0.0.1 -U SA -P \"\$(cat /root/.mssql-sa)\" -C -Q \"ALTER LOGIN qalam_prod_user WITH PASSWORD = '${NEW_PWD}'\""
 
 # 2. Update the env file (both connection strings use the same login).
-cd /opt/qalam-prod
+cd /opt/qalam-backend/Qalam
 sed -i "s|Password=[^;]*;Encrypt=True|Password=${NEW_PWD};Encrypt=True|g" .env.prod
 # Sanity-check the substitution happened.
 grep -c "Password=${NEW_PWD}" .env.prod   # expect: 2
@@ -182,11 +182,11 @@ The build is a git tag; the data is not promoted.
 TAG=v0.2.0
 
 # Staging — already on the tag from your release flow.
-cd /opt/qalam-staging
+cd /opt/qalam-backend/Qalam
 git log -1 --decorate     # confirm HEAD is at the tag
 
 # Production
-cd /opt/qalam-prod
+cd /opt/qalam-backend/Qalam
 git fetch --tags
 git checkout "$TAG"
 # Run the migration procedure from §1, then up -d.
@@ -222,7 +222,7 @@ sudo tail -F "$(docker volume inspect qalam-prod_app_logs --format '{{.Mountpoin
 
 | Action | Staging | Production |
 |--------|---------|------------|
-| Bring up | `cd /opt/qalam-staging && docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build` | `cd /opt/qalam-prod && docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up -d` |
+| Bring up | `cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build` | `cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up -d` |
 | Restart API only | `docker compose -p qalam-staging restart qalam-api` | `docker compose -p qalam-prod restart qalam-api` |
 | Tail logs | `docker compose -p qalam-staging logs -f qalam-api` | `docker compose -p qalam-prod logs -f qalam-api` |
 | Stop (keep data) | `docker compose -p qalam-staging stop` | `docker compose -p qalam-prod stop` |
