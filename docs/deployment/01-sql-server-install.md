@@ -103,12 +103,18 @@ ss -tlnp | grep 1433
 # Expected:  LISTEN 0 ... 0.0.0.0:1433 ... users:(("sqlservr",...))
 ```
 
-Verify UFW does NOT expose 1433:
+Verify UFW exposes 1433 ONLY to docker bridges, not to the world:
 
 ```sh
-sudo ufw status verbose | grep 1433   # expect no rule
-sudo ufw status verbose                # only OpenSSH + Nginx Full should be allowed
+# Required: allow docker bridge subnets to reach SQL (containers connect via host.docker.internal)
+sudo ufw allow from 172.16.0.0/12 to any port 1433 comment 'docker bridges -> mssql'
+sudo ufw reload
+sudo ufw status verbose
+# Expect a rule like:  1433  ALLOW IN  172.16.0.0/12
+# Public 80/443/22 stay open; nothing else.
 ```
+
+Without this rule, containers will get "TCP Provider, error: 40 - Could not open a connection to SQL Server" because UFW drops the docker-bridge → host:1433 traffic even though SQL is listening. The 172.16.0.0/12 CIDR covers every default + compose-created Docker bridge network.
 
 Confirm from another machine that 1433 is not reachable from the internet:
 

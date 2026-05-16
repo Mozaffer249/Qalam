@@ -137,11 +137,16 @@ for i in {1..45}; do
   fi
 done
 
-# UFW: open SSH + HTTP + HTTPS, keep 1433 closed
+# UFW: open SSH + HTTP + HTTPS publicly.
+# 1433 stays closed to the public, but explicitly allow docker bridge networks
+# (RFC 1918 172.16.0.0/12 covers default bridge + every compose-created bridge)
+# so containers can reach SQL Server via host.docker.internal:1433.
 ufw allow OpenSSH >/dev/null 2>&1 || true
 ufw allow 'Nginx Full' >/dev/null 2>&1 || true
+ufw allow from 172.16.0.0/12 to any port 1433 comment 'docker bridges -> mssql' >/dev/null 2>&1 || true
 yes | ufw enable >/dev/null 2>&1 || true
-ok "UFW: SSH + Nginx Full allowed; 1433 stays closed"
+ufw reload >/dev/null 2>&1 || true
+ok "UFW: SSH + Nginx Full allowed publicly; 1433 allowed only from docker bridges (172.16/12)"
 
 # sqlcmd
 if ! have_cmd sqlcmd; then
