@@ -73,8 +73,9 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:80/api/messaging/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 6
+      # First boot on Express runs EF migrations + connects to RabbitMQ; cold-start takes 60-120s.
+      start_period: 120s
 
   # Qalam Backend API
   qalam-api:
@@ -133,7 +134,9 @@ services:
       rabbitmq:
         condition: service_healthy
       messaging-api:
-        condition: service_healthy
+        # service_started, not service_healthy — backend-api connects to SQL itself and doesn't need
+        # messaging-api fully healthy to come up. Stops first-boot migration retries from blocking deploy.
+        condition: service_started
     networks:
       - qalam-network
     restart: unless-stopped
