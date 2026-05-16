@@ -107,34 +107,34 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 				return BadRequest<JwtAuthResult>("Two-factor authentication is required. Please use LoginWithTwoFactor endpoint.");
 			}
 
-			// if (!signInResult.Succeeded)
-			// {
-			//     // Record failed login attempt
-			//     await _riskAssessmentService.RecordLoginAttemptAsync(ipAddress, user.Id, user.UserName, false);
+			if (!signInResult.Succeeded)
+			{
+			    // Record failed login attempt
+			    await _riskAssessmentService.RecordLoginAttemptAsync(ipAddress, user.Id, user.UserName, false);
 
-			//     // Log suspicious activity if high risk
-			//     if (riskAssessment.Level >= RiskLevel.High)
-			//     {
-			//         await _auditService.LogSecurityEventAsync(
-			//             userId: user.Id,
-			//             eventType: SecurityEventType.SuspiciousActivity,
-			//             ipAddress: ipAddress,
-			//             details: $"Multiple failed login attempts: {riskAssessment.FailedAttemptsInWindow} in time window"
-			//         );
+			    // Log suspicious activity if high risk
+			    if (riskAssessment.Level >= RiskLevel.High)
+			    {
+			        await _auditService.LogSecurityEventAsync(
+			            userId: user.Id,
+			            eventType: SecurityEventType.SuspiciousActivity,
+			            ipAddress: ipAddress,
+			            details: $"Multiple failed login attempts: {riskAssessment.FailedAttemptsInWindow} in time window"
+			        );
 
-			//         // Notify user of suspicious activity
-			//         if (_securitySettings.Value.EmailNotifications.Enabled &&
-			//             _securitySettings.Value.EmailNotifications.NotifyOnSuspiciousActivity)
-			//         {
-			//             await _notificationService.NotifySuspiciousActivityAsync(
-			//                 user,
-			//                 $"Multiple failed login attempts ({riskAssessment.FailedAttemptsInWindow})",
-			//                 ipAddress);
-			//         }
-			//     }
+			        // Notify user of suspicious activity
+			        if (_securitySettings.Value.EmailNotifications.Enabled &&
+			            _securitySettings.Value.EmailNotifications.NotifyOnSuspiciousActivity)
+			        {
+			            await _notificationService.NotifySuspiciousActivityAsync(
+			                user,
+			                $"Multiple failed login attempts ({riskAssessment.FailedAttemptsInWindow})",
+			                ipAddress);
+			        }
+			    }
 
-			//     return Unauthorized<JwtAuthResult>(_authLocalizer[AuthenticationResourcesKeys.PasswordNotCorrect]);
-			// }
+			    return Unauthorized<JwtAuthResult>(_authLocalizer[AuthenticationResourcesKeys.PasswordNotCorrect]);
+			}
 
 			// Record successful login attempt
 			// await _riskAssessmentService.RecordLoginAttemptAsync(ipAddress, user.Id, user.UserName, true);
