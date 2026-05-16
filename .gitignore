@@ -398,3 +398,7 @@ Desktop.ini
 
 # Backup files
 *.backup
+
+# graphify knowledge graph output (large, regeneratable)
+graphify-out/
+raw/
