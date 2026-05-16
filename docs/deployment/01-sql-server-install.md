@@ -84,37 +84,46 @@ sqlcmd -?              # confirm sqlcmd is on PATH
 
 ---
 
-## 5. Bind the listener to 127.0.0.1 only
+## 5. Bind the listener (0.0.0.0, UFW blocks external)
 
-By default SQL Server listens on `0.0.0.0:1433`. We want it loopback-only so nothing outside the VPS can ever reach it.
+SQL Server's default `0.0.0.0:1433` bind is what we want — Docker containers reach the host via `host.docker.internal` (which resolves to the docker bridge IP, e.g. `172.17.0.1`, **not** `127.0.0.1`). Binding to loopback-only would make SQL unreachable from containers.
+
+External exposure is prevented at the firewall layer: **UFW must NOT have an allow rule for 1433**. Combined with no cloud-provider firewall rule for 1433, that keeps the database completely unreachable from the public internet despite the 0.0.0.0 bind.
 
 ```sh
-sudo /opt/mssql/bin/mssql-conf set network.ipaddress 127.0.0.1
+sudo /opt/mssql/bin/mssql-conf set network.ipaddress 0.0.0.0
 sudo /opt/mssql/bin/mssql-conf set network.tcpport 1433
 sudo systemctl restart mssql-server
 ```
 
-Verify:
+Verify SQL is listening:
 
 ```sh
 ss -tlnp | grep 1433
-# Expected:  LISTEN 0  ... 127.0.0.1:1433  ...  users:(("sqlservr",...))
-# WRONG (don't leave it like this): 0.0.0.0:1433 or :::1433
+# Expected:  LISTEN 0 ... 0.0.0.0:1433 ... users:(("sqlservr",...))
 ```
 
-Confirm from another machine that 1433 is not reachable:
+Verify UFW does NOT expose 1433:
+
+```sh
+sudo ufw status verbose | grep 1433   # expect no rule
+sudo ufw status verbose                # only OpenSSH + Nginx Full should be allowed
+```
+
+Confirm from another machine that 1433 is not reachable from the internet:
 
 ```sh
 # Run this from your laptop, NOT the VPS:
 nc -zv 8.213.80.90 1433
-# Expected: "Connection refused" or timeout. Anything that succeeds is a misconfiguration.
+# Expected: "Connection refused" or timeout. If it connects, UFW is misconfigured — fix before continuing.
 ```
 
-If your VPS provider has its own firewall (e.g., Hostinger panel firewall), make sure 1433 is NOT in the allow list. Local UFW should also leave it closed:
+If your VPS provider has its own firewall (e.g., Hostinger / Alibaba security group), make sure 1433 is NOT in the allow list either. The database is now reachable from:
 
-```sh
-sudo ufw status verbose | grep 1433   # expect no rule
-```
+- The host itself (sqlcmd as root)
+- Docker containers via `host.docker.internal:1433`
+
+…and from nowhere else.
 
 ---
 
@@ -321,11 +330,13 @@ ls -lh /var/opt/mssql/backups/
 ## 9. Verification checklist
 
 - [ ] `systemctl status mssql-server` → active.
-- [ ] `ss -tlnp | grep 1433` → bound to `127.0.0.1`, not `0.0.0.0`.
-- [ ] From a remote host: `nc -zv <vps-ip> 1433` → connection refused.
+- [ ] `ss -tlnp | grep 1433` → bound to `0.0.0.0:1433` (containers reach via `host.docker.internal`).
+- [ ] `sudo ufw status verbose | grep 1433` → no rule (external access blocked at the firewall layer).
+- [ ] From a remote host: `nc -zv <vps-ip> 1433` → connection refused (UFW does its job).
 - [ ] `sqlcmd -S 127.0.0.1 -U qalam_staging_user -P ... -d qalam_staging -C -Q "SELECT 1"` returns `1`.
 - [ ] Same with `qalam_prod_user` / `qalam_prod`.
 - [ ] Cross-env access denied (error 916).
+- [ ] From a container: `docker exec <any-container> nc -zv host.docker.internal 1433` succeeds.
 - [ ] `/var/opt/mssql/backups/` contains four `.bak.gz` files after running the backup script.
 - [ ] `/etc/cron.d/qalam-mssql-backup` exists with mode 644.
 

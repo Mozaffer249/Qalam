@@ -112,17 +112,20 @@ else
   ok "SA password file already present — skipping mssql-conf setup"
 fi
 
-# Bind to 127.0.0.1
-/opt/mssql/bin/mssql-conf set network.ipaddress 127.0.0.1 >/dev/null
+# Bind SQL Server to 0.0.0.0 so Docker containers can reach it via host.docker.internal
+# (which resolves to the docker bridge IP, NOT 127.0.0.1). External access on 1433 is still
+# blocked by UFW (Phase 2 step 2 — we never add an allow rule for 1433), so the database
+# remains unreachable from the public internet despite the 0.0.0.0 bind.
+/opt/mssql/bin/mssql-conf set network.ipaddress 0.0.0.0 >/dev/null
 /opt/mssql/bin/mssql-conf set network.tcpport 1433 >/dev/null
 systemctl restart mssql-server
 
 # SQL Server Express on a small VPS can take 30–60s to bind the port after restart.
 # Poll for up to 90s; fail only if it never appears.
-note "waiting for mssql-server to bind 127.0.0.1:1433 (up to 90s)..."
+note "waiting for mssql-server to bind 0.0.0.0:1433 (up to 90s)..."
 for i in {1..45}; do
-  if ss -tlnp 2>/dev/null | grep -q '127.0.0.1:1433'; then
-    ok "mssql-server bound to 127.0.0.1:1433 (after ${i}× 2s)"
+  if ss -tlnp 2>/dev/null | grep -q ':1433'; then
+    ok "mssql-server bound to 1433 (after ${i}× 2s)"
     break
   fi
   sleep 2
@@ -130,7 +133,7 @@ for i in {1..45}; do
     warn "mssql-server still not bound after 90s — full status follows:"
     systemctl status mssql-server --no-pager | head -15 >&2
     journalctl -u mssql-server -n 20 --no-pager >&2
-    fail "mssql-server failed to bind 127.0.0.1:1433"
+    fail "mssql-server failed to bind port 1433"
   fi
 done
 
