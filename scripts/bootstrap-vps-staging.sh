@@ -116,13 +116,23 @@ fi
 /opt/mssql/bin/mssql-conf set network.ipaddress 127.0.0.1 >/dev/null
 /opt/mssql/bin/mssql-conf set network.tcpport 1433 >/dev/null
 systemctl restart mssql-server
-sleep 5
 
-if ss -tlnp | grep -q '127.0.0.1:1433'; then
-  ok "mssql-server bound to 127.0.0.1:1433"
-else
-  fail "mssql-server did not bind to 127.0.0.1:1433 — check 'journalctl -u mssql-server -e'"
-fi
+# SQL Server Express on a small VPS can take 30–60s to bind the port after restart.
+# Poll for up to 90s; fail only if it never appears.
+note "waiting for mssql-server to bind 127.0.0.1:1433 (up to 90s)..."
+for i in {1..45}; do
+  if ss -tlnp 2>/dev/null | grep -q '127.0.0.1:1433'; then
+    ok "mssql-server bound to 127.0.0.1:1433 (after ${i}× 2s)"
+    break
+  fi
+  sleep 2
+  if [[ $i -eq 45 ]]; then
+    warn "mssql-server still not bound after 90s — full status follows:"
+    systemctl status mssql-server --no-pager | head -15 >&2
+    journalctl -u mssql-server -n 20 --no-pager >&2
+    fail "mssql-server failed to bind 127.0.0.1:1433"
+  fi
+done
 
 # UFW: open SSH + HTTP + HTTPS, keep 1433 closed
 ufw allow OpenSSH >/dev/null 2>&1 || true
