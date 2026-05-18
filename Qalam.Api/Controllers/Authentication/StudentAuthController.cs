@@ -16,8 +16,16 @@ namespace Qalam.Api.Controllers.Authentication;
 public class StudentAuthController : AppControllerBase
 {
     /// <summary>
-    /// Send OTP (Screen 1 - phone only). Response includes IsNewUser, masked phone, and message (login vs registration).
+    /// Student/parent — send OTP (step 1).
     /// </summary>
+    /// <remarks>
+    /// **Prerequisites:** `GET /Api/V1/Authentication/Config` → use `data.student`.
+    ///
+    /// When `student.otpDelivery` is **Email**, OTP is emailed (bilingual template, same SMTP as teacher).
+    /// Include `email` when `student.emailRequired` is true. Response: `otpSentTo`, `maskedDestination`, `isNewUser`.
+    /// Then `POST …/Student/VerifyOtp`.
+    /// </remarks>
+    [Tags("Student Authentication")]
     [HttpPost("SendOtp")]
     [ProducesResponseType(typeof(StudentSendOtpResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -27,15 +35,18 @@ public class StudentAuthController : AppControllerBase
     }
 
     /// <summary>
-    /// Verify OTP (Screen 2). Returns token and NextStep (ChooseAccountType or Dashboard). No account creation yet.
+    /// Student/parent — verify OTP from email or SMS (step 2).
     /// </summary>
     /// <remarks>
+    /// Verifies the code from `SendOtp` (email or SMS per auth config).
+    ///
     /// Response includes:
     /// - **NextStepName**: Primary next step (e.g., "ChooseAccountType", "Dashboard")
     /// - **IsNextStepRequired**: Whether the next step is mandatory or optional
     /// - **OptionalSteps**: List of optional steps available to the user
     /// - **NextStepDescription**: Clear description of what to do next
     /// </remarks>
+    [Tags("Student Authentication")]
     [HttpPost("VerifyOtp")]
     [ProducesResponseType(typeof(StudentRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

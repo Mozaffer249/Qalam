@@ -4,7 +4,7 @@ namespace Qalam.Service.Abstracts;
 
 public interface ITeacherRegistrationService
 {
-    Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber);
+    Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null);
 
     Task<TeacherAccountDto> CompleteAccountAsync(
         int userId,

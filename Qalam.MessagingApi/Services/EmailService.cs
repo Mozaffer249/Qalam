@@ -3,6 +3,7 @@ using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using Qalam.MessagingApi.Configuration;
+using static Qalam.MessagingApi.Configuration.SmtpSecureSocketOptions;
 using Qalam.MessagingApi.Models.Entities;
 using Qalam.MessagingApi.Models.Enums;
 using Qalam.MessagingApi.Services.Interfaces;
@@ -61,8 +62,7 @@ public class EmailService : IEmailService
             mimeMessage.Body = builder.ToMessageBody();
 
             using var smtp = new SmtpClient();
-            var secureOption = _emailSettings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
-            await smtp.ConnectAsync(_emailSettings.Host, _emailSettings.Port, secureOption);
+            await smtp.ConnectAsync(_emailSettings.Host, _emailSettings.Port, FromEmailSettings(_emailSettings));
 
             if (!string.IsNullOrEmpty(_emailSettings.UserName))
                 await smtp.AuthenticateAsync(_emailSettings.UserName, _emailSettings.Password);

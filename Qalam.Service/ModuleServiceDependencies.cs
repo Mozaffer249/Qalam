@@ -28,6 +28,8 @@ namespace Qalam.Service
 
             // Teacher Registration Services
             services.AddTransient<IOtpService, OtpService>();
+            services.AddTransient<IAuthLoginOtpHelper, AuthLoginOtpHelper>();
+            services.AddScoped<IAuthSettingsProvider, AuthSettingsProvider>();
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
             services.AddTransient<ITeacherManagementService, TeacherManagementService>();

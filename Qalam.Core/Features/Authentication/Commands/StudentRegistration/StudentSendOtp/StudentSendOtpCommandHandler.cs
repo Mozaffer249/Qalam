@@ -8,6 +8,7 @@ using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.Entity.Identity;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models;
 
 namespace Qalam.Core.Features.Authentication.Commands.StudentRegistration;
 
@@ -16,24 +17,33 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
 {
     private readonly IOtpService _otpService;
     private readonly UserManager<User> _userManager;
+    private readonly IAuthSettingsProvider _authSettingsProvider;
 
     public StudentSendOtpCommandHandler(
         IOtpService otpService,
         UserManager<User> userManager,
+        IAuthSettingsProvider authSettingsProvider,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
         _userManager = userManager;
+        _authSettingsProvider = authSettingsProvider;
     }
 
     public async Task<Response<StudentSendOtpResponseDto>> Handle(
         StudentSendOtpCommand request,
         CancellationToken cancellationToken)
     {
+        var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
+        var persona = settings.Student;
+
+        if (persona.RegisterRequiresPhone && string.IsNullOrWhiteSpace(request.PhoneNumber))
+            return BadRequest<StudentSendOtpResponseDto>("Phone number is required.");
+
         var fullPhoneNumber = $"{request.CountryCode}{request.PhoneNumber}";
         var existingUser = await _userManager.Users
             .FirstOrDefaultAsync(u => u.PhoneNumber == fullPhoneNumber, cancellationToken);
-        bool isNewUser = existingUser == null;
+        var isNewUser = existingUser == null;
 
         var isExistingStudentOrGuardian = false;
         if (existingUser != null)
@@ -42,15 +52,45 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
             isExistingStudentOrGuardian = roles.Contains(Roles.Student) || roles.Contains(Roles.Guardian);
         }
 
-        var otpCode = await _otpService.GeneratePhoneOtpAsync(
-            request.CountryCode,
-            request.PhoneNumber);
+        if (isNewUser && persona.RegisterRequiresEmail && string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest<StudentSendOtpResponseDto>("Email is required for registration.");
 
-        if (otpCode is null)
+        if (!isNewUser && string.Equals(persona.OtpDelivery, "Email", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(existingUser!.Email))
+            return BadRequest<StudentSendOtpResponseDto>("No email on file. Please contact support.");
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailOwner = await _userManager.FindByEmailAsync(request.Email.Trim());
+            if (emailOwner != null && (isNewUser || emailOwner.Id != existingUser!.Id))
+                return BadRequest<StudentSendOtpResponseDto>("Email is already registered.");
+        }
+
+        LoginOtpSendResult? sendResult;
+        try
+        {
+            sendResult = await _otpService.GenerateAndSendLoginOtpAsync(new LoginOtpSendOptions
+            {
+                CountryCode = request.CountryCode,
+                PhoneNumber = request.PhoneNumber,
+                RequestEmail = request.Email,
+                ExistingUserEmail = existingUser?.Email,
+                IsNewUser = isNewUser,
+                Persona = LoginOtpPersona.Student,
+                PersonaSettings = persona,
+                OtpSettings = settings.Otp
+            }, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest<StudentSendOtpResponseDto>(ex.Message);
+        }
+
+        if (sendResult == null)
+        {
             return TooManyRequests<StudentSendOtpResponseDto>(
-                "A valid OTP code has already been sent. Please check your phone or wait 5 minutes to request a new one.");
-
-        await _otpService.SendOtpSmsAsync(fullPhoneNumber, otpCode);
+                "A valid OTP code has already been sent. Please check your messages or wait before requesting a new one.");
+        }
 
         var maskedPhone = request.PhoneNumber.Length >= 4
             ? $"*******{request.PhoneNumber[^4..]}"
@@ -64,6 +104,8 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
         {
             IsNewUser = isNewUser,
             PhoneNumber = maskedPhone,
+            OtpSentTo = sendResult.OtpSentTo,
+            MaskedDestination = sendResult.MaskedDestination,
             Message = message
         });
     }

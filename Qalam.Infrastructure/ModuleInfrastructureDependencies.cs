@@ -16,6 +16,8 @@ namespace Qalam.Infrastructure
             // Identity Repositories
             services.AddTransient<IRefreshTokenRepository, RefreshTokenRepository>();
             services.AddTransient<IPhoneOtpRepository, PhoneOtpRepository>();
+            services.AddTransient<ILoginOtpRepository, LoginOtpRepository>();
+            services.AddTransient<ISystemSettingRepository, SystemSettingRepository>();
 
             // Teacher Repositories
             services.AddTransient<ITeacherRepository, TeacherRepository>();

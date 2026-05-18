@@ -11,5 +11,6 @@ public class EmailSettings
     public string UserName { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public bool EnableSsl { get; set; } = true;
+    public EmailSecureSocketMode SecureSocketMode { get; set; } = EmailSecureSocketMode.Auto;
     public SendingStrategy DefaultStrategy { get; set; } = SendingStrategy.Queued;
 }

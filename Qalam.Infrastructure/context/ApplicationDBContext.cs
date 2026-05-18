@@ -48,6 +48,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<TwoFactorRecoveryCode> TwoFactorRecoveryCodes { get; set; }
         public DbSet<EmailConfirmationOtp> EmailConfirmationOtps { get; set; }
         public DbSet<PhoneConfirmationOtp> PhoneConfirmationOtps { get; set; }
+        public DbSet<LoginOtp> LoginOtps { get; set; }
         public DbSet<PasswordResetOtp> PasswordResetOtps { get; set; }
         public DbSet<IpLoginAttempt> IpLoginAttempts { get; set; }
 

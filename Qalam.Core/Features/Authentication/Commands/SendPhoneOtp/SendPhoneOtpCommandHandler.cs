@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
@@ -8,6 +9,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models;
 
 namespace Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
 
@@ -17,57 +19,95 @@ public class SendPhoneOtpCommandHandler : ResponseHandler,
     private readonly IOtpService _otpService;
     private readonly UserManager<User> _userManager;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly IAuthSettingsProvider _authSettingsProvider;
 
     public SendPhoneOtpCommandHandler(
         IOtpService otpService,
         UserManager<User> userManager,
         ITeacherRepository teacherRepository,
+        IAuthSettingsProvider authSettingsProvider,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
         _userManager = userManager;
         _teacherRepository = teacherRepository;
+        _authSettingsProvider = authSettingsProvider;
     }
 
     public async Task<Response<SendOtpResponseDto>> Handle(
         SendPhoneOtpCommand request,
         CancellationToken cancellationToken)
     {
-        // Create full phone number
+        var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
+        var persona = settings.Teacher;
+
+        if (persona.RegisterRequiresPhone && string.IsNullOrWhiteSpace(request.PhoneNumber))
+            return BadRequest<SendOtpResponseDto>("Phone number is required.");
+
         var fullPhoneNumber = $"{request.CountryCode}{request.PhoneNumber}";
+        var existingUser = await _userManager.Users
+            .FirstOrDefaultAsync(u => u.PhoneNumber == fullPhoneNumber, cancellationToken);
+        var isNewUser = existingUser == null;
 
-        // Check if phone already registered
-        var existingUser = _userManager.Users
-            .FirstOrDefault(u => u.PhoneNumber == fullPhoneNumber);
-        
-        bool isNewUser = existingUser == null;
-
-        // If existing user, check if blocked
         if (!isNewUser)
         {
             var teacher = await _teacherRepository.GetByUserIdAsync(existingUser!.Id);
             if (teacher?.Status == TeacherStatus.Blocked)
-            {
                 return BadRequest<SendOtpResponseDto>("Your account has been blocked. Please contact support.");
-            }
         }
 
-        // Generate and send OTP (for both new and existing users)
-        var otpCode = await _otpService.GeneratePhoneOtpAsync(
-            request.CountryCode,
-            request.PhoneNumber);
+        if (isNewUser && persona.RegisterRequiresEmail && string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest<SendOtpResponseDto>("Email is required for registration.");
 
-        await _otpService.SendOtpSmsAsync(fullPhoneNumber, otpCode);
+        if (!isNewUser && string.Equals(persona.OtpDelivery, "Email", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(existingUser!.Email))
+            return BadRequest<SendOtpResponseDto>("No email on file. Please contact support to add an email.");
 
-        // Mask phone number for response (show last 4 digits)
-        var maskedPhone = $"*******{request.PhoneNumber[^4..]}";
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailOwner = await _userManager.FindByEmailAsync(request.Email.Trim());
+            if (emailOwner != null && (isNewUser || emailOwner.Id != existingUser!.Id))
+                return BadRequest<SendOtpResponseDto>("Email is already registered.");
+        }
 
-        return Success<SendOtpResponseDto>(entity: new SendOtpResponseDto
+        LoginOtpSendResult? sendResult;
+        try
+        {
+            sendResult = await _otpService.GenerateAndSendLoginOtpAsync(new LoginOtpSendOptions
+            {
+                CountryCode = request.CountryCode,
+                PhoneNumber = request.PhoneNumber,
+                RequestEmail = request.Email,
+                ExistingUserEmail = existingUser?.Email,
+                IsNewUser = isNewUser,
+                Persona = LoginOtpPersona.Teacher,
+                PersonaSettings = persona,
+                OtpSettings = settings.Otp
+            }, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest<SendOtpResponseDto>(ex.Message);
+        }
+
+        if (sendResult == null)
+        {
+            return TooManyRequests<SendOtpResponseDto>(
+                "A valid OTP has already been sent. Please check your messages or wait before requesting a new one.");
+        }
+
+        var maskedPhone = request.PhoneNumber.Length >= 4
+            ? $"*******{request.PhoneNumber[^4..]}"
+            : "****";
+
+        return Success(entity: new SendOtpResponseDto
         {
             IsNewUser = isNewUser,
             PhoneNumber = maskedPhone,
-            Message = isNewUser 
-                ? "OTP sent successfully. Welcome! You will create a new account."
+            OtpSentTo = sendResult.OtpSentTo,
+            MaskedDestination = sendResult.MaskedDestination,
+            Message = isNewUser
+                ? "OTP sent successfully. Complete registration after verification."
                 : "OTP sent successfully. Welcome back!"
         });
     }

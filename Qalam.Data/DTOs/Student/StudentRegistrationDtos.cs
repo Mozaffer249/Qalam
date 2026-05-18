@@ -203,6 +203,8 @@ public class StudentSendOtpResponseDto
     public bool IsNewUser { get; set; }
     public string Message { get; set; } = default!;
     public string PhoneNumber { get; set; } = default!;
+    public string OtpSentTo { get; set; } = default!;
+    public string MaskedDestination { get; set; } = default!;
 }
 
 #endregion

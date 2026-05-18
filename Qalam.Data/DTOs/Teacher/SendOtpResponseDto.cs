@@ -19,4 +19,14 @@ public class SendOtpResponseDto
     /// The phone number that OTP was sent to (masked for security)
     /// </summary>
     public string PhoneNumber { get; set; } = default!;
+
+    /// <summary>
+    /// Delivery channel: email or sms
+    /// </summary>
+    public string OtpSentTo { get; set; } = default!;
+
+    /// <summary>
+    /// Masked email or phone where the OTP was delivered
+    /// </summary>
+    public string MaskedDestination { get; set; } = default!;
 }

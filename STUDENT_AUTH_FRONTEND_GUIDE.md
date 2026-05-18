@@ -2,7 +2,9 @@
 
 ## Overview
 
-Multi-step registration flow: Phone OTP -> Account Type -> Academic Profile -> Dashboard.
+**Step 0:** Call `GET /Api/V1/Authentication/Config` and read the `student` block to decide which fields to show (phone, email) and OTP delivery (`Email` vs `Sms`). See [docs/Auth-Config-Frontend.md](docs/Auth-Config-Frontend.md).
+
+Multi-step registration flow: Phone (+ email when config requires) OTP -> Account Type -> Academic Profile -> Dashboard.
 Supports 3 account types: Student, Parent, Both.
 
 **Base URL:** `Api/V1/Authentication/Student/`

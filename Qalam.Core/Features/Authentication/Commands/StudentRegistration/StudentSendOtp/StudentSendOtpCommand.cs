@@ -5,10 +5,11 @@ using Qalam.Data.DTOs.Student;
 namespace Qalam.Core.Features.Authentication.Commands.StudentRegistration;
 
 /// <summary>
-/// Send OTP for student/parent registration (Screen 1 - phone only).
+/// Send OTP for student/parent registration (Screen 1).
 /// </summary>
 public class StudentSendOtpCommand : IRequest<Response<StudentSendOtpResponseDto>>
 {
     public string CountryCode { get; set; } = "+966";
     public string PhoneNumber { get; set; } = default!;
+    public string? Email { get; set; }
 }

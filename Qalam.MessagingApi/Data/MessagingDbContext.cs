@@ -17,7 +17,8 @@ public class MessagingDbContext : DbContext
 
         modelBuilder.Entity<MessageLog>(entity =>
         {
-            entity.ToTable("MessageLogs");
+            // Same table as Qalam.Infrastructure migration (schema messaging) — shared SQL database.
+            entity.ToTable("MessageLogs", "messaging");
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.MessageId)
@@ -31,13 +32,12 @@ public class MessagingDbContext : DbContext
             entity.Property(e => e.Subject)
                 .HasMaxLength(500);
 
-            entity.Property(e => e.Status)
-                .HasConversion<string>()
-                .HasMaxLength(50);
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(2000);
 
-            entity.Property(e => e.Type)
-                .HasConversion<string>()
-                .HasMaxLength(50);
+            // Stored as int — matches ApplicationDBContext / AddMessagingAndFixCascade migration.
+            entity.Property(e => e.Status);
+            entity.Property(e => e.Type);
 
             entity.HasIndex(e => e.MessageId).IsUnique();
             entity.HasIndex(e => e.QueuedAt);

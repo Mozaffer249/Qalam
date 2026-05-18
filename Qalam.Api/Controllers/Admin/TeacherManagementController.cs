@@ -29,7 +29,7 @@ public class TeacherManagementController : AppControllerBase
 
 	/// <summary>
 	/// Get list of teachers pending verification or with rejected documents
-	/// </summary>
+	/// </summary> product
 	/// <param name="pageNumber">Page number (default: 1)</param>
 	/// <param name="pageSize">Page size (default: 10)</param>
 	[HttpGet("Pending")]

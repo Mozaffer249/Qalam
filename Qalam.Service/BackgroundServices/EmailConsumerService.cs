@@ -9,6 +9,8 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Helpers;
+using Qalam.Service.Email;
+using static Qalam.Service.Email.SmtpSecureSocketOptions;
 using System.Text;
 using System.Text.Json;
 
@@ -120,8 +122,7 @@ namespace Qalam.Service.BackgroundServices
             var emailSettings = scope.ServiceProvider.GetRequiredService<IOptions<EmailSettings>>().Value;
 
             using var smtpClient = new SmtpClient();
-            await smtpClient.ConnectAsync(emailSettings.Host, emailSettings.Port,
-                emailSettings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
+            await smtpClient.ConnectAsync(emailSettings.Host, emailSettings.Port, FromEmailSettings(emailSettings));
             await smtpClient.AuthenticateAsync(emailSettings.UserName, emailSettings.Password);
 
             var mimeMessage = new MimeMessage();

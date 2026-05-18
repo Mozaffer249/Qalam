@@ -72,18 +72,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Apply migrations
+// MessagingApi uses messaging.MessageLogs created by Qalam.Infrastructure migrations (shared DB).
 using (var scope = app.Services.CreateScope())
 {
     try
     {
         var context = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
-        await context.Database.MigrateAsync();
-        Log.Information("MessagingDb migrations applied successfully");
+        if (await context.Database.CanConnectAsync())
+        {
+            Log.Information(
+                "MessagingDb connected (table messaging.MessageLogs — apply Qalam.Infrastructure migrations on the main API if missing)");
+        }
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "Failed to apply MessagingDb migrations");
+        Log.Error(ex, "MessagingDb connection failed — check ConnectionStrings:MessagingDb");
     }
 }
 

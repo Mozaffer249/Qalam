@@ -25,6 +25,7 @@ namespace Qalam.Api.Controllers.Authentication.Core
         {
             _enumService = enumService;
         }
+
         /// <summary>
         /// Register a new user account
         /// </summary>
@@ -50,11 +51,17 @@ namespace Qalam.Api.Controllers.Authentication.Core
         #region Teacher Authentication & Registration
 
         /// <summary>
-        /// Teacher Login or Register - Send OTP to phone number
-        /// Works for both new and existing users
+        /// Teacher login or register — send OTP (phone + email when configured).
         /// </summary>
-        /// <param name="command">Country code and phone number</param>
-        /// <returns>IsNewUser flag and success message</returns>
+        /// <remarks>
+        /// **Prerequisites:** `GET /Api/V1/Authentication/Config` → use `data.teacher` (`otpDelivery`, `emailRequired`, hints).
+        ///
+        /// When `teacher.otpDelivery` is **Email**, the OTP is sent via SMTP (Messaging API → `info@qalam.net.sa`).
+        /// Response: `otpSentTo`, `maskedDestination`, `isNewUser`. Then call `POST …/Teacher/VerifyOtp`.
+        ///
+        /// Body must include `email` when `teacher.registerRequiresEmail` is true (new users).
+        /// </remarks>
+        [Tags("Teacher Authentication")]
         [HttpPost(Router.TeacherLoginOrRegister)]
         public async Task<IActionResult> TeacherLoginOrRegister([FromBody] SendPhoneOtpCommand command)
         {
@@ -62,10 +69,12 @@ namespace Qalam.Api.Controllers.Authentication.Core
         }
 
         /// <summary>
-        /// Verify OTP - Login for existing users, Register for new users
+        /// Teacher — verify OTP from email or SMS (step 2).
         /// </summary>
-        /// <param name="command">Phone number and OTP code</param>
-        /// <returns>JWT token, IsNewUser flag, and next registration step</returns>
+        /// <remarks>
+        /// Verifies the code sent by `LoginOrRegister`. When delivery was email, user enters the code from the bilingual HTML email.
+        /// </remarks>
+        [Tags("Teacher Authentication")]
         [HttpPost(Router.TeacherVerifyOtp)]
         public async Task<IActionResult> TeacherVerifyOtp([FromBody] VerifyOtpAndCreateAccountCommand command)
         {

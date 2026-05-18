@@ -7,6 +7,8 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Helpers;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Email;
+using static Qalam.Service.Email.SmtpSecureSocketOptions;
 
 namespace Qalam.Service.Implementations
 {
@@ -64,8 +66,7 @@ namespace Qalam.Service.Implementations
             emailMessage.Body = bodyBuilder.ToMessageBody();
 
             using var smtpClient = new SmtpClient();
-            await smtpClient.ConnectAsync(_emailSettings.Host, _emailSettings.Port,
-                _emailSettings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
+            await smtpClient.ConnectAsync(_emailSettings.Host, _emailSettings.Port, FromEmailSettings(_emailSettings));
             await smtpClient.AuthenticateAsync(_emailSettings.UserName, _emailSettings.Password);
             await smtpClient.SendAsync(emailMessage);
             await smtpClient.DisconnectAsync(true);

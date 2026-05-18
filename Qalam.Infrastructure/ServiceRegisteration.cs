@@ -88,7 +88,12 @@ namespace Qalam.Infrastructure
                 {
                     Title = "Qalam API",
                     Version = "v1",
-                    Description = "Qalam Education Platform API - Manages education content, Quran studies, and teaching configurations",
+                    Description = """
+                        Qalam Education Platform API — education content, Quran, teachers, enrollments.
+                        
+                        **Auth settings for frontend:** tag «Authentication Config (Public)» → `GET /Api/V1/Authentication/Config`  
+                        **Full guide (markdown in repo):** `docs/Auth-Config-Frontend.md`
+                        """,
                     Contact = new OpenApiContact
                     {
                         Name = "Qalam Support",
@@ -96,6 +101,9 @@ namespace Qalam.Infrastructure
                     }
                 });
                 c.EnableAnnotations();
+                c.OperationFilter<AllowAnonymousOperationFilter>();
+                c.OperationFilter<AuthConfigOpenApiOperationFilter>();
+                c.DocumentFilter<OpenApiTagDescriptionsDocumentFilter>();
 
                 // Add schema filter to show proper default values instead of null for all property types
                 c.SchemaFilter<DefaultValueSchemaFilter>();

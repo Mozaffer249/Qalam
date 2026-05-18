@@ -9,6 +9,7 @@ public class DatabaseSeeder
         // Seed in correct order to respect dependencies
 
         // Basic infrastructure
+        await AuthSettingsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);
         await CurriculumsSeeder.SeedAsync(context);
         await TeachingModesSeeder.SeedAsync(context);

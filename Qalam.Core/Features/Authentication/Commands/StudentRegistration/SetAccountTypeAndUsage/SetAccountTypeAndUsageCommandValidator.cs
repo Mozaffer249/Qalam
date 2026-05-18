@@ -33,7 +33,9 @@ public class SetAccountTypeAndUsageCommandValidator : AbstractValidator<SetAccou
         
         RuleFor(x => x.Data.FirstName).NotEmpty().When(x => x.Data != null);
         RuleFor(x => x.Data.LastName).NotEmpty().When(x => x.Data != null);
-        RuleFor(x => x.Data.Email).NotEmpty().EmailAddress().When(x => x.Data != null);
+        RuleFor(x => x.Data.Email)
+            .EmailAddress()
+            .When(x => x.Data != null && !string.IsNullOrEmpty(x.Data.Email));
         RuleFor(x => x.Data.Password)
             .NotEmpty().MinimumLength(6)
             .When(x => x.Data != null);

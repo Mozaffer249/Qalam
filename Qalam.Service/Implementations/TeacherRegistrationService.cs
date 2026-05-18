@@ -38,14 +38,15 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _availabilityRepository = availabilityRepository;
     }
 
-    public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber)
+    public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null)
     {
-        // Create basic user account (email is optional, will be provided later)
         var user = new User
         {
             UserName = fullPhoneNumber,
             PhoneNumber = fullPhoneNumber,
             PhoneNumberConfirmed = true,
+            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
+            NormalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToUpperInvariant(),
             IsActive = false,
             EmailConfirmed = false
         };

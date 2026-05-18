@@ -97,9 +97,28 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
 
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
-        user.Email = dto.Email;
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            if (!string.IsNullOrEmpty(user.Email) &&
+                !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest<StudentRegistrationResponseDto>("Email does not match the address used during verification.");
+            }
+            user.Email = dto.Email.Trim();
+            user.NormalizedEmail = dto.Email.Trim().ToUpperInvariant();
+        }
+        else if (string.IsNullOrEmpty(user.Email))
+        {
+            return BadRequest<StudentRegistrationResponseDto>("Email is required.");
+        }
+
         user.Address = dto.CityOrRegion;
-        await _userManager.UpdateAsync(user);
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return BadRequest<StudentRegistrationResponseDto>(
+                string.Join("; ", updateResult.Errors.Select(e => e.Description)));
+        }
 
         if (existingStudent == null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both))
             await _userManager.AddToRoleAsync(user, Roles.Student);
@@ -128,7 +147,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
                 UserId = user.Id,
                 FullName = $"{dto.FirstName} {dto.LastName}".Trim(),
                 Phone = fullPhone,
-                Email = dto.Email,
+                Email = user.Email ?? dto.Email,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });

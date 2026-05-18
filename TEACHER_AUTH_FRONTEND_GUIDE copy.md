@@ -2,7 +2,9 @@
 
 ## Overview
 
-Multi-step registration flow: Phone OTP -> Personal Info -> Upload Documents -> Admin Verification -> Add Subjects -> Set Availability -> Dashboard.
+**Step 0:** Call `GET /Api/V1/Authentication/Config` and read the `teacher` block (fields to show, OTP via email or SMS). See [docs/Auth-Config-Frontend.md](docs/Auth-Config-Frontend.md).
+
+Multi-step registration flow: Phone (+ email when config requires) OTP -> Personal Info -> Upload Documents -> Admin Verification -> Add Subjects -> Set Availability -> Dashboard.
 
 **Base URL:** `Api/V1/Authentication/Teacher/` (registration) and `Api/V1/Teacher/` (post-approval).
 

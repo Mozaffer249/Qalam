@@ -8,4 +8,5 @@ public class SendPhoneOtpCommand : IRequest<Response<SendOtpResponseDto>>
 {
     public string CountryCode { get; set; } = "+966";
     public string PhoneNumber { get; set; } = null!;
+    public string? Email { get; set; }
 }
