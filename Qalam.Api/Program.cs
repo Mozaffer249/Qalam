@@ -123,8 +123,24 @@ builder.Services.AddCors(options =>
     options.AddPolicy(name: CORS,
         policy =>
         {
-            var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                ?? new[] { "*" };
+            // Cors:AllowedOrigins can arrive via two formats:
+            //   1. appsettings.json   — JSON array, binds natively to string[]
+            //   2. env Cors__AllowedOrigins=a,b,c — single CSV string; .NET does NOT auto-split it,
+            //      so GetSection().Get<string[]>() returns one element whose value is the whole CSV,
+            //      and WithOrigins(...) then registers that literal CSV as a single (never-matching) origin.
+            // Detect the scalar/CSV case explicitly and split.
+            string[] allowedOrigins;
+            var scalarCsv = builder.Configuration["Cors:AllowedOrigins"];
+            if (!string.IsNullOrWhiteSpace(scalarCsv) && scalarCsv.Contains(','))
+            {
+                allowedOrigins = scalarCsv
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            }
+            else
+            {
+                allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                    ?? new[] { "*" };
+            }
 
             if (allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
             {
