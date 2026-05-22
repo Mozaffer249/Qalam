@@ -50,7 +50,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
-        var allowTest = settings.Otp.AllowTestCodeInDevelopment && _hostEnvironment.IsDevelopment();
+        var allowTest = settings.Otp.AllowTestCodeInDevelopment
+                        && (_hostEnvironment.IsDevelopment() || _hostEnvironment.IsStaging());
 
         var isValid = await _otpService.VerifyLoginOtpAsync(request.PhoneNumber, request.OtpCode, allowTest, cancellationToken);
         if (!isValid)

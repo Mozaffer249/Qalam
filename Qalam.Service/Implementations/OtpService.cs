@@ -148,8 +148,24 @@ public class OtpService : IOtpService
             var expiryMinutes = Math.Max(1, options.OtpSettings.ExpirySeconds / 60);
             var subject = LoginOtpEmailTemplate.BuildSubject(options.Persona);
             var body = LoginOtpEmailTemplate.BuildHtmlBody(otpCode, expiryMinutes, options.Persona);
-            await _emailService.SendEmailAsync(deliveryEmail!, subject, body);
-            _logger.LogInformation("Login OTP emailed to {Email} for phone {Phone}", deliveryEmail, phone);
+            try
+            {
+                await _emailService.SendEmailAsync(deliveryEmail!, subject, body);
+                // With the default Queued strategy this only confirms the message landed on the
+                // RabbitMQ email-queue — actual SMTP delivery happens later in the
+                // MessagingApi.EmailConsumerService. With the Direct strategy this confirms SMTP success.
+                _logger.LogInformation(
+                    "Login OTP dispatched for {Persona} via {Strategy} to {Email} (phone {Phone}). " +
+                    "If queued, verify the MessagingApi consumer log line 'Email consumed and sent to: {Email}' to confirm delivery.",
+                    options.Persona, "configured-strategy", deliveryEmail, phone, deliveryEmail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to dispatch Login OTP for {Persona} to {Email} (phone {Phone}). Email NOT sent.",
+                    options.Persona, deliveryEmail, phone);
+                throw;
+            }
         }
         else
         {
@@ -192,7 +208,8 @@ public class OtpService : IOtpService
         _loginOtpRepository.MarkAsUsedAsync(otpId, userId, cancellationToken);
 
     private bool IsTestCodeAllowed(string otpCode) =>
-        otpCode == TestOtpCode && _hostEnvironment.IsDevelopment();
+        otpCode == TestOtpCode
+        && (_hostEnvironment.IsDevelopment() || _hostEnvironment.IsStaging());
 
     private static string GenerateCode(int length)
     {

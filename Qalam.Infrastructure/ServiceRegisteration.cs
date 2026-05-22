@@ -37,7 +37,9 @@ namespace Qalam.Infrastructure
                    // User settings.
                    option.User.AllowedUserNameCharacters =
                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-                   option.User.RequireUniqueEmail = false;  // Allow phone-only registration
+                   // Emails must be unique across all users. NULL/empty emails are still allowed,
+                   // so phone-only registration keeps working — Identity only validates non-empty emails.
+                   option.User.RequireUniqueEmail = true;
                    option.SignIn.RequireConfirmedEmail = true;
 
 

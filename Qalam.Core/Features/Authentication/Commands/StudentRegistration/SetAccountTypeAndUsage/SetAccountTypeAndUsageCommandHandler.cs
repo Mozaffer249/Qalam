@@ -99,13 +99,34 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         user.LastName = dto.LastName;
         if (!string.IsNullOrWhiteSpace(dto.Email))
         {
+            var trimmedEmail = dto.Email.Trim();
             if (!string.IsNullOrEmpty(user.Email) &&
-                !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(user.Email, trimmedEmail, StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest<StudentRegistrationResponseDto>("Email does not match the address used during verification.");
             }
-            user.Email = dto.Email.Trim();
-            user.NormalizedEmail = dto.Email.Trim().ToUpperInvariant();
+
+            // Only run the collision check when we're assigning an email this user doesn't already have.
+            if (string.IsNullOrEmpty(user.Email))
+            {
+                User? emailOwner;
+                try
+                {
+                    emailOwner = await _userManager.FindByEmailAsync(trimmedEmail);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Legacy duplicates already in the DB — treat as a hard collision.
+                    return BadRequest<StudentRegistrationResponseDto>("Email is already registered.");
+                }
+                if (emailOwner != null && emailOwner.Id != user.Id)
+                {
+                    return BadRequest<StudentRegistrationResponseDto>("Email is already registered.");
+                }
+            }
+
+            user.Email = trimmedEmail;
+            user.NormalizedEmail = trimmedEmail.ToUpperInvariant();
         }
         else if (string.IsNullOrEmpty(user.Email))
         {
@@ -116,6 +137,8 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         var updateResult = await _userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
         {
+            // Identity's RequireUniqueEmail validator surfaces here if the chosen email
+            // collides with another user. Pass the message through unchanged.
             return BadRequest<StudentRegistrationResponseDto>(
                 string.Join("; ", updateResult.Errors.Select(e => e.Description)));
         }

@@ -89,10 +89,39 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             throw new Exception("User not found");
         }
 
+        // Email uniqueness check — only when the email actually changes for this user.
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var trimmedEmail = email.Trim();
+            var sameAsCurrent = !string.IsNullOrEmpty(user.Email)
+                && string.Equals(user.Email, trimmedEmail, StringComparison.OrdinalIgnoreCase);
+            if (!sameAsCurrent)
+            {
+                User? emailOwner;
+                try
+                {
+                    emailOwner = await _userManager.FindByEmailAsync(trimmedEmail);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Legacy duplicates already in the DB — treat as a hard collision.
+                    throw new Exception("Email is already registered.");
+                }
+                if (emailOwner != null && emailOwner.Id != user.Id)
+                {
+                    throw new Exception("Email is already registered.");
+                }
+            }
+            user.Email = trimmedEmail;
+        }
+        else
+        {
+            user.Email = email;
+        }
+
         // Update user details
         user.FirstName = firstName;
         user.LastName = lastName;
-        user.Email = email;
         user.IsActive = true;
 
         // Set password
@@ -105,7 +134,14 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             throw new Exception($"Failed to set password: {errors}");
         }
 
-        await _userManager.UpdateAsync(user);
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            // Most common failure now is the Identity "DuplicateEmail" validator (RequireUniqueEmail).
+            // Surface the message so the caller (handler) translates it to a 400.
+            var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+            throw new Exception($"Failed to update account: {errors}");
+        }
 
         // Create Teacher profile
         var teacher = new Teacher

@@ -61,7 +61,17 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
 
         if (!string.IsNullOrWhiteSpace(request.Email))
         {
-            var emailOwner = await _userManager.FindByEmailAsync(request.Email.Trim());
+            User? emailOwner;
+            try
+            {
+                emailOwner = await _userManager.FindByEmailAsync(request.Email.Trim());
+            }
+            catch (InvalidOperationException)
+            {
+                // FindByEmailAsync throws if the DB already contains duplicate emails (legacy data
+                // from before RequireUniqueEmail was enabled). Treat as a hard collision.
+                return BadRequest<StudentSendOtpResponseDto>("Email is already registered.");
+            }
             if (emailOwner != null && (isNewUser || emailOwner.Id != existingUser!.Id))
                 return BadRequest<StudentSendOtpResponseDto>("Email is already registered.");
         }
