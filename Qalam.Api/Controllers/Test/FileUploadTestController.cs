@@ -23,8 +23,8 @@ public class FileUploadTestController : ControllerBase
     }
 
     /// <summary>
-    /// Test file upload via RabbitMQ queue → MessagingApi → Wasabi
-    /// Upload any file and it will be queued for Wasabi upload
+    /// Test file upload via RabbitMQ queue → MessagingApi → Alibaba OSS
+    /// Upload any file and it will be queued for OSS upload
     /// </summary>
     [HttpPost("upload")]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB
@@ -52,7 +52,7 @@ public class FileUploadTestController : ControllerBase
 
             _logger.LogInformation("File validated OK. Queueing to RabbitMQ...");
 
-            // Queue to RabbitMQ → MessagingApi → Wasabi
+            // Queue to RabbitMQ → MessagingApi → OSS
             await _fileStorageService.QueueTeacherDocUploadAsync(
                 file, teacherId, "test-upload", documentId);
 
@@ -61,7 +61,7 @@ public class FileUploadTestController : ControllerBase
 
             return Ok(new
             {
-                Message = "File queued for Wasabi upload",
+                Message = "File queued for OSS upload",
                 FileName = file.FileName,
                 FileSize = file.Length,
                 ContentType = file.ContentType,

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <!-- Database -->
+    <PackageReference Include="Aliyun.OSS.SDK.NetCore" Version="2.14.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.16" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.16">
       <PrivateAssets>all</PrivateAssets>
@@ -19,9 +20,6 @@
     <PackageReference Include="RabbitMQ.Client" Version="7.2.0" />
     <PackageReference Include="Twilio" Version="7.14.3" />
     <PackageReference Include="FirebaseAdmin" Version="3.4.0" />
-
-    <!-- Cloud Storage -->
-    <PackageReference Include="AWSSDK.S3" Version="3.7.406.4" />
 
     <!-- Logging & Docs -->
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />

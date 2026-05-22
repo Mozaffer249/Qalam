@@ -58,11 +58,13 @@ services:
       - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}
       - PushNotificationSettings__ServiceAccountKeyPath=${FIREBASE_KEY_PATH:-}
       - PushNotificationSettings__ProjectId=${FIREBASE_PROJECT_ID:-}
-      - WasabiSettings__AccessKey=${WASABI_ACCESS_KEY:-}
-      - WasabiSettings__SecretKey=${WASABI_SECRET_KEY:-}
-      - WasabiSettings__BucketName=${WASABI_BUCKET:-qalam-storage}
-      - WasabiSettings__Region=${WASABI_REGION:-ap-southeast-1}
-      - WasabiSettings__ServiceUrl=${WASABI_SERVICE_URL:-https://s3.ap-southeast-1.wasabisys.com}
+      - OssSettings__AccessKeyId=${OSS_ACCESS_KEY_ID:-}
+      - OssSettings__AccessKeySecret=${OSS_ACCESS_KEY_SECRET:-}
+      - OssSettings__BucketName=${OSS_BUCKET:-auth-and-identities-certificates-staging}
+      - OssSettings__Region=${OSS_REGION:-me-central-1}
+      - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1.aliyuncs.com}
+      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
+      - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-false}
     ports:
       - "5001:80"
     depends_on:

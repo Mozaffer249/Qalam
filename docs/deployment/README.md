@@ -12,6 +12,7 @@ All production/staging setup docs live in this folder. Follow the numbered files
 | 3 | [`03-staging-setup.md`](./03-staging-setup.md) | `api-staging.qalam.net.sa` (auto-migrate, demo admin) |
 | 4 | [`04-production-setup.md`](./04-production-setup.md) | `api.qalam.net.sa` (manual migration gate, prod secrets) |
 | 5 | [`05-nginx-subdomains.md`](./05-nginx-subdomains.md) | Frontend SPA vhosts + consolidated Certbot |
+| — | [`06-oss-storage.md`](./06-oss-storage.md) | Alibaba OSS buckets, env vars, local test, Wasabi migration |
 
 **Day-2 ops:** [`../OPERATIONS_RUNBOOK.md`](../OPERATIONS_RUNBOOK.md)
 

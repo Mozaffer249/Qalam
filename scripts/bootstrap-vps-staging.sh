@@ -255,11 +255,13 @@ TWILIO_AUTH_TOKEN=
 TWILIO_FROM_NUMBER=
 FIREBASE_KEY_PATH=
 FIREBASE_PROJECT_ID=
-WASABI_ACCESS_KEY=
-WASABI_SECRET_KEY=
-WASABI_BUCKET=qalam-storage-staging
-WASABI_REGION=ap-southeast-1
-WASABI_SERVICE_URL=https://s3.ap-southeast-1.wasabisys.com
+OSS_ACCESS_KEY_ID=
+OSS_ACCESS_KEY_SECRET=
+OSS_BUCKET=auth-and-identities-certificates-staging
+OSS_REGION=me-central-1
+OSS_ENDPOINT=https://oss-me-central-1-internal.aliyuncs.com
+OSS_PUBLIC_BASE_URL=https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com
+OSS_USE_INTERNAL_ENDPOINT=true
 EOF
   chmod 600 .env.staging
   ok ".env.staging generated (chmod 600)"

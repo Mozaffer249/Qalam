@@ -72,7 +72,7 @@ public class ProfilePicUploadConsumer : BackgroundService
                             message.UserId, message.FileName, message.FileData.Length);
 
                         using var scope = _scopeFactory.CreateScope();
-                        var wasabiService = scope.ServiceProvider.GetRequiredService<IWasabiStorageService>();
+                        var storageService = scope.ServiceProvider.GetRequiredService<IObjectStorageService>();
                         var dbContext = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
 
                         var fileBytes = Convert.FromBase64String(message.FileData);
@@ -81,10 +81,10 @@ public class ProfilePicUploadConsumer : BackgroundService
 
                         var extension = Path.GetExtension(message.FileName);
                         var key = $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
-                        _logger.LogInformation("Uploading to Wasabi key: {Key}", key);
+                        _logger.LogInformation("Uploading to OSS key: {Key}", key);
 
-                        var fileUrl = await wasabiService.UploadFileAsync(key, stream, message.ContentType);
-                        _logger.LogInformation("Wasabi upload SUCCESS: {Url}", fileUrl);
+                        var fileUrl = await storageService.UploadFileAsync(key, stream, message.ContentType);
+                        _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
 
                         if (message.UserId > 0)
                         {

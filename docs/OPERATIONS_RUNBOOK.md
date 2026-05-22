@@ -67,7 +67,7 @@ Manual run (use when you're about to do something risky):
 sudo /usr/local/bin/qalam-mssql-backup.sh
 ```
 
-**Offsite copy is your responsibility** — local backups die with the VPS. Install `rclone`, configure a remote (Wasabi / S3 / Backblaze), and add a daily push:
+**Offsite copy is your responsibility** — local backups die with the VPS. Install `rclone`, configure a remote (Alibaba OSS / S3 / Backblaze), and add a daily push:
 
 ```bash
 # Example (after `rclone config` to set up the "offsite" remote)

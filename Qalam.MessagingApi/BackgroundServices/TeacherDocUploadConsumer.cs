@@ -72,7 +72,7 @@ public class TeacherDocUploadConsumer : BackgroundService
                             message.TeacherId, message.DocumentId, message.FileName, message.FileData.Length);
 
                         using var scope = _scopeFactory.CreateScope();
-                        var wasabiService = scope.ServiceProvider.GetRequiredService<IWasabiStorageService>();
+                        var storageService = scope.ServiceProvider.GetRequiredService<IObjectStorageService>();
                         var dbContext = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
 
                         var fileBytes = Convert.FromBase64String(message.FileData);
@@ -81,10 +81,10 @@ public class TeacherDocUploadConsumer : BackgroundService
 
                         var extension = Path.GetExtension(message.FileName);
                         var key = $"teachers/{message.TeacherId}/{message.DocumentType}/{Guid.NewGuid()}{extension}";
-                        _logger.LogInformation("Uploading to Wasabi key: {Key}", key);
+                        _logger.LogInformation("Uploading to OSS key: {Key}", key);
 
-                        var fileUrl = await wasabiService.UploadFileAsync(key, stream, message.ContentType);
-                        _logger.LogInformation("Wasabi upload SUCCESS: {Url}", fileUrl);
+                        var fileUrl = await storageService.UploadFileAsync(key, stream, message.ContentType);
+                        _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
 
                         if (message.DocumentId > 0)
                         {

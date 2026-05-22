@@ -51,14 +51,14 @@ public class ReuploadTeacherDocumentCommandHandler : ResponseHandler,
             if (!isValid)
                 return BadRequest<string>("Invalid file type or file too large. Allowed: jpg, jpeg, png, pdf (max 10MB)");
 
-            // Update document path to pending (Wasabi URL will be set by consumer)
+            // Update document path to pending (OSS URL will be set by consumer)
             var result = await _teacherManagementService.ReuploadDocumentAsync(
                 teacher.Id, request.DocumentId, "pending-upload");
 
             if (!result)
                 return BadRequest<string>("Failed to re-upload document. Document may not be in rejected status.");
 
-            // Queue file upload to RabbitMQ → MessagingApi → Wasabi
+            // Queue file upload to RabbitMQ → MessagingApi → OSS
             await _fileStorageService.QueueTeacherDocUploadAsync(
                 request.File, teacher.Id, "reupload", request.DocumentId);
 

@@ -45,9 +45,9 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
-        // Use EnvironmentName directly instead of IsDevelopment()/IsStaging() extension methods
-        // to avoid extension-method dispatch issues caused by transitive IHostEnvironment
-        // versioning in Qalam.Core (the package doesn't directly reference Microsoft.Extensions.Hosting).
+        // Compare EnvironmentName as a string. Qalam.Core pins Microsoft.Extensions.Hosting.Abstractions
+        // to 8.0.0 so IHostEnvironment can be DI-resolved, but the string comparison avoids depending
+        // on the IsDevelopment()/IsStaging() extensions which can be sensitive to transitive versioning.
         var envName = _hostEnvironment.EnvironmentName;
         var allowTest = settings.Otp.AllowTestCodeInDevelopment
                         && (envName == "Development" || envName == "Staging");

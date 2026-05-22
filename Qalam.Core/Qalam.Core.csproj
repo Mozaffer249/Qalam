@@ -11,6 +11,14 @@
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.9.0" />
     <PackageReference Include="MediatR" Version="12.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <!--
+      Pinned to 8.0.0 because Qalam.Service transitively pulls in 10.0.x via
+      Microsoft.Extensions.Caching.Memory, which makes IHostEnvironment in this assembly
+      a different type identity from the one the host registers (.NET 8). Without this
+      pin, DI fails to resolve IHostEnvironment when activating the OTP handlers and
+      the API returns 500. See StudentVerifyOtpCommandHandler / VerifyOtpAndCreateAccountCommandHandler.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="8.0.0" />
   </ItemGroup>
 

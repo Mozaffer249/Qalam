@@ -120,7 +120,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
                 }
             }
 
-            // Create identity document with placeholder path (Wasabi URL will be set by consumer)
+            // Create identity document with placeholder path (OSS URL will be set by consumer)
             var identityDoc = new TeacherDocument
             {
                 TeacherId = teacherId,
@@ -156,7 +156,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             // Save all documents to database (generates IDs)
             await _documentRepository.SaveChangesAsync();
 
-            // Queue file uploads to RabbitMQ → MessagingApi → Wasabi
+            // Queue file uploads to RabbitMQ → MessagingApi → OSS
             await _fileStorageService.QueueTeacherDocUploadAsync(
                 request.IdentityDocumentFile, teacherId, "identity", identityDoc.Id);
 
