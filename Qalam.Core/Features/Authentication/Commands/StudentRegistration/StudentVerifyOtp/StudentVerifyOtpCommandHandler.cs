@@ -45,8 +45,12 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
+        // Use EnvironmentName directly instead of IsDevelopment()/IsStaging() extension methods
+        // to avoid extension-method dispatch issues caused by transitive IHostEnvironment
+        // versioning in Qalam.Core (the package doesn't directly reference Microsoft.Extensions.Hosting).
+        var envName = _hostEnvironment.EnvironmentName;
         var allowTest = settings.Otp.AllowTestCodeInDevelopment
-                        && (_hostEnvironment.IsDevelopment() || _hostEnvironment.IsStaging());
+                        && (envName == "Development" || envName == "Staging");
 
         var isValid = await _otpService.VerifyLoginOtpAsync(request.PhoneNumber, request.OtpCode, allowTest, cancellationToken);
         if (!isValid)

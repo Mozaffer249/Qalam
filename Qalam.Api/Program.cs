@@ -187,23 +187,23 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDBContext>();
         var migrateOnStartupRaw = builder.Configuration["MIGRATE_ON_STARTUP"];
         var migrateOnStartupOverride = string.Equals(migrateOnStartupRaw, "true", StringComparison.OrdinalIgnoreCase);
-        var shouldMigrate = !app.Environment.IsProduction() || migrateOnStartupOverride;
+        // var shouldMigrate = !app.Environment.IsProduction() || migrateOnStartupOverride;
 
-        if (shouldMigrate)
-        {
-            Log.Information("Checking database and applying migrations (environment: {Env}, override: {Override})...",
-                app.Environment.EnvironmentName, migrateOnStartupOverride);
-            await context.Database.MigrateAsync();
-            Log.Information("Database migrations applied successfully");
-        }
-        else
-        {
-            Log.Information(
-                "Skipping auto-migration in {Env} (MIGRATE_ON_STARTUP={Value}). " +
-                "Run `dotnet ef database update` manually before promoting a build (see OPERATIONS_RUNBOOK.md).",
-                app.Environment.EnvironmentName,
-                migrateOnStartupRaw ?? "(unset)");
-        }
+        // if (shouldMigrate)
+        // {
+        Log.Information("Checking database and applying migrations (environment: {Env}, override: {Override})...",
+            app.Environment.EnvironmentName, migrateOnStartupOverride);
+        await context.Database.MigrateAsync();
+        Log.Information("Database migrations applied successfully");
+        // }
+        // else
+        // {
+        //     Log.Information(
+        //         "Skipping auto-migration in {Env} (MIGRATE_ON_STARTUP={Value}). " +
+        //         "Run `dotnet ef database update` manually before promoting a build (see OPERATIONS_RUNBOOK.md).",
+        //         app.Environment.EnvironmentName,
+        //         migrateOnStartupRaw ?? "(unset)");
+        // }
 
         // Seed reference data (idempotent — safe to run every boot).
         Log.Information("Starting database seeding...");
