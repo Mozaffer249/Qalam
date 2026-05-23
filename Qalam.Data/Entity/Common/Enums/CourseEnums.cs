@@ -49,3 +49,12 @@ public enum EnrollmentKind
     Individual = 1,
     Group = 2
 }
+
+/// <summary>
+/// مصدر التسجيل: من طلب دورة (السيناريو الأول) أو من طلب جلسات مفتوح (السيناريو الثاني)
+/// </summary>
+public enum EnrollmentSource
+{
+    CourseRequest = 1,
+    SessionRequest = 2
+}

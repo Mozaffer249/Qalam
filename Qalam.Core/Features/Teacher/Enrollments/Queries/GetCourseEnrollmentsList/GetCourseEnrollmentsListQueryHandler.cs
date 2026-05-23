@@ -80,7 +80,7 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
                 {
                     Id = e.Id,
                     Kind = e.Kind,
-                    CourseId = e.CourseId,
+                    CourseId = e.CourseId ?? 0,
                     CourseTitle = course.Title,
                     DisplayName = displayName,
                     EnrollmentStatus = e.EnrollmentStatus,

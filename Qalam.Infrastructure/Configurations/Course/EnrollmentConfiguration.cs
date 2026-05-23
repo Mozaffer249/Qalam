@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 
 namespace Qalam.Infrastructure.Configurations.Course;
@@ -16,23 +17,38 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.HasIndex(e => e.CourseId);
         builder.HasIndex(e => e.ApprovedByTeacherId);
         builder.HasIndex(e => e.EnrollmentRequestId);
+        builder.HasIndex(e => e.SessionRequestId);
+        builder.HasIndex(e => e.SessionOfferId);
         builder.HasIndex(e => e.LeaderStudentId);
+        builder.HasIndex(e => new { e.Source, e.EnrollmentStatus });
         builder.HasIndex(e => new { e.CourseId, e.EnrollmentStatus });
         builder.HasIndex(e => new { e.EnrollmentStatus, e.PaymentDeadline });
 
         // Properties
+        builder.Property(e => e.Source).IsRequired().HasDefaultValue(EnrollmentSource.CourseRequest);
         builder.Property(e => e.Kind).IsRequired();
         builder.Property(e => e.EnrollmentStatus).IsRequired();
 
-        // Relationships
+        // Relationships — Course optional (Scenario 2 has no Course).
+        // Cascade demoted to Restrict because Course is no longer the sole parent.
         builder.HasOne(e => e.Course)
                .WithMany(c => c.Enrollments)
                .HasForeignKey(e => e.CourseId)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.EnrollmentRequest)
                .WithMany()
                .HasForeignKey(e => e.EnrollmentRequestId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.OpenSessionRequest)
+               .WithMany(r => r.Enrollments)
+               .HasForeignKey(e => e.SessionRequestId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.OpenSessionOffer)
+               .WithMany()
+               .HasForeignKey(e => e.SessionOfferId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.ApprovedByTeacher)

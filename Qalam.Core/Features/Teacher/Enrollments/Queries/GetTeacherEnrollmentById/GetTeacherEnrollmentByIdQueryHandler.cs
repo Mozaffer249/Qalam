@@ -99,10 +99,10 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
         var dto = new TeacherEnrollmentDetailDto
         {
             Id = enrollment.Id,
-            CourseId = enrollment.CourseId,
-            CourseTitle = enrollment.Course.Title,
-            TeachingModeNameEn = enrollment.Course.TeachingMode?.NameEn,
-            SessionTypeNameEn = enrollment.Course.SessionType?.NameEn,
+            CourseId = enrollment.CourseId ?? 0,
+            CourseTitle = enrollment.Course?.Title ?? string.Empty,
+            TeachingModeNameEn = enrollment.Course?.TeachingMode?.NameEn,
+            SessionTypeNameEn = enrollment.Course?.SessionType?.NameEn,
             Kind = enrollment.Kind,
             LeaderStudentId = enrollment.LeaderStudentId,
             LeaderStudentName = enrollment.LeaderStudent?.User != null

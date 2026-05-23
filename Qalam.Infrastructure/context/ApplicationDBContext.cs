@@ -107,11 +107,22 @@ namespace Qalam.Infrastructure.context
         public DbSet<EnrollmentParticipant> EnrollmentParticipants { get; set; }
         public DbSet<CourseSchedule> CourseSchedules { get; set; }
 
-        // Session Schema DbSets
+        // Session Schema DbSets (legacy placeholder — kept for production data; not used by new code)
         public DbSet<SessionRequest> SessionRequests { get; set; }
         public DbSet<SessionRequestOffer> SessionRequestOffers { get; set; }
         public DbSet<Session> Sessions { get; set; }
         public DbSet<ScheduledSession> ScheduledSessions { get; set; }
+
+        // Open Session Request DbSets (Scenario 2 — schema "sr")
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequest> OpenSessionRequests { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequestSession> OpenSessionRequestSessions { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequestSessionUnit> OpenSessionRequestSessionUnits { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequestAttachment> OpenSessionRequestAttachments { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequestInvitation> OpenSessionRequestInvitations { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequestTarget> OpenSessionRequestTargets { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionOffer> OpenSessionOffers { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OfferConversation> OfferConversations { get; set; }
+        public DbSet<Qalam.Data.Entity.OpenSessionRequests.OfferMessage> OfferMessages { get; set; }
 
         // Payment Schema DbSets
         public DbSet<Payment> Payments { get; set; }

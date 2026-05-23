@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
@@ -21,7 +20,6 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
     private readonly UserManager<User> _userManager;
     private readonly IAuthenticationService _authService;
     private readonly IAuthSettingsProvider _authSettingsProvider;
-    private readonly IHostEnvironment _hostEnvironment;
 
     public StudentVerifyOtpCommandHandler(
         IOtpService otpService,
@@ -29,7 +27,6 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         UserManager<User> userManager,
         IAuthenticationService authService,
         IAuthSettingsProvider authSettingsProvider,
-        IHostEnvironment hostEnvironment,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -37,7 +34,6 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         _userManager = userManager;
         _authService = authService;
         _authSettingsProvider = authSettingsProvider;
-        _hostEnvironment = hostEnvironment;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -45,10 +41,10 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var settings = await _authSettingsProvider.GetSettingsAsync(cancellationToken);
-        // Compare EnvironmentName as a string. Qalam.Core pins Microsoft.Extensions.Hosting.Abstractions
-        // to 8.0.0 so IHostEnvironment can be DI-resolved, but the string comparison avoids depending
-        // on the IsDevelopment()/IsStaging() extensions which can be sensitive to transitive versioning.
-        var envName = _hostEnvironment.EnvironmentName;
+        // Read ASPNETCORE_ENVIRONMENT directly so this assembly doesn't have to depend on
+        // Microsoft.Extensions.Hosting. Avoids cross-assembly IHostEnvironment type-identity
+        // problems that broke DI activation under transitive package-version drift.
+        var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
         var allowTest = settings.Otp.AllowTestCodeInDevelopment
                         && (envName == "Development" || envName == "Staging");
 
