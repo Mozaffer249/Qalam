@@ -160,4 +160,31 @@ public class FileStorageService : IFileStorageService
 
         _logger.LogInformation("Profile pic upload queued: UserId={UserId}", userId);
     }
+
+    public async Task QueueOpenSessionRequestAttachmentUploadAsync(
+        IFormFile file,
+        int openSessionRequestId,
+        int attachmentId,
+        string storageKey)
+    {
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        var message = new OpenSessionRequestAttachmentUploadMessage
+        {
+            OpenSessionRequestId = openSessionRequestId,
+            AttachmentId = attachmentId,
+            FileName = file.FileName,
+            ContentType = file.ContentType,
+            StorageKey = storageKey,
+            FileData = base64Data
+        };
+
+        await _rabbitMQService.QueueOpenSessionRequestAttachmentUploadAsync(message);
+
+        _logger.LogInformation(
+            "Open session request attachment queued: RequestId={RequestId}, AttachmentId={AttachmentId}, Key={Key}",
+            openSessionRequestId, attachmentId, storageKey);
+    }
 }

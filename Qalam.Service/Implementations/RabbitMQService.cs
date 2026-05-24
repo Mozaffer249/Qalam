@@ -204,6 +204,34 @@ namespace Qalam.Service.Implementations
             }
         }
 
+        public async Task QueueOpenSessionRequestAttachmentUploadAsync(OpenSessionRequestAttachmentUploadMessage message)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                message.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(message);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.OpenSessionRequestAttachmentUploadQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation(
+                    "Open session request attachment upload queued: RequestId={RequestId}, AttachmentId={AttachmentId}",
+                    message.OpenSessionRequestId, message.AttachmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to queue open session request attachment upload: RequestId={RequestId}, AttachmentId={AttachmentId}",
+                    message.OpenSessionRequestId, message.AttachmentId);
+                throw;
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (_channel != null)

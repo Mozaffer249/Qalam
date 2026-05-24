@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.CancelOpenSessionRequest;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.CreateOpenSessionRequest;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.DeleteOpenSessionRequestAttachment;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.UploadOpenSessionRequestAttachment;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRequests;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetOpenSessionRequestById;
 using Qalam.Data.AppMetaData;
@@ -86,6 +89,51 @@ public class StudentOpenSessionRequestController : AppControllerBase
     public async Task<IActionResult> Cancel(int id, [FromBody] CancelOpenSessionRequestCommand command)
     {
         command.Id = id;
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Upload a single attachment file to an open session request (PDF, DOC, DOCX, PNG, JPG; max 25 MB; max 10 per request).
+    /// The file is queued to OSS via RabbitMQ; the response carries the new attachment row with a placeholder
+    /// <c>storageKey</c>. The <c>publicUrl</c> field is populated by the consumer shortly after upload completes.
+    /// </summary>
+    /// <remarks>
+    /// POST Api/V1/Student/OpenSessionRequests/{id}/Attachments
+    /// Content-Type: multipart/form-data
+    /// Body: <c>file</c> (single IFormFile)
+    /// </remarks>
+    [HttpPost(Router.StudentOpenSessionRequestAttachments)]
+    [RequestSizeLimit(26 * 1024 * 1024)] // 25 MB + headroom
+    [ProducesResponseType(typeof(OpenSessionRequestAttachmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadAttachment(int id, [FromForm] IFormFile file)
+    {
+        var command = new UploadOpenSessionRequestAttachmentCommand
+        {
+            OpenSessionRequestId = id,
+            File = file,
+        };
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Remove an attachment from an open session request. Allowed while the request is still editable
+    /// (Draft / PendingInvitations / Active / ReceivingOffers).
+    /// </summary>
+    [HttpDelete(Router.StudentOpenSessionRequestAttachmentById)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
+    {
+        var command = new DeleteOpenSessionRequestAttachmentCommand
+        {
+            OpenSessionRequestId = id,
+            AttachmentId = attachmentId,
+        };
         return NewResult(await Mediator.Send(command));
     }
 }

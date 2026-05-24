@@ -9,5 +9,6 @@ namespace Qalam.Service.Abstracts
         Task QueuePushNotificationAsync(PushNotificationMessage pushMessage);
         Task QueueTeacherDocUploadAsync(TeacherDocUploadMessage message);
         Task QueueProfilePicUploadAsync(ProfilePicUploadMessage message);
+        Task QueueOpenSessionRequestAttachmentUploadAsync(OpenSessionRequestAttachmentUploadMessage message);
     }
 }

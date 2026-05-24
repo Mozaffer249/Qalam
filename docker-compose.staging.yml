@@ -55,6 +55,7 @@ services:
       - RabbitMQSettings__PushQueueName=push-queue
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
+      - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
       - EmailSettings__Host=${EMAIL_HOST}
       - EmailSettings__Port=${EMAIL_PORT:-465}
       - EmailSettings__FromName=${EMAIL_FROM_NAME}
@@ -131,6 +132,7 @@ services:
       - RabbitMQSettings__PushQueueName=push-queue
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
+      - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
     ports:
       - "127.0.0.1:8081:80" # Localhost-only; Nginx reverse-proxies api-staging.qalam.net.sa
     volumes:
