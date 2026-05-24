@@ -177,6 +177,23 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentRequestById = StudentEnrollmentRequests + "/{id}";
         /// <summary>Respond to group enrollment invite: Api/V1/Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response</summary>
         public const string StudentEnrollmentRequestMemberResponse = StudentEnrollmentRequests + "/{enrollmentRequestId}/Members/Response";
+
+        // ---- Scenario 2: Open Session Requests (student posts, multiple teachers offer) ----
+        /// <summary>Student open-session requests root: Api/V1/Student/OpenSessionRequests</summary>
+        public const string StudentOpenSessionRequests = Rule + "Student/OpenSessionRequests";
+        /// <summary>Open-session request by id: Api/V1/Student/OpenSessionRequests/{id}</summary>
+        public const string StudentOpenSessionRequestById = StudentOpenSessionRequests + "/{id}";
+        /// <summary>My open-session requests list: Api/V1/Student/OpenSessionRequests/my</summary>
+        public const string StudentOpenSessionRequestsMy = StudentOpenSessionRequests + "/my";
+        /// <summary>Cancel: Api/V1/Student/OpenSessionRequests/{id}/Cancel</summary>
+        public const string StudentOpenSessionRequestCancel = StudentOpenSessionRequests + "/{id}/Cancel";
+        /// <summary>Invitee response: Api/V1/Student/OpenSessionRequests/{openSessionRequestId}/Members/Response</summary>
+        public const string StudentOpenSessionRequestMemberResponse = StudentOpenSessionRequests + "/{openSessionRequestId}/Members/Response";
+        /// <summary>Attachments: Api/V1/Student/OpenSessionRequests/{id}/Attachments</summary>
+        public const string StudentOpenSessionRequestAttachments = StudentOpenSessionRequests + "/{id}/Attachments";
+        /// <summary>Attachment by id: Api/V1/Student/OpenSessionRequests/{id}/Attachments/{attachmentId}</summary>
+        public const string StudentOpenSessionRequestAttachmentById = StudentOpenSessionRequestAttachments + "/{attachmentId}";
+
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";
         /// <summary>Student enrollment by id: Api/V1/Student/Enrollments/{id}</summary>

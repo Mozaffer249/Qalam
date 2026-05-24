@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Qalam.Core.Behaviors;
+using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using System.Reflection;
 
 namespace Qalam.Core
@@ -24,6 +25,9 @@ namespace Qalam.Core
 
             // Register Validation Behavior
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+            // Feature services
+            services.AddScoped<IOpenSessionRequestAccessGuard, OpenSessionRequestAccessGuard>();
 
             return services;
         }
