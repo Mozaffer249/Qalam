@@ -26,5 +26,6 @@ public class UpdateAuthSettingsCommandValidator : AbstractValidator<UpdateAuthSe
 
         RuleFor(x => x.Settings.Otp.Length).InclusiveBetween(4, 8);
         RuleFor(x => x.Settings.Otp.ExpirySeconds).InclusiveBetween(60, 900);
+        RuleFor(x => x.Settings.Otp.ResendCooldownSeconds).InclusiveBetween(15, 300);
     }
 }

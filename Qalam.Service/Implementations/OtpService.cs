@@ -102,9 +102,15 @@ public class OtpService : IOtpService
         CancellationToken cancellationToken = default)
     {
         var phone = options.PhoneNumber;
-        if (await _loginOtpRepository.HasValidOtpAsync(phone, cancellationToken))
+        // Resend throttle: decoupled from OTP expiry so the code stays valid for ExpirySeconds
+        // (e.g. 5 min) while the user can ask for a new one every ResendCooldownSeconds
+        // (default 45 s). HasValidOtpAsync conflated the two and locked users out for the full
+        // expiry window.
+        if (await _loginOtpRepository.HasRecentOtpAsync(phone, options.OtpSettings.ResendCooldownSeconds, cancellationToken))
         {
-            _logger.LogWarning("Valid login OTP already exists for phone {Phone}", phone);
+            _logger.LogWarning(
+                "OTP resend throttled for phone {Phone}: a code was issued within the last {Cooldown}s.",
+                phone, options.OtpSettings.ResendCooldownSeconds);
             return null;
         }
 

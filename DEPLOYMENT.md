@@ -28,7 +28,7 @@ Follow **in order** — details in [`docs/deployment/`](./docs/deployment/README
 
 Before first build:
 
-```bash
+```sh
 cd /opt/qalam-backend/Qalam
 git clone <repo-url> .   # or git pull if already cloned
 
@@ -40,14 +40,14 @@ df -h /   # need free space (see “Disk space” below)
 
 ### First build — staging
 
-```bash
+```sh
 cd /opt/qalam-backend/Qalam
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build
 ```
 
 Watch until seeding finishes:
 
-```bash
+```sh
 docker compose -p qalam-staging logs -f qalam-api
 # Expect: Database migrations applied successfully / Database seeding completed successfully!
 
@@ -61,7 +61,7 @@ Then configure Nginx + TLS per [`03-staging-setup.md`](./docs/deployment/03-stag
 
 Configure `.env.prod` first (`cp .env.prod.example .env.prod`). Production does **not** auto-migrate by default — see [`04-production-setup.md`](./docs/deployment/04-production-setup.md) for the first-boot migration gate (`MIGRATE_ON_STARTUP` / `SEED_DEFAULT_ADMIN`).
 
-```bash
+```sh
 cd /opt/qalam-backend/Qalam
 docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up -d --build
 docker compose -p qalam-prod logs -f qalam-api
@@ -78,18 +78,25 @@ Always **staging first**, then production.
 
 ### 1. Free disk if needed
 
-```bash
+```sh
 df -h /
 docker system df
 docker builder prune -af
 docker system prune -af
 ```
 
-If `/` is **100% full**, `git pull` and `--build` will fail. Docker build cache often uses most of a 40G disk.
+If `/` is **100% full**, `git pull` and `--build` will fail. Common cause: **`/var/log/syslog.1`** (Docker + UFW spam). Run once:
+
+```sh
+sudo rm -f /var/log/syslog.1
+sudo bash scripts/vps/setup-logging-limits.sh
+```
+
+See [`docs/deployment/07-vps-logging-limits.md`](./docs/deployment/07-vps-logging-limits.md).
 
 ### 2. Pull latest code
 
-```bash
+```sh
 cd /opt/qalam-backend/Qalam
 git fetch origin
 git checkout main          # or: git fetch --tags && git checkout v0.x.x
@@ -106,14 +113,14 @@ git pull
 
 **Staging (typical release):**
 
-```bash
+```sh
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build
 docker compose -p qalam-staging logs -f qalam-api messaging-api
 ```
 
 **Production** (after staging is green):
 
-```bash
+```sh
 # Apply DB migrations manually if the release includes new migrations — see OPERATIONS_RUNBOOK §1
 docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod build qalam-api
 # … run migration one-off if needed …
@@ -123,14 +130,14 @@ docker compose -p qalam-prod logs -f qalam-api messaging-api
 
 Restart one service only (no rebuild):
 
-```bash
+```sh
 docker compose -p qalam-staging restart qalam-api
 docker compose -p qalam-prod restart messaging-api
 ```
 
 ### 4. Smoke test
 
-```bash
+```sh
 # Staging
 curl -s https://api-staging.qalam.net.sa/Api/V1/Authentication/Config | head -c 200
 curl -sI https://api-staging.qalam.net.sa/scalar/v1
@@ -141,13 +148,13 @@ curl -s https://api.qalam.net.sa/health
 
 OpenAPI (confirms deployed API version):
 
-```bash
+```sh
 curl -s https://api-staging.qalam.net.sa/swagger/v1/swagger.json | grep -i "Authentication Config"
 ```
 
 ### 5. Prune after deploy (optional)
 
-```bash
+```sh
 docker system prune -f
 df -h /
 ```
@@ -158,7 +165,7 @@ df -h /
 
 SMTP and object storage env vars are wired on **messaging-api** only (see `.env.example`). After changing `EMAIL_*` or `WASABI_*`:
 
-```bash
+```sh
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build messaging-api
 ```
 

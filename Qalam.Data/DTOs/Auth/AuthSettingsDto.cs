@@ -26,8 +26,10 @@ public class OtpGlobalSettingsDto
 {
     /// <summary>OTP digit count.</summary>
     public int Length { get; set; } = 4;
-    /// <summary>OTP expiry in seconds.</summary>
+    /// <summary>OTP expiry in seconds — how long the code stays valid for verification.</summary>
     public int ExpirySeconds { get; set; } = 300;
+    /// <summary>Resend cooldown in seconds — how long the user must wait between two send-OTP requests for the same phone.</summary>
+    public int ResendCooldownSeconds { get; set; } = 45;
     /// <summary>When true, dev environments may accept a fixed test code.</summary>
     public bool AllowTestCodeInDevelopment { get; set; } = true;
 }

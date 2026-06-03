@@ -13,8 +13,11 @@ All production/staging setup docs live in this folder. Follow the numbered files
 | 4 | [`04-production-setup.md`](./04-production-setup.md) | `api.qalam.net.sa` (manual migration gate, prod secrets) |
 | 5 | [`05-nginx-subdomains.md`](./05-nginx-subdomains.md) | Frontend SPA vhosts + consolidated Certbot |
 | — | [`06-oss-storage.md`](./06-oss-storage.md) | Alibaba OSS buckets, env vars, local test, Wasabi migration |
+| — | [`07-vps-logging-limits.md`](./07-vps-logging-limits.md) | Cap Docker/rsyslog/journald so `/` cannot fill from logs |
 
 **Day-2 ops:** [`../OPERATIONS_RUNBOOK.md`](../OPERATIONS_RUNBOOK.md)
+
+**User stories (S1 + S2):** [`../USER-STORIES-Scenarios-1-and-2.md`](../USER-STORIES-Scenarios-1-and-2.md)
 
 **Repo entry point:** [`../../DEPLOYMENT.md`](../../DEPLOYMENT.md)
 

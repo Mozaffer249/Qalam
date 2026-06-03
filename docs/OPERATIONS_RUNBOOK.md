@@ -241,6 +241,7 @@ sudo tail -F "$(docker volume inspect qalam-prod_app_logs --format '{{.Mountpoin
 | `Database 'qalam_prod' is not accessible` | SQL login password drifted between SQL and `.env.prod`. Run §5 |
 | Migrations didn't apply but prod just got restarted | Check `MIGRATE_ON_STARTUP=false` — that's the gate doing its job. Run §1 |
 | Backups stopped | `sudo tail /var/log/qalam-mssql-backup.log` — usually disk full or SA password rotated without updating `/root/.mssql-sa` |
+| `no space left on device` / huge syslog | `sudo ls -lhS /var/log/syslog*` — delete oversized `syslog.1`, then `sudo bash scripts/vps/setup-logging-limits.sh` (see [`deployment/07-vps-logging-limits.md`](./deployment/07-vps-logging-limits.md)) |
 | Certbot renewal failing | DNS record gone, or port 80 not reachable. `sudo certbot renew --dry-run -v` for the full trace |
 
 ---

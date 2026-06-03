@@ -34,6 +34,8 @@ public class AuthOtpConfigDto
 {
     /// <summary>OTP digit count (input maxlength).</summary>
     public int Length { get; set; }
-    /// <summary>OTP validity in seconds (optional UI countdown).</summary>
+    /// <summary>OTP validity in seconds (optional UI countdown for the "code expires in" timer).</summary>
     public int ExpirySeconds { get; set; }
+    /// <summary>Resend cooldown in seconds — UI should disable the "Resend code" button until this many seconds have elapsed since the last send.</summary>
+    public int ResendCooldownSeconds { get; set; }
 }

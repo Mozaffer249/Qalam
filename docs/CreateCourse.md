@@ -1,41 +1,3 @@
-# Create Course — Frontend Guide
-
-A short, practical guide for the frontend to create a course from a teacher account.
-
----
-
-## TL;DR
-
-- **Endpoint:** `POST /Api/V1/Teacher/TeacherCourse`
-- **Auth:** `Authorization: Bearer <teacher-jwt>` (role must be `Teacher`)
-- **Content-Type:** `application/json`
-- Two modes:
-  - **Non-flexible** — course has a defined session plan. Send `sessions[]` in the order you want.
-  - **Flexible** — no fixed plan. Don't send `sessions` and don't send `sessionDurationMinutes`.
-- **You never send `sessionNumber`.** Just push items into the `sessions` array in the order you want them displayed. The server numbers them `1..N` based on that order.
-
-Minimal non-flexible payload:
-
-```json
-{
-  "title": "Mathematics - Grade 10",
-  "description": "Full year algebra & geometry program.",
-  "teacherSubjectId": 12,
-  "teachingModeId": 1,
-  "sessionTypeId": 2,
-  "isFlexible": false,
-  "sessionDurationMinutes": 60,
-  "price": 75.00,
-  "maxStudents": 6,
-  "canIncludeInPackages": true,
-  "sessions": [
-    { "durationMinutes": 60, "title": "Intro & diagnostic", "notes": null },
-    { "durationMinutes": 60, "title": "Linear equations",   "notes": null },
-    { "durationMinutes": 90, "title": "Quadratics",         "notes": "Bring calculator." }
-  ]
-}
-```
-
 ---
 
 ## Data flow
@@ -281,7 +243,7 @@ This endpoint creates the course **and** its sessions in one shot. Editing or re
 
 ## cURL (for quick manual tests)
 
-```bash
+```sh
 curl -X POST "https://<host>/Api/V1/Teacher/TeacherCourse" \
   -H "Authorization: Bearer <teacher-jwt>" \
   -H "Content-Type: application/json" \

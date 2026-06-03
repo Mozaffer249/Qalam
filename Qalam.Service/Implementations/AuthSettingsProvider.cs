@@ -82,7 +82,8 @@ internal static class AuthConfigMapper
             Otp = new AuthOtpConfigDto
             {
                 Length = settings.Otp.Length,
-                ExpirySeconds = settings.Otp.ExpirySeconds
+                ExpirySeconds = settings.Otp.ExpirySeconds,
+                ResendCooldownSeconds = settings.Otp.ResendCooldownSeconds
             }
         };
     }

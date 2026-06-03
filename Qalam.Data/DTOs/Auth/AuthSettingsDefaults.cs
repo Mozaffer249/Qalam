@@ -24,6 +24,7 @@ public static class AuthSettingsDefaults
         {
             Length = 4,
             ExpirySeconds = 300,
+            ResendCooldownSeconds = 45,
             AllowTestCodeInDevelopment = true
         }
     };

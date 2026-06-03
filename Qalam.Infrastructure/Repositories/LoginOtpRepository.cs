@@ -33,6 +33,16 @@ public class LoginOtpRepository : ILoginOtpRepository
                            && o.ExpiresAt > DateTime.UtcNow, cancellationToken);
     }
 
+    public async Task<bool> HasRecentOtpAsync(string phoneNumber, int cooldownSeconds, CancellationToken cancellationToken = default)
+    {
+        if (cooldownSeconds <= 0) return false;
+        var cutoff = DateTime.UtcNow.AddSeconds(-cooldownSeconds);
+        return await _context.LoginOtps
+            .AnyAsync(o => o.PhoneNumber == phoneNumber
+                           && !o.IsUsed
+                           && o.CreatedAt > cutoff, cancellationToken);
+    }
+
     public async Task RemoveExpiredOtpsAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
         var expired = await _context.LoginOtps
