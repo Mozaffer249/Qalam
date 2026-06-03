@@ -4,6 +4,7 @@ using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.CreateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourseSessionUnits;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCoursesList;
 using Qalam.Data.AppMetaData;
@@ -132,7 +133,13 @@ public class TeacherCourseController : AppControllerBase
     /// - Non-flexible (`isFlexible = false`): `sessionDurationMinutes` is required, and `sessions` must be a non-empty list. The array order is the session order — the server assigns `sessionNumber = 1..N`. Do NOT send `sessionNumber`.
     /// - Flexible (`isFlexible = true`): `sessionDurationMinutes` must be null and `sessions` must be null/empty.
     ///
-    /// Sample request body (non-flexible):
+    /// Per-session unit coverage (non-flexible only):
+    /// - Each `sessions[]` item may include an optional `units[]` array (max 20 per session) that tags which `ContentUnit` or `Lesson` is covered.
+    /// - Each `units[]` item must set EXACTLY ONE of `contentUnitId` or `lessonId` (not both, not neither).
+    /// - Every referenced `ContentUnit` / `Lesson` must belong to the course's subject (the one resolved from `teacherSubjectId`). Cross-subject selections are rejected with 400.
+    /// - Sending `units: []` or omitting it is valid — the session simply has no curriculum tagging.
+    ///
+    /// Sample request body (non-flexible, with per-session units):
     /// <code>
     /// {
     ///   "title": "Mathematics - Grade 10",
@@ -146,9 +153,9 @@ public class TeacherCourseController : AppControllerBase
     ///   "maxStudents": 15,
     ///   "canIncludeInPackages": true,
     ///   "sessions": [
-    ///     { "durationMinutes": 45, "title": "Intro",      "notes": null },
-    ///     { "durationMinutes": 45, "title": "Equations",  "notes": null },
-    ///     { "durationMinutes": 60, "title": "Quadratics", "notes": "Bring calculator." }
+    ///     { "durationMinutes": 45, "title": "Intro",      "notes": null, "units": [ { "contentUnitId": 3 }, { "contentUnitId": 4 } ] },
+    ///     { "durationMinutes": 45, "title": "Equations",  "notes": null, "units": [ { "lessonId": 21 }, { "lessonId": 22 } ] },
+    ///     { "durationMinutes": 60, "title": "Quadratics", "notes": "Bring calculator.", "units": [ { "contentUnitId": 5 }, { "lessonId": 31 } ] }
     ///   ]
     /// }
     /// </code>
@@ -169,7 +176,7 @@ public class TeacherCourseController : AppControllerBase
     /// }
     /// </code>
     ///
-    /// On success returns the full <see cref="CourseDetailDto"/> with `status = Published` and `sessions[]` ordered by `sessionNumber` ascending.
+    /// On success returns the full <see cref="CourseDetailDto"/> with `status = Published`, `sessions[]` ordered by `sessionNumber` ascending, and each `sessions[].units[]` hydrated with `contentUnitNameEn/Ar` or `lessonNameEn/Ar` so the UI can render without an extra fetch.
     /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
@@ -211,6 +218,45 @@ public class TeacherCourseController : AppControllerBase
     public async Task<IActionResult> UpdateCourse(int id, [FromBody] UpdateCourseDto dto)
     {
         var command = new UpdateCourseCommand { Id = id, Data = dto };
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Replace the unit/lesson coverage for a single course session.
+    /// </summary>
+    /// <remarks>
+    /// PUT Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Units
+    ///
+    /// Sample request body:
+    /// <code>
+    /// {
+    ///   "units": [
+    ///     { "contentUnitId": 3 },
+    ///     { "lessonId": 21 }
+    ///   ]
+    /// }
+    /// </code>
+    ///
+    /// Behavior: full-replace — all existing CourseSessionUnit rows on the session are deleted and
+    /// the new set is inserted in a single round trip. Each unit must set exactly one of
+    /// `contentUnitId` or `lessonId`, and the referenced unit/lesson must belong to the course's
+    /// subject. Max 20 units per session.
+    /// </remarks>
+    [HttpPut("{courseId:int}/Sessions/{sessionId:int}/Units")]
+    [ProducesResponseType(typeof(List<CourseSessionUnitDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateSessionUnits(
+        int courseId,
+        int sessionId,
+        [FromBody] UpdateCourseSessionUnitsDto dto)
+    {
+        var command = new UpdateCourseSessionUnitsCommand
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+            Data = dto
+        };
         return NewResult(await Mediator.Send(command));
     }
 

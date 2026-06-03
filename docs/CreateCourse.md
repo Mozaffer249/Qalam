@@ -60,8 +60,23 @@ Sessions are booked as needed; no plan at creation time.
 | `durationMinutes` | int (> 0) | yes | Per-session duration. Can differ from `sessionDurationMinutes`. |
 | `title` | string (≤ 150) | no | |
 | `notes` | string (≤ 500) | no | |
+| `units` | array (≤ 20) | no | Per-session unit/lesson coverage. Each item attaches one `ContentUnit` **or** one `Lesson`. See below. |
 
 > Do NOT send `sessionNumber` (or any order/index field). The array order **is** the session order. The server will assign `sessionNumber = 1, 2, 3, ...` following your array order.
+
+### `sessions[].units[]` item
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `contentUnitId` | int? (> 0) | **required if `lessonId` is null** | Attaches a whole unit. |
+| `lessonId` | int? (> 0) | **required if `contentUnitId` is null** | Attaches a specific lesson within a unit. |
+
+Rules:
+
+- Each `units[]` item must set **exactly one** of `contentUnitId` or `lessonId` — never both, never neither.
+- Every selected `ContentUnit` / `Lesson` must belong to the course's subject (the one resolved from `teacherSubjectId`). Cross-subject selections are rejected with `400 Bad Request`.
+- Max **20** units/lessons per session.
+- Sending `units: []` or omitting the field is valid — the session simply has no curriculum tagging.
 
 ---
 
@@ -90,9 +105,9 @@ Content-Type: application/json
   "maxStudents": 6,
   "canIncludeInPackages": true,
   "sessions": [
-    { "durationMinutes": 60, "title": "Intro",      "notes": null },
-    { "durationMinutes": 60, "title": "Equations",  "notes": null },
-    { "durationMinutes": 90, "title": "Quadratics", "notes": null }
+    { "durationMinutes": 60, "title": "Intro",      "notes": null, "units": [ { "contentUnitId": 3 }, { "contentUnitId": 4 } ] },
+    { "durationMinutes": 60, "title": "Equations",  "notes": null, "units": [ { "lessonId": 21 }, { "lessonId": 22 } ] },
+    { "durationMinutes": 90, "title": "Quadratics", "notes": null, "units": [ { "contentUnitId": 5 }, { "lessonId": 31 } ] }
   ]
 }
 ```
@@ -134,9 +149,21 @@ Content-Type: application/json
     "status": "Published",
     "units": null,
     "sessions": [
-      { "id": 101, "sessionNumber": 1, "durationMinutes": 60, "title": "Intro",      "notes": null },
-      { "id": 102, "sessionNumber": 2, "durationMinutes": 60, "title": "Equations",  "notes": null },
-      { "id": 103, "sessionNumber": 3, "durationMinutes": 90, "title": "Quadratics", "notes": null }
+      { "id": 101, "sessionNumber": 1, "durationMinutes": 60, "title": "Intro",      "notes": null,
+        "units": [
+          { "id": 1, "contentUnitId": 3, "contentUnitNameEn": "Algebraic Foundations", "contentUnitNameAr": "أساسيات الجبر", "lessonId": null, "lessonNameEn": null, "lessonNameAr": null },
+          { "id": 2, "contentUnitId": 4, "contentUnitNameEn": "Number Systems",        "contentUnitNameAr": "النظم العددية", "lessonId": null, "lessonNameEn": null, "lessonNameAr": null }
+        ] },
+      { "id": 102, "sessionNumber": 2, "durationMinutes": 60, "title": "Equations",  "notes": null,
+        "units": [
+          { "id": 3, "contentUnitId": null, "contentUnitNameEn": null, "contentUnitNameAr": null, "lessonId": 21, "lessonNameEn": "Linear Equations",   "lessonNameAr": "المعادلات الخطية" },
+          { "id": 4, "contentUnitId": null, "contentUnitNameEn": null, "contentUnitNameAr": null, "lessonId": 22, "lessonNameEn": "Systems of Equations","lessonNameAr": "أنظمة المعادلات" }
+        ] },
+      { "id": 103, "sessionNumber": 3, "durationMinutes": 90, "title": "Quadratics", "notes": null,
+        "units": [
+          { "id": 5, "contentUnitId": 5, "contentUnitNameEn": "Quadratic Forms", "contentUnitNameAr": "الصيغ التربيعية", "lessonId": null, "lessonNameEn": null, "lessonNameAr": null },
+          { "id": 6, "contentUnitId": null, "contentUnitNameEn": null, "contentUnitNameAr": null, "lessonId": 31, "lessonNameEn": "Factoring", "lessonNameAr": "التحليل" }
+        ] }
     ]
   },
   "errors": null,
@@ -220,6 +247,9 @@ Validation errors (driven by input):
 | Any session item with `durationMinutes <= 0` | `'Duration Minutes' must be greater than '0'.` | Inline error on that row. |
 | Any session item with `title.length > 150` | `'Title' must be 150 characters or fewer.` | Inline error on that row. |
 | Any session item with `notes.length > 500` | `'Notes' must be 500 characters or fewer.` | Inline error on that row. |
+| A `units[]` item has both `contentUnitId` and `lessonId`, or neither | `Exactly one of ContentUnitId or LessonId must be set (not both, not neither).` | Force the picker to a single selection per row. |
+| A session has more than 20 entries in `units[]` | `Max 20 units/lessons per session.` | Cap the picker. |
+| Selected `ContentUnit` / `Lesson` is on a different subject than the course | `Selected units/lessons must belong to the course's subject.` | Filter the picker by `teacherSubjectId.subjectId` so this never happens. |
 
 Business-rule errors (driven by the teacher's account / lookups):
 
@@ -238,6 +268,34 @@ Business-rule errors (driven by the teacher's account / lookups):
 ## Reordering / editing sessions later
 
 This endpoint creates the course **and** its sessions in one shot. Editing or reordering sessions after creation is not supported here — it needs a separate endpoint. For now, if the teacher wants to change the session plan, re-create the course.
+
+### Replacing a session's units/lessons
+
+The per-session **units/lessons** can be replaced without touching the rest of the session plan — useful when the teacher refines the curriculum coverage after creation:
+
+```http
+PUT /Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Units
+Authorization: Bearer <teacher-jwt>
+Content-Type: application/json
+```
+
+```json
+{
+  "units": [
+    { "contentUnitId": 3 },
+    { "lessonId": 21 }
+  ]
+}
+```
+
+Semantics:
+
+- **Full replace** — all existing `CourseSessionUnit` rows on the session are deleted and the new set is inserted in a single round trip.
+- Same validation as create (`exactly one of ContentUnitId/LessonId`, max 20, must belong to the course's subject).
+- Safe even when the course has live enrollments — the session itself (and its schedule) is untouched, only the curriculum tagging changes.
+- Returns the new units list with hydrated `ContentUnitNameEn/Ar` and `LessonNameEn/Ar` so the UI can re-render without a follow-up fetch.
+
+`404 Not Found` if the course or session doesn't exist or isn't owned by the calling teacher.
 
 ---
 

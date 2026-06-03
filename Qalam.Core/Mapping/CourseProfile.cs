@@ -105,7 +105,17 @@ public class CourseProfile : Profile
                         SessionNumber = s.SessionNumber,
                         DurationMinutes = s.DurationMinutes,
                         Title = s.Title,
-                        Notes = s.Notes
+                        Notes = s.Notes,
+                        Units = s.Units.Select(u => new CourseSessionUnitDto
+                        {
+                            Id = u.Id,
+                            ContentUnitId = u.ContentUnitId,
+                            ContentUnitNameEn = u.ContentUnit != null ? u.ContentUnit.NameEn : null,
+                            ContentUnitNameAr = u.ContentUnit != null ? u.ContentUnit.NameAr : null,
+                            LessonId = u.LessonId,
+                            LessonNameEn = u.Lesson != null ? u.Lesson.NameEn : null,
+                            LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null
+                        }).ToList()
                     })
                     .ToList()));
 

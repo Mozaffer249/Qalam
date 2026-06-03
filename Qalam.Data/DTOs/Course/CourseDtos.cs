@@ -28,6 +28,18 @@ public class CourseSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+    public List<CourseSessionUnitDto> Units { get; set; } = new();
+}
+
+public class CourseSessionUnitDto
+{
+    public int Id { get; set; }
+    public int? ContentUnitId { get; set; }
+    public string? ContentUnitNameEn { get; set; }
+    public string? ContentUnitNameAr { get; set; }
+    public int? LessonId { get; set; }
+    public string? LessonNameEn { get; set; }
+    public string? LessonNameAr { get; set; }
 }
 
 public class CreateCourseSessionDto
@@ -35,6 +47,23 @@ public class CreateCourseSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+    public List<CreateCourseSessionUnitDto>? Units { get; set; }
+}
+
+public class CreateCourseSessionUnitDto
+{
+    public int? ContentUnitId { get; set; }
+    public int? LessonId { get; set; }
+}
+
+/// <summary>
+/// Body for PUT /Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Units — replaces the
+/// session's entire unit/lesson coverage. Reuses CreateCourseSessionUnitDto so create + update
+/// share the same payload shape.
+/// </summary>
+public class UpdateCourseSessionUnitsDto
+{
+    public List<CreateCourseSessionUnitDto> Units { get; set; } = new();
 }
 
 /// <summary>

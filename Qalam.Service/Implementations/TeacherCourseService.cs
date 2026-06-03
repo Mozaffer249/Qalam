@@ -5,6 +5,7 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.Mappers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -16,19 +17,22 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeachingModeRepository _teachingModeRepository;
     private readonly ISessionTypeRepository _sessionTypeRepository;
+    private readonly ApplicationDBContext _db;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
         ICourseRepository courseRepository,
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeachingModeRepository teachingModeRepository,
-        ISessionTypeRepository sessionTypeRepository)
+        ISessionTypeRepository sessionTypeRepository,
+        ApplicationDBContext db)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
         _teacherSubjectRepository = teacherSubjectRepository;
         _teachingModeRepository = teachingModeRepository;
         _sessionTypeRepository = sessionTypeRepository;
+        _db = db;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -121,6 +125,11 @@ public class TeacherCourseService : ITeacherCourseService
             throw new InvalidOperationException("MaxStudents must be null for individual courses.");
         }
 
+        // Subject-consistency check: every ContentUnit / Lesson attached to any session must
+        // belong to the course's subject. Batched into two queries so 50 sessions × N units don't
+        // turn into N+1 lookups.
+        await ValidateSessionUnitsBelongToSubjectAsync(dto.Sessions, teacherSubject.SubjectId, cancellationToken);
+
         var course = new Course
         {
             Title = dto.Title,
@@ -142,13 +151,29 @@ public class TeacherCourseService : ITeacherCourseService
         if (dto.Sessions != null && dto.Sessions.Count > 0)
         {
             course.Sessions = dto.Sessions
-                .Select((s, i) => new CourseSession
+                .Select((s, i) =>
                 {
-                    SessionNumber = i + 1,
-                    DurationMinutes = s.DurationMinutes,
-                    Title = s.Title,
-                    Notes = s.Notes,
-                    CreatedAt = DateTime.UtcNow
+                    var session = new CourseSession
+                    {
+                        SessionNumber = i + 1,
+                        DurationMinutes = s.DurationMinutes,
+                        Title = s.Title,
+                        Notes = s.Notes,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    if (s.Units != null)
+                    {
+                        foreach (var u in s.Units)
+                        {
+                            session.Units.Add(new CourseSessionUnit
+                            {
+                                ContentUnitId = u.ContentUnitId,
+                                LessonId = u.LessonId,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+                    return session;
                 })
                 .ToList();
         }
@@ -222,6 +247,67 @@ public class TeacherCourseService : ITeacherCourseService
         return CourseDtoMapper.MapToDetailDto(withDetails ?? course);
     }
 
+    public async Task<List<CourseSessionUnitDto>?> ReplaceSessionUnitsAsync(
+        int userId,
+        int courseId,
+        int sessionId,
+        List<CreateCourseSessionUnitDto> units,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await _teacherRepository.GetByUserIdAsync(userId);
+        if (teacher == null)
+            throw new InvalidOperationException("Not authorized.");
+        if (teacher.Status != TeacherStatus.Active)
+            throw new InvalidOperationException("Teacher account is not active.");
+
+        var session = await _db.CourseSessions
+            .Where(s => s.Id == sessionId && s.CourseId == courseId && s.Course.TeacherId == teacher.Id)
+            .Select(s => new { s.Id, s.Course.TeacherSubject!.SubjectId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (session == null)
+            return null;
+
+        // Reuse the same subject-consistency check as create: wrap the flat units list as a
+        // single synthetic "session" so the existing helper handles batching.
+        var synthetic = new List<CreateCourseSessionDto>
+        {
+            new() { Units = units }
+        };
+        await ValidateSessionUnitsBelongToSubjectAsync(synthetic, session.SubjectId, cancellationToken);
+
+        // Replace strategy: delete-all + insert. ExecuteDeleteAsync issues a single DELETE
+        // and bypasses change tracking — important when the session has many existing rows.
+        await _db.CourseSessionUnits
+            .Where(u => u.CourseSessionId == sessionId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var newRows = units.Select(u => new CourseSessionUnit
+        {
+            CourseSessionId = sessionId,
+            ContentUnitId = u.ContentUnitId,
+            LessonId = u.LessonId,
+            CreatedAt = now
+        }).ToList();
+
+        if (newRows.Count > 0)
+        {
+            await _db.CourseSessionUnits.AddRangeAsync(newRows, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        // Reload with nav properties hydrated so the response carries the human-readable names.
+        var hydrated = await _db.CourseSessionUnits
+            .AsNoTracking()
+            .Where(u => u.CourseSessionId == sessionId)
+            .Include(u => u.ContentUnit)
+            .Include(u => u.Lesson)
+            .ToListAsync(cancellationToken);
+
+        return hydrated.Select(CourseDtoMapper.MapCourseSessionUnitToDto).ToList();
+    }
+
     public async Task<(bool Success, string Message)> DeleteCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default)
     {
         var teacher = await _teacherRepository.GetByUserIdAsync(userId);
@@ -249,5 +335,67 @@ public class TeacherCourseService : ITeacherCourseService
         await _courseRepository.DeleteAsync(course);
         await _courseRepository.SaveChangesAsync();
         return (true, "Course deleted.");
+    }
+
+    /// <summary>
+    /// Confirms every selected ContentUnit / Lesson across all sessions belongs to the course's
+    /// subject. Two batched queries (one per FK) keep this O(1) round-trips regardless of session
+    /// or unit count. Throws InvalidOperationException on mismatch — the caller's handler turns
+    /// that into BadRequest.
+    /// </summary>
+    private async Task ValidateSessionUnitsBelongToSubjectAsync(
+        List<CreateCourseSessionDto>? sessions,
+        int subjectId,
+        CancellationToken cancellationToken)
+    {
+        if (sessions == null) return;
+
+        var contentUnitIds = sessions
+            .Where(s => s.Units != null)
+            .SelectMany(s => s.Units!)
+            .Where(u => u.ContentUnitId.HasValue)
+            .Select(u => u.ContentUnitId!.Value)
+            .Distinct()
+            .ToList();
+
+        var lessonIds = sessions
+            .Where(s => s.Units != null)
+            .SelectMany(s => s.Units!)
+            .Where(u => u.LessonId.HasValue)
+            .Select(u => u.LessonId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (contentUnitIds.Count > 0)
+        {
+            var unitRows = await _db.ContentUnits
+                .Where(c => contentUnitIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.SubjectId })
+                .ToListAsync(cancellationToken);
+
+            var missingUnits = contentUnitIds.Except(unitRows.Select(r => r.Id)).ToList();
+            if (missingUnits.Count > 0)
+                throw new InvalidOperationException($"ContentUnit(s) not found: {string.Join(", ", missingUnits)}.");
+
+            var wrongSubjectUnits = unitRows.Where(r => r.SubjectId != subjectId).Select(r => r.Id).ToList();
+            if (wrongSubjectUnits.Count > 0)
+                throw new InvalidOperationException("Selected units/lessons must belong to the course's subject.");
+        }
+
+        if (lessonIds.Count > 0)
+        {
+            var lessonRows = await _db.Lessons
+                .Where(l => lessonIds.Contains(l.Id))
+                .Select(l => new { l.Id, l.Unit!.SubjectId })
+                .ToListAsync(cancellationToken);
+
+            var missingLessons = lessonIds.Except(lessonRows.Select(r => r.Id)).ToList();
+            if (missingLessons.Count > 0)
+                throw new InvalidOperationException($"Lesson(s) not found: {string.Join(", ", missingLessons)}.");
+
+            var wrongSubjectLessons = lessonRows.Where(r => r.SubjectId != subjectId).Select(r => r.Id).ToList();
+            if (wrongSubjectLessons.Count > 0)
+                throw new InvalidOperationException("Selected units/lessons must belong to the course's subject.");
+        }
     }
 }

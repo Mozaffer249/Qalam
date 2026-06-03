@@ -146,6 +146,8 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherCourse = Rule + "Teacher/TeacherCourse";
         /// <summary>Teacher course by id: Api/V1/Teacher/TeacherCourse/{id}</summary>
         public const string TeacherCourseById = TeacherCourse + "/{id}";
+        /// <summary>Replace a session's unit/lesson coverage: Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Units</summary>
+        public const string TeacherCourseSessionUnits = TeacherCourse + "/{courseId:int}/Sessions/{sessionId:int}/Units";
 
         /// <summary>Teacher enrollment requests: Api/V1/Teacher/EnrollmentRequests</summary>
         public const string TeacherEnrollmentRequests = Rule + "Teacher/EnrollmentRequests";

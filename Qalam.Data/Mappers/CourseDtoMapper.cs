@@ -60,12 +60,29 @@ public static class CourseDtoMapper
                     SessionNumber = s.SessionNumber,
                     DurationMinutes = s.DurationMinutes,
                     Title = s.Title,
-                    Notes = s.Notes
+                    Notes = s.Notes,
+                    Units = s.Units != null
+                        ? s.Units.Select(MapCourseSessionUnitToDto).ToList()
+                        : new List<CourseSessionUnitDto>()
                 })
                 .ToList();
         }
 
         return dto;
+    }
+
+    public static CourseSessionUnitDto MapCourseSessionUnitToDto(CourseSessionUnit u)
+    {
+        return new CourseSessionUnitDto
+        {
+            Id = u.Id,
+            ContentUnitId = u.ContentUnitId,
+            ContentUnitNameEn = u.ContentUnit?.NameEn,
+            ContentUnitNameAr = u.ContentUnit?.NameAr,
+            LessonId = u.LessonId,
+            LessonNameEn = u.Lesson?.NameEn,
+            LessonNameAr = u.Lesson?.NameAr
+        };
     }
 
     private static TeacherSubjectUnitResponseDto MapTeacherSubjectUnitToDto(TeacherSubjectUnit tsu)

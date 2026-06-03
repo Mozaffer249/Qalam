@@ -17,4 +17,5 @@ public class CourseSession : AuditableEntity
     public string? Notes { get; set; }
 
     public Course Course { get; set; } = null!;
+    public ICollection<CourseSessionUnit> Units { get; set; } = new List<CourseSessionUnit>();
 }

@@ -46,7 +46,22 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
                 s.RuleFor(i => i.DurationMinutes).GreaterThan(0);
                 s.RuleFor(i => i.Title).MaximumLength(150);
                 s.RuleFor(i => i.Notes).MaximumLength(500);
+
+                s.RuleFor(i => i.Units)
+                    .Must(us => (us?.Count ?? 0) <= MaxUnitsPerSession)
+                    .WithMessage($"Max {MaxUnitsPerSession} units/lessons per session.");
+
+                s.RuleForEach(i => i.Units!)
+                    .ChildRules(u =>
+                    {
+                        u.RuleFor(x => x)
+                            .Must(unit => unit.ContentUnitId.HasValue ^ unit.LessonId.HasValue)
+                            .WithMessage("Exactly one of ContentUnitId or LessonId must be set (not both, not neither).");
+                    })
+                    .When(i => i.Units != null);
             });
         });
     }
+
+    private const int MaxUnitsPerSession = 20;
 }
