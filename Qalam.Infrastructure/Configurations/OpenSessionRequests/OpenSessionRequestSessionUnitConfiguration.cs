@@ -16,6 +16,9 @@ public class SessionRequestSessionUnitConfiguration : IEntityTypeConfiguration<O
         builder.HasIndex(e => e.ContentUnitId);
         builder.HasIndex(e => e.LessonId);
 
+        builder.Property(e => e.IncludesAllLessons)
+               .HasDefaultValue(false);
+
         builder.HasOne(e => e.ContentUnit)
                .WithMany()
                .HasForeignKey(e => e.ContentUnitId)

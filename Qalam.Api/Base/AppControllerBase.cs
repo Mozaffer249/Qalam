@@ -30,6 +30,12 @@ namespace Qalam.Api.Base
                     return new AcceptedResult(string.Empty, response);
                 case HttpStatusCode.UnprocessableEntity:
                     return new UnprocessableEntityObjectResult(response);
+                case HttpStatusCode.Conflict:
+                    return new ConflictObjectResult(response);
+                case HttpStatusCode.TooManyRequests:
+                    return new ObjectResult(response) { StatusCode = (int)HttpStatusCode.TooManyRequests };
+                case HttpStatusCode.Forbidden:
+                    return new ObjectResult(response) { StatusCode = (int)HttpStatusCode.Forbidden };
                 default:
                     return new BadRequestObjectResult(response);
             }

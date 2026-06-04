@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Admin;
@@ -15,11 +16,15 @@ public class TeacherDetailsDto
     public DateTime CreatedAt { get; set; }
     
     public List<TeacherDocumentReviewDto> Documents { get; set; } = new();
+
+    /// <summary>Active registration requirements with submission status (admin review checklist).</summary>
+    public List<TeacherRegistrationSubmissionStatusDto> RegistrationRequirements { get; set; } = new();
     
     // Summary
     public int TotalDocuments { get; set; }
     public int PendingDocuments { get; set; }
     public int ApprovedDocuments { get; set; }
     public int RejectedDocuments { get; set; }
-    public bool CanBeActivated => PendingDocuments == 0 && RejectedDocuments == 0 && TotalDocuments > 0;
+    /// <summary>Set by API from registration checklist when configured; otherwise from document counts.</summary>
+    public bool CanBeActivated { get; set; }
 }

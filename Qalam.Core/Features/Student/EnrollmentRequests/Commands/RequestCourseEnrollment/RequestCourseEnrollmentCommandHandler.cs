@@ -25,6 +25,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly ITeacherAvailabilityCalendarService _availabilityCalendar;
     private readonly IEnrollmentApprovalService _approvalService;
+    private readonly IContentUnitRepository _contentUnitRepository;
+    private readonly ILessonRepository _lessonRepository;
     private readonly EnrollmentSettings _settings;
 
     public RequestCourseEnrollmentCommandHandler(
@@ -37,6 +39,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         IScheduleGenerationService scheduleGenerator,
         ITeacherAvailabilityCalendarService availabilityCalendar,
         IEnrollmentApprovalService approvalService,
+        IContentUnitRepository contentUnitRepository,
+        ILessonRepository lessonRepository,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -49,6 +53,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _scheduleGenerator = scheduleGenerator;
         _availabilityCalendar = availabilityCalendar;
         _approvalService = approvalService;
+        _contentUnitRepository = contentUnitRepository;
+        _lessonRepository = lessonRepository;
         _settings = settings.Value;
     }
 
@@ -196,6 +202,39 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             .ToList();
         if (duplicateKeys.Count > 0)
             return BadRequest<EnrollmentRequestDetailDto>("Duplicate selections for the same date and time slot are not allowed.");
+
+        // 7.5. Validate per-session content units / lessons.
+        // Branch A (TeacherSubjectId set on the request): hard-validate every unit / lesson against the
+        // teacher's TeacherSubjectUnits repertoire. Anything outside → 400.
+        // Branch B (TeacherSubjectId omitted): accept any ContentUnit / Lesson FK that exists in the catalog
+        // (same shape scenario 2 enforces today).
+        HashSet<int>? allowedUnitIds = null;
+        if (dto.TeacherSubjectId.HasValue)
+        {
+            if (dto.TeacherSubjectId.Value != course.TeacherSubjectId)
+                return BadRequest<EnrollmentRequestDetailDto>(
+                    "teacherSubjectId must match the course's teacher subject.");
+
+            // CourseRepository.GetByIdWithDetailsAsync already eager-loads TeacherSubject.TeacherSubjectUnits.
+            allowedUnitIds = (course.TeacherSubject?.TeacherSubjectUnits ?? new List<Qalam.Data.Entity.Teacher.TeacherSubjectUnit>())
+                .Select(u => u.UnitId)
+                .ToHashSet();
+        }
+
+        for (var i = 0; i < selectedSlots.Count; i++)
+        {
+            var unitErr = await ValidateSessionUnitsAsync(
+                $"Slot {i + 1}", selectedSlots[i].Units, allowedUnitIds, cancellationToken);
+            if (unitErr != null)
+                return BadRequest<EnrollmentRequestDetailDto>(unitErr);
+        }
+        for (var i = 0; i < proposedSessions.Count; i++)
+        {
+            var unitErr = await ValidateSessionUnitsAsync(
+                $"Proposed session {i + 1}", proposedSessions[i].Units, allowedUnitIds, cancellationToken);
+            if (unitErr != null)
+                return BadRequest<EnrollmentRequestDetailDto>(unitErr);
+        }
 
         var selectedAvailabilityIds = selectedSlots.Select(s => s.TeacherAvailabilityId).Distinct().ToList();
         var selectedAvailabilities = await _teacherAvailabilityRepository.GetTableNoTracking()
@@ -371,7 +410,14 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             {
                 SessionNumber = s.SessionNumber,
                 TeacherAvailabilityId = s.TeacherAvailabilityId,
-                SessionDate = s.Date
+                SessionDate = s.Date,
+                Units = (s.Units ?? new List<EnrollmentSessionUnitDto>())
+                    .Select(u => new Qalam.Data.Entity.Course.CourseRequestSelectedSessionSlotUnit
+                    {
+                        ContentUnitId = u.ContentUnitId,
+                        LessonId = u.LessonId
+                    })
+                    .ToList()
             })
             .ToList();
 
@@ -381,7 +427,14 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                 SessionNumber = p.SessionNumber,
                 DurationMinutes = p.DurationMinutes,
                 Title = p.Title,
-                Notes = p.Notes
+                Notes = p.Notes,
+                Units = (p.Units ?? new List<EnrollmentSessionUnitDto>())
+                    .Select(u => new Qalam.Data.Entity.Course.CourseRequestProposedSessionUnit
+                    {
+                        ContentUnitId = u.ContentUnitId,
+                        LessonId = u.LessonId
+                    })
+                    .ToList()
             })
             .ToList();
 
@@ -449,7 +502,14 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                 {
                     SessionNumber = s.SessionNumber,
                     TeacherAvailabilityId = s.TeacherAvailabilityId,
-                    Date = s.Date
+                    Date = s.Date,
+                    Units = (s.Units ?? new List<EnrollmentSessionUnitDto>())
+                        .Select(u => new EnrollmentSessionUnitDto
+                        {
+                            ContentUnitId = u.ContentUnitId,
+                            LessonId = u.LessonId
+                        })
+                        .ToList()
                 })
                 .ToList(),
             GroupMembers = enrollmentRequest.GroupMembers
@@ -469,7 +529,14 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                     SessionNumber = p.SessionNumber,
                     DurationMinutes = p.DurationMinutes,
                     Title = p.Title,
-                    Notes = p.Notes
+                    Notes = p.Notes,
+                    Units = p.Units
+                        .Select(u => new EnrollmentSessionUnitDto
+                        {
+                            ContentUnitId = u.ContentUnitId,
+                            LessonId = u.LessonId
+                        })
+                        .ToList()
                 })
                 .ToList(),
             PreferredStartDate = enrollmentRequest.PreferredStartDate,
@@ -487,6 +554,68 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         };
 
         return Success(entity: result);
+    }
+
+    /// <summary>
+    /// Validates a session's <c>Units</c> list against the two acceptance branches.
+    /// Returns a null error string on success, or a 400-ready message on failure.
+    /// </summary>
+    /// <param name="sessionLabel">Human-readable label (e.g. "Slot 1") used in the error message.</param>
+    /// <param name="units">Per-session unit/lesson rows from the DTO.</param>
+    /// <param name="allowedUnitIds">
+    /// Branch A: the set of <see cref="Qalam.Data.Entity.Teacher.TeacherSubjectUnit.UnitId"/> allowed for the course's teacher subject.
+    /// Branch B: <c>null</c> — accept any FK that exists in the catalog.
+    /// </param>
+    private async Task<string?> ValidateSessionUnitsAsync(
+        string sessionLabel,
+        IReadOnlyList<EnrollmentSessionUnitDto> units,
+        HashSet<int>? allowedUnitIds,
+        CancellationToken cancellationToken)
+    {
+        if (units == null || units.Count == 0)
+            return null;
+
+        foreach (var u in units)
+        {
+            var hasContentUnit = u.ContentUnitId.HasValue;
+            var hasLesson = u.LessonId.HasValue;
+            if (hasContentUnit == hasLesson)
+                return $"{sessionLabel}: each unit row must set exactly one of contentUnitId or lessonId.";
+
+            if (allowedUnitIds is not null)
+            {
+                // Branch A — hard-validate against the teacher's repertoire.
+                if (hasContentUnit)
+                {
+                    if (!allowedUnitIds.Contains(u.ContentUnitId!.Value))
+                        return $"{sessionLabel}: contentUnitId {u.ContentUnitId} is outside this teacher's repertoire.";
+                }
+                else // hasLesson
+                {
+                    var lesson = await _lessonRepository.GetByIdAsync(u.LessonId!.Value);
+                    if (lesson == null || !allowedUnitIds.Contains(lesson.UnitId))
+                        return $"{sessionLabel}: lessonId {u.LessonId} is outside this teacher's repertoire.";
+                }
+            }
+            else
+            {
+                // Branch B — just confirm the FK exists.
+                if (hasContentUnit)
+                {
+                    var unit = await _contentUnitRepository.GetByIdAsync(u.ContentUnitId!.Value);
+                    if (unit == null)
+                        return $"{sessionLabel}: contentUnitId {u.ContentUnitId} does not exist.";
+                }
+                else // hasLesson
+                {
+                    var lesson = await _lessonRepository.GetByIdAsync(u.LessonId!.Value);
+                    if (lesson == null)
+                        return $"{sessionLabel}: lessonId {u.LessonId} does not exist.";
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

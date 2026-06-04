@@ -20,7 +20,7 @@ public class OpenSessionRequest : AuditableEntity
     /// عندما يقدم الطالب الطلب بنفسه، أو مختلفاً عندما يقدم وليه الطلب نيابةً عنه.
     /// </summary>
     public int StudentId { get; set; }
-
+ 
     /// <summary>
     /// المستخدم (الفاعل) الذي أنشأ الطلب فعلياً. يساوي Student.UserId إذا أنشأ الطالب الطلب بنفسه،
     /// أو Guardian.UserId إذا أنشأ الولي الطلب نيابةً عن الطالب القاصر.
@@ -52,6 +52,14 @@ public class OpenSessionRequest : AuditableEntity
     /// طريقة التدريس (فردي/جماعي - FK إلى TeachingMode).
     /// </summary>
     public int TeachingModeId { get; set; }
+
+    /// <summary>
+    /// Optional — when set, the request is delivered ONLY to this teacher (single target, no broadcast matching).
+    /// The teacher must offer the requested <see cref="SubjectId"/> via an active <c>TeacherSubject</c> row,
+    /// and every per-session <c>Units[]</c> entry is hard-validated against that teacher's <c>TeacherSubjectUnits</c>.
+    /// When null, the existing broadcast matching algorithm runs at publish time.
+    /// </summary>
+    public int? TargetedTeacherId { get; set; }
 
     /// <summary>
     /// نوع المجموعة عند اختيار جماعي: مفتوحة لطلاب إضافيين أو دعوة فقط.
@@ -88,6 +96,7 @@ public class OpenSessionRequest : AuditableEntity
     public AcademicTerm? Term { get; set; }
     public Subject Subject { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
+    public Teacher.Teacher? TargetedTeacher { get; set; }
 
     public ICollection<OpenSessionRequestSession> Sessions { get; set; } = new List<OpenSessionRequestSession>();
     public ICollection<OpenSessionRequestAttachment> Attachments { get; set; } = new List<OpenSessionRequestAttachment>();

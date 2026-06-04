@@ -20,4 +20,5 @@ public class CourseRequestSelectedSessionSlot : AuditableEntity
 
     public CourseEnrollmentRequest CourseEnrollmentRequest { get; set; } = null!;
     public TeacherAvailability TeacherAvailability { get; set; } = null!;
+    public ICollection<CourseRequestSelectedSessionSlotUnit> Units { get; set; } = new List<CourseRequestSelectedSessionSlotUnit>();
 }

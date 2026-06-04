@@ -94,14 +94,18 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherArea> TeacherAreas { get; set; }
         public DbSet<TeacherReview> TeacherReviews { get; set; }
         public DbSet<TeacherAuditLog> TeacherAuditLogs { get; set; }
+        public DbSet<TeacherRegistrationRequirement> TeacherRegistrationRequirements { get; set; }
+        public DbSet<TeacherRegistrationSubmission> TeacherRegistrationSubmissions { get; set; }
 
         // Course Schema DbSets
         public DbSet<Course> Courses { get; set; }
         public DbSet<CourseEnrollmentRequest> CourseEnrollmentRequests { get; set; }
         public DbSet<CourseRequestSelectedAvailability> CourseRequestSelectedAvailabilities { get; set; }
         public DbSet<CourseRequestSelectedSessionSlot> CourseRequestSelectedSessionSlots { get; set; }
+        public DbSet<CourseRequestSelectedSessionSlotUnit> CourseRequestSelectedSessionSlotUnits { get; set; }
         public DbSet<CourseRequestGroupMember> CourseRequestGroupMembers { get; set; }
         public DbSet<CourseRequestProposedSession> CourseRequestProposedSessions { get; set; }
+        public DbSet<CourseRequestProposedSessionUnit> CourseRequestProposedSessionUnits { get; set; }
         public DbSet<CourseSession> CourseSessions { get; set; }
         public DbSet<CourseSessionUnit> CourseSessionUnits { get; set; }
         public DbSet<Enrollment> Enrollments { get; set; }

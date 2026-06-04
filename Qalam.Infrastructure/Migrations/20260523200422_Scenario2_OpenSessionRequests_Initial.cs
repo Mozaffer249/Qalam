@@ -19,36 +19,28 @@ namespace Qalam.Infrastructure.Migrations
             migrationBuilder.EnsureSchema(
                 name: "sr");
 
-            migrationBuilder.AlterColumn<int>(
-                name: "CourseId",
-                schema: "course",
-                table: "Enrollments",
-                type: "int",
-                nullable: true,
-                oldClrType: typeof(int),
-                oldType: "int");
+            // Idempotent — migration may retry after partial apply (SessionOfferId already on Enrollments).
+            migrationBuilder.Sql("""
+                IF EXISTS (
+                    SELECT 1 FROM sys.columns c
+                    INNER JOIN sys.tables t ON c.object_id = t.object_id
+                    INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE s.name = N'course' AND t.name = N'Enrollments'
+                      AND c.name = N'CourseId' AND c.is_nullable = 0)
+                BEGIN
+                    ALTER TABLE [course].[Enrollments] ALTER COLUMN [CourseId] int NULL;
+                END
 
-            migrationBuilder.AddColumn<int>(
-                name: "SessionOfferId",
-                schema: "course",
-                table: "Enrollments",
-                type: "int",
-                nullable: true);
+                IF COL_LENGTH('course.Enrollments', 'SessionOfferId') IS NULL
+                    ALTER TABLE [course].[Enrollments] ADD [SessionOfferId] int NULL;
 
-            migrationBuilder.AddColumn<int>(
-                name: "SessionRequestId",
-                schema: "course",
-                table: "Enrollments",
-                type: "int",
-                nullable: true);
+                IF COL_LENGTH('course.Enrollments', 'SessionRequestId') IS NULL
+                    ALTER TABLE [course].[Enrollments] ADD [SessionRequestId] int NULL;
 
-            migrationBuilder.AddColumn<int>(
-                name: "Source",
-                schema: "course",
-                table: "Enrollments",
-                type: "int",
-                nullable: false,
-                defaultValue: 1);
+                IF COL_LENGTH('course.Enrollments', 'Source') IS NULL
+                    ALTER TABLE [course].[Enrollments] ADD [Source] int NOT NULL
+                        CONSTRAINT [DF_Enrollments_Source_Scenario2] DEFAULT 1;
+                """);
 
             migrationBuilder.CreateTable(
                 name: "SessionRequests",

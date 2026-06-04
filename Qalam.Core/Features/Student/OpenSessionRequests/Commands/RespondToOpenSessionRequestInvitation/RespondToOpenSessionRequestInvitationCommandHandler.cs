@@ -6,6 +6,7 @@ using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.context;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.RespondToOpenSessionRequestInvitation;
 
@@ -14,14 +15,17 @@ public class RespondToOpenSessionRequestInvitationCommandHandler
 {
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
+    private readonly IOpenSessionRequestTargetingService _targetingService;
 
     public RespondToOpenSessionRequestInvitationCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
-        IOpenSessionRequestAccessGuard accessGuard) : base(sharedLocalizer)
+        IOpenSessionRequestAccessGuard accessGuard,
+        IOpenSessionRequestTargetingService targetingService) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
+        _targetingService = targetingService;
     }
 
     public async Task<Response<string>> Handle(
@@ -82,7 +86,21 @@ public class RespondToOpenSessionRequestInvitationCommandHandler
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        // TODO (P3): if status flipped to Active, kick off matching engine.
+        // P3: if this response flipped the request to Active, dispatch now. Targeted requests
+        // notify only the chosen teacher; un-targeted requests fall back to broadcast matching.
+        // Both branches are idempotent — safe to call.
+        if (parentRequest.Status == OpenSessionRequestStatus.Active)
+        {
+            if (parentRequest.TargetedTeacherId.HasValue)
+            {
+                await _targetingService.NotifyTargetedTeacherAsync(
+                    parentRequest.Id, parentRequest.TargetedTeacherId.Value, cancellationToken);
+            }
+            else
+            {
+                await _targetingService.RunMatchingAndNotifyAsync(parentRequest.Id, cancellationToken);
+            }
+        }
 
         return Success(entity: invitation.Status == OpenSessionRequestInvitationStatus.Accepted
             ? "تم قبول الدعوة"

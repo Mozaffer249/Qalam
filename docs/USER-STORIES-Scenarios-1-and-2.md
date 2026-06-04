@@ -699,16 +699,180 @@ Auth pattern: `[Authorize(Roles = ...)]` on controllers. Guardian uses same endp
 **Acceptance criteria:**
 - [ ] AC1: `POST /Api/V1/Student/OpenSessionRequests` persists `OpenSessionRequest` with sessions and education FKs.
 - [ ] AC2: If group invitations pending → status `PendingInvitations`; else → `Active`.
-- [ ] AC3: **Matching engine does NOT run** (P3 TODO in handler).
+- [ ] AC3: When the request lands in `Active` (or transitions to it on the last invitation response), `IOpenSessionRequestTargetingService.RunMatchingAndNotifyAsync` runs — every qualified teacher gets an `OpenSessionRequestTarget` row + email notification. The exception is the targeted-teacher variant (S2-ST-001b) which skips broadcast.
 
 **Endpoints:**
 - `POST /Api/V1/Student/OpenSessionRequests` → `CreateOpenSessionRequestCommandHandler`
 
-**Entities touched:** `OpenSessionRequest`, `OpenSessionRequestSession`, `OpenSessionRequestSessionUnit`, `OpenSessionRequestInvitation`
+**Entities touched:** `OpenSessionRequest`, `OpenSessionRequestSession`, `OpenSessionRequestSessionUnit`, `OpenSessionRequestInvitation`, `OpenSessionRequestTarget`
 
 **Status:** `implemented`
 
-**Notes:** Controller XML mentions matching on create; handler defers matching — see §11.
+#### Request body samples — `POST /Api/V1/Student/OpenSessionRequests`
+
+The command wraps the DTO under `data`. The four cases below cover every shape the handler accepts.
+
+**`units[]` row shape (any case)** — every row must set EXACTLY ONE of `contentUnitId` / `lessonId`:
+
+| Row | Meaning |
+|---|---|
+| `{ "contentUnitId": 115, "includesAllLessons": true }` | Cover every lesson inside unit 115 |
+| `{ "contentUnitId": 115, "includesAllLessons": false }` (or flag omitted) | Unit 115 as a topic header — no specific lessons committed |
+| `{ "lessonId": 4501 }` | Only lesson 4501. `includesAllLessons` must be `false`/omitted — single-lesson rows can't expand (400 otherwise) |
+
+##### Case A — Broadcast (default)
+
+No `targetedTeacherId`. Matching engine runs at publish → every qualified teacher gets a Target row + notification email.
+
+```json
+{
+  "data": {
+    "studentId": 5,
+    "domainId": 1,
+    "subjectId": 12,
+    "teachingModeId": 1,
+    "totalSessionsCount": 2,
+    "studentNotes": "Prefers evenings.",
+    "sessions": [
+      { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60, "units": [] },
+      { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60, "units": [] }
+    ]
+  }
+}
+```
+
+##### Case B — Targeted teacher (S2-ST-001b)
+
+`targetedTeacherId` set. Broadcast is **skipped**. The server validates that the teacher offers `subjectId` and that every `units[]` entry is in that teacher's `TeacherSubjectUnits`. Only that one teacher gets a Target row + notification.
+
+This single body shows all three `units[]` shapes in different sessions.
+
+```json
+{
+  "data": {
+    "studentId": 5,
+    "domainId": 1,
+    "subjectId": 12,
+    "teachingModeId": 1,
+    "targetedTeacherId": 42,
+    "totalSessionsCount": 3,
+    "sessions": [
+      { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60,
+        "units": [ { "contentUnitId": 115, "includesAllLessons": true } ] },
+      { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60,
+        "units": [ { "contentUnitId": 116, "includesAllLessons": false } ] },
+      { "sequenceNumber": 3, "preferredDate": "2026-06-14", "timeSlotId": 3, "durationMinutes": 60,
+        "units": [ { "lessonId": 4501 } ] }
+    ]
+  }
+}
+```
+
+##### Case C — Group with invitations
+
+`invitedStudentIds` non-empty. Status lands in `PendingInvitations`; dispatch (broadcast OR targeted) waits until every invitee responds. Works with or without `targetedTeacherId`.
+
+```json
+{
+  "data": {
+    "studentId": 5,
+    "domainId": 1,
+    "subjectId": 12,
+    "teachingModeId": 2,
+    "groupType": "InviteOnly",
+    "totalSessionsCount": 2,
+    "invitedStudentIds": [ 19, 27 ],
+    "sessions": [
+      { "sequenceNumber": 1, "preferredDate": "2026-06-15", "timeSlotId": 4, "durationMinutes": 90, "units": [] },
+      { "sequenceNumber": 2, "preferredDate": "2026-06-17", "timeSlotId": 4, "durationMinutes": 90, "units": [] }
+    ]
+  }
+}
+```
+
+##### Case D — Quran domain
+
+When the domain's code is `quran`, every session row **must** include `quranContentTypeId` AND `quranLevelId`. Works with broadcast or targeted (`targetedTeacherId` shown below). 400 otherwise.
+
+| `quranContentTypeId` | Meaning | `quranLevelId` | Meaning |
+|:---:|---|:---:|---|
+| 1 | حفظ (Memorization) | 1 | نوراني (Noorani) |
+| 2 | تلاوة (Recitation) | 2 | مبتدئ (Beginner) |
+| 3 | تجويد (Tajweed) | 3 | متوسط (Intermediate) |
+| | | 4 | متقدم (Advanced) |
+
+```json
+{
+  "data": {
+    "studentId": 5,
+    "domainId": 2,
+    "subjectId": 499,
+    "teachingModeId": 1,
+    "targetedTeacherId": 7,
+    "totalSessionsCount": 2,
+    "sessions": [
+      { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60,
+        "quranContentTypeId": 1, "quranLevelId": 2,
+        "units": [ { "contentUnitId": 200, "includesAllLessons": true } ] },
+      { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60,
+        "quranContentTypeId": 2, "quranLevelId": 2,
+        "units": [ { "lessonId": 12345 } ] }
+    ]
+  }
+}
+```
+
+#### Field reference
+
+| Field | Required | Notes |
+|---|:---:|---|
+| `data.studentId` | yes | Learner Student.Id. Caller must be that student OR their guardian. |
+| `data.domainId`, `data.subjectId`, `data.teachingModeId` | yes | Existing FKs; 404 on miss. |
+| `data.curriculumId`, `data.levelId`, `data.gradeId`, `data.termId` | no | Education breadcrumb when applicable. |
+| `data.targetedTeacherId` | no | Optional — switches to targeted dispatch (see Case B / S2-ST-001b). |
+| `data.groupType` | yes for Group teaching modes | `OpenGroup` or `InviteOnly`. |
+| `data.totalSessionsCount` | yes | Must match `sessions.length` once published. |
+| `data.invitedStudentIds[]` | no | Max 5. Allowed only for Group modes. |
+| `data.expiresAt` | no | Defaults to `PublishedAt + 7 days`. |
+| `data.studentNotes` | no | Max 1000 chars. |
+| `data.sessions[].sequenceNumber` | yes | 1-indexed, sequential. |
+| `data.sessions[].preferredDate`, `data.sessions[].timeSlotId`, `data.sessions[].durationMinutes` | yes | When/how long. |
+| `data.sessions[].quranContentTypeId`, `data.sessions[].quranLevelId` | yes when domain is `quran` | See Case D. |
+| `data.sessions[].notes` | no | Free-text. |
+| `data.sessions[].units[]` | no | Empty `[]` = no content tagging. Each row: see "units[] row shape" table above. |
+
+---
+
+### S2-ST-001b: إنشاء طلب جلسات موجَّه لمعلم محدد
+
+**As** a student,
+**I want** to send the open session request to one specific teacher I've already chosen,
+**so that** only that teacher reviews it and the broadcast matching is skipped.
+
+**Source:** `[code]` `CreateOpenSessionRequestCommandHandler` + `TargetedOpenSessionRequestValidator` + `OpenSessionRequestTargetingService.NotifyTargetedTeacherAsync`
+
+**Request shape** — same `POST /Api/V1/Student/OpenSessionRequests` body as S2-ST-001, plus one new optional top-level field: `data.targetedTeacherId`. See **Case B** in the S2-ST-001 "Request body samples" section above for a complete body covering all three `units[]` row shapes.
+
+**Acceptance criteria:**
+- [ ] AC1: When `targetedTeacherId` is set, the broadcast matching algorithm is **skipped**. Only one `OpenSessionRequestTarget` row is written, for that teacher.
+- [ ] AC2: Only the chosen teacher gets the email notification ("طلب جلسات جديد موجَّه إليك").
+- [ ] AC3: Server rejects with **404** `"المعلم المستهدف غير موجود أو غير نشط."` if the teacher doesn't exist or is not `IsActive`.
+- [ ] AC4: Server rejects with **400** `"هذا المعلم لا يُدرّس المادة المطلوبة. اختر معلماً آخر أو غيّر المادة."` if the teacher has no active `TeacherSubject` row matching the requested `subjectId`.
+- [ ] AC5: Per-session `units[]` rows are hard-validated against the chosen teacher's `TeacherSubjectUnits`. `contentUnitId` outside the repertoire → **400** `"Session N: contentUnitId X is outside this teacher's repertoire."`. Same for `lessonId` whose parent `ContentUnit` isn't offered.
+- [ ] AC6: Every `units[]` row must set **exactly one** of `contentUnitId` or `lessonId`; both/neither → **400** `"Session N: each unit row must set exactly one of contentUnitId or lessonId."`.
+- [ ] AC7: When `targetedTeacherId` is omitted (or `null`), behavior is identical to S2-ST-001 — broadcast matching runs.
+- [ ] AC8: If the request lands in `PendingInvitations` first and only flips to `Active` after the last invitee responds, the targeted dispatch fires at that point (`RespondToOpenSessionRequestInvitationCommandHandler`) — the chosen teacher is still the only one notified, not the broadcast pool.
+- [ ] AC9: The chat / offer flow (`OpenSessionOffer`, `OfferConversation`) is unchanged — the teacher must still post an offer before any conversation opens.
+- [ ] AC10: `units[].includesAllLessons` (new) defaults to `false`. When `true`, the row means "every lesson in the unit"; when `false`, the row means "this unit as a topic header." Setting `true` together with `lessonId` → **400** `"Session N: includesAllLessons must be false when lessonId is set — single-lesson rows can't expand."` The flag is persisted on `OpenSessionRequestSessionUnit` and echoed in read responses.
+
+**Endpoints:**
+- `POST /Api/V1/Student/OpenSessionRequests` → `CreateOpenSessionRequestCommandHandler` (same endpoint as S2-ST-001 — distinguished by presence of `targetedTeacherId`)
+
+**Entities touched:** `OpenSessionRequest.TargetedTeacherId` (new column), `OpenSessionRequestTarget` (single row instead of N), `TeacherSubject` + `TeacherSubjectUnit` (read-only validation)
+
+**Status:** `implemented`
+
+**Notes:** The teacher sees no difference in their inbox — the row in `OpenSessionRequestTarget` looks identical to a broadcast match. The "targeted" provenance is recorded only on the parent request (`OpenSessionRequest.TargetedTeacherId`). To filter inbox by "directly targeted to me", read `request.TargetedTeacherId == myTeacherId`.
 
 ---
 
@@ -1412,3 +1576,7 @@ _Planned endpoints (S2 Teacher/Admin, Conversations) are documented in role MD f
 ---
 
 _Generated from `docs/PROMPT-Consolidated-User-Stories.md` investigation against Qalam codebase, 2026-06-03._
+
+```json
+
+```

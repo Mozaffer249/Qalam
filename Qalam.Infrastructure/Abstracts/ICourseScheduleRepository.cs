@@ -15,4 +15,15 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
         DateOnly toDate,
         IReadOnlyCollection<int> teacherAvailabilityIds,
         CancellationToken ct);
+
+    /// <summary>
+    /// Booked-slot lookup for the availability-match endpoint: returns the date + time window of
+    /// every Scheduled CourseSchedule the teacher already owns within [from, to]. Used to flag
+    /// conflicts on a student's proposed session timing.
+    /// </summary>
+    Task<List<(DateOnly Date, TimeSpan Start, TimeSpan End)>> GetTeacherBookedSlotsInRangeAsync(
+        int teacherId,
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken cancellationToken = default);
 }

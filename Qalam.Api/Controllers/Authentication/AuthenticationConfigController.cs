@@ -32,6 +32,9 @@ public class AuthenticationConfigController : AppControllerBase
     /// - Student/parent: `POST …/Authentication/Student/SendOtp` → `POST …/Student/VerifyOtp`
     ///
     /// Email is sent by Messaging API (SMTP `mail.dmail.sa`) using bilingual HTML from auth settings.
+    ///
+    /// **Teacher registration fields** (documents, bio, location) are configured separately:
+    /// `GET …/Authentication/Teacher/RegistrationRequirements` — see `docs/Teacher-Registration-Requirements.md`.
     /// </remarks>
     [AllowAnonymous]
     [HttpGet("Config")]

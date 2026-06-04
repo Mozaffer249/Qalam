@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Infrastructure.context;
+using Qalam.Service.Abstracts;
 using Microsoft.Extensions.Localization;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.CreateOpenSessionRequest;
@@ -19,16 +20,22 @@ public class CreateOpenSessionRequestCommandHandler
 
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
+    private readonly IOpenSessionRequestTargetingService _targetingService;
+    private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
     private readonly IMapper _mapper;
 
     public CreateOpenSessionRequestCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
+        IOpenSessionRequestTargetingService targetingService,
+        ITargetedOpenSessionRequestValidator targetedValidator,
         IMapper mapper) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
+        _targetingService = targetingService;
+        _targetedValidator = targetedValidator;
         _mapper = mapper;
     }
 
@@ -50,6 +57,17 @@ public class CreateOpenSessionRequestCommandHandler
             return NotFound<OpenSessionRequestDetailDto>("المادة غير موجودة");
         if (!await _db.TeachingModes.AnyAsync(x => x.Id == data.TeachingModeId, cancellationToken))
             return NotFound<OpenSessionRequestDetailDto>("طريقة التدريس غير موجودة");
+
+        // 2b. Targeted-teacher branch — single service call covers: teacher existence + IsActive,
+        // teacher offers the requested subject (active TeacherSubject), per-session unit rows
+        // against TeacherSubjectUnits, and the row-level invariants (exactly-one-of, includesAllLessons + lessonId conflict).
+        if (data.TargetedTeacherId.HasValue)
+        {
+            var err = await _targetedValidator.ValidateAsync(
+                data.TargetedTeacherId.Value, data.SubjectId, data.Sessions, cancellationToken);
+            if (err is not null)
+                return BadRequest<OpenSessionRequestDetailDto>(err);
+        }
 
         // 3. Validate invitations: invited students must exist & be active, no overlap with the learner
         if (data.InvitedStudentIds.Any())
@@ -95,6 +113,7 @@ public class CreateOpenSessionRequestCommandHandler
             TermId = data.TermId,
             SubjectId = data.SubjectId,
             TeachingModeId = data.TeachingModeId,
+            TargetedTeacherId = data.TargetedTeacherId,
             GroupType = data.GroupType,
             TotalSessionsCount = data.TotalSessionsCount,
             StudentNotes = data.StudentNotes,
@@ -121,6 +140,7 @@ public class CreateOpenSessionRequestCommandHandler
                 {
                     ContentUnitId = u.ContentUnitId,
                     LessonId = u.LessonId,
+                    IncludesAllLessons = u.IncludesAllLessons,
                 });
 
             entity.Sessions.Add(session);
@@ -139,8 +159,22 @@ public class CreateOpenSessionRequestCommandHandler
         await _db.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        // 7. P3 hook: when status == Active, the matching engine should run here.
-        //    Deferred to P3; for now the request just lands in Active and waits.
+        // 7. P3: dispatch to the chosen teacher (targeted) or run broadcast matching (default)
+        //    when the request is publishable now (no pending invitations).
+        //    If status is PendingInvitations, dispatch waits for invitations to resolve — see the
+        //    invitation handler for that path.
+        if (status == OpenSessionRequestStatus.Active)
+        {
+            if (entity.TargetedTeacherId.HasValue)
+            {
+                await _targetingService.NotifyTargetedTeacherAsync(
+                    entity.Id, entity.TargetedTeacherId.Value, cancellationToken);
+            }
+            else
+            {
+                await _targetingService.RunMatchingAndNotifyAsync(entity.Id, cancellationToken);
+            }
+        }
 
         // 8. Reload with all navigations for the response DTO
         var detail = await BuildDetailAsync(entity.Id, cancellationToken);

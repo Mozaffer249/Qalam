@@ -17,4 +17,5 @@ public class CourseRequestProposedSession : AuditableEntity
     public string? Notes { get; set; }
 
     public CourseEnrollmentRequest CourseEnrollmentRequest { get; set; } = null!;
+    public ICollection<CourseRequestProposedSessionUnit> Units { get; set; } = new List<CourseRequestProposedSessionUnit>();
 }

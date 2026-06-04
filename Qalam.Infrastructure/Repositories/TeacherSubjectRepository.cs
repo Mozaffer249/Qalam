@@ -252,4 +252,17 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         return string.Join("_", parts);
     }
+
+    public async Task<List<int>> GetActiveTeacherIdsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default)
+    {
+        return await _teacherSubjects
+            .AsNoTracking()
+            .Where(ts => ts.SubjectId == subjectId
+                         && ts.IsActive
+                         && ts.Teacher != null
+                         && ts.Teacher.Status == Qalam.Data.Entity.Common.Enums.TeacherStatus.Active)
+            .Select(ts => ts.TeacherId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
 }

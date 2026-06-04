@@ -14,6 +14,15 @@ public class CreateEnrollmentRequestDto
     /// </summary>
     public List<int> StudentIds { get; set; } = new();
     public int CourseId { get; set; }
+
+    /// <summary>
+    /// Optional teacher-subject scope for per-session content units / lessons.
+    /// When set, must equal <c>Course.TeacherSubjectId</c>; each <c>Units</c> row in <see cref="SelectedSessionSlots"/>
+    /// and <see cref="ProposedSessions"/> is hard-validated against the teacher's <c>TeacherSubjectUnits</c> repertoire.
+    /// When null, units are accepted as long as the FK exists in <c>ContentUnits</c> / <c>Lessons</c> (free-form).
+    /// </summary>
+    public int? TeacherSubjectId { get; set; }
+
     public string? Notes { get; set; }
     /// <summary>
     /// One entry per course session: concrete date and teacher weekly slot (from availability API).
@@ -46,6 +55,28 @@ public class SelectedSessionSlotDto
     public int SessionNumber { get; set; }
     public int TeacherAvailabilityId { get; set; }
     public DateOnly Date { get; set; }
+
+    /// <summary>
+    /// Content units / lessons covered in this session. Each row must set exactly one of
+    /// <see cref="EnrollmentSessionUnitDto.ContentUnitId"/> or <see cref="EnrollmentSessionUnitDto.LessonId"/>.
+    /// Same shape scenario 2 uses on <c>OpenSessionRequestSessionUnit</c>.
+    /// </summary>
+    public List<EnrollmentSessionUnitDto> Units { get; set; } = new();
+}
+
+/// <summary>
+/// One content unit OR lesson covered in a session of a course enrollment request.
+/// Exactly one of <see cref="ContentUnitId"/> or <see cref="LessonId"/> must be set.
+/// </summary>
+public class EnrollmentSessionUnitDto
+{
+    public int? ContentUnitId { get; set; }
+    public int? LessonId { get; set; }
+
+    /// <summary>Resolved name in response payloads. Ignored on request.</summary>
+    public string? ContentUnitNameEn { get; set; }
+    /// <summary>Resolved name in response payloads. Ignored on request.</summary>
+    public string? LessonNameEn { get; set; }
 }
 
 /// <summary>
@@ -66,6 +97,12 @@ public class CreateProposedSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Content units / lessons covered in this proposed session. Same validation rules as
+    /// <see cref="SelectedSessionSlotDto.Units"/>.
+    /// </summary>
+    public List<EnrollmentSessionUnitDto> Units { get; set; } = new();
 }
 
 public class EnrollmentRequestProposedSessionDto
@@ -74,6 +111,9 @@ public class EnrollmentRequestProposedSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>Content units / lessons covered in this session, with resolved names.</summary>
+    public List<EnrollmentSessionUnitDto> Units { get; set; } = new();
 }
 
 public class EnrollmentRequestGroupMemberDto

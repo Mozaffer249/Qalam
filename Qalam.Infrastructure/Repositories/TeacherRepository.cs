@@ -132,4 +132,20 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             })
             .FirstOrDefaultAsync();
     }
+
+    public async Task<List<(int TeacherId, string Email)>> GetEmailsByTeacherIdsAsync(IReadOnlyCollection<int> teacherIds, CancellationToken cancellationToken = default)
+    {
+        if (teacherIds.Count == 0) return new List<(int, string)>();
+
+        var rows = await _teachers
+            .AsNoTracking()
+            .Where(t => teacherIds.Contains(t.Id)
+                        && t.User != null
+                        && t.User.Email != null
+                        && t.User.Email != "")
+            .Select(t => new { t.Id, Email = t.User!.Email! })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Id, r.Email)).ToList();
+    }
 }

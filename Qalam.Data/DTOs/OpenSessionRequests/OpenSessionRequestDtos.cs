@@ -26,6 +26,15 @@ public class CreateOpenSessionRequestDto
     public int TeachingModeId { get; set; }
 
     /// <summary>
+    /// Optional — target a single specific teacher instead of broadcasting to all matched teachers.
+    /// When set, the server validates that the teacher offers the chosen <see cref="SubjectId"/>
+    /// (active TeacherSubject row) and that every per-session <c>Units[]</c> entry belongs to that
+    /// teacher's TeacherSubjectUnits. The broadcast matching algorithm is skipped — only this teacher
+    /// receives a Target row + notification.
+    /// </summary>
+    public int? TargetedTeacherId { get; set; }
+
+    /// <summary>
     /// Open group / Invite-only. Required when TeachingMode resolves to "Group".
     /// </summary>
     public OfferGroupType? GroupType { get; set; }
@@ -63,6 +72,14 @@ public class CreateOpenSessionRequestUnitDto
     /// <summary>Exactly one of ContentUnitId or LessonId must be set.</summary>
     public int? ContentUnitId { get; set; }
     public int? LessonId { get; set; }
+
+    /// <summary>
+    /// Only meaningful when <see cref="ContentUnitId"/> is set.
+    /// <c>true</c>  → the row covers every lesson inside the unit.
+    /// <c>false</c> → the row is "this unit as a topic header" — no specific lessons committed (default).
+    /// Setting <c>true</c> together with <see cref="LessonId"/> is rejected — single-lesson rows can't expand.
+    /// </summary>
+    public bool IncludesAllLessons { get; set; }
 }
 
 // ============================================================================

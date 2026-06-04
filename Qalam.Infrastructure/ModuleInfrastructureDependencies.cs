@@ -22,6 +22,8 @@ namespace Qalam.Infrastructure
             // Teacher Repositories
             services.AddTransient<ITeacherRepository, TeacherRepository>();
             services.AddTransient<ITeacherDocumentRepository, TeacherDocumentRepository>();
+            services.AddTransient<ITeacherRegistrationRequirementRepository, TeacherRegistrationRequirementRepository>();
+            services.AddTransient<ITeacherRegistrationSubmissionRepository, TeacherRegistrationSubmissionRepository>();
             services.AddTransient<ITeacherSubjectRepository, TeacherSubjectRepository>();
             services.AddTransient<ITeacherAvailabilityRepository, TeacherAvailabilityRepository>();
 
@@ -53,6 +55,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<IEnrollmentRepository, EnrollmentRepository>();
             services.AddTransient<IEnrollmentParticipantRepository, EnrollmentParticipantRepository>();
             services.AddTransient<ICourseScheduleRepository, CourseScheduleRepository>();
+            services.AddTransient<ICourseSessionUnitRepository, CourseSessionUnitRepository>();
 
             // Payment Repositories
             services.AddTransient<IPaymentRepository, PaymentRepository>();
@@ -64,6 +67,12 @@ namespace Qalam.Infrastructure
 
             // Messaging Repositories
             services.AddTransient<IMessageLogRepository, MessageLogRepository>();
+
+            // Open Session Request Repositories (Scenario 2)
+            services.AddTransient<IOpenSessionRequestRepository, OpenSessionRequestRepository>();
+            services.AddTransient<IOpenSessionRequestTargetRepository, OpenSessionRequestTargetRepository>();
+            services.AddTransient<IOpenSessionOfferRepository, OpenSessionOfferRepository>();
+            services.AddTransient<IOfferConversationRepository, OfferConversationRepository>();
 
             // Database Seeder
             services.AddTransient<DatabaseSeeder>();

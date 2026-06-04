@@ -24,8 +24,9 @@ namespace Qalam.Api.Controllers.Student;
 public class StudentOpenSessionRequestController : AppControllerBase
 {
     /// <summary>
-    /// Create + publish a new open session request. Triggers the matching engine when no
-    /// invitations are pending; otherwise the request waits in PendingInvitations until all
+    /// Create + publish a new open session request. By default the broadcast matching engine
+    /// runs when no invitations are pending; supplying <c>targetedTeacherId</c> sends the request
+    /// to a single teacher instead. Otherwise the request waits in PendingInvitations until all
     /// invited students respond.
     /// </summary>
     /// <remarks>
@@ -37,10 +38,115 @@ public class StudentOpenSessionRequestController : AppControllerBase
     ///   be the linked Guardian. The server stores `createdByGuardianId` for audit.
     ///
     /// Status transitions on create:
-    /// - No invitations → `Active` (matching kicks off).
-    /// - With invitations → `PendingInvitations` (matching waits until all invitees respond).
+    /// - No invitations → `Active` (dispatch fires immediately — see "Dispatch" below).
+    /// - With invitations → `PendingInvitations` (dispatch waits until all invitees respond).
+    ///
+    /// Dispatch on Active (S2-ST-001 vs S2-ST-001b):
+    /// - `targetedTeacherId` omitted/null → broadcast matching runs; every qualified teacher
+    ///   gets an `OpenSessionRequestTarget` row + notification email.
+    /// - `targetedTeacherId` set → broadcast is **skipped**. The server first validates that the
+    ///   teacher exists/active AND offers `data.subjectId` via an active `TeacherSubject` row,
+    ///   then hard-validates each session's `units[]` against that teacher's `TeacherSubjectUnits`
+    ///   (anything outside → 400). Only that one teacher gets a Target row + notification.
+    ///
+    /// `units[]` per session — each row must set EXACTLY ONE of `contentUnitId` / `lessonId`:
+    /// - `{ contentUnitId, includesAllLessons: true }` → cover every lesson in the unit.
+    /// - `{ contentUnitId, includesAllLessons: false }` (or flag omitted) → unit as topic header only.
+    /// - `{ lessonId }` → only that lesson. `includesAllLessons` must be `false`/omitted —
+    ///   single-lesson rows can't expand (400 otherwise).
     ///
     /// `expiresAt` defaults to PublishedAt + 7 days if omitted.
+    ///
+    /// ─────────────────────────────────────────────
+    /// Request body samples
+    /// ─────────────────────────────────────────────
+    ///
+    /// **Case A — Broadcast (default), individual session, no content units.**
+    /// Matching runs at publish. Every qualified teacher gets a Target row + email.
+    /// ```json
+    /// {
+    ///   "data": {
+    ///     "studentId": 5,
+    ///     "domainId": 1,
+    ///     "subjectId": 12,
+    ///     "teachingModeId": 1,
+    ///     "totalSessionsCount": 2,
+    ///     "studentNotes": "Prefers evenings.",
+    ///     "sessions": [
+    ///       { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60, "units": [] },
+    ///       { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60, "units": [] }
+    ///     ]
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// **Case B — Targeted teacher with all three `units[]` shapes.**
+    /// Broadcast is skipped. Server validates the teacher offers `subjectId` AND each row's
+    /// `contentUnitId` / `lessonId` is in that teacher's TeacherSubjectUnits.
+    /// ```json
+    /// {
+    ///   "data": {
+    ///     "studentId": 5,
+    ///     "domainId": 1,
+    ///     "subjectId": 12,
+    ///     "teachingModeId": 1,
+    ///     "targetedTeacherId": 42,
+    ///     "totalSessionsCount": 3,
+    ///     "sessions": [
+    ///       { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60,
+    ///         "units": [ { "contentUnitId": 115, "includesAllLessons": true } ] },
+    ///       { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60,
+    ///         "units": [ { "contentUnitId": 116, "includesAllLessons": false } ] },
+    ///       { "sequenceNumber": 3, "preferredDate": "2026-06-14", "timeSlotId": 3, "durationMinutes": 60,
+    ///         "units": [ { "lessonId": 4501 } ] }
+    ///     ]
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// **Case C — Group with invitations.** Status lands in `PendingInvitations`; dispatch
+    /// (broadcast OR targeted) waits until every invitee responds.
+    /// ```json
+    /// {
+    ///   "data": {
+    ///     "studentId": 5,
+    ///     "domainId": 1,
+    ///     "subjectId": 12,
+    ///     "teachingModeId": 2,
+    ///     "groupType": "InviteOnly",
+    ///     "totalSessionsCount": 2,
+    ///     "invitedStudentIds": [ 19, 27 ],
+    ///     "sessions": [
+    ///       { "sequenceNumber": 1, "preferredDate": "2026-06-15", "timeSlotId": 4, "durationMinutes": 90, "units": [] },
+    ///       { "sequenceNumber": 2, "preferredDate": "2026-06-17", "timeSlotId": 4, "durationMinutes": 90, "units": [] }
+    ///     ]
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// **Case D — Quran domain.** When the domain code is `quran`, every session row MUST
+    /// include `quranContentTypeId` (1=حفظ / 2=تلاوة / 3=تجويد) AND `quranLevelId`
+    /// (1=نوراني / 2=مبتدئ / 3=متوسط / 4=متقدم). Targeted-teacher path also works here.
+    /// ```json
+    /// {
+    ///   "data": {
+    ///     "studentId": 5,
+    ///     "domainId": 2,
+    ///     "subjectId": 499,
+    ///     "teachingModeId": 1,
+    ///     "targetedTeacherId": 7,
+    ///     "totalSessionsCount": 2,
+    ///     "sessions": [
+    ///       { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60,
+    ///         "quranContentTypeId": 1, "quranLevelId": 2,
+    ///         "units": [ { "contentUnitId": 200, "includesAllLessons": true } ] },
+    ///       { "sequenceNumber": 2, "preferredDate": "2026-06-12", "timeSlotId": 3, "durationMinutes": 60,
+    ///         "quranContentTypeId": 2, "quranLevelId": 2,
+    ///         "units": [ { "lessonId": 12345 } ] }
+    ///     ]
+    ///   }
+    /// }
+    /// ```
     /// </remarks>
     [HttpPost(Router.StudentOpenSessionRequests)]
     [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]

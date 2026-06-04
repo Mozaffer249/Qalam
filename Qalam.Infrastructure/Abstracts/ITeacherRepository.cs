@@ -16,4 +16,10 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<int> CountAsync(IQueryable<Teacher> query);
     Task<List<PendingTeacherDto>> GetPendingTeachersDtoAsync(int pageNumber, int pageSize);
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
+
+    /// <summary>
+    /// Batch projection used by the targeting service after matching: returns (TeacherId, Email)
+    /// pairs for the supplied teacher ids whose User.Email is non-empty. Single query, narrow SELECT.
+    /// </summary>
+    Task<List<(int TeacherId, string Email)>> GetEmailsByTeacherIdsAsync(IReadOnlyCollection<int> teacherIds, CancellationToken cancellationToken = default);
 }

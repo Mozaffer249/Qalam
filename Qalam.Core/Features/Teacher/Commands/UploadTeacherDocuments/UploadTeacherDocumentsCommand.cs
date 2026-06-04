@@ -27,4 +27,7 @@ public class UploadTeacherDocumentsCommand : IRequest<Response<string>>, IAuthen
 
     // Certificates (keep as DTO list)
     public List<CertificateUploadDto> Certificates { get; set; } = new();
+
+    [BindNever]
+    public Dictionary<string, List<IFormFile>> CustomFilesByCode { get; set; } = new();
 }

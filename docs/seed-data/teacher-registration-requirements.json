@@ -1,0 +1,101 @@
+{
+  "description": "Default teacher registration requirements (seeded on app startup and via scripts/seed-teacher-registration-requirements.sql)",
+  "enumReference": {
+    "requirementType": { "File": 1, "Text": 2, "Boolean": 3 },
+    "mapsToDocumentType": { "IdentityDocument": 1, "Certificate": 2, "Other": 3 }
+  },
+  "requirements": [
+    {
+      "code": "identity_document",
+      "nameAr": "وثيقة الهوية",
+      "nameEn": "Identity document",
+      "descriptionAr": "هوية وطنية أو إقامة أو جواز سفر حسب موقعك",
+      "descriptionEn": "National ID, Iqama, or passport depending on location",
+      "requirementType": "File",
+      "isActive": true,
+      "isRequired": true,
+      "sortOrder": 10,
+      "minCount": 1,
+      "maxCount": 1,
+      "maxFileSizeBytes": 10485760,
+      "allowedExtensions": [".pdf", ".jpg", ".jpeg", ".png"],
+      "mapsToDocumentType": "IdentityDocument",
+      "isSystem": true,
+      "submitFormFields": [
+        "identityType",
+        "documentNumber",
+        "issuingCountryCode",
+        "identityDocumentFile"
+      ]
+    },
+    {
+      "code": "certificate",
+      "nameAr": "الشهادات",
+      "nameEn": "Certificates",
+      "descriptionAr": "شهادة واحدة على الأقل (حتى 5)",
+      "descriptionEn": "At least one certificate (up to 5)",
+      "requirementType": "File",
+      "isActive": true,
+      "isRequired": true,
+      "sortOrder": 20,
+      "minCount": 1,
+      "maxCount": 5,
+      "maxFileSizeBytes": 10485760,
+      "allowedExtensions": [".pdf", ".jpg", ".jpeg", ".png"],
+      "mapsToDocumentType": "Certificate",
+      "isSystem": true,
+      "submitFormFields": [
+        "certificates[0].file",
+        "certificates[0].title",
+        "certificates[0].issuer",
+        "certificates[0].issueDate"
+      ]
+    },
+    {
+      "code": "bio",
+      "nameAr": "نبذة عنك",
+      "nameEn": "Bio",
+      "descriptionAr": "نبذة قصيرة تظهر للطلاب",
+      "descriptionEn": "Short profile shown to students",
+      "requirementType": "Text",
+      "isActive": true,
+      "isRequired": false,
+      "sortOrder": 30,
+      "minCount": 0,
+      "maxCount": 1,
+      "maxLength": 500,
+      "isSystem": true,
+      "submitFormFields": ["bio"]
+    },
+    {
+      "code": "location",
+      "nameAr": "موقع التدريس",
+      "nameEn": "Teaching location",
+      "descriptionAr": "هل تدرّس داخل المملكة؟",
+      "descriptionEn": "Are you teaching inside Saudi Arabia?",
+      "requirementType": "Boolean",
+      "isActive": true,
+      "isRequired": true,
+      "sortOrder": 40,
+      "minCount": 1,
+      "maxCount": 1,
+      "isSystem": true,
+      "submitFormFields": ["isInSaudiArabia"]
+    }
+  ],
+  "customFileExample": {
+    "code": "custom_cv",
+    "nameAr": "السيرة الذاتية",
+    "nameEn": "CV",
+    "requirementType": "File",
+    "isActive": true,
+    "isRequired": false,
+    "sortOrder": 50,
+    "minCount": 0,
+    "maxCount": 1,
+    "maxFileSizeBytes": 10485760,
+    "allowedExtensions": [".pdf"],
+    "mapsToDocumentType": "Other",
+    "submitFormField": "file_custom_cv"
+  }
+}

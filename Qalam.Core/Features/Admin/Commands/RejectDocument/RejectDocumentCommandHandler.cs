@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Admin.Commands.RejectDocument;
 
@@ -12,17 +13,17 @@ public class RejectDocumentCommandHandler : ResponseHandler,
 	IRequestHandler<RejectDocumentCommand, Response<string>>
 {
 	private readonly ITeacherDocumentRepository _documentRepository;
-	private readonly ITeacherRepository _teacherRepository;
+	private readonly ITeacherRegistrationCompletionService _completionService;
 	private readonly ILogger<RejectDocumentCommandHandler> _logger;
 
 	public RejectDocumentCommandHandler(
 		ITeacherDocumentRepository documentRepository,
-		ITeacherRepository teacherRepository,
+		ITeacherRegistrationCompletionService completionService,
 		ILogger<RejectDocumentCommandHandler> logger,
 		IStringLocalizer<SharedResources> localizer) : base(localizer)
 	{
 		_documentRepository = documentRepository;
-		_teacherRepository = teacherRepository;
+		_completionService = completionService;
 		_logger = logger;
 	}
 
@@ -59,19 +60,20 @@ public class RejectDocumentCommandHandler : ResponseHandler,
 			await _documentRepository.UpdateAsync(document);
 			await _documentRepository.SaveChangesAsync();
 
+			await _completionService.SyncSubmissionStatusFromDocumentAsync(
+				request.DocumentId,
+				DocumentVerificationStatus.Rejected,
+				request.UserId,
+				request.Reason,
+				cancellationToken);
+
+			await _completionService.RefreshTeacherStatusAfterReviewAsync(request.TeacherId, cancellationToken);
+
 			_logger.LogInformation(
 				"Document {DocumentId} rejected by admin {AdminId}: {Reason}",
 				request.DocumentId,
 				request.UserId,
 				request.Reason);
-
-			// Update teacher status to DocumentsRejected
-			await _teacherRepository.UpdateStatusAsync(request.TeacherId, TeacherStatus.DocumentsRejected);
-			await _teacherRepository.SaveChangesAsync();
-
-			_logger.LogInformation(
-				"Teacher {TeacherId} status updated to DocumentsRejected",
-				request.TeacherId);
 
 			return Success<string>("Document rejected successfully. Teacher will be notified to re-upload.");
 		}

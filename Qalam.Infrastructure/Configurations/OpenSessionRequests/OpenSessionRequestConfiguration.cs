@@ -20,6 +20,7 @@ public class OpenSessionRequestConfiguration : IEntityTypeConfiguration<OpenSess
         builder.HasIndex(e => new { e.Status, e.ExpiresAt });
         builder.HasIndex(e => e.SubjectId);
         builder.HasIndex(e => e.DomainId);
+        builder.HasIndex(e => e.TargetedTeacherId);
 
         // Properties
         builder.Property(e => e.Status).IsRequired();
@@ -74,6 +75,11 @@ public class OpenSessionRequestConfiguration : IEntityTypeConfiguration<OpenSess
         builder.HasOne(e => e.TeachingMode)
                .WithMany()
                .HasForeignKey(e => e.TeachingModeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.TargetedTeacher)
+               .WithMany()
+               .HasForeignKey(e => e.TargetedTeacherId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(e => e.Sessions)

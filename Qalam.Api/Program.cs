@@ -75,9 +75,12 @@ builder.Services.Configure<Qalam.Data.Helpers.EnrollmentSettings>(
     builder.Configuration.GetSection("EnrollmentSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.PaymentSettings>(
     builder.Configuration.GetSection("PaymentSettings"));
+builder.Services.Configure<Qalam.Data.Helpers.OpenSessionOfferSettings>(
+    builder.Configuration.GetSection("OpenSessionOfferSettings"));
 
 // Background Services
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();
+builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionOfferExpirationService>();
 
 // Service Registration
 builder.Services.AddInfrastructureDependencies()

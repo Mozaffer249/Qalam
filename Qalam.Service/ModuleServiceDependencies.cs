@@ -33,6 +33,9 @@ namespace Qalam.Service
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
             services.AddTransient<ITeacherManagementService, TeacherManagementService>();
+            services.AddTransient<ITeacherRegistrationRequirementProvider, TeacherRegistrationRequirementProvider>();
+            services.AddTransient<ITeacherRegistrationCompletionService, TeacherRegistrationCompletionService>();
+            services.AddTransient<ITeacherRegistrationStatusService, TeacherRegistrationStatusService>();
 
             // Enum Services
             services.AddTransient<IEnumService, EnumService>();
@@ -55,6 +58,12 @@ namespace Qalam.Service
             services.AddTransient<IScheduleGenerationService, ScheduleGenerationService>();
             services.AddTransient<ITeacherAvailabilityCalendarService, TeacherAvailabilityCalendarService>();
             services.AddTransient<IEnrollmentApprovalService, EnrollmentApprovalService>();
+
+            // Open Session Request services (Scenario 2)
+            services.AddTransient<ITeacherMatchingService, TeacherMatchingService>();
+            services.AddTransient<IOpenSessionRequestTargetingService, OpenSessionRequestTargetingService>();
+            services.AddTransient<ITargetedOpenSessionRequestValidator, TargetedOpenSessionRequestValidator>();
+            services.AddTransient<IOfferConversationService, OfferConversationService>();
 
             return services;
         }

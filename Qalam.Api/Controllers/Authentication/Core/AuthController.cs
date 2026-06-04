@@ -7,7 +7,10 @@ using Qalam.Core.Features.Authentication.Commands.Login;
 using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
 using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
+using Qalam.Core.Features.Authentication.Queries.GetTeacherRegistrationRequirements;
+using Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
 using Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
+using Qalam.Api.Helpers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Common;
 using Qalam.Service.Abstracts;
@@ -15,7 +18,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Api.Controllers.Authentication.Core
 {
     /// <summary>
-    /// Core authentication operations: Register, Login, Logout, Token Management
+    /// Core authentication operations: admin login, teacher registration flow, and enum helpers.
     /// </summary>
     public class AuthController : AppControllerBase
     {
@@ -26,11 +29,11 @@ namespace Qalam.Api.Controllers.Authentication.Core
             _enumService = enumService;
         }
 
-        /// <summary>
-        /// Register a new user account
-        /// </summary>
-        /// <param name="command">Registration details including username, email, password</param>
-        /// <returns>Registration result with user information</returns>
+        // /// <summary>
+        // /// Register a new user account
+        // /// </summary>
+        // /// <param name="command">Registration details including username, email, password</param>
+        // /// <returns>Registration result with user information</returns>
         // [HttpPost(Router.AuthenticationRegister)]
         // public async Task<IActionResult> Register([FromBody] RegisterCommand command)
         // {
@@ -82,10 +85,15 @@ namespace Qalam.Api.Controllers.Authentication.Core
         }
 
         /// <summary>
-        /// Complete personal information (for new users after registration)
+        /// Complete personal information (teacher registration step 3).
         /// </summary>
         /// <param name="command">Name, email, and password</param>
         /// <returns>Teacher ID and full JWT token</returns>
+        /// <remarks>
+        /// Requires JWT from `POST …/Teacher/VerifyOtp`. Next step: load requirements via
+        /// `GET …/Teacher/RegistrationRequirements`, then submit via `POST …/Teacher/SubmitRegistrationRequirements`.
+        /// </remarks>
+        [Tags("Teacher Authentication")]
         [HttpPost(Router.TeacherCompletePersonalInfo)]
         [Authorize] // Requires token from VerifyOtp
         public async Task<IActionResult> CompletePersonalInfo([FromBody] CompletePersonalInfoCommand command)
@@ -94,14 +102,77 @@ namespace Qalam.Api.Controllers.Authentication.Core
         }
 
         /// <summary>
-        /// Upload identity documents and certificates
+        /// Get active teacher registration requirements (wizard step 4 — before submit).
         /// </summary>
-        /// <param name="command">Identity document, certificates, and location info</param>
+        /// <returns>Active requirements only: code, type, labels, validation limits</returns>
+        /// <remarks>
+        /// **No auth required.** Call after `CompletePersonalInfo` to build the documents/bio/location step.
+        ///
+        /// Response `data.requirements[]` items include `code`, `requirementType`, `isRequired`, `minCount`, `maxCount`,
+        /// `allowedExtensions`, `maxFileSizeBytes`, `maxLength` (text).
+        ///
+        /// Seeded codes: `identity_document`, `certificate`, `bio`, `location`. Admins may add custom file requirements.
+        ///
+        /// See `docs/Teacher-Registration-Requirements.md`.
+        /// </remarks>
+        [AllowAnonymous]
+        [Tags("Teacher Authentication")]
+        [HttpGet(Router.TeacherRegistrationRequirements)]
+        [ProducesResponseType(typeof(Qalam.Data.DTOs.Teacher.TeacherRegistrationRequirementsResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetTeacherRegistrationRequirements()
+        {
+            return NewResult(await Mediator.Send(new GetTeacherRegistrationRequirementsQuery()));
+        }
+
+        /// <summary>
+        /// Submit teacher registration requirements (wizard step 4 — multipart).
+        /// </summary>
+        /// <param name="command">Form fields validated against active requirements from the catalog</param>
+        /// <returns>Success when all required items are submitted; teacher moves to pending verification</returns>
+        /// <remarks>
+        /// Requires **Teacher** JWT. Content-Type: `multipart/form-data`.
+        ///
+        /// **Standard fields** (when corresponding requirement is active):
+        /// - `isInSaudiArabia` — boolean requirement `location`
+        /// - `bio` — text requirement `bio`
+        /// - `identityType`, `documentNumber`, `issuingCountryCode`, `identityDocumentFile` — `identity_document`
+        /// - `certificates[i].file`, title, issuer, dates — `certificate` (min/max count enforced)
+        ///
+        /// **Custom file requirements:** form field `file_{code}` (e.g. `file_custom_cv`).
+        ///
+        /// Only **active + required** items are validated; optional items may be omitted.
+        ///
+        /// See `docs/Teacher-Registration-Requirements.md`.
+        /// </remarks>
+        [Tags("Teacher Authentication")]
+        [HttpPost(Router.TeacherSubmitRegistrationRequirements)]
+        [Authorize(Roles = Roles.Teacher)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SubmitTeacherRegistrationRequirements(
+            [FromForm] SubmitTeacherRegistrationRequirementsCommand command)
+        {
+            command.CustomFilesByCode = TeacherRegistrationFormHelper.ParseCustomFilesByCode(Request);
+            return NewResult(await Mediator.Send(command));
+        }
+
+        /// <summary>
+        /// Upload identity documents and certificates (obsolete).
+        /// </summary>
+        /// <param name="command">Legacy multipart payload — same shape as SubmitRegistrationRequirements</param>
         /// <returns>Success message if documents uploaded</returns>
+        /// <remarks>
+        /// **Deprecated.** Use `POST …/Teacher/SubmitRegistrationRequirements` instead.
+        /// Delegates to the same handler for backward-compatible mobile builds.
+        /// </remarks>
+        [Obsolete("Use POST …/Teacher/SubmitRegistrationRequirements")]
         [HttpPost(Router.TeacherUploadDocuments)]
-        [Authorize(Roles = Roles.Teacher)] // Requires Teacher role
+        [Authorize(Roles = Roles.Teacher)]
+        [Tags("Teacher Authentication")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> UploadTeacherDocuments([FromForm] UploadTeacherDocumentsCommand command)
         {
+            command.CustomFilesByCode = TeacherRegistrationFormHelper.ParseCustomFilesByCode(Request);
             return NewResult(await Mediator.Send(command));
         }
 

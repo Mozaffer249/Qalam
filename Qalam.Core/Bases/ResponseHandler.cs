@@ -110,6 +110,18 @@ namespace Qalam.Core.Bases
             };
         }
 
+        public Response<T> Conflict<T>(string? Message = null, T? entity = default, object? Meta = null)
+        {
+            return new Response<T>()
+            {
+                Data = entity ?? default!,
+                StatusCode = System.Net.HttpStatusCode.Conflict,
+                Succeeded = false,
+                Message = Message ?? "Conflict",
+                Meta = Meta
+            };
+        }
+
         /// <summary>
         /// Builds the standard pagination metadata object returned in the `meta` field
         /// of paginated list endpoints. Keep all paginated handlers consistent by using this.

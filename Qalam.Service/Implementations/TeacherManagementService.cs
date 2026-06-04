@@ -11,15 +11,18 @@ public class TeacherManagementService : ITeacherManagementService
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
+    private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ILogger<TeacherManagementService> _logger;
 
     public TeacherManagementService(
         ITeacherRepository teacherRepository,
         ITeacherDocumentRepository documentRepository,
+        ITeacherRegistrationCompletionService completionService,
         ILogger<TeacherManagementService> logger)
     {
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
+        _completionService = completionService;
         _logger = logger;
     }
 
@@ -56,10 +59,12 @@ public class TeacherManagementService : ITeacherManagementService
         await _documentRepository.UpdateAsync(document);
         await _documentRepository.SaveChangesAsync();
 
+        await _completionService.SyncSubmissionStatusFromDocumentAsync(
+            documentId, DocumentVerificationStatus.Approved, adminId, null);
+
         _logger.LogInformation("Document {DocumentId} approved by admin {AdminId}", documentId, adminId);
 
-        // Check if all documents are now approved
-        await UpdateTeacherStatusAfterReviewAsync(teacherId);
+        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId);
 
         return true;
     }
@@ -81,11 +86,12 @@ public class TeacherManagementService : ITeacherManagementService
         await _documentRepository.UpdateAsync(document);
         await _documentRepository.SaveChangesAsync();
 
-        _logger.LogInformation("Document {DocumentId} rejected by admin {AdminId}: {Reason}", documentId, adminId, reason);
+        await _completionService.SyncSubmissionStatusFromDocumentAsync(
+            documentId, DocumentVerificationStatus.Rejected, adminId, reason);
 
-        // Update teacher status to DocumentsRejected
-        await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
-        await _teacherRepository.SaveChangesAsync();
+        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId);
+
+        _logger.LogInformation("Document {DocumentId} rejected by admin {AdminId}: {Reason}", documentId, adminId, reason);
 
         return true;
     }
@@ -148,37 +154,4 @@ public class TeacherManagementService : ITeacherManagementService
         return await _documentRepository.GetDocumentsStatusAsync(teacherId);
     }
 
-    private async Task UpdateTeacherStatusAfterReviewAsync(int teacherId)
-    {
-        var documents = await _documentRepository.GetByTeacherIdAsync(teacherId);
-        
-        if (!documents.Any())
-            return;
-
-        var hasRejected = documents.Any(d => d.VerificationStatus == DocumentVerificationStatus.Rejected);
-        var hasPending = documents.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending);
-        var allApproved = documents.All(d => d.VerificationStatus == DocumentVerificationStatus.Approved);
-
-        TeacherStatus newStatus;
-        if (hasRejected)
-        {
-            newStatus = TeacherStatus.DocumentsRejected;
-        }
-        else if (allApproved)
-        {
-            newStatus = TeacherStatus.Active;
-            _logger.LogInformation("All documents approved for teacher {TeacherId}, activating account", teacherId);
-        }
-        else if (hasPending)
-        {
-            newStatus = TeacherStatus.PendingVerification;
-        }
-        else
-        {
-            return; // No change needed
-        }
-
-        await _teacherRepository.UpdateStatusAsync(teacherId, newStatus);
-        await _teacherRepository.SaveChangesAsync();
-    }
 }

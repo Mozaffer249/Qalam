@@ -149,27 +149,58 @@ Days with no recurring availability are **omitted** entirely (don't render gaps 
 
 ```json
 {
-  "data": {
-    "courseId": 1,
-    "studentIds": [42],
-    "invitedStudentIds": [],
-    "selectedAvailabilityIds": [10, 11],
-    "preferredStartDate": "2026-05-15",
-    "preferredEndDate":   "2026-07-15",
-    "notes": "Prefers evening sessions.",
-    "proposedSessions": []
-  }
+  "courseId": 1,
+  "teacherSubjectId": 17,
+  "studentIds": [42],
+  "invitedStudentIds": [],
+  "selectedSessionSlots": [
+    {
+      "sessionNumber": 1,
+      "teacherAvailabilityId": 10,
+      "date": "2026-05-17",
+      "units": [
+        { "contentUnitId": 12 }
+      ]
+    },
+    {
+      "sessionNumber": 2,
+      "teacherAvailabilityId": 11,
+      "date": "2026-05-19",
+      "units": [
+        { "lessonId": 45 }
+      ]
+    }
+  ],
+  "preferredStartDate": "2026-05-15",
+  "preferredEndDate":   "2026-07-15",
+  "notes": "Prefers evening sessions.",
+  "proposedSessions": []
 }
 ```
 
 ### Required fields (UI must collect)
 
 - `courseId`
-- `studentIds` — own students (self and/or guardian's children); at least one
-- `selectedAvailabilityIds` — picked from step 2's calendar (only `Free` slots)
+- `studentIds` — own students (self and/or guardian's children); at least one (or empty to enroll the requester only)
+- `selectedSessionSlots[]` — picked from step 2's calendar (only `Free` slots). Each entry needs `sessionNumber` (1-indexed, sequential), `teacherAvailabilityId`, and `date`. Optional `units[]` per session — see **Per-session content units** below
 - **`preferredStartDate`** — must be today or later
 - **`preferredEndDate`** — must be ≥ `preferredStartDate` and large enough to fit all sessions
-- `proposedSessions` — required only when `course.isFlexible == true`
+- `proposedSessions` — required only when `course.isFlexible == true`. Each proposed session may also carry `units[]`
+
+### Per-session content units (`teacherSubjectId` + `units[]`)
+
+For each session in `selectedSessionSlots` (and `proposedSessions` on flexible courses) you can attach a list of **content units** or **lessons** describing what the session will cover — same shape scenario 2 uses on Open Session Requests. Each `units[]` row must set **exactly one** of `contentUnitId` or `lessonId` (never both, never neither).
+
+How strictly the server validates them depends on whether you send the optional top-level `teacherSubjectId`:
+
+| Branch | Send `teacherSubjectId`? | Validation |
+|---|---|---|
+| **A — Teacher-subject-scoped** | Yes, equal to `course.teacherSubjectId` | Every `contentUnitId` must belong to the teacher's `TeacherSubjectUnits` repertoire for that subject. Every `lessonId` must roll up (via its parent `ContentUnit`) to one of those units. Anything outside → **400**. |
+| **B — Free-form FK** | Omit (or send `null`) | `contentUnitId` / `lessonId` must exist in `ContentUnits` / `Lessons` (any in the catalog — no teacher scoping). |
+
+Production UX recommendation: pass `teacherSubjectId = course.teacherSubjectId` so the user picks from a constrained, teacher-vetted menu (Branch A). Use Branch B only for ad-hoc enrollments where you want the student to type any catalog unit.
+
+`units[]` may be empty `[]` — no content tagging for that session. Omitting the field entirely is the same as `[]`.
 
 ### Validations (server-side, surface as error toast)
 
@@ -183,6 +214,10 @@ Days with no recurring availability are **omitted** entirely (don't render gaps 
 | Pending duplicate | `"You already have a pending enrollment request for this course."` |
 | Individual course with > 1 student | `"Individual courses require exactly one student."` |
 | Group exceeds `maxStudents` | `"Group size exceeds MaxStudents."` |
+| `teacherSubjectId` does not match the course | `"teacherSubjectId must match the course's teacher subject."` |
+| Both / neither of `contentUnitId` and `lessonId` on a `units[]` row | `"Slot 1: each unit row must set exactly one of contentUnitId or lessonId."` (or `"Proposed session 1: …"`) |
+| Branch A — unit outside teacher's repertoire | `"Slot 1: contentUnitId 12 is outside this teacher's repertoire."` / `"Slot 1: lessonId 45 is outside this teacher's repertoire."` |
+| Branch B — unknown FK | `"Slot 1: contentUnitId 99999 does not exist."` / `"Slot 1: lessonId 99999 does not exist."` |
 
 ### Successful response (the **important** new fields)
 
@@ -197,6 +232,24 @@ Days with no recurring availability are **omitted** entirely (don't render gaps 
     "estimatedTotalPrice": 200.00,
     "preferredStartDate": "2026-05-15",
     "preferredEndDate":   "2026-07-15",
+    "selectedSessionSlots": [
+      {
+        "sessionNumber": 1,
+        "teacherAvailabilityId": 10,
+        "date": "2026-05-17",
+        "units": [
+          { "contentUnitId": 12, "lessonId": null }
+        ]
+      },
+      {
+        "sessionNumber": 2,
+        "teacherAvailabilityId": 11,
+        "date": "2026-05-19",
+        "units": [
+          { "contentUnitId": null, "lessonId": 45 }
+        ]
+      }
+    ],
     "proposedScheduleDates": [
       { "sessionNumber": 1, "date": "2026-05-17", "teacherAvailabilityId": 10, "durationMinutes": 60, "title": "Algebra Basics" },
       { "sessionNumber": 2, "date": "2026-05-19", "teacherAvailabilityId": 11, "durationMinutes": 60, "title": "Equations"      },
@@ -214,6 +267,14 @@ Days with no recurring availability are **omitted** entirely (don't render gaps 
 **Show `proposedScheduleDates` to the user immediately** as a confirmation
 ("These are the dates you'll attend"). They are the same dates the teacher
 will see when reviewing.
+
+The create response echoes the IDs the client submitted in `units[]` (lightweight — same convention scenario 2 uses on create). If you need human-readable names (`contentUnitNameEn`, `lessonNameEn`), look them up against the existing `/Api/V1/Content/Units` and `/Api/V1/Content/Lessons` endpoints, or rely on the read endpoints (`GET /Api/V1/Student/EnrollmentRequests/{id}`) which will surface resolved names alongside the IDs.
+
+### Where to source the unit/lesson menu in the UI
+
+- Build the picklist from the teacher's repertoire when in Branch A:
+  `course.teacherSubjectId` → `GET /Api/V1/Teacher/TeacherSubject/{teacherSubjectId}/Units` (or the teacher-subject detail endpoint that returns `teacherSubjectUnits[]`). Lessons are nested under each `ContentUnit`.
+- For Branch B, query the global catalog: `GET /Api/V1/Content/Units?subjectId=…` and `GET /Api/V1/Content/Lessons?unitId=…` to populate two-level pickers.
 
 ---
 
@@ -413,9 +474,13 @@ Free | Booked | Blocked
 
 ```
 CourseEnrollmentRequest               ← what the student submits
+├── TeacherSubjectId? (opt-in scope)
 ├── PreferredStartDate, PreferredEndDate
 ├── SelectedAvailabilities[]          ← weekly slots picked from calendar
+├── SelectedSessionSlots[]            ← concrete date + slot per session
+│   └── Units[] (contentUnitId | lessonId)   ← per-session content tagging
 ├── ProposedSessions[] (flexible)
+│   └── Units[] (contentUnitId | lessonId)   ← per-session content tagging
 └── GroupMembers[]                    ← Own (auto-confirmed) + Invited (Pending)
 
          ↓ teacher approves ↓

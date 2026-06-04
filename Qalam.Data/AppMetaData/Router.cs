@@ -32,6 +32,10 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherVerifyOtp = Authentication + "/Teacher/VerifyOtp";
         public const string TeacherCompletePersonalInfo = Authentication + "/Teacher/CompletePersonalInfo";
         public const string TeacherUploadDocuments = Authentication + "/Teacher/UploadDocuments";
+        public const string TeacherRegistrationRequirements = Authentication + "/Teacher/RegistrationRequirements";
+        public const string TeacherSubmitRegistrationRequirements = Authentication + "/Teacher/SubmitRegistrationRequirements";
+
+        public const string AdminTeacherRegistrationRequirements = Rule + "Admin/TeacherRegistrationRequirements";
 
         // Student / Parent Authentication & Registration
         public const string StudentSendOtp = Authentication + "/Student/SendOttp";
@@ -162,6 +166,40 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherCourseEnrollments = Rule + "Teacher/Courses/{courseId}/Enrollments";
         /// <summary>Enrollment detail (unified — individual or group): Api/V1/Teacher/Enrollments/{id}</summary>
         public const string TeacherEnrollmentById = Rule + "Teacher/Enrollments/{id}";
+        #endregion
+
+        #region Teacher Open Session Requests (Scenario 2)
+        /// <summary>Inbox of matched requests: Api/V1/Teacher/AvailableRequests</summary>
+        public const string TeacherAvailableRequests = Rule + "Teacher/AvailableRequests";
+        /// <summary>Available request detail (side-effect: marks Viewed): Api/V1/Teacher/AvailableRequests/{id}</summary>
+        public const string TeacherAvailableRequestById = TeacherAvailableRequests + "/{id:int}";
+        /// <summary>Mark as viewed without fetching detail: Api/V1/Teacher/AvailableRequests/{id}/mark-viewed</summary>
+        public const string TeacherAvailableRequestMarkViewed = TeacherAvailableRequestById + "/mark-viewed";
+        /// <summary>Dismiss from inbox: Api/V1/Teacher/AvailableRequests/{id}/dismiss</summary>
+        public const string TeacherAvailableRequestDismiss = TeacherAvailableRequestById + "/dismiss";
+        /// <summary>Availability + conflict match per session: Api/V1/Teacher/AvailableRequests/{id}/availability-match</summary>
+        public const string TeacherAvailableRequestAvailabilityMatch = TeacherAvailableRequestById + "/availability-match";
+
+        /// <summary>Create / list endpoint for teacher offers: Api/V1/Teacher/Offers</summary>
+        public const string TeacherSessionOffers = Rule + "Teacher/Offers";
+        /// <summary>Single offer by id: Api/V1/Teacher/Offers/{id}</summary>
+        public const string TeacherSessionOfferById = TeacherSessionOffers + "/{id:int}";
+        /// <summary>My offers paginated list: Api/V1/Teacher/Offers/my</summary>
+        public const string TeacherSessionOffersMy = TeacherSessionOffers + "/my";
+        /// <summary>Withdraw an offer: Api/V1/Teacher/Offers/{id}/withdraw</summary>
+        public const string TeacherSessionOfferWithdraw = TeacherSessionOfferById + "/withdraw";
+
+        /// <summary>Conversations namespace (shared between teacher + student): Api/V1/Conversations</summary>
+        public const string OfferConversations = Rule + "Conversations";
+        /// <summary>
+        /// Find-or-create the chat for a (request, teacher) pair. Either party (teacher or student/guardian)
+        /// can call this. Pre-offer chat is supported — the conversation exists independent of any offer.
+        /// </summary>
+        public const string OfferConversationByRequest = OfferConversations + "/by-request/{requestId:int}/teacher/{teacherId:int}";
+        /// <summary>Cursor-paginated messages: Api/V1/Conversations/{conversationId}/messages</summary>
+        public const string OfferConversationMessages = OfferConversations + "/{conversationId:int}/messages";
+        /// <summary>Mark messages as read: Api/V1/Conversations/{conversationId}/read</summary>
+        public const string OfferConversationMarkRead = OfferConversations + "/{conversationId:int}/read";
         #endregion
 
         #region Student

@@ -45,4 +45,10 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     /// Add only new subjects (skip existing ones)
     /// </summary>
     Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjects);
+
+    /// <summary>
+    /// Matching engine: return the IDs of teachers who teach <paramref name="subjectId"/> via an
+    /// active TeacherSubject and whose own Teacher.Status is Active. Distinct, no duplicates.
+    /// </summary>
+    Task<List<int>> GetActiveTeacherIdsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default);
 }
