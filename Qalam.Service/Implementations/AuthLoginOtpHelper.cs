@@ -1,9 +1,38 @@
+using Qalam.Data.Entity.Identity;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
 
 public class AuthLoginOtpHelper : IAuthLoginOtpHelper
 {
+    public string? ResolveRegistrationEmail(LoginOtp? loginOtp)
+    {
+        if (loginOtp == null)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(loginOtp.PendingEmail))
+            return loginOtp.PendingEmail.Trim();
+
+        if (loginOtp.Channel == LoginOtpChannel.Email
+            && !string.IsNullOrWhiteSpace(loginOtp.DeliveryDestination)
+            && loginOtp.DeliveryDestination.Contains('@', StringComparison.Ordinal))
+        {
+            return loginOtp.DeliveryDestination.Trim();
+        }
+
+        return null;
+    }
+
+    public string ResolveAccountEmail(string? registrationEmail, string fullPhoneNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(registrationEmail))
+            return registrationEmail.Trim();
+
+        // Identity 8 + RequireUniqueEmail rejects null/empty email at user creation.
+        var digits = new string(fullPhoneNumber.Where(char.IsDigit).ToArray());
+        return $"phone_{digits}@phone.qalam.local";
+    }
+
     public string? ResolveDeliveryEmail(LoginOtpEmailContext context)
     {
         if (!string.Equals(context.Settings.OtpDelivery, "Email", StringComparison.OrdinalIgnoreCase))

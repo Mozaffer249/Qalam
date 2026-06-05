@@ -25,6 +25,16 @@ public class LoginOtpRepository : ILoginOtpRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<LoginOtp?> GetLatestValidOtpForPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        return await _context.LoginOtps
+            .Where(o => o.PhoneNumber == phoneNumber
+                        && !o.IsUsed
+                        && o.ExpiresAt > DateTime.UtcNow)
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<bool> HasValidOtpAsync(string phoneNumber, CancellationToken cancellationToken = default)
     {
         return await _context.LoginOtps

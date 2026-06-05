@@ -139,7 +139,7 @@ public class OtpService : IOtpService
             Channel = channel,
             PhoneNumber = phone,
             CountryCode = options.CountryCode,
-            PendingEmail = options.RequestEmail?.Trim(),
+            PendingEmail = deliveryEmail ?? (string.IsNullOrWhiteSpace(options.RequestEmail) ? null : options.RequestEmail.Trim()),
             DeliveryDestination = deliveryDestination,
             OtpCode = otpCode,
             CreatedAt = DateTime.UtcNow,

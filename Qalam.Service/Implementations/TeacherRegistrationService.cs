@@ -19,6 +19,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ILogger<TeacherRegistrationService> _logger;
     private readonly ITeacherSubjectRepository _subjectRepository;
     private readonly ITeacherAvailabilityRepository _availabilityRepository;
+    private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
@@ -27,7 +28,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         IAuthenticationService authService,
         ILogger<TeacherRegistrationService> logger,
         ITeacherSubjectRepository subjectRepository,
-        ITeacherAvailabilityRepository availabilityRepository)
+        ITeacherAvailabilityRepository availabilityRepository,
+        IAuthLoginOtpHelper authLoginOtpHelper)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
@@ -36,17 +38,20 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _logger = logger;
         _subjectRepository = subjectRepository;
         _availabilityRepository = availabilityRepository;
+        _authLoginOtpHelper = authLoginOtpHelper;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null)
     {
+        var accountEmail = _authLoginOtpHelper.ResolveAccountEmail(email, fullPhoneNumber);
+
         var user = new User
         {
             UserName = fullPhoneNumber,
             PhoneNumber = fullPhoneNumber,
             PhoneNumberConfirmed = true,
-            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
-            NormalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToUpperInvariant(),
+            Email = accountEmail,
+            NormalizedEmail = accountEmail.ToUpperInvariant(),
             IsActive = false,
             EmailConfirmed = false
         };
@@ -113,6 +118,12 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 }
             }
             user.Email = trimmedEmail;
+            user.NormalizedEmail = trimmedEmail.ToUpperInvariant();
+        }
+        else if (string.IsNullOrWhiteSpace(user.Email))
+        {
+            throw new Exception(
+                "Email is required. Include email in this request or restart registration with email OTP.");
         }
         // When email is omitted, keep the address set during OTP (step 1–2).
 
@@ -163,7 +174,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         {
             FirstName = firstName,
             LastName = lastName,
-            Email = email,
+            Email = user.Email,
             PhoneNumber = user.PhoneNumber!,
             Token = jwtResult.AccessToken
         };
@@ -293,4 +304,5 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 throw new Exception("Unknown registration status");
         }
     }
+
 }

@@ -20,6 +20,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
     private readonly UserManager<User> _userManager;
     private readonly IAuthenticationService _authService;
     private readonly IAuthSettingsProvider _authSettingsProvider;
+    private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
 
     public StudentVerifyOtpCommandHandler(
         IOtpService otpService,
@@ -27,6 +28,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         UserManager<User> userManager,
         IAuthenticationService authService,
         IAuthSettingsProvider authSettingsProvider,
+        IAuthLoginOtpHelper authLoginOtpHelper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -34,6 +36,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         _userManager = userManager;
         _authService = authService;
         _authSettingsProvider = authSettingsProvider;
+        _authLoginOtpHelper = authLoginOtpHelper;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -52,9 +55,17 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         if (!isValid)
             return BadRequest<StudentRegistrationResponseDto>("Invalid or expired OTP code");
 
-        LoginOtp? loginOtp = null;
-        if (request.OtpCode != IOtpService.TestOtpCode || !allowTest)
-            loginOtp = await _otpService.GetValidLoginOtpAsync(request.PhoneNumber, request.OtpCode, cancellationToken);
+        LoginOtp? loginOtp;
+        if (request.OtpCode == IOtpService.TestOtpCode && allowTest)
+        {
+            loginOtp = await _loginOtpRepository.GetLatestValidOtpForPhoneAsync(
+                request.PhoneNumber, cancellationToken);
+        }
+        else
+        {
+            loginOtp = await _otpService.GetValidLoginOtpAsync(
+                request.PhoneNumber, request.OtpCode, cancellationToken);
+        }
 
         var countryCode = loginOtp?.CountryCode ?? "+966";
         var fullPhoneNumber = $"{countryCode}{request.PhoneNumber}";
@@ -99,15 +110,17 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
             });
         }
 
+        var accountEmail = _authLoginOtpHelper.ResolveAccountEmail(
+            _authLoginOtpHelper.ResolveRegistrationEmail(loginOtp),
+            fullPhoneNumber);
+
         var user = new User
         {
             UserName = fullPhoneNumber,
             PhoneNumber = fullPhoneNumber,
             PhoneNumberConfirmed = true,
-            Email = loginOtp?.PendingEmail?.Trim(),
-            NormalizedEmail = string.IsNullOrWhiteSpace(loginOtp?.PendingEmail)
-                ? null
-                : loginOtp!.PendingEmail!.Trim().ToUpperInvariant(),
+            Email = accountEmail,
+            NormalizedEmail = accountEmail.ToUpperInvariant(),
             IsActive = true,
             EmailConfirmed = false
         };

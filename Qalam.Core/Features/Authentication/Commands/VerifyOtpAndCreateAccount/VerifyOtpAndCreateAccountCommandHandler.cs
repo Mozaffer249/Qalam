@@ -21,6 +21,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepository;
     private readonly IAuthenticationService _authService;
     private readonly IAuthSettingsProvider _authSettingsProvider;
+    private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
@@ -30,6 +31,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         ITeacherRepository teacherRepository,
         IAuthenticationService authService,
         IAuthSettingsProvider authSettingsProvider,
+        IAuthLoginOtpHelper authLoginOtpHelper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -39,6 +41,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         _teacherRepository = teacherRepository;
         _authService = authService;
         _authSettingsProvider = authSettingsProvider;
+        _authLoginOtpHelper = authLoginOtpHelper;
     }
 
     public async Task<Response<object>> Handle(
@@ -57,9 +60,18 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         if (!isValid)
             return BadRequest<object>("Invalid or expired OTP code");
 
-        LoginOtp? loginOtp = null;
-        if (request.OtpCode != IOtpService.TestOtpCode || !allowTest)
-            loginOtp = await _otpService.GetValidLoginOtpAsync(request.PhoneNumber, request.OtpCode, cancellationToken);
+        LoginOtp? loginOtp;
+        if (request.OtpCode == IOtpService.TestOtpCode && allowTest)
+        {
+            // Test bypass skips code match — still load the OTP row to recover PendingEmail.
+            loginOtp = await _loginOtpRepository.GetLatestValidOtpForPhoneAsync(
+                request.PhoneNumber, cancellationToken);
+        }
+        else
+        {
+            loginOtp = await _otpService.GetValidLoginOtpAsync(
+                request.PhoneNumber, request.OtpCode, cancellationToken);
+        }
 
         var countryCode = loginOtp?.CountryCode ?? "+966";
         var fullPhoneNumber = $"{countryCode}{request.PhoneNumber}";
@@ -90,7 +102,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             });
         }
 
-        var pendingEmail = loginOtp?.PendingEmail;
+        var pendingEmail = _authLoginOtpHelper.ResolveRegistrationEmail(loginOtp);
         var result = await _teacherRegistrationService.CreateBasicAccountAsync(fullPhoneNumber, pendingEmail);
         var registerNextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(result.UserId);
 
