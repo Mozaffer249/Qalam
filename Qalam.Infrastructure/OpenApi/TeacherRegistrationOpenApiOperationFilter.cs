@@ -8,7 +8,7 @@ namespace Qalam.Infrastructure.OpenApi;
 /// </summary>
 public sealed class TeacherRegistrationOpenApiOperationFilter : IOperationFilter
 {
-    private const string Guide = "docs/Teacher-Registration-Requirements.md";
+    private const string Guide = "docs/Teacher-Registration-Guide.md";
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {

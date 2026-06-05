@@ -17,6 +17,7 @@ public class CompletePersonalInfoCommand : IRequest<Response<TeacherAccountRespo
     
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
+    /// <summary>Optional — omit if email was already set during OTP (step 1–2).</summary>
     public string? Email { get; set; }
     public string Password { get; set; } = null!;
 }

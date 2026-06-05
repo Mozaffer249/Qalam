@@ -2,7 +2,8 @@
 
 Load authentication UI rules from the server before showing login or registration screens.
 
-> **Scalar / Swagger:** In API docs (`/scalar/v1`), open tag **Authentication Config (Public)** for `GET /Api/V1/Authentication/Config`, or **Admin · Auth Settings** for SuperAdmin GET/PUT. The OpenAPI description includes the same hints as this file.
+> **Teacher registration (steps 0–6, documents, admin):** everything is in **[Teacher-Registration-Guide.md](Teacher-Registration-Guide.md)** — this file covers **shared config API** and **student** OTP only.  
+> **Scalar / Swagger:** tag **Authentication Config (Public)** for `GET /Api/V1/Authentication/Config`; **Admin · Auth Settings** for SuperAdmin GET/PUT.
 
 ## Step 0: load config
 
@@ -58,6 +59,8 @@ No auth header required.
 The server reads settings from the database on every request (no server-side cache). You may cache the config response in the app for a few minutes if you wish.
 
 ## Email OTP (teacher & student)
+
+> **Teacher registration (full flow):** [Teacher-Registration-Guide.md](Teacher-Registration-Guide.md)
 
 When `otpDelivery` is `"Email"` for the persona you are building:
 

@@ -87,11 +87,12 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// <summary>
         /// Complete personal information (teacher registration step 3).
         /// </summary>
-        /// <param name="command">Name, email, and password</param>
+        /// <param name="command">First name, last name, and password. Email is optional if already collected at OTP (steps 1–2).</param>
         /// <returns>Teacher ID and full JWT token</returns>
         /// <remarks>
-        /// Requires JWT from `POST …/Teacher/VerifyOtp`. Next step: load requirements via
-        /// `GET …/Teacher/RegistrationRequirements`, then submit via `POST …/Teacher/SubmitRegistrationRequirements`.
+        /// Requires JWT from `POST …/Teacher/VerifyOtp`. Body: `firstName`, `lastName`, `password` only.
+        /// Omit `email` when it was already set during `LoginOrRegister` / `VerifyOtp` (typical email-OTP flow).
+        /// Next step: `GET …/Teacher/RegistrationRequirements`, then `POST …/Teacher/SubmitRegistrationRequirements`.
         /// </remarks>
         [Tags("Teacher Authentication")]
         [HttpPost(Router.TeacherCompletePersonalInfo)]
@@ -113,7 +114,7 @@ namespace Qalam.Api.Controllers.Authentication.Core
         ///
         /// Seeded codes: `identity_document`, `certificate`, `bio`, `location`. Admins may add custom file requirements.
         ///
-        /// See `docs/Teacher-Registration-Requirements.md`.
+        /// See `docs/Teacher-Registration-Guide.md`.
         /// </remarks>
         [AllowAnonymous]
         [Tags("Teacher Authentication")]
@@ -142,7 +143,7 @@ namespace Qalam.Api.Controllers.Authentication.Core
         ///
         /// Only **active + required** items are validated; optional items may be omitted.
         ///
-        /// See `docs/Teacher-Registration-Requirements.md`.
+        /// See `docs/Teacher-Registration-Guide.md`.
         /// </remarks>
         [Tags("Teacher Authentication")]
         [HttpPost(Router.TeacherSubmitRegistrationRequirements)]

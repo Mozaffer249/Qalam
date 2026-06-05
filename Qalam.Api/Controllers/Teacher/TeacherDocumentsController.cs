@@ -44,7 +44,7 @@ public class TeacherDocumentsController : AppControllerBase
     /// Requires **Teacher** JWT. Use after submit to track admin review progress.
     /// Teacher becomes **Active** when all **active required** submissions are approved.
     ///
-    /// See `docs/Teacher-Registration-Requirements.md`.
+    /// See `docs/Teacher-Registration-Guide.md`.
     /// </remarks>
     [HttpGet("Status")]
     [Tags("Teacher · Documents")]

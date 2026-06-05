@@ -19,7 +19,7 @@ namespace Qalam.Api.Controllers.Admin;
 /// Controls which fields teachers must complete during registration. Teacher apps read **active** items via
 /// `GET /Api/V1/Authentication/Teacher/RegistrationRequirements`.
 ///
-/// See `docs/Teacher-Registration-Requirements.md`.
+/// See `docs/Teacher-Registration-Guide.md`.
 /// </remarks>
 [ApiController]
 [Route(Router.AdminTeacherRegistrationRequirements)]

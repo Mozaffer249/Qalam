@@ -54,7 +54,7 @@ public class TeacherManagementController : AppControllerBase
 	/// </returns>
 	/// <remarks>
 	/// Activation is based on **active required** registration submissions, not every document row.
-	/// See `docs/Teacher-Registration-Requirements.md`.
+	/// See `docs/Teacher-Registration-Guide.md`.
 	/// </remarks>
 	[HttpGet("{teacherId:int}")]
 	[ProducesResponseType(typeof(TeacherDetailsDto), StatusCodes.Status200OK)]

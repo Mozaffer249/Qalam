@@ -114,10 +114,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             }
             user.Email = trimmedEmail;
         }
-        else
-        {
-            user.Email = email;
-        }
+        // When email is omitted, keep the address set during OTP (step 1–2).
 
         // Update user details
         user.FirstName = firstName;
