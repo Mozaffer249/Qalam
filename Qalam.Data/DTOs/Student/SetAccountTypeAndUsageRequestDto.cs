@@ -23,7 +23,10 @@ public class SetAccountTypeAndUsageRequestDto
     
     public string FirstName { get; set; } = default!;
     public string LastName { get; set; } = default!;
-    public string Email { get; set; } = default!;
+    /// <summary>
+    /// Optional when email was captured at SendOtp/VerifyOtp and is already on the user account.
+    /// </summary>
+    public string? Email { get; set; }
     public string Password { get; set; } = default!;
     public string? CityOrRegion { get; set; }
     

@@ -49,6 +49,10 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             ? request.Data.UsageMode.ToUsageMode()
             : (UsageMode?)null;
 
+        var resolvedEmail = !string.IsNullOrWhiteSpace(request.Data.Email)
+            ? request.Data.Email.Trim()
+            : user.Email;
+
         // Create internal DTO with enum values
         var dto = new SetAccountTypeAndUsageDto
         {
@@ -56,7 +60,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             UsageMode = usageMode,
             FirstName = request.Data.FirstName,
             LastName = request.Data.LastName,
-            Email = request.Data.Email,
+            Email = resolvedEmail ?? string.Empty,
             Password = request.Data.Password,
             CityOrRegion = request.Data.CityOrRegion,
             DateOfBirth = request.Data.DateOfBirth

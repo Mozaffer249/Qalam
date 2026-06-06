@@ -276,7 +276,7 @@ interface SetAccountTypeRequest {
 | `usageMode` | Required when accountType is "Parent" or "Both". Ignored for "Student" |
 | `firstName` | Required, not empty |
 | `lastName` | Required, not empty |
-| `email` | Required, valid email, must be unique in the system |
+| `email` | Optional if already verified at SendOtp; otherwise required, valid format, must be unique |
 | `password` | Required, minimum 6 characters |
 | `dateOfBirth` | Required, format "YYYY-MM-DD", user must be 18 years or older |
 

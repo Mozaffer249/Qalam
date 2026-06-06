@@ -542,14 +542,16 @@ Note: Status 1 = Published (makes it visible in student catalog)
 
 ```json
 {
-  "accountType": "Both",
-  "usageMode": "Both",
-  "firstName": "Fatima",
-  "lastName": "Ali",
-  "email": "fatima.guardian@example.com",
-  "password": "SecurePass123!",
-  "dateOfBirth": "1985-08-20",
-  "cityOrRegion": "Jeddah"
+  "data": {
+    "accountType": "Both",
+    "usageMode": "Both",
+    "firstName": "Fatima",
+    "lastName": "Ali",
+    "email": "fatima.guardian@example.com",
+    "password": "SecurePass123!",
+    "dateOfBirth": "1985-08-20",
+    "cityOrRegion": "Jeddah"
+  }
 }
 ```
 
