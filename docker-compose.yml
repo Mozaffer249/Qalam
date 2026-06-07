@@ -73,6 +73,7 @@ services:
       - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1.aliyuncs.com}
       - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
       - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-false}
+      - OssSettings__EcsRoleName=${OSS_ECS_ROLE_NAME:-}
     ports:
       - "5001:80"
     depends_on:

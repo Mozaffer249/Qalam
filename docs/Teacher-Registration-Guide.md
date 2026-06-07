@@ -289,170 +289,229 @@ Authorization: Bearer {teacherJwt}
 Content-Type: multipart/form-data
 ```
 
-The form body bundles **every active requirement** in one request. The FE iterates the `requirements[]` from step 4 and appends fields per requirement using the table below — the binding is `[FromForm]` and uses **exact field names** (case-insensitive). Files outside this scheme are silently ignored.
+The form body bundles **every active requirement** in one request. The FE iterates `requirements[]` from step 4 and appends fields per requirement using the mapping below. Binding is `[FromForm]` and field names are **case-insensitive**. Anything outside the mapping is silently ignored.
 
-#### Field reference — per requirement code
+#### Field reference — per requirement code / type
 
-| `code` returned by step 4 | `requirementType` | Multipart form field(s) the FE appends | Bound to |
+| `code` (step 4) | `requirementType` | Multipart form field(s) the FE appends | Bound to |
 |---|---|---|---|
-| `identity_document` | `File` | `identityType` (int) · `documentNumber` (string) · `issuingCountryCode` (string, only for Passport / DrivingLicense) · `identityDocumentFile` (one binary file) | `IdentityType`, `DocumentNumber`, `IssuingCountryCode`, `IdentityDocumentFile` |
-| `certificate` | `File` (1..5) | For each index `i` in `0..maxCount-1`: `certificates[i].file` (binary), `certificates[i].title` (string?), `certificates[i].issuer` (string?), `certificates[i].issueDate` (`YYYY-MM-DD`, optional) | `Certificates[]` (`CertificateUploadDto`) |
-| `bio` | `Text` | `bio` (string, ≤ `maxLength`) | `Bio` |
-| `location` | `Boolean` | `isInSaudiArabia` (`true` / `false`) | `IsInSaudiArabia` |
-| *any custom file requirement* (e.g. `test_124`, `custom_cv`) | `File` | `file_{code}` — one form-file entry per allowed file (repeat the field for `minCount..maxCount` files) | Parsed server-side into `CustomFilesByCode[code]` via `TeacherRegistrationFormHelper.ParseCustomFilesByCode` |
-| *any custom text requirement* | `Text` | not yet implemented in the submit handler — handler ignores `Text`/`Boolean` custom rows | — |
-| *any custom boolean requirement* | `Boolean` | same as above | — |
+| `identity_document` (system) | `File` | `IdentityType` (int or enum name) · `DocumentNumber` (string) · `IssuingCountryCode` (string, only for Passport / DrivingLicense) · `IdentityDocumentFile` (one binary) | `IdentityType`, `DocumentNumber`, `IssuingCountryCode`, `IdentityDocumentFile` |
+| `certificate` (system) | `File` (1..5) | For each `i` in `0..count-1`: `Certificates[i].file` (binary), `Certificates[i].title`, `Certificates[i].issuer`, `Certificates[i].issueDate` (`YYYY-MM-DD`) | `Certificates[]` (`CertificateUploadDto`) |
+| `bio` (system) | `Text` | `Bio` (string, ≤ `maxLength`) | `Bio` |
+| `location` (system) | `Boolean` | `IsInSaudiArabia` (`true` / `false`) | `IsInSaudiArabia` (nullable) |
+| *any custom code* | `File` | `file_{code}` — one entry per file; repeat the field for multi-file rows | `CustomFilesByCode[code]` |
+| *any custom code* | `Text` | `text_{code}` (string, ≤ `maxLength`) | `TextValuesByCode[code]` |
+| *any custom code* | `Boolean` | `bool_{code}` (`true` / `false`) | `BoolValuesByCode[code]` |
+| *any custom code* | `Selection` | `select_{code}` = `<optionValue>` — repeat the key per chosen option when `maxCount > 1` | `SelectionsByCode[code]` |
 
-#### Why the FE iterates `requirements[]` but the wire format keeps fixed field names
+The four `*_{code}` prefixes are parsed by [`TeacherRegistrationFormHelper`](../Qalam.Api/Helpers/TeacherRegistrationFormHelper.cs). After parsing, the controller also **normalizes** the system Text/Boolean fields into the same dicts (`TextValuesByCode["bio"] = Bio`, `BoolValuesByCode["location"] = IsInSaudiArabia`) so the validator and persistence service dispatch off `code` uniformly — no hardcoded system-code branches except for the two structurally-complex codes (`identity_document`, `certificate`).
 
-`requirements[]` is the **schema-discovery** layer — what to ask the user for. The multipart field names are a **wire-format convention** the server binds to. They're related but not the same thing:
+#### Dispatch logic (server-side, in plain English)
 
-| Concern | Owned by |
-|---|---|
-| Which requirements are active, required, ordered, sized, allowed extensions | `GET /Authentication/Teacher/RegistrationRequirements` (catalog) |
-| The exact multipart field name(s) to emit per requirement | The mapping table above (one-to-one with `code`) |
-| Cross-field validation (Saudi ↔ NationalId/Iqama, Passport ↔ IssuingCountryCode) | FluentValidation on the command DTO — typed properties |
-| Storage layout (`TeacherDocument`, `TeacherRegistrationSubmission`) | Server side; FE doesn't see this |
+1. Read the active+required catalog rows in `sortOrder`.
+2. For each:
+   - If `code == "identity_document"` → check `IdentityDocumentFile` is present and the Saudi/Identity business rules pass.
+   - If `code == "certificate"` → check at least `minCount` certs, each with a `.file`.
+   - Else dispatch by `requirementType`:
+     - `File` → `CustomFilesByCode[code].Count >= minCount`
+     - `Text` → `TextValuesByCode[code]` non-empty (≤ `maxLength` if set)
+     - `Boolean` → `BoolValuesByCode[code]` non-null
+     - `Selection` → `SelectionsByCode[code]` count in `[minCount..maxCount]`, every value found in the requirement's `options[]`
+3. If any check fails, return 400 with a specific message (table at the bottom of this section).
+4. Otherwise persist inside a transaction: clean any orphans from prior partial attempts, then write one `TeacherRegistrationSubmission` per requirement.
 
-This is why the four system codes (`identity_document`, `certificate`, `bio`, `location`) bind to **fixed properties** on `SubmitTeacherRegistrationRequirementsCommand` (`IsInSaudiArabia`, `Bio`, `IdentityType`, `DocumentNumber`, `IssuingCountryCode`, `IdentityDocumentFile`, `Certificates[]`) rather than a generic blob: the cross-field rules between identity type / location / issuing country are real business logic, and keeping the properties typed gives FluentValidation, Scalar/Swagger, and any generated client SDK something concrete to work with. Loosening the schema to `submissions[]: { code, value }` would buy little and lose all of that.
+System Text (`bio`) and Boolean (`location`) also mirror into the `Teacher` entity's dedicated columns (`teacher.Bio`, `teacher.Location`) because admin views read those directly. Selection values are stored comma-joined in `TextValue`; on read, the status reader resolves each option back to its bilingual label.
 
-Custom file requirements are different — they're truly opaque to the server (it just stores the file). The `file_{code}` escape hatch handles them with **zero code change** when SuperAdmin adds a new row to the catalog. Custom `Text` and `Boolean` requirements are **not yet wired** in the submit handler; if/when they're needed, the planned extension is a parallel pair on the command (`CustomTextsByCode`, `CustomFlagsByCode`) parsed by a small extension to `TeacherRegistrationFormHelper` — same locality, same pattern.
+#### Why this hybrid (generic + 2 hardcoded codes)
 
-**Rule of thumb for the FE:** walk `requirements[]` in order, dispatch on `code`. Known codes go through their documented fields; any other `code` with `requirementType === "File"` goes through `file_{code}`. Inactive rows aren't returned in `requirements[]` so you'll never see them; rows with `isRequired: false` can be skipped entirely if the user didn't fill them in.
+`identity_document` and `certificate` carry **non-generic shapes** — four cross-validated fields and a list-of-tuples respectively. Forcing them through a code-keyed dict would lose FluentValidation, Scalar/Swagger typing, and the Saudi cross-field rules. Everything else (system `bio` / `location`, plus any custom `File` / `Text` / `Boolean` / `Selection`) is a single value per code → the generic dispatch covers it cleanly. Adding a new requirement type to the catalog is now an admin-side change, not a code deploy.
 
-#### `identityType` (int) enum
+#### `IdentityType` (int / name) enum
 
 | Value | Name | Used when |
 |:---:|---|---|
-| `1` | `NationalId` | `isInSaudiArabia=true` |
-| `2` | `Iqama` | `isInSaudiArabia=true` |
-| `3` | `Passport` | `isInSaudiArabia=false` — `issuingCountryCode` required |
-| `4` | `DrivingLicense` | `isInSaudiArabia=false` — `issuingCountryCode` required |
+| `1` | `NationalId` | `IsInSaudiArabia=true` |
+| `2` | `Iqama` | `IsInSaudiArabia=true` |
+| `3` | `Passport` | `IsInSaudiArabia=false` — `IssuingCountryCode` required |
+| `4` | `DrivingLicense` | `IsInSaudiArabia=false` — `IssuingCountryCode` required |
 
-#### Worked example matching the live `requirements[]` you pasted
+Both the integer (`1`) and the enum name (`NationalId`) bind correctly; pick one and be consistent.
 
-Your step-4 response has six active rows: `test_124` (custom File, optional), `identity_document`, `certificate` (1–5), `bio`, `location`. Here's the full multipart body — one entry per requirement:
+#### Worked example — catalog with system + custom rows
 
-```
-POST /Api/V1/Authentication/Teacher/SubmitRegistrationRequirements
-Authorization: Bearer eyJhbGciOi…
-Content-Type: multipart/form-data; boundary=----X
+Assume the admin catalog has these nine active requirements (mix of system + custom, all from earlier examples in this guide):
 
-------X
-Content-Disposition: form-data; name="isInSaudiArabia"
+| `sortOrder` | `code` | Type | Required | Notes |
+|:---:|---|---|:---:|---|
+| 0 | `test` | File | ✅ | custom |
+| 10 | `identity_document` | File | ✅ | system |
+| 20 | `certificate` | File | ✅ | system, min 1, max 5 |
+| 25 | `teaching_subjects` | Selection | ✅ | custom, min 1, max 3, options: `math` / `quran` / `arabic` / `english` / `science` |
+| 28 | `teaching_mode` | Selection | ✅ | custom, single (max 1), options: `online` / `in_person` / `hybrid` |
+| 30 | `bio` | Text | ⛔ optional | system, ≤ 500 chars |
+| 40 | `location` | Boolean | ✅ | system |
+| 60 | `motto` | Text | ⛔ optional | custom, ≤ 200 chars |
+| 70 | `accepts_payment_split` | Boolean | ✅ | custom |
 
-true
-------X
-Content-Disposition: form-data; name="identityType"
+#### Postman form-data — happy path (15 rows → 200)
 
-1
-------X
-Content-Disposition: form-data; name="documentNumber"
+Open Postman → **Body → form-data**. Type each row exactly as listed. Set the **type** dropdown on the right of the value cell to **File** for the three binary rows, **Text** for the rest. **Don't add a `UserId` row** — the server reads it from the JWT.
 
-1234567890
-------X
-Content-Disposition: form-data; name="identityDocumentFile"; filename="national-id.pdf"
-Content-Type: application/pdf
+| Key | Value | Type |
+|---|---|---|
+| `file_test` | `<select PDF/JPG/PNG ≤ 10 MB>` | **File** |
+| `IsInSaudiArabia` | `true` | Text |
+| `IdentityType` | `NationalId` | Text |
+| `DocumentNumber` | `1234567890` | Text |
+| `IdentityDocumentFile` | `<binary>` | **File** |
+| `Certificates[0].file` | `<binary>` | **File** |
+| `Certificates[0].title` | `Bachelor of Education` | Text |
+| `Certificates[0].issuer` | `King Saud University` | Text |
+| `Certificates[0].issueDate` | `2020-06-01` | Text |
+| `select_teaching_subjects` | `math` | Text |
+| `select_teaching_subjects` | `quran` | Text |
+| `select_teaching_mode` | `online` | Text |
+| `bool_accepts_payment_split` | `true` | Text |
+| `Bio` | `Experienced Quran teacher with 8 years of online teaching.` | Text |
+| `text_motto` | `Knowledge is light.` | Text |
 
-(binary)
-------X
-Content-Disposition: form-data; name="certificates[0].file"; filename="bsc.pdf"
-Content-Type: application/pdf
+`select_teaching_subjects` appears **twice** with two different values — Postman accepts duplicate keys; just add two rows.
 
-(binary)
-------X
-Content-Disposition: form-data; name="certificates[0].title"
+Expected response:
 
-Bachelor of Education
-------X
-Content-Disposition: form-data; name="certificates[0].issuer"
-
-King Saud University
-------X
-Content-Disposition: form-data; name="certificates[0].issueDate"
-
-2020-06-01
-------X
-Content-Disposition: form-data; name="certificates[1].file"; filename="cert2.pdf"
-Content-Type: application/pdf
-
-(binary)
-------X
-Content-Disposition: form-data; name="bio"
-
-Experienced Quran teacher with 8 years of online teaching.
-------X
-Content-Disposition: form-data; name="file_test_124"; filename="custom.pdf"
-Content-Type: application/pdf
-
-(binary)
-------X--
+```json
+{
+  "statusCode": "OK",
+  "succeeded": true,
+  "message": "Registration submitted successfully. Your information is pending verification.",
+  "data": null,
+  "errors": null,
+  "meta": null
+}
 ```
 
-The same in `curl`:
+#### Same body in `curl`
 
 ```bash
-curl -X POST 'https://api-staging.qalam.net.sa/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements' \
-  -H 'Authorization: Bearer eyJhbGciOi…' \
-  -F 'isInSaudiArabia=true' \
-  -F 'identityType=1' \
-  -F 'documentNumber=1234567890' \
-  -F 'identityDocumentFile=@./national-id.pdf' \
-  -F 'certificates[0].file=@./bsc.pdf' \
-  -F 'certificates[0].title=Bachelor of Education' \
-  -F 'certificates[0].issuer=King Saud University' \
-  -F 'certificates[0].issueDate=2020-06-01' \
-  -F 'certificates[1].file=@./cert2.pdf' \
-  -F 'bio=Experienced Quran teacher with 8 years of online teaching.' \
-  -F 'file_test_124=@./custom.pdf'
+echo "%PDF-1.4" > /tmp/dummy.pdf
+TOKEN="<paste teacher JWT>"
+
+curl -i -X POST "http://localhost:8080/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file_test=@/tmp/dummy.pdf" \
+  -F "IsInSaudiArabia=true" \
+  -F "IdentityType=NationalId" \
+  -F "DocumentNumber=1234567890" \
+  -F "IdentityDocumentFile=@/tmp/dummy.pdf" \
+  -F "Certificates[0].file=@/tmp/dummy.pdf" \
+  -F "Certificates[0].title=Bachelor of Education" \
+  -F "Certificates[0].issuer=King Saud University" \
+  -F "Certificates[0].issueDate=2020-06-01" \
+  -F "select_teaching_subjects=math" \
+  -F "select_teaching_subjects=quran" \
+  -F "select_teaching_mode=online" \
+  -F "bool_accepts_payment_split=true" \
+  -F "Bio=Experienced Quran teacher with 8 years of online teaching." \
+  -F "text_motto=Knowledge is light."
 ```
 
-The same in JavaScript `FormData`:
+#### Minimum acceptable body — required only (9 rows → 200)
 
-```ts
-const fd = new FormData();
-fd.append('isInSaudiArabia', 'true');
-fd.append('identityType', '1');
-fd.append('documentNumber', '1234567890');
-fd.append('identityDocumentFile', identityFile);
+Drop the two optional rows (`Bio`, `text_motto`):
 
-certificates.forEach((c, i) => {
-  fd.append(`certificates[${i}].file`, c.file);
-  if (c.title)     fd.append(`certificates[${i}].title`, c.title);
-  if (c.issuer)    fd.append(`certificates[${i}].issuer`, c.issuer);
-  if (c.issueDate) fd.append(`certificates[${i}].issueDate`, c.issueDate); // "YYYY-MM-DD"
-});
+| Key | Value | Type |
+|---|---|---|
+| `file_test` | `<binary>` | **File** |
+| `IsInSaudiArabia` | `true` | Text |
+| `IdentityType` | `NationalId` | Text |
+| `DocumentNumber` | `1234567890` | Text |
+| `IdentityDocumentFile` | `<binary>` | **File** |
+| `Certificates[0].file` | `<binary>` | **File** |
+| `select_teaching_subjects` | `math` | Text |
+| `select_teaching_mode` | `online` | Text |
+| `bool_accepts_payment_split` | `true` | Text |
 
-if (bio) fd.append('bio', bio);
+Cert metadata (`.title`/`.issuer`/`.issueDate`) is all optional — server stores `null` for missing fields. `IssuingCountryCode` must be **omitted** for `NationalId`/`Iqama`; for `Passport`/`DrivingLicense` it's required (ISO 3166-1 alpha-3 like `EGY`).
 
-// Any custom File requirement — name the field `file_{code}` literally.
-customFilesByCode.forEach((files, code) => {
-  files.forEach(f => fd.append(`file_${code}`, f));
-});
+#### Verify what landed in the DB
 
-await axios.post('/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements', fd, {
-  headers: { Authorization: `Bearer ${token}` /* let the browser set Content-Type with boundary */ }
-});
+```sql
+-- Resolve teacherId
+SELECT t.Id, t.Status, t.Bio, t.Location FROM dbo.Teachers t WHERE t.UserId = <yourUserId>;
+
+-- 1 row per active requirement (or per cert/file for File requirements)
+SELECT r.Code, r.RequirementType, s.VerificationStatus, s.TextValue, s.BoolValue, s.TeacherDocumentId
+FROM teacher.TeacherRegistrationSubmissions s
+JOIN teacher.TeacherRegistrationRequirements r ON r.Id = s.RequirementId
+WHERE s.TeacherId = <yourTeacherId>
+ORDER BY r.SortOrder;
 ```
 
-#### Validation rules surfaced by the handler
+Expected after the 15-row happy path above:
 
-| Trigger | HTTP | Message |
-|---|:---:|---|
-| `isInSaudiArabia=true` but `identityType` is Passport / DrivingLicense | 400 | `"Teachers inside Saudi Arabia must use National ID or Iqama"` |
-| `isInSaudiArabia=false` but `identityType` is NationalId / Iqama | 400 | `"Teachers outside Saudi Arabia must use Passport or Driving License"` |
-| `identityType` Passport / DrivingLicense without `issuingCountryCode` | 400 | `"Issuing country is required for Passport / Driving License"` |
-| `identityType` NationalId / Iqama with a non-empty `issuingCountryCode` | 400 | `"Issuing country should not be provided for National ID / Iqama"` |
-| `documentNumber` empty | 400 | `"Document number is required"` |
-| `identityDocumentFile` missing while the `identity_document` requirement is active+required | 400 | `"Identity document file is required"` |
-| Fewer than `minCount` certificates (active+required) | 400 | `"At least one certificate is required"` |
-| More than `maxCount` certificates | 400 | `"Maximum 5 certificates allowed"` (or whatever the catalog says) |
-| File extension outside `allowedExtensions` | 400 | extension-validation error |
-| File size > `maxFileSizeBytes` | 400 | size-validation error |
+| Code | TextValue | BoolValue | TeacherDocumentId | VerificationStatus |
+|---|---|:---:|:---:|:---:|
+| `test` | NULL | NULL | (id) | Pending |
+| `identity_document` | NULL | NULL | (id) | Pending |
+| `certificate` | NULL | NULL | (id) | Pending |
+| `teaching_subjects` | `math,quran` | NULL | NULL | Approved |
+| `teaching_mode` | `online` | NULL | NULL | Approved |
+| `bio` | `Experienced…` | NULL | NULL | Approved |
+| `location` | NULL | `1` | NULL | Approved |
+| `motto` | `Knowledge is light.` | NULL | NULL | Approved |
+| `accepts_payment_split` | NULL | `1` | NULL | Approved |
 
-**On success:** status → `PendingVerification`; every `File` requirement → submission rows linked to `TeacherDocument` rows with `verificationStatus = Pending`; `Text` / `Boolean` requirements (`bio`, `location`) → submission rows auto-marked `Approved` in v1 (no admin review required for them).
+Also: `teacher.Status = PendingVerification`, `teacher.Bio = "Experienced…"`, `teacher.Location = InsideSaudiArabia`.
 
-**Optional requirements:** if a requirement returned by step 4 has `isRequired: false` (e.g. the custom `test_124` row in your live response, or `bio`), you may omit its fields entirely. The handler skips missing optional fields without error.
+#### Failure matrix — drop one row at a time, expect 400
+
+In Postman, **uncheck** the row instead of deleting it so you can re-enable.
+
+| Disable this row | `message` returned |
+|---|---|
+| `file_test` | `"Requirement 'test' requires at least 1 file(s)."` |
+| `IdentityDocumentFile` | `"Identity document is required."` |
+| `DocumentNumber` | `"Document number is required"` (ASP.NET implicit-required) |
+| all four `Certificates[0].*` rows | `"At least 1 certificate(s) required."` |
+| `IsInSaudiArabia` | `"Requirement 'location' is required."` |
+| both `select_teaching_subjects` rows | `"Requirement 'teaching_subjects' requires at least 1 selection(s)."` |
+| `select_teaching_mode` | `"Requirement 'teaching_mode' requires at least 1 selection(s)."` |
+| `bool_accepts_payment_split` | `"Requirement 'accepts_payment_split' is required."` |
+| Only `Bio` and/or `text_motto` | **200 OK** — both are optional |
+
+#### Boundary / cross-field failures — add extra rows
+
+Keep the happy-path rows enabled, then **add** one of these:
+
+| Add this | `message` returned |
+|---|---|
+| Two more `select_teaching_subjects` values (total 4 picks, maxCount=3) | `"At most 3 selection(s) allowed for 'teaching_subjects'."` |
+| `select_teaching_subjects` = `physics` (not in options) | `"'physics' is not a valid option for 'teaching_subjects'."` |
+| Second `select_teaching_mode` = `hybrid` (maxCount=1) | `"At most 1 selection(s) allowed for 'teaching_mode'."` |
+| `text_motto` = 250-char string (maxLength=200) | `"Requirement 'motto' exceeds the maximum length of 200 characters."` |
+| Change `IdentityType` to `Passport`, leave `IsInSaudiArabia=true` | `"Teachers inside Saudi Arabia must use National ID or Iqama"` (localized) |
+| Set `IdentityType=Passport`, `IsInSaudiArabia=false`, no `IssuingCountryCode` | `"Issuing country is required for Passport / Driving License"` |
+| Add `IssuingCountryCode=EGY` while `IdentityType=NationalId` | `"Issuing country should not be provided for National ID / Iqama"` |
+| Send a teacher's own previously-registered `DocumentNumber` | `"This identity document is already registered in the system."` |
+
+#### Reset between attempts
+
+A successful submit flips `teacher.Status` to `PendingVerification`, which the handler then refuses on subsequent submits with `"Documents already pending verification"`. For repeated testing in a single teacher account:
+
+```sql
+UPDATE dbo.Teachers SET Status = 1 WHERE Id = <yourTeacherId>;
+DELETE FROM teacher.TeacherRegistrationSubmissions WHERE TeacherId = <yourTeacherId>;
+DELETE FROM dbo.TeacherDocuments WHERE TeacherId = <yourTeacherId> AND VerificationStatus = 1;
+```
+
+Status enum: `AwaitingDocuments=1`, `PendingVerification=2`, `Active=3`, `Blocked=4`, `DocumentsRejected=5`. The submit handler also wipes orphans internally on each attempt (transactional cleanup), so the second submit doesn't need the manual DELETE rows above — they're just useful for a known-clean baseline.
+
+#### What gets persisted (server-side recap)
+
+- `File` requirements (`identity_document`, `certificate`, `test`, any custom File): one `TeacherDocument` row per file + one `TeacherRegistrationSubmission` row pointing at it. `VerificationStatus = Pending` — admin must approve.
+- `Text` requirements (`bio`, `motto`, any custom Text): submission row with `TextValue = <input>`. Auto-`Approved`. `bio` also mirrors into `teacher.Bio`.
+- `Boolean` requirements (`location`, `accepts_payment_split`, any custom Boolean): submission row with `BoolValue = <true|false>`. Auto-`Approved`. `location` also mirrors into `teacher.Location` enum.
+- `Selection` requirements (`teaching_subjects`, `teaching_mode`, any custom Selection): submission row with `TextValue = <comma-joined option values>`. Auto-`Approved`. Status reader splits on `,` and resolves each value to a bilingual label via the requirement's `OptionsJson`.
 
 **Re-submission:** if the teacher is in `DocumentsRejected` and wants to fix individual rejected files, do **not** re-call this endpoint — use the per-document re-upload route covered in §Step 6 + Step F of §Admin Review.
 
@@ -475,11 +534,41 @@ Authorization: Bearer {teacherJwt}
       "isSubmitted": true,
       "verificationStatus": "Pending",
       "teacherDocumentId": 42
+    },
+    {
+      "code": "bio",
+      "requirementType": "Text",
+      "isRequired": false,
+      "isSubmitted": true,
+      "verificationStatus": "Approved",
+      "textValue": "Experienced Quran teacher with 8 years of online teaching."
+    },
+    {
+      "code": "location",
+      "requirementType": "Boolean",
+      "isRequired": true,
+      "isSubmitted": true,
+      "verificationStatus": "Approved",
+      "boolValue": true
+    },
+    {
+      "code": "teaching_subjects",
+      "requirementType": "Selection",
+      "isRequired": true,
+      "isSubmitted": true,
+      "verificationStatus": "Approved",
+      "textValue": "math,quran",
+      "selectedOptions": [
+        { "value": "math",  "labelAr": "رياضيات", "labelEn": "Math" },
+        { "value": "quran", "labelAr": "قرآن",    "labelEn": "Quran" }
+      ]
     }
   ],
   "legacyDocuments": []
 }
 ```
+
+For Selection rows, the FE can render directly off `selectedOptions[]` (bilingual labels resolved server-side from the requirement's `OptionsJson`). `textValue` still holds the raw comma-joined option values for reference; on re-submit, split it by `,` to pre-fill the picker.
 
 | `verificationStatus` | UI |
 |---------------------|-----|

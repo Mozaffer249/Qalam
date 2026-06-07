@@ -1,35 +1,49 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Qalam.Data.AppMetaData;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Api.Controllers.Test;
 
 /// <summary>
-/// Test endpoint for file upload queue — NO AUTH REQUIRED
-/// Remove this controller before production deployment
+/// Test endpoint for the file-upload pipeline (RabbitMQ → MessagingApi → Aliyun OSS).
+/// Two layers of protection:
+///   1. Requires <c>SuperAdmin</c> JWT
+///   2. Blocked entirely when ASPNETCORE_ENVIRONMENT == "Production" (returns 404)
+/// Keep this in the codebase — it's the fastest way to verify storage credentials and
+/// queue plumbing after any infra change.
 /// </summary>
 [ApiController]
 [Route("Api/Test/[controller]")]
+[Authorize(Roles = Roles.SuperAdmin)]
+[Tags("Diagnostics")]
 public class FileUploadTestController : ControllerBase
 {
     private readonly IFileStorageService _fileStorageService;
     private readonly ILogger<FileUploadTestController> _logger;
+    private readonly IWebHostEnvironment _env;
 
     public FileUploadTestController(
         IFileStorageService fileStorageService,
-        ILogger<FileUploadTestController> logger)
+        ILogger<FileUploadTestController> logger,
+        IWebHostEnvironment env)
     {
         _fileStorageService = fileStorageService;
         _logger = logger;
+        _env = env;
     }
 
     /// <summary>
-    /// Test file upload via RabbitMQ queue → MessagingApi → Alibaba OSS
-    /// Upload any file and it will be queued for OSS upload
+    /// Test file upload via RabbitMQ queue → MessagingApi → Alibaba OSS.
+    /// Disabled in Production (returns 404).
     /// </summary>
     [HttpPost("upload")]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB
     public async Task<IActionResult> TestUpload(IFormFile file, [FromQuery] int teacherId = 999, [FromQuery] int documentId = 0)
     {
+        if (_env.IsProduction())
+            return NotFound();
+
         if (file == null || file.Length == 0)
             return BadRequest(new { Error = "No file provided" });
 

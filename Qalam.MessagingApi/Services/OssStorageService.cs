@@ -1,5 +1,6 @@
 using Aliyun.OSS;
 using Aliyun.OSS.Common;
+using Aliyun.OSS.Common.Authentication;
 using Microsoft.Extensions.Options;
 using Qalam.MessagingApi.Configuration;
 using Qalam.MessagingApi.Services.Interfaces;
@@ -18,16 +19,39 @@ public class OssStorageService : IObjectStorageService
         _settings = settings.Value;
         _logger = logger;
 
-        if (string.IsNullOrWhiteSpace(_settings.AccessKeyId) || string.IsNullOrWhiteSpace(_settings.AccessKeySecret))
-            _logger.LogWarning("OSS credentials are not configured; uploads will fail until OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET are set");
-
         var endpoint = NormalizeEndpoint(_settings.Endpoint);
         var config = new ClientConfiguration
         {
             SignatureVersion = SignatureVersion.V4
         };
 
-        _client = new OssClient(endpoint, _settings.AccessKeyId, _settings.AccessKeySecret, config);
+        var hasStaticCreds = !string.IsNullOrWhiteSpace(_settings.AccessKeyId)
+                          && !string.IsNullOrWhiteSpace(_settings.AccessKeySecret);
+        var hasEcsRole = !string.IsNullOrWhiteSpace(_settings.EcsRoleName);
+
+        if (hasStaticCreds)
+        {
+            // Long-lived AccessKey path — dev laptop, or non-Aliyun host.
+            _client = new OssClient(endpoint, _settings.AccessKeyId, _settings.AccessKeySecret, config);
+            _logger.LogInformation("OSS client initialized with static AccessKey (bucket={Bucket})", _settings.BucketName);
+        }
+        else if (hasEcsRole)
+        {
+            // ECS RAM role — SDK fetches STS tokens from the instance metadata service
+            // (http://100.100.100.200/...) and auto-rotates. No secret in env files.
+            var credsProvider = new EcsRamRoleCredentialsProvider(_settings.EcsRoleName!, _logger);
+            _client = new OssClient(endpoint, credsProvider, config);
+            _logger.LogInformation("OSS client initialized with ECS RAM role '{Role}' (bucket={Bucket})",
+                _settings.EcsRoleName, _settings.BucketName);
+        }
+        else
+        {
+            // Misconfigured — every upload will fail. Log loudly so it's obvious at startup.
+            _logger.LogError("OSS is not configured: provide either OSS_ACCESS_KEY_ID + OSS_ACCESS_KEY_SECRET, " +
+                             "or OSS_ECS_ROLE_NAME for ECS deployments. Uploads will fail.");
+            _client = new OssClient(endpoint, string.Empty, string.Empty, config);
+        }
+
         if (!string.IsNullOrWhiteSpace(_settings.Region))
             _client.SetRegion(_settings.Region);
 

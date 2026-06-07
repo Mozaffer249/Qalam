@@ -74,6 +74,7 @@ services:
       - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1-internal.aliyuncs.com}
       - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com}
       - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-true}
+      - OssSettings__EcsRoleName=${OSS_ECS_ROLE_NAME:-}
     # No ports exposed — internal only
     depends_on:
       rabbitmq:
