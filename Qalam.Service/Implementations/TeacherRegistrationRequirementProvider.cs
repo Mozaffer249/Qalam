@@ -42,7 +42,8 @@ public class TeacherRegistrationRequirementProvider : ITeacherRegistrationRequir
             MaxCount = entity.MaxCount,
             MaxFileSizeBytes = entity.MaxFileSizeBytes,
             AllowedExtensions = RegistrationRequirementExtensionsHelper.Parse(entity.AllowedExtensionsJson),
-            MaxLength = entity.MaxLength
+            MaxLength = entity.MaxLength,
+            Options = ToOptionDtos(entity)
         };
 
     public TeacherRegistrationRequirementAdminDto ToAdminDto(TeacherRegistrationRequirement entity) =>
@@ -63,7 +64,24 @@ public class TeacherRegistrationRequirementProvider : ITeacherRegistrationRequir
             MaxFileSizeBytes = entity.MaxFileSizeBytes,
             AllowedExtensions = RegistrationRequirementExtensionsHelper.Parse(entity.AllowedExtensionsJson),
             MaxLength = entity.MaxLength,
+            Options = ToOptionDtos(entity),
             MapsToDocumentType = entity.MapsToDocumentType,
             IsSystem = entity.IsSystem
         };
+
+    private static List<RequirementOptionDto>? ToOptionDtos(TeacherRegistrationRequirement entity)
+    {
+        if (entity.RequirementType != Qalam.Data.Entity.Common.Enums.RegistrationRequirementType.Selection)
+            return null;
+
+        var parsed = RegistrationRequirementOptionsHelper.Parse(entity.OptionsJson);
+        return parsed.Count == 0
+            ? new List<RequirementOptionDto>()
+            : parsed.Select(o => new RequirementOptionDto
+            {
+                Value = o.Value,
+                LabelAr = o.LabelAr,
+                LabelEn = o.LabelEn
+            }).ToList();
+    }
 }

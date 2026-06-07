@@ -43,40 +43,41 @@ Single reference for **teacher onboarding**: auth config, OTP, personal info, ad
 **Legacy (deprecated):** `POST …/Teacher/UploadDocuments` — same handler as step 5.
 
 ```mermaid
-flowchart TB
-  subgraph configuration [Configuration]
-    AD[SuperAdmin CRUD<br/>TeacherRegistrationRequirements]
+flowchart LR
+  subgraph CFG[Configuration]
+    direction TB
+    AD[SuperAdmin manages<br/>requirements catalog]
     CAT[(Requirements catalog)]
     AD --> CAT
-    AC[GET /Authentication/Config]
-    AR[GET /Teacher/RegistrationRequirements]
-    CAT --> AR
   end
 
-  subgraph teacherFlow [Teacher app — steps 0–6]
-    S0["0 · Auth config"]
-    S1["1 · LoginOrRegister"]
-    S2["2 · VerifyOtp"]
-    S3["3 · CompletePersonalInfo"]
-    S4["4 · Load requirements"]
-    S5["5 · SubmitRegistrationRequirements"]
-    S6["6 · TeacherDocuments Status"]
+  subgraph TCH[Teacher app - steps 0 to 6]
+    direction TB
+    S0[0 - GET Auth Config]
+    S1[1 - LoginOrRegister]
+    S2[2 - VerifyOtp]
+    S3[3 - CompletePersonalInfo]
+    S4[4 - GET Requirements]
+    S5[5 - Submit Requirements]
+    S6[6 - GET Documents Status]
     S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
   end
 
-  subgraph adminReview [Admin panel]
-    A1[Pending teachers list]
-    A2[Teacher details + checklist]
-    A3[Approve or Reject documents]
+  subgraph ADM[Admin panel]
+    direction TB
+    A1[Pending queue]
+    A2[Teacher preview + checklist]
+    A3{Approve or Reject?}
     A1 --> A2 --> A3
   end
 
-  AC -.-> S0
-  AR -.-> S4
-  S5 -->|PendingVerification| A1
-  A3 -->|all required approved| ACTIVE[Teacher Active]
-  A3 -->|rejected| S6
-  S6 -.->|re-upload| S5
+  ACTIVE([Teacher Active])
+
+  CAT -. reads .-> S4
+  S5 == PendingVerification ==> A1
+  A3 -- all required approved --> ACTIVE
+  A3 -- reject required file --> S6
+  S6 -. re-upload .-> S5
 ```
 
 **Prerequisites (backend):**
@@ -224,6 +225,9 @@ Password rules enforced by validator. Email format validated only when provided.
 | `bio` | Text | No | `bio` (max 500) |
 | `location` | Boolean | Yes | `isInSaudiArabia` |
 | *custom* | File | varies | `file_{code}` e.g. `file_custom_cv` |
+| *custom* | Text | varies | `text_{code}` |
+| *custom* | Boolean | varies | `bool_{code}` (`true` / `false`) |
+| *custom* | Selection | varies | `select_{code}` — repeat the key per chosen option value when `maxCount > 1` |
 
 Seed JSON: [`seed-data/teacher-registration-requirements.json`](seed-data/teacher-registration-requirements.json)
 
@@ -266,10 +270,14 @@ No auth. Returns **active** requirements only.
 **UI rules:**
 
 1. Sort by `sortOrder`.
-2. Render by `requirementType`: `File` → pickers, `Text` → textarea, `Boolean` → toggle.
+2. Render by `requirementType`:
+   - `File` → file picker(s)
+   - `Text` → textarea / input
+   - `Boolean` → toggle
+   - `Selection` → dropdown (single when `maxCount == 1`) or checkbox group (multi when `maxCount > 1`). Use `options[]` from the response — each item is `{ value, labelAr, labelEn }`.
 3. Badge when `isRequired`.
 4. Files: enforce `minCount`/`maxCount`, `allowedExtensions`, `maxFileSizeBytes`.
-5. System codes → fixed fields (table above). Custom files → `file_{code}`.
+5. System codes → fixed fields (table above). Custom requirements → prefixed wire format: `file_{code}`, `text_{code}`, `bool_{code}`, `select_{code}`.
 
 ---
 
@@ -281,29 +289,172 @@ Authorization: Bearer {teacherJwt}
 Content-Type: multipart/form-data
 ```
 
-| `code` | Form fields |
-|--------|-------------|
-| `identity_document` | `identityType`, `documentNumber`, `issuingCountryCode`, `identityDocumentFile` |
-| `certificate` | `certificates[0].file`, `certificates[0].title`, … |
-| `bio` | `bio` |
-| `location` | `isInSaudiArabia` |
-| other file | `file_{code}` |
+The form body bundles **every active requirement** in one request. The FE iterates the `requirements[]` from step 4 and appends fields per requirement using the table below — the binding is `[FromForm]` and uses **exact field names** (case-insensitive). Files outside this scheme are silently ignored.
 
-Example:
+#### Field reference — per requirement code
+
+| `code` returned by step 4 | `requirementType` | Multipart form field(s) the FE appends | Bound to |
+|---|---|---|---|
+| `identity_document` | `File` | `identityType` (int) · `documentNumber` (string) · `issuingCountryCode` (string, only for Passport / DrivingLicense) · `identityDocumentFile` (one binary file) | `IdentityType`, `DocumentNumber`, `IssuingCountryCode`, `IdentityDocumentFile` |
+| `certificate` | `File` (1..5) | For each index `i` in `0..maxCount-1`: `certificates[i].file` (binary), `certificates[i].title` (string?), `certificates[i].issuer` (string?), `certificates[i].issueDate` (`YYYY-MM-DD`, optional) | `Certificates[]` (`CertificateUploadDto`) |
+| `bio` | `Text` | `bio` (string, ≤ `maxLength`) | `Bio` |
+| `location` | `Boolean` | `isInSaudiArabia` (`true` / `false`) | `IsInSaudiArabia` |
+| *any custom file requirement* (e.g. `test_124`, `custom_cv`) | `File` | `file_{code}` — one form-file entry per allowed file (repeat the field for `minCount..maxCount` files) | Parsed server-side into `CustomFilesByCode[code]` via `TeacherRegistrationFormHelper.ParseCustomFilesByCode` |
+| *any custom text requirement* | `Text` | not yet implemented in the submit handler — handler ignores `Text`/`Boolean` custom rows | — |
+| *any custom boolean requirement* | `Boolean` | same as above | — |
+
+#### Why the FE iterates `requirements[]` but the wire format keeps fixed field names
+
+`requirements[]` is the **schema-discovery** layer — what to ask the user for. The multipart field names are a **wire-format convention** the server binds to. They're related but not the same thing:
+
+| Concern | Owned by |
+|---|---|
+| Which requirements are active, required, ordered, sized, allowed extensions | `GET /Authentication/Teacher/RegistrationRequirements` (catalog) |
+| The exact multipart field name(s) to emit per requirement | The mapping table above (one-to-one with `code`) |
+| Cross-field validation (Saudi ↔ NationalId/Iqama, Passport ↔ IssuingCountryCode) | FluentValidation on the command DTO — typed properties |
+| Storage layout (`TeacherDocument`, `TeacherRegistrationSubmission`) | Server side; FE doesn't see this |
+
+This is why the four system codes (`identity_document`, `certificate`, `bio`, `location`) bind to **fixed properties** on `SubmitTeacherRegistrationRequirementsCommand` (`IsInSaudiArabia`, `Bio`, `IdentityType`, `DocumentNumber`, `IssuingCountryCode`, `IdentityDocumentFile`, `Certificates[]`) rather than a generic blob: the cross-field rules between identity type / location / issuing country are real business logic, and keeping the properties typed gives FluentValidation, Scalar/Swagger, and any generated client SDK something concrete to work with. Loosening the schema to `submissions[]: { code, value }` would buy little and lose all of that.
+
+Custom file requirements are different — they're truly opaque to the server (it just stores the file). The `file_{code}` escape hatch handles them with **zero code change** when SuperAdmin adds a new row to the catalog. Custom `Text` and `Boolean` requirements are **not yet wired** in the submit handler; if/when they're needed, the planned extension is a parallel pair on the command (`CustomTextsByCode`, `CustomFlagsByCode`) parsed by a small extension to `TeacherRegistrationFormHelper` — same locality, same pattern.
+
+**Rule of thumb for the FE:** walk `requirements[]` in order, dispatch on `code`. Known codes go through their documented fields; any other `code` with `requirementType === "File"` goes through `file_{code}`. Inactive rows aren't returned in `requirements[]` so you'll never see them; rows with `isRequired: false` can be skipped entirely if the user didn't fill them in.
+
+#### `identityType` (int) enum
+
+| Value | Name | Used when |
+|:---:|---|---|
+| `1` | `NationalId` | `isInSaudiArabia=true` |
+| `2` | `Iqama` | `isInSaudiArabia=true` |
+| `3` | `Passport` | `isInSaudiArabia=false` — `issuingCountryCode` required |
+| `4` | `DrivingLicense` | `isInSaudiArabia=false` — `issuingCountryCode` required |
+
+#### Worked example matching the live `requirements[]` you pasted
+
+Your step-4 response has six active rows: `test_124` (custom File, optional), `identity_document`, `certificate` (1–5), `bio`, `location`. Here's the full multipart body — one entry per requirement:
 
 ```
-isInSaudiArabia: true
-identityType: 1
-documentNumber: "1234567890"
-identityDocumentFile: (binary)
-certificates[0].file: (binary)
-certificates[0].title: "Bachelor of Education"
-certificates[0].issuer: "University"
-certificates[0].issueDate: "2020-06-01"
-bio: "Experienced Quran teacher..."
+POST /Api/V1/Authentication/Teacher/SubmitRegistrationRequirements
+Authorization: Bearer eyJhbGciOi…
+Content-Type: multipart/form-data; boundary=----X
+
+------X
+Content-Disposition: form-data; name="isInSaudiArabia"
+
+true
+------X
+Content-Disposition: form-data; name="identityType"
+
+1
+------X
+Content-Disposition: form-data; name="documentNumber"
+
+1234567890
+------X
+Content-Disposition: form-data; name="identityDocumentFile"; filename="national-id.pdf"
+Content-Type: application/pdf
+
+(binary)
+------X
+Content-Disposition: form-data; name="certificates[0].file"; filename="bsc.pdf"
+Content-Type: application/pdf
+
+(binary)
+------X
+Content-Disposition: form-data; name="certificates[0].title"
+
+Bachelor of Education
+------X
+Content-Disposition: form-data; name="certificates[0].issuer"
+
+King Saud University
+------X
+Content-Disposition: form-data; name="certificates[0].issueDate"
+
+2020-06-01
+------X
+Content-Disposition: form-data; name="certificates[1].file"; filename="cert2.pdf"
+Content-Type: application/pdf
+
+(binary)
+------X
+Content-Disposition: form-data; name="bio"
+
+Experienced Quran teacher with 8 years of online teaching.
+------X
+Content-Disposition: form-data; name="file_test_124"; filename="custom.pdf"
+Content-Type: application/pdf
+
+(binary)
+------X--
 ```
 
-**On success:** status → `PendingVerification`; files → **Pending** review; text/boolean → **Approved** (v1).
+The same in `curl`:
+
+```bash
+curl -X POST 'https://api-staging.qalam.net.sa/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements' \
+  -H 'Authorization: Bearer eyJhbGciOi…' \
+  -F 'isInSaudiArabia=true' \
+  -F 'identityType=1' \
+  -F 'documentNumber=1234567890' \
+  -F 'identityDocumentFile=@./national-id.pdf' \
+  -F 'certificates[0].file=@./bsc.pdf' \
+  -F 'certificates[0].title=Bachelor of Education' \
+  -F 'certificates[0].issuer=King Saud University' \
+  -F 'certificates[0].issueDate=2020-06-01' \
+  -F 'certificates[1].file=@./cert2.pdf' \
+  -F 'bio=Experienced Quran teacher with 8 years of online teaching.' \
+  -F 'file_test_124=@./custom.pdf'
+```
+
+The same in JavaScript `FormData`:
+
+```ts
+const fd = new FormData();
+fd.append('isInSaudiArabia', 'true');
+fd.append('identityType', '1');
+fd.append('documentNumber', '1234567890');
+fd.append('identityDocumentFile', identityFile);
+
+certificates.forEach((c, i) => {
+  fd.append(`certificates[${i}].file`, c.file);
+  if (c.title)     fd.append(`certificates[${i}].title`, c.title);
+  if (c.issuer)    fd.append(`certificates[${i}].issuer`, c.issuer);
+  if (c.issueDate) fd.append(`certificates[${i}].issueDate`, c.issueDate); // "YYYY-MM-DD"
+});
+
+if (bio) fd.append('bio', bio);
+
+// Any custom File requirement — name the field `file_{code}` literally.
+customFilesByCode.forEach((files, code) => {
+  files.forEach(f => fd.append(`file_${code}`, f));
+});
+
+await axios.post('/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements', fd, {
+  headers: { Authorization: `Bearer ${token}` /* let the browser set Content-Type with boundary */ }
+});
+```
+
+#### Validation rules surfaced by the handler
+
+| Trigger | HTTP | Message |
+|---|:---:|---|
+| `isInSaudiArabia=true` but `identityType` is Passport / DrivingLicense | 400 | `"Teachers inside Saudi Arabia must use National ID or Iqama"` |
+| `isInSaudiArabia=false` but `identityType` is NationalId / Iqama | 400 | `"Teachers outside Saudi Arabia must use Passport or Driving License"` |
+| `identityType` Passport / DrivingLicense without `issuingCountryCode` | 400 | `"Issuing country is required for Passport / Driving License"` |
+| `identityType` NationalId / Iqama with a non-empty `issuingCountryCode` | 400 | `"Issuing country should not be provided for National ID / Iqama"` |
+| `documentNumber` empty | 400 | `"Document number is required"` |
+| `identityDocumentFile` missing while the `identity_document` requirement is active+required | 400 | `"Identity document file is required"` |
+| Fewer than `minCount` certificates (active+required) | 400 | `"At least one certificate is required"` |
+| More than `maxCount` certificates | 400 | `"Maximum 5 certificates allowed"` (or whatever the catalog says) |
+| File extension outside `allowedExtensions` | 400 | extension-validation error |
+| File size > `maxFileSizeBytes` | 400 | size-validation error |
+
+**On success:** status → `PendingVerification`; every `File` requirement → submission rows linked to `TeacherDocument` rows with `verificationStatus = Pending`; `Text` / `Boolean` requirements (`bio`, `location`) → submission rows auto-marked `Approved` in v1 (no admin review required for them).
+
+**Optional requirements:** if a requirement returned by step 4 has `isRequired: false` (e.g. the custom `test_124` row in your live response, or `bio`), you may omit its fields entirely. The handler skips missing optional fields without error.
+
+**Re-submission:** if the teacher is in `DocumentsRejected` and wants to fix individual rejected files, do **not** re-call this endpoint — use the per-document re-upload route covered in §Step 6 + Step F of §Admin Review.
 
 ---
 
@@ -382,9 +533,34 @@ Authorization: Bearer {teacherJwt}
 }
 ```
 
+### Create a Selection requirement (picklist)
+
+`requirementType: 4` opens a bilingual single- or multi-select control. `maxCount` controls cardinality (`1` = single radio/dropdown, `>1` = multi). `options[]` is required and each entry must carry `value`, `labelAr`, and `labelEn`.
+
+```json
+{
+  "code": "teaching_subjects",
+  "nameAr": "المواد التي تدرسها",
+  "nameEn": "Subjects you teach",
+  "requirementType": 4,
+  "isActive": true,
+  "isRequired": true,
+  "sortOrder": 25,
+  "minCount": 1,
+  "maxCount": 3,
+  "options": [
+    { "value": "math",  "labelAr": "رياضيات", "labelEn": "Math" },
+    { "value": "quran", "labelAr": "قرآن",   "labelEn": "Quran" },
+    { "value": "lang",  "labelAr": "لغات",    "labelEn": "Languages" }
+  ]
+}
+```
+
+Validation enforced server-side: `options` non-empty, each entry's three fields non-empty, `value`s unique, `1 <= MinCount <= MaxCount <= options.Count`.
+
 | Enum | Values |
 |------|--------|
-| `requirementType` | `1` File, `2` Text, `3` Boolean |
+| `requirementType` | `1` File, `2` Text, `3` Boolean, `4` Selection |
 | `mapsToDocumentType` | `1` Identity, `2` Certificate, `3` Other |
 
 **Rules:** unique `code` (snake_case); don’t delete system rows — use `PATCH …/active`; delete fails if submissions exist.
@@ -397,37 +573,265 @@ Authorization: Bearer {teacherJwt}
 
 ## Admin — Review teachers
 
-**Role:** `Admin` or `SuperAdmin`  
+**Role:** `Admin` or `SuperAdmin`
 **Base:** `/Api/V1/Admin/TeacherManagement`
 
-| Method | Path | Action |
-|--------|------|--------|
-| GET | `/Pending` | Teachers awaiting review |
-| GET | `/{teacherId}` | Details + `registrationRequirements` + `canBeActivated` |
-| POST | `/{teacherId}/Documents/{documentId}/Approve` | Approve → syncs submission |
-| POST | `/{teacherId}/Documents/{documentId}/Reject` | Reject with `{ "reason": "…" }` |
-| POST | `/{teacherId}/Block` | Block account |
+The review cycle starts the moment a teacher submits step 5 (status flips to `PendingVerification`) and ends with `Active`, `DocumentsRejected`, or `Blocked`. Approve/reject of any single document is idempotent server-side and **automatically refreshes the teacher's status** via `ITeacherRegistrationCompletionService.RefreshTeacherStatusAfterReviewAsync`.
 
-Teacher detail includes checklist:
+### Lifecycle (state diagram)
+
+```mermaid
+stateDiagram-v2
+  [*] --> AwaitingDocuments : Step 3 done
+  AwaitingDocuments --> PendingVerification : Step 5 submitted
+  PendingVerification --> PendingVerification : Approve - others still Pending
+  PendingVerification --> Active : Approve last required
+  PendingVerification --> DocumentsRejected : Reject required file
+  DocumentsRejected --> PendingVerification : Teacher re-upload
+  PendingVerification --> Blocked : Admin Block
+  DocumentsRejected --> Blocked : Admin Block
+  Active --> Blocked : Admin Block
+  Blocked --> [*]
+```
+
+| State | Set by | Admin actions available |
+|-------|--------|-------------------------|
+| `AwaitingDocuments` | Step 3 (CompletePersonalInfo) | wait — teacher hasn't submitted yet |
+| `PendingVerification` | Step 5 (SubmitRegistrationRequirements) OR re-upload | Approve / Reject any document; Block |
+| `DocumentsRejected` | Any required file rejected during review | Approve remaining; Block (re-upload comes from teacher) |
+| `Active` | Last required file approved | Block only |
+| `Blocked` | Admin Block | none (irreversible via API today) |
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/Pending` | Paginated queue of teachers in `PendingVerification` (and optionally `DocumentsRejected` — see filter) |
+| GET | `/{teacherId:int}` | Full preview — profile + every document + checklist + `canBeActivated` |
+| POST | `/{teacherId:int}/Documents/{documentId:int}/Approve` | Approve one document; auto-refreshes teacher status |
+| POST | `/{teacherId:int}/Documents/{documentId:int}/Reject` | Reject one document with `{ "reason": "…" }`; auto-refreshes status |
+| POST | `/{teacherId:int}/Block` | Block the teacher account |
+
+Every endpoint requires `Authorization: Bearer <admin-jwt>` and role `Admin` or `SuperAdmin`. Responses use the standard envelope (`succeeded`, `message`, `data`).
+
+---
+
+### Step A — Pending queue
+
+```http
+GET /Api/V1/Admin/TeacherManagement/Pending
+Authorization: Bearer <admin-jwt>
+```
+
+Returns the queue. Sample `data[]` (shape = `PendingTeacherDto`):
+
+```json
+[
+  {
+    "teacherId": 12,
+    "userId": 84,
+    "fullName": "Ahmed Ali",
+    "phoneNumber": "+966501234567",
+    "email": "ahmed@example.com",
+    "status": "PendingVerification",
+    "location": "InsideSaudiArabia",
+    "createdAt": "2026-05-15T08:00:00Z",
+    "totalDocuments": 3,
+    "pendingDocuments": 2,
+    "approvedDocuments": 1,
+    "rejectedDocuments": 0
+  }
+]
+```
+
+UI: render a row per teacher with status pill + counts. Tap → fetch the preview (step B).
+
+---
+
+### Step B — Preview teacher data
+
+```http
+GET /Api/V1/Admin/TeacherManagement/{teacherId}
+Authorization: Bearer <admin-jwt>
+```
+
+Returns everything the admin needs to decide: profile, every document (with file path for the viewer), the registration requirements checklist, summary counts, and the `canBeActivated` flag. Shape = `TeacherDetailsDto`.
 
 ```json
 {
   "teacherId": 12,
+  "userId": 84,
+  "fullName": "Ahmed Ali",
+  "phoneNumber": "+966501234567",
+  "email": "ahmed@example.com",
+  "bio": "Experienced Quran teacher with 8 years of online teaching.",
   "status": "PendingVerification",
-  "registrationRequirements": [
+  "location": "InsideSaudiArabia",
+  "createdAt": "2026-05-15T08:00:00Z",
+
+  "documents": [
     {
-      "code": "identity_document",
-      "isRequired": true,
-      "isSubmitted": true,
-      "verificationStatus": "Pending",
-      "teacherDocumentId": 42
+      "id": 41,
+      "documentType": 1,
+      "filePath": "/uploads/teachers/12/identity/abc.pdf",
+      "verificationStatus": 1,
+      "rejectionReason": null,
+      "reviewedAt": null,
+      "documentNumber": "1234567890",
+      "identityType": 1,
+      "issuingCountryCode": null,
+      "createdAt": "2026-05-15T08:00:00Z"
+    },
+    {
+      "id": 42,
+      "documentType": 2,
+      "filePath": "/uploads/teachers/12/certificates/cert.pdf",
+      "verificationStatus": 1,
+      "rejectionReason": null,
+      "certificateTitle": "BSc Mathematics",
+      "issuer": "King Saud University",
+      "issueDate": "2018-06-01",
+      "createdAt": "2026-05-15T08:00:00Z"
     }
   ],
+
+  "registrationRequirements": [
+    { "code": "identity_document", "isRequired": true, "isSubmitted": true, "verificationStatus": "Pending", "teacherDocumentId": 41 },
+    { "code": "certificate",       "isRequired": true, "isSubmitted": true, "verificationStatus": "Pending", "teacherDocumentId": 42 },
+    { "code": "bio",               "isRequired": false, "isSubmitted": true, "verificationStatus": "Approved", "teacherDocumentId": null },
+    { "code": "location",          "isRequired": true, "isSubmitted": true, "verificationStatus": "Approved", "teacherDocumentId": null }
+  ],
+
+  "totalDocuments": 2,
+  "pendingDocuments": 2,
+  "approvedDocuments": 0,
+  "rejectedDocuments": 0,
   "canBeActivated": false
 }
 ```
 
-`canBeActivated === true` when every **required** item is **Approved**.
+**UI conventions:**
+
+- Header: name, phone, email, status pill, "Created" timestamp, `Block` button (top-right destructive).
+- Left pane: documents list — each row clickable to open `filePath` in a preview pane / new tab, with **Approve** / **Reject** buttons.
+- Right pane: registration-requirements checklist driven by `registrationRequirements[]` — a green check when `verificationStatus === "Approved"`, a yellow dot for `Pending`, a red X for `Rejected` + the reason.
+- Bottom: counts strip (Total / Pending / Approved / Rejected) and an `Activate` affordance disabled until `canBeActivated === true` (activation is automatic — the button just confirms; see Step C effects).
+
+`canBeActivated === true` ↔ every active+required requirement is `Approved`.
+
+---
+
+### Step C — Approve a document
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Approve
+Authorization: Bearer <admin-jwt>
+```
+
+No body. Response: `{ "succeeded": true, "data": "Document approved successfully." }`.
+
+**Server side effects** (`TeacherManagementService.ApproveDocumentAsync` →
+`TeacherRegistrationCompletionService.RefreshTeacherStatusAfterReviewAsync`):
+
+1. `TeacherDocument.VerificationStatus = Approved`, `ReviewedByAdminId = adminId`, `ReviewedAt = now`, `RejectionReason = null`.
+2. Linked `TeacherRegistrationSubmission` row is synced to `Approved` (so the checklist re-renders correctly).
+3. The teacher's status is recomputed across **all active+required submissions**:
+   - All approved → status becomes `Active`.
+   - At least one required still `Pending` → stays `PendingVerification`.
+   - At least one required `Rejected` → flips to `DocumentsRejected` (rare on Approve — happens when this was the LAST pending and another was already rejected).
+4. The next admin preview reflects updated counts + `canBeActivated`.
+
+After **Active**, no further admin actions are needed — the teacher gets the `Teacher` role's full capabilities (subjects, availability, courses).
+
+---
+
+### Step D — Reject a document
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject
+Authorization: Bearer <admin-jwt>
+Content-Type: application/json
+
+{ "reason": "Scan is too blurry — please re-upload a clearer copy." }
+```
+
+Validation: `reason` is **required**, max 500 chars. 400 otherwise.
+
+Response: `{ "succeeded": true, "data": "Document rejected successfully." }`.
+
+**Server side effects:**
+
+1. `TeacherDocument.VerificationStatus = Rejected`, `ReviewedByAdminId`, `ReviewedAt`, `RejectionReason = <reason>`.
+2. Linked submission row syncs to `Rejected` + `RejectionReason`.
+3. If the rejected document is **required**, teacher status → `DocumentsRejected`. Otherwise the recompute keeps `PendingVerification`.
+4. The teacher's next call to `GET /Api/V1/Teacher/TeacherDocuments/Status` shows the rejection reason and exposes the **Re-upload** affordance (see Step F).
+
+UI: Reject button opens a modal with a `reason` textarea (required, max 500) + Cancel/Confirm. Pre-fill with the most common reasons as quick chips.
+
+---
+
+### Step E — Block teacher
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Block
+Authorization: Bearer <admin-jwt>
+Content-Type: application/json
+
+{ "reason": "Multiple policy violations after warnings." }
+```
+
+`reason` is optional, max 500 chars.
+
+Response: `{ "succeeded": true, "data": "Teacher blocked successfully." }`.
+
+**Server side effects:** `Teacher.Status = Blocked` and `Teacher.IsActive = false`. From now on:
+
+- `POST /Authentication/Teacher/LoginOrRegister` rejects the teacher's phone with **400** `"Your account has been blocked. Please contact support."`.
+- All Teacher-role endpoints (Subjects, Availability, Documents, Courses) return 401/403.
+- There is **no Unblock endpoint exposed** today — DB intervention only.
+
+UI: Block button is destructive (red). Confirm-modal warns it's effectively irreversible via API.
+
+---
+
+### Step F — Re-upload cycle
+
+A teacher in `DocumentsRejected` doesn't need admin help — they re-upload the rejected file themselves:
+
+```http
+PUT /Api/V1/Teacher/TeacherDocuments/{documentId}/Reupload
+Authorization: Bearer <teacher-jwt>
+Content-Type: multipart/form-data
+```
+
+`TeacherDocument.VerificationStatus` flips back to `Pending`, `RejectionReason = null`. The status-refresh recomputes:
+
+- If any required submission is still `Rejected` → teacher stays `DocumentsRejected`.
+- Otherwise (the just-re-uploaded one was the last rejection) → teacher → `PendingVerification`.
+
+The document re-enters the admin's pending queue (`GET /Pending`). Loop back to Step B.
+
+---
+
+### Server-side state-transition cheat sheet
+
+| Trigger | Document status before | Document status after | Teacher status after |
+|---------|----------------------|----------------------|---------------------|
+| Approve document | Pending or Rejected | Approved | `Active` if all required approved, else stays `PendingVerification` (or flips to `DocumentsRejected` if another required is still rejected) |
+| Reject document (required) | Pending or Approved | Rejected | `DocumentsRejected` |
+| Reject document (non-required) | Pending or Approved | Rejected | unchanged (stays `PendingVerification`) |
+| Re-upload (teacher) | Rejected | Pending | `PendingVerification` if no other rejections remain; else stays `DocumentsRejected` |
+| Block (any source state) | unchanged | unchanged | `Blocked` |
+
+### Errors
+
+| HTTP | Trigger | Message |
+|---|:---:|---|
+| 400 | Reject with empty / missing `reason` | `"Reason is required"` |
+| 400 | Reject with `reason` length > 500 | validation error |
+| 401 | Missing / expired admin token | — |
+| 403 | Token holder lacks `Admin` / `SuperAdmin` role | — |
+| 404 | Teacher or document not found, or `documentId` doesn't belong to that `teacherId` | `"Document {id} not found for teacher {teacherId}"` |
 
 ---
 
@@ -446,7 +850,7 @@ Teacher detail includes checklist:
 
 - Only **active + required** catalog rows count toward activation.
 - **File** with `maxCount > 1`: need ≥ `minCount` submissions; any rejection → `DocumentsRejected`.
-- **Text/Boolean** (`bio`, `location`): auto-**Approved** on submit (v1).
+- **Text / Boolean / Selection**: auto-**Approved** on submit (v1) — no manual review.
 - Admin approve/reject on documents syncs linked `TeacherRegistrationSubmission` via `ITeacherRegistrationCompletionService`.
 
 ---
@@ -454,15 +858,18 @@ Teacher detail includes checklist:
 ## Frontend form builder
 
 ```typescript
+type RequirementOption = { value: string; labelAr: string; labelEn: string };
+
 type Requirement = {
   code: string;
-  requirementType: 'File' | 'Text' | 'Boolean';
+  requirementType: 'File' | 'Text' | 'Boolean' | 'Selection';
   isRequired: boolean;
   minCount: number;
   maxCount: number;
   maxFileSizeBytes: number;
   allowedExtensions: string[];
   maxLength?: number;
+  options?: RequirementOption[]; // populated for Selection
   nameAr: string;
   nameEn: string;
 };
@@ -475,11 +882,85 @@ function renderRequirement(req: Requirement) {
       return <GenericFileUpload name={`file_${req.code}`} />;
     case 'Text':
       if (req.code === 'bio') return <BioField maxLength={req.maxLength} />;
-      return null;
+      return <TextField name={`text_${req.code}`} maxLength={req.maxLength} />;
     case 'Boolean':
       if (req.code === 'location') return <LocationToggle />;
-      return null;
+      return <BooleanToggle name={`bool_${req.code}`} />;
+    case 'Selection':
+      return req.maxCount > 1
+        ? <CheckboxGroup name={`select_${req.code}`} options={req.options ?? []} max={req.maxCount} />
+        : <Dropdown      name={`select_${req.code}`} options={req.options ?? []} />;
   }
+}
+```
+
+### Building the multipart body
+
+The FE never hardcodes the body. It walks `requirements[]` from step 4 and emits multipart entries per row using the mapping above. The builder is **catalog-agnostic** — admin can add a new `select_*` or `text_*` row tomorrow and the same code handles it.
+
+```typescript
+type SubmitValues = {
+  // System codes — fixed wire format
+  isInSaudiArabia?: boolean;
+  bio?: string;
+  identityType?: 'NationalId' | 'Iqama' | 'Passport' | 'DrivingLicense';
+  documentNumber?: string;
+  issuingCountryCode?: string;
+  identityDocumentFile?: File;
+  certificates?: { file: File; title?: string; issuer?: string; issueDate?: string }[];
+  // Generic by code
+  customFiles?:    Record<string, File[]>;
+  customTexts?:    Record<string, string>;
+  customBools?:    Record<string, boolean>;
+  customSelections?: Record<string, string[]>;
+};
+
+function buildSubmitForm(reqs: Requirement[], v: SubmitValues): FormData {
+  const fd = new FormData();
+  for (const r of reqs) {
+    switch (r.code) {
+      case 'identity_document':
+        if (!v.identityType || !v.documentNumber || !v.identityDocumentFile) break;
+        fd.append('IdentityType', v.identityType);
+        fd.append('DocumentNumber', v.documentNumber);
+        if (v.issuingCountryCode) fd.append('IssuingCountryCode', v.issuingCountryCode);
+        fd.append('IdentityDocumentFile', v.identityDocumentFile);
+        break;
+      case 'certificate':
+        (v.certificates ?? []).slice(0, r.maxCount).forEach((c, i) => {
+          fd.append(`Certificates[${i}].file`, c.file);
+          if (c.title)     fd.append(`Certificates[${i}].title`, c.title);
+          if (c.issuer)    fd.append(`Certificates[${i}].issuer`, c.issuer);
+          if (c.issueDate) fd.append(`Certificates[${i}].issueDate`, c.issueDate);
+        });
+        break;
+      case 'bio':
+        if (v.bio) fd.append('Bio', v.bio);
+        break;
+      case 'location':
+        if (typeof v.isInSaudiArabia === 'boolean')
+          fd.append('IsInSaudiArabia', String(v.isInSaudiArabia));
+        break;
+      default:
+        switch (r.requirementType) {
+          case 'File':
+            (v.customFiles?.[r.code] ?? []).slice(0, r.maxCount)
+              .forEach(f => fd.append(`file_${r.code}`, f));
+            break;
+          case 'Text':
+            { const t = v.customTexts?.[r.code]; if (t) fd.append(`text_${r.code}`, t); }
+            break;
+          case 'Boolean':
+            { const b = v.customBools?.[r.code]; if (typeof b === 'boolean') fd.append(`bool_${r.code}`, String(b)); }
+            break;
+          case 'Selection':
+            (v.customSelections?.[r.code] ?? []).slice(0, r.maxCount)
+              .forEach(value => fd.append(`select_${r.code}`, value));
+            break;
+        }
+    }
+  }
+  return fd;
 }
 ```
 

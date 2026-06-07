@@ -11,7 +11,9 @@ public class TeacherRegistrationSubmissionConfiguration : IEntityTypeConfigurati
         builder.ToTable("TeacherRegistrationSubmissions", "teacher");
 
         builder.HasKey(e => e.Id);
-        builder.HasIndex(e => new { e.TeacherId, e.RequirementId }).IsUnique();
+        builder.HasIndex(e => new { e.TeacherId, e.RequirementId })
+            .IsUnique()
+            .HasFilter("[TeacherDocumentId] IS NULL");
         builder.HasIndex(e => e.VerificationStatus);
 
         builder.HasOne(e => e.Teacher)

@@ -46,6 +46,12 @@ public class TeacherRegistrationRequirement : AuditableEntity
 
     public int? MaxLength { get; set; }
 
+    /// <summary>
+    /// JSON array of <c>{ value, labelAr, labelEn }</c> for Selection-type requirements.
+    /// Null for File / Text / Boolean. Parse via <c>RegistrationRequirementOptionsHelper</c>.
+    /// </summary>
+    public string? OptionsJson { get; set; }
+
     public TeacherDocumentType? MapsToDocumentType { get; set; }
 
     public bool IsSystem { get; set; }

@@ -21,14 +21,19 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
     public async Task<bool> IsIdentityNumberUniqueAsync(
         IdentityType type,
         string number,
-        string? countryCode)
+        string? countryCode,
+        int? excludeTeacherId = null)
     {
-        var exists = await _teacherDocuments
-            .AnyAsync(d => d.IdentityType == type
-                        && d.DocumentNumber == number
-                        && d.IssuingCountryCode == countryCode);
+        var query = _teacherDocuments
+            .Where(d => d.IdentityType == type
+                     && d.DocumentNumber == number
+                     && d.IssuingCountryCode == countryCode);
 
-        return !exists;  // Return true if unique (doesn't exist)
+        if (excludeTeacherId.HasValue)
+            query = query.Where(d => d.TeacherId != excludeTeacherId.Value);
+
+        var exists = await query.AnyAsync();
+        return !exists;
     }
 
     public async Task<int> GetCertificateCountAsync(int teacherId)
@@ -92,4 +97,10 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
             })
             .ToListAsync();
     }
+
+    public Task<int> DeletePendingForTeacherAsync(int teacherId, CancellationToken cancellationToken = default) =>
+        _teacherDocuments
+            .Where(d => d.TeacherId == teacherId
+                     && d.VerificationStatus == DocumentVerificationStatus.Pending)
+            .ExecuteDeleteAsync(cancellationToken);
 }

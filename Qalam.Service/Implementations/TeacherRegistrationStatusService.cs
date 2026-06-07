@@ -1,6 +1,8 @@
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -81,11 +83,41 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
                     RejectionReason = sub?.RejectionReason,
                     TeacherDocumentId = sub?.TeacherDocumentId,
                     TextValue = sub?.TextValue,
-                    BoolValue = sub?.BoolValue
+                    BoolValue = sub?.BoolValue,
+                    SelectedOptions = ResolveSelectedOptions(req, sub)
                 });
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// For Selection submissions, splits the comma-joined <c>TextValue</c> back into the chosen
+    /// option values and pairs each with its bilingual label from the requirement's OptionsJson.
+    /// Returns null for non-Selection requirements (or when nothing was submitted yet).
+    /// </summary>
+    private static List<RequirementOptionDto>? ResolveSelectedOptions(
+        TeacherRegistrationRequirement req,
+        TeacherRegistrationSubmission? sub)
+    {
+        if (req.RequirementType != RegistrationRequirementType.Selection)
+            return null;
+        if (sub == null || string.IsNullOrWhiteSpace(sub.TextValue))
+            return new List<RequirementOptionDto>();
+
+        var picked = sub.TextValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var catalog = RegistrationRequirementOptionsHelper.Parse(req.OptionsJson);
+
+        return picked.Select(value =>
+        {
+            var hit = catalog.FirstOrDefault(o => string.Equals(o.Value, value, StringComparison.OrdinalIgnoreCase));
+            return new RequirementOptionDto
+            {
+                Value = value,
+                LabelAr = hit?.LabelAr ?? value,
+                LabelEn = hit?.LabelEn ?? value
+            };
+        }).ToList();
     }
 }

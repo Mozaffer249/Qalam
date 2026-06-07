@@ -40,6 +40,17 @@ public class CreateTeacherRegistrationRequirementCommandHandler : ResponseHandle
             ? RegistrationRequirementExtensionsHelper.ToJson(dto.AllowedExtensions)
             : RegistrationRequirementExtensionsHelper.ToJson(new[] { ".pdf", ".jpg", ".jpeg", ".png" });
 
+        string? optionsJson = null;
+        if (dto.RequirementType == RegistrationRequirementType.Selection)
+        {
+            var optionError = ValidateSelectionOptions(dto.Options, dto.MinCount, dto.MaxCount);
+            if (optionError != null)
+                return BadRequest<TeacherRegistrationRequirementAdminDto>(optionError);
+
+            optionsJson = RegistrationRequirementOptionsHelper.Serialize(
+                dto.Options!.Select(o => new RequirementOption(o.Value.Trim(), o.LabelAr.Trim(), o.LabelEn.Trim())));
+        }
+
         var entity = new TeacherRegistrationRequirement
         {
             Code = code,
@@ -56,6 +67,7 @@ public class CreateTeacherRegistrationRequirementCommandHandler : ResponseHandle
             MaxFileSizeBytes = dto.MaxFileSizeBytes,
             AllowedExtensionsJson = extensions,
             MaxLength = dto.MaxLength,
+            OptionsJson = optionsJson,
             MapsToDocumentType = dto.MapsToDocumentType,
             IsSystem = false
         };
@@ -70,5 +82,30 @@ public class CreateTeacherRegistrationRequirementCommandHandler : ResponseHandle
         await _repository.SaveChangesAsync();
 
         return Success("Requirement created", entity: _provider.ToAdminDto(entity));
+    }
+
+    /// <summary>
+    /// Shared by Create + Update handlers. Returns null when valid, otherwise the user-facing error.
+    /// </summary>
+    internal static string? ValidateSelectionOptions(List<RequirementOptionDto>? options, int minCount, int maxCount)
+    {
+        if (options == null || options.Count == 0)
+            return "Selection requirement must include at least one option.";
+
+        if (options.Any(o => string.IsNullOrWhiteSpace(o.Value)
+                          || string.IsNullOrWhiteSpace(o.LabelAr)
+                          || string.IsNullOrWhiteSpace(o.LabelEn)))
+            return "Each option must have a non-empty value, labelAr, and labelEn.";
+
+        var values = options.Select(o => o.Value.Trim()).ToList();
+        if (values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != values.Count)
+            return "Option values must be unique within the requirement.";
+
+        if (minCount < 1)
+            return "Selection MinCount must be at least 1.";
+        if (maxCount > options.Count)
+            return $"MaxCount ({maxCount}) cannot exceed the number of options ({options.Count}).";
+
+        return null;
     }
 }

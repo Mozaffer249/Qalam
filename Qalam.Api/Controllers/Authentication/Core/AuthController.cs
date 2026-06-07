@@ -154,6 +154,15 @@ namespace Qalam.Api.Controllers.Authentication.Core
             [FromForm] SubmitTeacherRegistrationRequirementsCommand command)
         {
             command.CustomFilesByCode = TeacherRegistrationFormHelper.ParseCustomFilesByCode(Request);
+            command.TextValuesByCode = TeacherRegistrationFormHelper.ParseTextValuesByCode(Request);
+            command.BoolValuesByCode = TeacherRegistrationFormHelper.ParseBoolValuesByCode(Request);
+            command.SelectionsByCode = TeacherRegistrationFormHelper.ParseSelectionsByCode(Request);
+
+            // Normalize the system-coded fixed fields into the generic dicts so the validator
+            // and service can dispatch off `code` uniformly without special-casing bio/location.
+            command.TextValuesByCode.TryAdd(TeacherRegistrationRequirementCodes.Bio, command.Bio);
+            command.BoolValuesByCode.TryAdd(TeacherRegistrationRequirementCodes.Location, command.IsInSaudiArabia);
+
             return NewResult(await Mediator.Send(command));
         }
 
@@ -174,6 +183,9 @@ namespace Qalam.Api.Controllers.Authentication.Core
         public async Task<IActionResult> UploadTeacherDocuments([FromForm] UploadTeacherDocumentsCommand command)
         {
             command.CustomFilesByCode = TeacherRegistrationFormHelper.ParseCustomFilesByCode(Request);
+            command.TextValuesByCode = TeacherRegistrationFormHelper.ParseTextValuesByCode(Request);
+            command.BoolValuesByCode = TeacherRegistrationFormHelper.ParseBoolValuesByCode(Request);
+            command.SelectionsByCode = TeacherRegistrationFormHelper.ParseSelectionsByCode(Request);
             return NewResult(await Mediator.Send(command));
         }
 

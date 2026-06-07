@@ -32,7 +32,10 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
             IssuingCountryCode = request.IssuingCountryCode,
             IdentityDocumentFile = request.IdentityDocumentFile,
             Certificates = request.Certificates,
-            CustomFilesByCode = request.CustomFilesByCode
+            CustomFilesByCode = request.CustomFilesByCode,
+            TextValuesByCode = request.TextValuesByCode,
+            BoolValuesByCode = request.BoolValuesByCode,
+            SelectionsByCode = request.SelectionsByCode
         };
 
         return _mediator.Send(submit, cancellationToken);

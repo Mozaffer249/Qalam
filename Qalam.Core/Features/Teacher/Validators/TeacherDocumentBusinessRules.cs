@@ -72,9 +72,10 @@ public static class TeacherDocumentBusinessRules
         IdentityType type,
         string number,
         string? countryCode,
-        IStringLocalizer<AuthenticationResources> localizer)
+        IStringLocalizer<AuthenticationResources> localizer,
+        int? excludeTeacherId = null)
     {
-        var isUnique = await repo.IsIdentityNumberUniqueAsync(type, number, countryCode);
+        var isUnique = await repo.IsIdentityNumberUniqueAsync(type, number, countryCode, excludeTeacherId);
 
         if (!isUnique)
         {

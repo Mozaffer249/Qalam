@@ -32,6 +32,7 @@ namespace Qalam.Service
             services.AddScoped<IAuthSettingsProvider, AuthSettingsProvider>();
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
+            services.AddTransient<ITeacherRegistrationSubmitService, TeacherRegistrationSubmitService>();
             services.AddTransient<ITeacherManagementService, TeacherManagementService>();
             services.AddTransient<ITeacherRegistrationRequirementProvider, TeacherRegistrationRequirementProvider>();
             services.AddTransient<ITeacherRegistrationCompletionService, TeacherRegistrationCompletionService>();

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
+using Qalam.Core.Features.Admin.TeacherRegistrationRequirements.Commands.CreateTeacherRegistrationRequirement;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
@@ -51,6 +52,17 @@ public class UpdateTeacherRegistrationRequirementCommandHandler : ResponseHandle
 
         if (dto.AllowedExtensions != null && entity.RequirementType == RegistrationRequirementType.File)
             entity.AllowedExtensionsJson = RegistrationRequirementExtensionsHelper.ToJson(dto.AllowedExtensions);
+
+        if (entity.RequirementType == RegistrationRequirementType.Selection && dto.Options != null)
+        {
+            var optionError = CreateTeacherRegistrationRequirementCommandHandler
+                .ValidateSelectionOptions(dto.Options, dto.MinCount, dto.MaxCount);
+            if (optionError != null)
+                return BadRequest<TeacherRegistrationRequirementAdminDto>(optionError);
+
+            entity.OptionsJson = RegistrationRequirementOptionsHelper.Serialize(
+                dto.Options.Select(o => new RequirementOption(o.Value.Trim(), o.LabelAr.Trim(), o.LabelEn.Trim())));
+        }
 
         await _repository.UpdateAsync(entity);
         await _repository.SaveChangesAsync();

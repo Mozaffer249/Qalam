@@ -22,4 +22,11 @@ public interface ITeacherRegistrationSubmissionRepository : IGenericRepositoryAs
     Task<TeacherRegistrationSubmission?> GetByTeacherDocumentIdAsync(
         int teacherDocumentId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk-deletes every submission row for a teacher. Used at the start of a fresh
+    /// <c>SubmitRegistrationRequirements</c> call to clear orphans from prior partial attempts —
+    /// safe because the handler is only reachable when teacher status permits a new submit.
+    /// </summary>
+    Task<int> DeleteAllForTeacherAsync(int teacherId, CancellationToken cancellationToken = default);
 }

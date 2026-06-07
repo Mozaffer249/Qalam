@@ -30,4 +30,13 @@ public class UploadTeacherDocumentsCommand : IRequest<Response<string>>, IAuthen
 
     [BindNever]
     public Dictionary<string, List<IFormFile>> CustomFilesByCode { get; set; } = new();
+
+    [BindNever]
+    public Dictionary<string, string?> TextValuesByCode { get; set; } = new();
+
+    [BindNever]
+    public Dictionary<string, bool?> BoolValuesByCode { get; set; } = new();
+
+    [BindNever]
+    public Dictionary<string, List<string>> SelectionsByCode { get; set; } = new();
 }

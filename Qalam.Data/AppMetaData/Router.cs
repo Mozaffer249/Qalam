@@ -252,6 +252,11 @@ namespace Qalam.Data.AppMetaData
 
         /// <summary>Teacher availability for a date range (calendar view): Api/V1/Student/Teachers/{teacherId}/Availability</summary>
         public const string StudentTeacherAvailability = Rule + "Student/Teachers/{teacherId}/Availability";
+
+        /// <summary>Paginated browse of teachers with filters: Api/V1/Student/Teachers</summary>
+        public const string StudentTeachers = Rule + "Student/Teachers";
+        /// <summary>Top-N recommended teachers based on the student's profile: Api/V1/Student/Teachers/Recommended</summary>
+        public const string StudentRecommendedTeachers = StudentTeachers + "/Recommended";
         #endregion
 
         #region Teaching

@@ -42,4 +42,7 @@ public class TeacherRegistrationSubmissionRepository
         int teacherDocumentId,
         CancellationToken cancellationToken = default) =>
         _set.FirstOrDefaultAsync(s => s.TeacherDocumentId == teacherDocumentId, cancellationToken);
+
+    public Task<int> DeleteAllForTeacherAsync(int teacherId, CancellationToken cancellationToken = default) =>
+        _set.Where(s => s.TeacherId == teacherId).ExecuteDeleteAsync(cancellationToken);
 }

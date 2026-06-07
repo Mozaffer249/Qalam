@@ -3,6 +3,14 @@ using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Teacher;
 
+/// <summary>One choice on a Selection requirement.</summary>
+public class RequirementOptionDto
+{
+    public string Value { get; set; } = null!;
+    public string LabelAr { get; set; } = null!;
+    public string LabelEn { get; set; } = null!;
+}
+
 /// <summary>Public / teacher-facing requirement (active only).</summary>
 public class TeacherRegistrationRequirementPublicDto
 {
@@ -19,6 +27,8 @@ public class TeacherRegistrationRequirementPublicDto
     public int MaxFileSizeBytes { get; set; }
     public List<string> AllowedExtensions { get; set; } = new();
     public int? MaxLength { get; set; }
+    /// <summary>Only populated for Selection-type requirements.</summary>
+    public List<RequirementOptionDto>? Options { get; set; }
 }
 
 public class TeacherRegistrationRequirementsResponseDto
@@ -44,6 +54,7 @@ public class TeacherRegistrationRequirementAdminDto
     public int MaxFileSizeBytes { get; set; }
     public List<string> AllowedExtensions { get; set; } = new();
     public int? MaxLength { get; set; }
+    public List<RequirementOptionDto>? Options { get; set; }
     public TeacherDocumentType? MapsToDocumentType { get; set; }
     public bool IsSystem { get; set; }
 }
@@ -64,6 +75,8 @@ public class CreateTeacherRegistrationRequirementDto
     public int MaxFileSizeBytes { get; set; } = 10 * 1024 * 1024;
     public List<string>? AllowedExtensions { get; set; }
     public int? MaxLength { get; set; }
+    /// <summary>Required when <c>RequirementType == Selection</c>. Bilingual picklist items.</summary>
+    public List<RequirementOptionDto>? Options { get; set; }
     public TeacherDocumentType? MapsToDocumentType { get; set; }
 }
 
@@ -81,6 +94,8 @@ public class UpdateTeacherRegistrationRequirementDto
     public int MaxFileSizeBytes { get; set; }
     public List<string>? AllowedExtensions { get; set; }
     public int? MaxLength { get; set; }
+    /// <summary>Replaces stored options when the requirement is Selection-type.</summary>
+    public List<RequirementOptionDto>? Options { get; set; }
 }
 
 public class SetRequirementActiveDto
@@ -102,6 +117,8 @@ public class TeacherRegistrationSubmissionStatusDto
     public int? TeacherDocumentId { get; set; }
     public string? TextValue { get; set; }
     public bool? BoolValue { get; set; }
+    /// <summary>Populated only for Selection-type requirements: chosen option values + their resolved bilingual labels.</summary>
+    public List<RequirementOptionDto>? SelectedOptions { get; set; }
 }
 
 public class TeacherRegistrationStatusResponseDto
