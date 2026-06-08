@@ -89,7 +89,7 @@ public class TeacherDocUploadConsumer : BackgroundService
                         if (message.DocumentId > 0)
                         {
                             await dbContext.Database.ExecuteSqlRawAsync(
-                                "UPDATE TeacherDocuments SET FilePath = {0} WHERE Id = {1}",
+                                "UPDATE dbo.TeacherDocuments SET FilePath = {0} WHERE Id = {1}",
                                 fileUrl, message.DocumentId);
                             _logger.LogInformation("DB updated: TeacherDocuments.Id={DocumentId} → FilePath={Url}",
                                 message.DocumentId, fileUrl);
@@ -106,8 +106,22 @@ public class TeacherDocUploadConsumer : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to process teacher doc upload");
-                    await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                    // CRITICAL: do NOT requeue indefinitely. Each retry re-uploads to OSS with a fresh
+                    // GUID → orphan files pile up in the bucket. RabbitMQ's `Redelivered` flag tells us
+                    // if this is a retry; on a retry we ACK (drop) instead of requeue to break the loop.
+                    // For a real production-grade fix add a dead-letter exchange via x-dead-letter-* args.
+                    if (ea.Redelivered)
+                    {
+                        _logger.LogError(ex,
+                            "Failed to process teacher doc upload (redelivered — dropping to avoid loop). " +
+                            "Investigate manually. DeliveryTag={Tag}", ea.DeliveryTag);
+                        await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "Failed to process teacher doc upload (first attempt — requeuing once)");
+                        await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                    }
                 }
             };
 

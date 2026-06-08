@@ -41,7 +41,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__MessagingDb=${MESSAGING_DB_CONNECTION_STRING}
+      # Shared with the backend DB on purpose — messaging-api writes to TeacherDocuments
+      # and reads MessageLogs from the same physical SQL database.
+      - ConnectionStrings__MessagingDb=${DB_CONNECTION_STRING}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
       - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}
