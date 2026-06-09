@@ -24,11 +24,13 @@ services:
       - qalam-network
     restart: unless-stopped
     healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      # check_port_connectivity verifies the AMQP listener is accepting connections, not
+      # just that Erlang is alive — prevents consumers crashing with TCP-refused at boot.
+      test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
 
   # Messaging API (Qalam.MessagingApi — consumes from RabbitMQ, sends email/SMS/push)
   messaging-api:

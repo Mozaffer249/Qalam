@@ -22,11 +22,14 @@ services:
       - qalam-network
     restart: unless-stopped
     healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      # `-q ping` only verifies Erlang is alive; AMQP port (5672) becomes ready a few
+      # seconds after. `check_port_connectivity` confirms listeners are accepting connections
+      # so consumers don't race past depends_on:service_healthy and crash with TCP-refused.
+      test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
 
   # Messaging API
   messaging-api:
