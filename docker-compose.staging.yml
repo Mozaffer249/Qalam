@@ -165,6 +165,32 @@ services:
       - qalam-staging-network
     restart: unless-stopped
 
+  # ─────────────── Admin frontend (Next.js 16 standalone) ───────────────
+  # Built from /opt/qalam-admin (cloned on the server from
+  # https://github.com/yassin-khalid/qalam-admin.git). NEXT_PUBLIC_API_URL is baked
+  # in at build time → image must be rebuilt when the API URL changes.
+  # Nginx proxies https://admin-staging.qalam.net.sa → 127.0.0.1:8082 → container:3000.
+  qalam-admin:
+    build:
+      context: /opt/qalam-admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api-staging.qalam.net.sa
+    image: qalam-admin:staging
+    container_name: qalam-staging-admin
+    logging: *docker-logging
+    ports:
+      - "127.0.0.1:8082:3000"
+    networks:
+      - qalam-staging-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
 volumes:
   staging_rabbitmq_data:
   staging_app_logs:
