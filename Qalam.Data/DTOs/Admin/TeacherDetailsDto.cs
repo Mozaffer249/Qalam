@@ -27,4 +27,7 @@ public class TeacherDetailsDto
     public int RejectedDocuments { get; set; }
     /// <summary>Set by API from registration checklist when configured; otherwise from document counts.</summary>
     public bool CanBeActivated { get; set; }
+
+    public List<AdminTeacherSubjectDto> Subjects { get; set; } = new();
+    public TeacherSubjectSummaryDto SubjectSummary { get; set; } = new();
 }

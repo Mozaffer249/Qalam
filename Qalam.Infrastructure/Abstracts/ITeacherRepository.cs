@@ -21,6 +21,13 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
 
     /// <summary>
+    /// Admin paginated teacher browse with optional filters (status, location, subject, search).
+    /// </summary>
+    Task<PaginatedResult<AdminTeacherListItemDto>> SearchForAdminAsync(
+        AdminTeacherListFilters filters,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Batch projection used by the targeting service after matching: returns (TeacherId, Email)
     /// pairs for the supplied teacher ids whose User.Email is non-empty. Single query, narrow SELECT.
     /// </summary>
@@ -66,4 +73,21 @@ public enum TeacherSearchSort
     Rating = 1,
     Newest = 2,
     NameAsc = 3
+}
+
+/// <summary>Filter + paging + sort inputs for <see cref="ITeacherRepository.SearchForAdminAsync"/>.</summary>
+public record AdminTeacherListFilters(
+    TeacherStatus? Status,
+    TeacherLocation? Location,
+    int? SubjectId,
+    string? Search,
+    AdminTeacherListSort SortBy,
+    int PageNumber,
+    int PageSize);
+
+public enum AdminTeacherListSort
+{
+    Newest = 1,
+    NameAsc = 2,
+    Status = 3
 }

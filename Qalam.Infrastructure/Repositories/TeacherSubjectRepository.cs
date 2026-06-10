@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -24,7 +26,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     {
         return await _teacherSubjects
             .AsNoTracking()
-            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Where(ts => ts.TeacherId == teacherId)
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
             .Include(ts => ts.TeacherSubjectUnits)
@@ -68,6 +70,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 SubjectId = subjectDto.SubjectId,
                 CanTeachFullSubject = subjectDto.CanTeachFullSubject,
                 IsActive = true,
+                VerificationStatus = DocumentVerificationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -101,13 +104,18 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     public async Task<bool> TeacherHasSubjectAsync(int teacherId, int subjectId)
     {
         return await _teacherSubjects
-            .AnyAsync(ts => ts.TeacherId == teacherId && ts.SubjectId == subjectId && ts.IsActive);
+            .AnyAsync(ts => ts.TeacherId == teacherId
+                            && ts.SubjectId == subjectId
+                            && ts.IsActive
+                            && ts.VerificationStatus == DocumentVerificationStatus.Approved);
     }
 
     public async Task<bool> HasAnySubjectsAsync(int teacherId)
     {
         return await _teacherSubjects
-            .AnyAsync(ts => ts.TeacherId == teacherId && ts.IsActive);
+            .AnyAsync(ts => ts.TeacherId == teacherId
+                            && ts.IsActive
+                            && ts.VerificationStatus == DocumentVerificationStatus.Approved);
     }
 
     public async Task RemoveAllTeacherSubjectsAsync(int teacherId)
@@ -130,7 +138,9 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     public async Task<HashSet<int>> GetExistingSubjectIdsAsync(int teacherId)
     {
         var subjectIds = await _teacherSubjects
-            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Where(ts => ts.TeacherId == teacherId
+                         && ts.IsActive
+                         && ts.VerificationStatus == DocumentVerificationStatus.Approved)
             .Select(ts => ts.SubjectId)  // Only select SubjectId - optimized
             .ToListAsync();
 
@@ -173,6 +183,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 SubjectId = dto.SubjectId,
                 CanTeachFullSubject = dto.CanTeachFullSubject,
                 IsActive = true,
+                VerificationStatus = DocumentVerificationStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -259,10 +270,94 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .AsNoTracking()
             .Where(ts => ts.SubjectId == subjectId
                          && ts.IsActive
+                         && ts.VerificationStatus == DocumentVerificationStatus.Approved
                          && ts.Teacher != null
-                         && ts.Teacher.Status == Qalam.Data.Entity.Common.Enums.TeacherStatus.Active)
+                         && ts.Teacher.Status == TeacherStatus.Active)
             .Select(ts => ts.TeacherId)
             .Distinct()
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<TeacherSubject>> GetAllByTeacherIdForAdminAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _teacherSubjects
+            .AsNoTracking()
+            .Where(ts => ts.TeacherId == teacherId)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Include(ts => ts.Teacher)
+                .ThenInclude(t => t.User)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.Unit)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranContentType)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranLevel)
+            .OrderBy(ts => ts.Subject.NameAr)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<TeacherSubject?> GetByIdForTeacherAsync(
+        int teacherId,
+        int teacherSubjectId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _teacherSubjects
+            .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Include(ts => ts.Teacher)
+                .ThenInclude(t => t.User)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.Unit)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranContentType)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranLevel)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(
+        int pageNumber,
+        int pageSize,
+        int? teacherId = null,
+        int? subjectId = null,
+        bool? isActive = null,
+        DocumentVerificationStatus? verificationStatus = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _teacherSubjects
+            .AsNoTracking()
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Include(ts => ts.Teacher)
+                .ThenInclude(t => t.User)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.Unit)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranContentType)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranLevel)
+            .AsQueryable();
+
+        if (teacherId.HasValue)
+            query = query.Where(ts => ts.TeacherId == teacherId.Value);
+        if (subjectId.HasValue)
+            query = query.Where(ts => ts.SubjectId == subjectId.Value);
+        if (isActive.HasValue)
+            query = query.Where(ts => ts.IsActive == isActive.Value);
+        if (verificationStatus.HasValue)
+            query = query.Where(ts => ts.VerificationStatus == verificationStatus.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(ts => ts.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PaginatedResult<TeacherSubject>(items, totalCount, pageNumber, pageSize);
     }
 }

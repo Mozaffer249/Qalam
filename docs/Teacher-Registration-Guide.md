@@ -392,7 +392,7 @@ Expected response:
 
 #### Same body in `curl`
 
-```bash
+```sh
 echo "%PDF-1.4" > /tmp/dummy.pdf
 TOKEN="<paste teacher JWT>"
 
@@ -695,11 +695,25 @@ stateDiagram-v2
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| GET | `/Teachers` | Paginated list of **all** teachers with optional filters (`status` as string e.g. `Active`, `location`, `subjectId`, `search`, `sortBy`). Response `status` is also a string. |
 | GET | `/Pending` | Paginated queue of teachers in `PendingVerification` (and optionally `DocumentsRejected` — see filter) |
 | GET | `/{teacherId:int}` | Full preview — profile + every document + checklist + `canBeActivated` |
 | POST | `/{teacherId:int}/Documents/{documentId:int}/Approve` | Approve one document; auto-refreshes teacher status |
 | POST | `/{teacherId:int}/Documents/{documentId:int}/Reject` | Reject one document with `{ "reason": "…" }`; auto-refreshes status |
 | POST | `/{teacherId:int}/Block` | Block the teacher account |
+| GET | `/Subjects` | Paginated list of teacher subjects across all teachers (optional filters) |
+| GET | `/{teacherId:int}/Subjects` | All subjects for one teacher (active, inactive, rejected) |
+| GET | `/{teacherId:int}/Subjects/{teacherSubjectId:int}` | Single subject detail with units |
+| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Inactivate` | Deactivate subject; keeps approval status |
+| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Activate` | Reactivate an inactivated (non-rejected) subject |
+| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Reject` | Reject with `{ "reason": "…" }`; deactivates and blocks new courses |
+| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Restore` | Clear rejection, approve, and reactivate |
+
+`GET /{teacherId}` also returns `subjects` and `subjectSummary` (`totalSubjects`, `activeSubjects`, `inactiveSubjects`, `rejectedSubjects`) for the admin teacher-detail **Subjects** tab.
+
+New teacher subjects are **auto-approved and active** on `POST /Api/V1/Teacher/TeacherSubject`. Admin can inactivate or reject later. Rejected/inactive subjects cannot be used for new courses; existing published courses are left as-is in v1.
+
+**Frontend (admin Subjects tab + teacher display):** [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md)
 
 Every endpoint requires `Authorization: Bearer <admin-jwt>` and role `Admin` or `SuperAdmin`. Responses use the standard envelope (`succeeded`, `message`, `data`).
 
@@ -946,7 +960,7 @@ The document re-enters the admin's pending queue (`GET /Pending`). Loop back to 
 
 ## Frontend form builder
 
-```typescript
+```ts
 type RequirementOption = { value: string; labelAr: string; labelEn: string };
 
 type Requirement = {
@@ -987,7 +1001,7 @@ function renderRequirement(req: Requirement) {
 
 The FE never hardcodes the body. It walks `requirements[]` from step 4 and emits multipart entries per row using the mapping above. The builder is **catalog-agnostic** — admin can add a new `select_*` or `text_*` row tomorrow and the same code handles it.
 
-```typescript
+```ts
 type SubmitValues = {
   // System codes — fixed wire format
   isInSaudiArabia?: boolean;
@@ -1059,7 +1073,7 @@ function buildSubmitForm(reqs: Requirement[], v: SubmitValues): FormData {
 
 ### Apply migration
 
-```bash
+```sh
 dotnet ef database update --project Qalam.Infrastructure --startup-project Qalam.Api
 ```
 

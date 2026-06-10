@@ -15,16 +15,19 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 {
 	private readonly ITeacherRepository _teacherRepository;
 	private readonly ITeacherRegistrationStatusService _registrationStatusService;
+	private readonly ITeacherSubjectAdminService _subjectAdminService;
 	private readonly ILogger<GetTeacherDetailsQueryHandler> _logger;
 
 	public GetTeacherDetailsQueryHandler(
 		ITeacherRepository teacherRepository,
 		ITeacherRegistrationStatusService registrationStatusService,
+		ITeacherSubjectAdminService subjectAdminService,
 		ILogger<GetTeacherDetailsQueryHandler> logger,
 		IStringLocalizer<SharedResources> localizer) : base(localizer)
 	{
 		_teacherRepository = teacherRepository;
 		_registrationStatusService = registrationStatusService;
+		_subjectAdminService = subjectAdminService;
 		_logger = logger;
 	}
 
@@ -46,6 +49,11 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 
 			teacherDetails.RegistrationRequirements =
 				await _registrationStatusService.GetChecklistForTeacherAsync(request.TeacherId, cancellationToken);
+
+			teacherDetails.Subjects =
+				await _subjectAdminService.GetTeacherSubjectsForAdminAsync(request.TeacherId, cancellationToken);
+			teacherDetails.SubjectSummary =
+				await _subjectAdminService.GetSubjectSummaryAsync(request.TeacherId, cancellationToken);
 
 			var requiredItems = teacherDetails.RegistrationRequirements.Where(r => r.IsRequired).ToList();
 			if (requiredItems.Count > 0)

@@ -104,7 +104,10 @@ public class TeacherCourseService : ITeacherCourseService
         }
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
-        if (teacherSubject == null || teacherSubject.TeacherId != teacher.Id || !teacherSubject.IsActive)
+        if (teacherSubject == null
+            || teacherSubject.TeacherId != teacher.Id
+            || !teacherSubject.IsActive
+            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
         var teachingMode = await _teachingModeRepository.GetByIdAsync(dto.TeachingModeId);
@@ -207,7 +210,10 @@ public class TeacherCourseService : ITeacherCourseService
         }
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
-        if (teacherSubject == null || teacherSubject.TeacherId != teacher.Id || !teacherSubject.IsActive)
+        if (teacherSubject == null
+            || teacherSubject.TeacherId != teacher.Id
+            || !teacherSubject.IsActive
+            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
         var teachingMode = await _teachingModeRepository.GetByIdAsync(dto.TeachingModeId);

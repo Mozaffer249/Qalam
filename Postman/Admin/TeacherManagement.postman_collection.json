@@ -35,12 +35,83 @@
 			"key": "document_id",
 			"value": "1",
 			"type": "string"
+		},
+		{
+			"key": "teacher_subject_id",
+			"value": "1",
+			"type": "string"
 		}
 	],
 	"item": [
 		{
 			"name": "Queries",
 			"item": [
+				{
+					"name": "Get Teachers (paginated)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/Teachers?pageNumber=1&pageSize=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"Teachers"
+							],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "status",
+									"value": "Active",
+									"description": "AwaitingDocuments | PendingVerification | DocumentsRejected | Active | Blocked",
+									"disabled": true
+								},
+								{
+									"key": "location",
+									"value": "1",
+									"description": "TeacherLocation",
+									"disabled": true
+								},
+								{
+									"key": "subjectId",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "ahmed",
+									"disabled": true
+								},
+								{
+									"key": "sortBy",
+									"value": "1",
+									"description": "1=Newest, 2=NameAsc, 3=Status",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Paginated browse of all teachers with optional filters"
+					},
+					"response": []
+				},
 				{
 					"name": "Get Pending Teachers",
 					"request": {
@@ -106,6 +177,114 @@
 							]
 						},
 						"description": "Get teacher details with all documents for admin review"
+					},
+					"response": []
+				},
+				{
+					"name": "List Teacher Subjects (global)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/Subjects?pageNumber=1&pageSize=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"Subjects"
+							],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "10"
+								},
+								{
+									"key": "teacherId",
+									"value": "{{teacher_id}}",
+									"disabled": true
+								},
+								{
+									"key": "verificationStatus",
+									"value": "2",
+									"description": "DocumentVerificationStatus: 2=Approved",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Paginated list of teacher subjects across all teachers"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Teacher Subjects",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects"
+							]
+						},
+						"description": "All teaching subjects for a teacher (active, inactive, rejected)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Teacher Subject By Id",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects/{{teacher_subject_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects",
+								"{{teacher_subject_id}}"
+							]
+						},
+						"description": "Single teacher subject with units"
 					},
 					"response": []
 				}
@@ -226,6 +405,139 @@
 							]
 						},
 						"description": "Block a teacher account permanently. Optional reason can be provided."
+					},
+					"response": []
+				},
+				{
+					"name": "Inactivate Teacher Subject",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects/{{teacher_subject_id}}/Inactivate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects",
+								"{{teacher_subject_id}}",
+								"Inactivate"
+							]
+						},
+						"description": "Inactivate a teacher subject (blocks new courses; keeps approval status)"
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Teacher Subject",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects/{{teacher_subject_id}}/Activate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects",
+								"{{teacher_subject_id}}",
+								"Activate"
+							]
+						},
+						"description": "Activate a previously inactivated subject (not for rejected — use Restore)"
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Teacher Subject",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Subject qualification not verified.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects/{{teacher_subject_id}}/Reject",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects",
+								"{{teacher_subject_id}}",
+								"Reject"
+							]
+						},
+						"description": "Reject a teacher subject with reason; deactivates and blocks new courses"
+					},
+					"response": []
+				},
+				{
+					"name": "Restore Teacher Subject",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Subjects/{{teacher_subject_id}}/Restore",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Subjects",
+								"{{teacher_subject_id}}",
+								"Restore"
+							]
+						},
+						"description": "Restore a rejected subject (approved + active, clears rejection reason)"
 					},
 					"response": []
 				}

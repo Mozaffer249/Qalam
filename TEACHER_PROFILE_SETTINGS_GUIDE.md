@@ -127,14 +127,14 @@ The screen header shows the title "Subjects & Units" and a **+ Add Subject** but
 
 - A subject icon and name (English + Arabic).
 - A summary line: either "Teaches the full subject" OR "N units selected".
-- An "Active" pill.
+- A status pill from `isActive` + `verificationStatus`: **Active** (`isActive: true`, `verificationStatus: Approved`), **Inactive** (`isActive: false`, still approved), or **Rejected** (`verificationStatus: Rejected`). When rejected, show `rejectionReason` and optional `reviewedAt` below the pill (same pattern as documents in §1).
 - An expandable **View units** chevron at the bottom. When expanded, units appear as a vertical list with each unit's name and, for Quran units, two small badges showing the Quran content type (Memorization / Recitation / Tajweed) and the level (Noorani / Beginner / Intermediate / Advanced — or "All levels" when not specified).
 
 ### Taps
 
 | Tap | API call | Notes |
 |---|---|---|
-| Screen load | `GET /Api/V1/Teacher/TeacherSubject` | Render the cards |
+| Screen load | `GET /Api/V1/Teacher/TeacherSubject` | Returns **all** subjects (active, inactive, rejected) — render the cards |
 | **+ Add Subject** | Opens the filter-options wizard | See [docs/Teacher-Availability-and-Subjects.md → Education filter options](docs/Teacher-Availability-and-Subjects.md) for the wizard's full flow. It ends with `POST /Api/V1/Teacher/TeacherSubject` (additive — duplicates skipped) |
 | **View units** (chevron) | none — local toggle | Units come back with the GET above |
 | **Remove subject** | Not exposed today | Server stub returns *"Not implemented yet"*. Hide or disable the affordance |
@@ -305,5 +305,6 @@ Both endpoints are wired. Use them as the password-change fallback until `POST /
 
 - [TEACHER_AUTH_FRONTEND_GUIDE.md](TEACHER_AUTH_FRONTEND_GUIDE.md) — registration onboarding (everything before this screen exists)
 - [docs/Teacher-Availability-and-Subjects.md](docs/Teacher-Availability-and-Subjects.md) — full API reference for the Subjects and Availability screens
+- [docs/Admin-Teacher-Subjects-Frontend.md](docs/Admin-Teacher-Subjects-Frontend.md) — admin subject review (inactivate / reject / restore) and status fields on teacher GET
 - [docs/Teacher-Registration.md](docs/Teacher-Registration.md) — server-side flow notes for registration
 - [docs/Teacher-Quran-Specialization-Design.md](docs/Teacher-Quran-Specialization-Design.md) — Quran content-type and level reference for the units picker

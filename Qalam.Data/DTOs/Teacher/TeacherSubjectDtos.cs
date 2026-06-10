@@ -1,3 +1,5 @@
+using Qalam.Data.Entity.Common.Enums;
+
 namespace Qalam.Data.DTOs.Teacher;
 
 #region Input DTOs
@@ -75,6 +77,9 @@ public class TeacherSubjectResponseDto
 
     public bool CanTeachFullSubject { get; set; }
     public bool IsActive { get; set; }
+    public DocumentVerificationStatus VerificationStatus { get; set; }
+    public string? RejectionReason { get; set; }
+    public DateTime? ReviewedAt { get; set; }
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 }

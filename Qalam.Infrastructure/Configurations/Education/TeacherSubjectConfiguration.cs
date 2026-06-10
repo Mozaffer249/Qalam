@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 
 namespace Qalam.Infrastructure.Configurations.Education;
@@ -24,6 +25,12 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
                .WithMany(s => s.TeacherSubjects)
                .HasForeignKey(e => e.SubjectId)
                .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(e => e.VerificationStatus)
+               .HasDefaultValue(DocumentVerificationStatus.Approved);
+
+        builder.Property(e => e.RejectionReason)
+               .HasMaxLength(500);
     }
 }
 

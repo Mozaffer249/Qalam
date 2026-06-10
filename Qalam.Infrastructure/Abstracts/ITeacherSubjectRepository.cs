@@ -1,5 +1,7 @@
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Results;
 using Qalam.Infrastructure.InfrastructureBases;
 
 namespace Qalam.Infrastructure.Abstracts;
@@ -51,4 +53,20 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     /// active TeacherSubject and whose own Teacher.Status is Active. Distinct, no duplicates.
     /// </summary>
     Task<List<int>> GetActiveTeacherIdsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default);
+
+    /// <summary>All subjects for a teacher (active, inactive, rejected) with units.</summary>
+    Task<List<TeacherSubject>> GetAllByTeacherIdForAdminAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>Owned teacher subject with units, or null.</summary>
+    Task<TeacherSubject?> GetByIdForTeacherAsync(int teacherId, int teacherSubjectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Paginated cross-teacher list for admin.</summary>
+    Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(
+        int pageNumber,
+        int pageSize,
+        int? teacherId = null,
+        int? subjectId = null,
+        bool? isActive = null,
+        DocumentVerificationStatus? verificationStatus = null,
+        CancellationToken cancellationToken = default);
 }

@@ -93,6 +93,56 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             .ToListAsync();
     }
 
+    public async Task<PaginatedResult<AdminTeacherListItemDto>> SearchForAdminAsync(
+        AdminTeacherListFilters filters,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _teachers.AsNoTracking().AsQueryable();
+
+        if (filters.Status.HasValue)
+            query = query.Where(t => t.Status == filters.Status.Value);
+
+        if (filters.Location.HasValue)
+            query = query.Where(t => t.Location == filters.Location.Value);
+
+        if (filters.SubjectId.HasValue)
+        {
+            var subjectId = filters.SubjectId.Value;
+            query = query.Where(t => t.TeacherSubjects.Any(ts => ts.SubjectId == subjectId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var s = filters.Search.Trim();
+            query = query.Where(t => t.User != null && (
+                ((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Contains(s) ||
+                (t.User.PhoneNumber != null && t.User.PhoneNumber.Contains(s)) ||
+                (t.User.Email != null && t.User.Email.Contains(s))));
+        }
+
+        query = filters.SortBy switch
+        {
+            AdminTeacherListSort.NameAsc => query
+                .OrderBy(t => t.User!.FirstName)
+                .ThenBy(t => t.User!.LastName),
+            AdminTeacherListSort.Status => query
+                .OrderBy(t => t.Status)
+                .ThenByDescending(t => t.CreatedAt),
+            _ => query.OrderByDescending(t => t.CreatedAt)
+        };
+
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .Skip((filters.PageNumber - 1) * filters.PageSize)
+            .Take(filters.PageSize)
+            .Select(ProjectToAdminListRow())
+            .ToListAsync(cancellationToken);
+
+        var items = rows.Select(ToAdminListItemDto).ToList();
+
+        return new PaginatedResult<AdminTeacherListItemDto>(items, total, filters.PageNumber, filters.PageSize);
+    }
+
     public async Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId)
     {
         return await _teachers
@@ -269,6 +319,58 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
     /// Projects a <see cref="Teacher"/> row to a <see cref="TeacherCardDto"/>. Single LINQ-to-SQL —
     /// EF translates the nested <c>Subjects</c> Select into a join + group, no N+1.
     /// </summary>
+    private sealed class AdminTeacherListRow
+    {
+        public int TeacherId { get; init; }
+        public int UserId { get; init; }
+        public string FullName { get; init; } = null!;
+        public string PhoneNumber { get; init; } = null!;
+        public string? Email { get; init; }
+        public TeacherStatus Status { get; init; }
+        public TeacherLocation? Location { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public int TotalDocuments { get; init; }
+        public int PendingDocuments { get; init; }
+        public int ApprovedDocuments { get; init; }
+        public int RejectedDocuments { get; init; }
+    }
+
+    private static System.Linq.Expressions.Expression<Func<Teacher, AdminTeacherListRow>> ProjectToAdminListRow() =>
+        t => new AdminTeacherListRow
+        {
+            TeacherId = t.Id,
+            UserId = t.UserId ?? 0,
+            FullName = t.User != null
+                ? ((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim()
+                : "Unknown",
+            PhoneNumber = t.User != null ? t.User.PhoneNumber ?? "" : "",
+            Email = t.User != null ? t.User.Email : null,
+            Status = t.Status,
+            Location = t.Location,
+            CreatedAt = t.CreatedAt,
+            TotalDocuments = t.TeacherDocuments.Count,
+            PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
+            ApprovedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Approved),
+            RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected)
+        };
+
+    private static AdminTeacherListItemDto ToAdminListItemDto(AdminTeacherListRow row) =>
+        new()
+        {
+            TeacherId = row.TeacherId,
+            UserId = row.UserId,
+            FullName = row.FullName,
+            PhoneNumber = row.PhoneNumber,
+            Email = row.Email,
+            Status = row.Status.ToString(),
+            Location = row.Location,
+            CreatedAt = row.CreatedAt,
+            TotalDocuments = row.TotalDocuments,
+            PendingDocuments = row.PendingDocuments,
+            ApprovedDocuments = row.ApprovedDocuments,
+            RejectedDocuments = row.RejectedDocuments
+        };
+
     private static System.Linq.Expressions.Expression<Func<Teacher, TeacherCardDto>> ProjectToCard() =>
         t => new TeacherCardDto
         {
