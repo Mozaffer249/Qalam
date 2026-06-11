@@ -155,10 +155,10 @@ Each environment's API must allow browser calls only from its own frontends. Set
 CORS_ALLOWED_ORIGINS=https://qalam.net.sa,https://teacher.qalam.net.sa,https://admin.qalam.net.sa
 ```
 
-**Staging** — in the same repo, `.env.staging` (no landing-page origin — landing is prod-only):
+**Staging** — in the same repo, `.env.staging`:
 
 ```env
-CORS_ALLOWED_ORIGINS=https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa
+CORS_ALLOWED_ORIGINS=https://staging.qalam.net.sa,https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa
 ```
 
 If you still use Vercel during migration, append it to the relevant env file.
