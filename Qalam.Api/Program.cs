@@ -271,7 +271,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-// app.UseCors(CORS);
+app.UseCors(CORS);
 
 // Rate limiting middleware (before authentication)
 app.UseMiddleware<RateLimitingMiddleware>();
