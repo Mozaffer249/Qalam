@@ -402,3 +402,4 @@ Desktop.ini
 # graphify knowledge graph output (large, regeneratable)
 graphify-out/
 raw/
+*.old

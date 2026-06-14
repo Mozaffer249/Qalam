@@ -7,32 +7,27 @@ x-docker-logging: &docker-logging
     max-file: "3"
 
 services:
-  # RabbitMQ Message Broker
+  # ─────────────── RabbitMQ Message Broker ───────────────
   rabbitmq:
     image: rabbitmq:3-management
     container_name: qalam-rabbitmq
     logging: *docker-logging
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-guest}
-    ports:
-      - "5672:5672" # AMQP port
-      - "15672:15672" # Management UI (http://localhost:15672)
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-qalam}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - qalam-network
     restart: unless-stopped
     healthcheck:
-      # check_port_connectivity verifies the AMQP listener is accepting connections, not
-      # just that Erlang is alive — prevents consumers crashing with TCP-refused at boot.
       test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 10s
       timeout: 10s
       retries: 6
       start_period: 20s
 
-  # Messaging API (Qalam.MessagingApi — consumes from RabbitMQ, sends email/SMS/push)
+  # ─────────────── Messaging API ───────────────
   messaging-api:
     build:
       context: .
@@ -40,29 +35,32 @@ services:
     image: qalam-messaging-api:latest
     container_name: qalam-messaging-api
     logging: *docker-logging
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__MessagingDb=${DB_CONNECTION_STRING}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=${RABBITMQ_USER:-guest}
-      - RabbitMQSettings__Password=${RABBITMQ_PASS:-guest}
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS}
       - RabbitMQSettings__VirtualHost=/
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
       - RabbitMQSettings__PushQueueName=push-queue
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
-      - EmailSettings__Host=${EMAIL_HOST:-mail.dmail.sa}
+      - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
+      - EmailSettings__Host=${EMAIL_HOST}
       - EmailSettings__Port=${EMAIL_PORT:-465}
-      - EmailSettings__FromName=${EMAIL_FROM_NAME:-Qalam Learning Platform}
-      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL:-info@qalam.net.sa}
-      - EmailSettings__UserName=${EMAIL_USERNAME:-info@qalam.net.sa}
-      - EmailSettings__Password=${EMAIL_PASSWORD:-}
-      - EmailSettings__EnableSsl=${EMAIL_ENABLE_SSL:-true}
+      - EmailSettings__FromName=${EMAIL_FROM_NAME}
+      - EmailSettings__FromEmail=${EMAIL_FROM_EMAIL}
+      - EmailSettings__UserName=${EMAIL_USERNAME}
+      - EmailSettings__Password=${EMAIL_PASSWORD}
+      - EmailSettings__EnableSsl=true
       - EmailSettings__SecureSocketMode=${EMAIL_SECURE_SOCKET_MODE:-SslOnConnect}
-      - EmailSettings__DefaultStrategy=${EMAIL_DEFAULT_STRATEGY:-Queued}
+      - EmailSettings__DefaultStrategy=Queued
       - SmsSettings__AccountSid=${TWILIO_ACCOUNT_SID:-}
       - SmsSettings__AuthToken=${TWILIO_AUTH_TOKEN:-}
       - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}
@@ -70,14 +68,12 @@ services:
       - PushNotificationSettings__ProjectId=${FIREBASE_PROJECT_ID:-}
       - OssSettings__AccessKeyId=${OSS_ACCESS_KEY_ID:-}
       - OssSettings__AccessKeySecret=${OSS_ACCESS_KEY_SECRET:-}
-      - OssSettings__BucketName=${OSS_BUCKET:-auth-and-identities-certificates-staging}
+      - OssSettings__BucketName=${OSS_BUCKET:-auth-and-identities-certificates}
       - OssSettings__Region=${OSS_REGION:-me-central-1}
-      - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1.aliyuncs.com}
-      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
-      - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-false}
+      - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1-internal.aliyuncs.com}
+      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com}
+      - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-true}
       - OssSettings__EcsRoleName=${OSS_ECS_ROLE_NAME:-}
-    ports:
-      - "5001:80"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -88,10 +84,10 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:80/api/messaging/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 6
+      start_period: 120s
 
-  # Qalam Backend API
+  # ─────────────── Qalam Backend API ───────────────
   qalam-api:
     build:
       context: .
@@ -99,78 +95,78 @@ services:
     image: qalam-backend-api:latest
     container_name: qalam-backend-api
     logging: *docker-logging
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__dbcontext=${DB_CONNECTION_STRING}
+      - MIGRATE_ON_STARTUP=${MIGRATE_ON_STARTUP:-false}
+      - SEED_DEFAULT_ADMIN=${SEED_DEFAULT_ADMIN:-false}
+      - DEFAULT_ADMIN_EMAIL=${DEFAULT_ADMIN_EMAIL:-}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
       - EncryptionSettings__Key=${ENCRYPTION_KEY}
       - jwtSettings__Secret=${JWT_SECRET}
       - jwtSettings__Issuer=${JWT_ISSUER:-QalamProject}
       - jwtSettings__Audience=${JWT_AUDIENCE:-QalamProjectUsers}
-      - jwtSettings__AccessTokenExpireDate=${JWT_ACCESS_TOKEN_EXPIRE:-60}
-      - jwtSettings__RefreshTokenExpireDate=${JWT_REFRESH_TOKEN_EXPIRE:-43200}
-      - jwtSettings__ValidateIssuer=${JWT_VALIDATE_ISSUER:-true}
-      - jwtSettings__ValidateAudience=${JWT_VALIDATE_AUDIENCE:-true}
-      - jwtSettings__ValidateLifeTime=${JWT_VALIDATE_LIFETIME:-true}
-      - jwtSettings__ValidateIssuerSigningKey=${JWT_VALIDATE_SIGNING_KEY:-true}
+      - jwtSettings__AccessTokenExpireDate=60
+      - jwtSettings__RefreshTokenExpireDate=43200
+      - jwtSettings__ValidateIssuer=true
+      - jwtSettings__ValidateAudience=true
+      - jwtSettings__ValidateLifeTime=true
+      - jwtSettings__ValidateIssuerSigningKey=true
       - MessagingApi__BaseUrl=http://messaging-api
-      - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:4200}
-      - RateLimiting__Login__MaxAttempts=${RATE_LIMIT_LOGIN_MAX:-5}
-      - RateLimiting__Login__WindowMinutes=${RATE_LIMIT_LOGIN_WINDOW:-15}
-      - RateLimiting__Register__MaxAttempts=${RATE_LIMIT_REGISTER_MAX:-3}
-      - RateLimiting__Register__WindowMinutes=${RATE_LIMIT_REGISTER_WINDOW:-60}
-      - RateLimiting__PasswordReset__MaxAttempts=${RATE_LIMIT_PASSWORD_RESET_MAX:-3}
-      - RateLimiting__PasswordReset__WindowMinutes=${RATE_LIMIT_PASSWORD_RESET_WINDOW:-60}
-      - RateLimiting__RefreshToken__MaxAttempts=${RATE_LIMIT_REFRESH_TOKEN_MAX:-10}
-      - RateLimiting__RefreshToken__WindowMinutes=${RATE_LIMIT_REFRESH_TOKEN_WINDOW:-1}
-      - PasswordPolicy__MinimumLength=${PASSWORD_MIN_LENGTH:-8}
-      - PasswordPolicy__RequireUppercase=${PASSWORD_REQUIRE_UPPERCASE:-true}
-      - PasswordPolicy__RequireLowercase=${PASSWORD_REQUIRE_LOWERCASE:-true}
-      - PasswordPolicy__RequireDigit=${PASSWORD_REQUIRE_DIGIT:-true}
-      - PasswordPolicy__RequireSpecialCharacter=${PASSWORD_REQUIRE_SPECIAL:-true}
-      - PasswordPolicy__PreventPasswordReuse=${PASSWORD_PREVENT_REUSE:-5}
-      - PasswordPolicy__PasswordExpiryDays=${PASSWORD_EXPIRY_DAYS:-90}
-      - PasswordPolicy__CheckCommonPasswords=${PASSWORD_CHECK_COMMON:-true}
-      - SecuritySettings__SessionTimeout__Enabled=${SESSION_TIMEOUT_ENABLED:-true}
-      - SecuritySettings__SessionTimeout__InactivityMinutes=${SESSION_TIMEOUT_INACTIVITY:-480}
-      - SecuritySettings__SessionTimeout__CheckIntervalMinutes=${SESSION_TIMEOUT_CHECK_INTERVAL:-5}
-      - SecuritySettings__RiskBasedAuth__Enabled=${RISK_BASED_AUTH_ENABLED:-true}
-      - SecuritySettings__RiskBasedAuth__MaxFailedAttemptsPerIp=${RISK_BASED_AUTH_MAX_FAILED:-10}
-      - SecuritySettings__RiskBasedAuth__FailedAttemptWindowMinutes=${RISK_BASED_AUTH_WINDOW:-60}
-      - SecuritySettings__RiskBasedAuth__RequireTwoFactorForSuspiciousIp=${RISK_BASED_AUTH_REQUIRE_2FA:-true}
-      - SecuritySettings__RiskBasedAuth__BlockSuspiciousIpMinutes=${RISK_BASED_AUTH_BLOCK_MINUTES:-30}
-      - SecuritySettings__EmailNotifications__Enabled=${EMAIL_NOTIFICATIONS_ENABLED:-true}
-      - SecuritySettings__EmailNotifications__NotifyOnNewDeviceLogin=${EMAIL_NOTIFY_NEW_DEVICE:-true}
-      - SecuritySettings__EmailNotifications__NotifyOnPasswordChange=${EMAIL_NOTIFY_PASSWORD_CHANGE:-true}
-      - SecuritySettings__EmailNotifications__NotifyOnSessionTerminated=${EMAIL_NOTIFY_SESSION_TERMINATED:-true}
-      - SecuritySettings__EmailNotifications__NotifyOnSuspiciousActivity=${EMAIL_NOTIFY_SUSPICIOUS:-true}
+      - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=${RABBITMQ_USER:-guest}
-      - RabbitMQSettings__Password=${RABBITMQ_PASS:-guest}
+      - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}
+      - RabbitMQSettings__Password=${RABBITMQ_PASS}
       - RabbitMQSettings__VirtualHost=/
       - RabbitMQSettings__EmailQueueName=email-queue
       - RabbitMQSettings__SmsQueueName=sms-queue
       - RabbitMQSettings__PushQueueName=push-queue
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
+      - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     volumes:
-      - ./Qalam.Api/Logs:/app/Logs # Mount logs directory
+      - app_logs:/app/Logs
     depends_on:
       rabbitmq:
         condition: service_healthy
       messaging-api:
-        condition: service_healthy
+        condition: service_started
     networks:
       - qalam-network
     restart: unless-stopped
 
+  # ─────────────── Admin Frontend (Next.js) ───────────────
+  qalam-admin:
+    build:
+      context: /opt/qalam-admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.qalam.net.sa
+    image: qalam-admin:latest
+    container_name: qalam-admin
+    logging: *docker-logging
+    ports:
+      - "127.0.0.1:8090:3000"
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
 volumes:
   rabbitmq_data:
+  app_logs:
 
 networks:
   qalam-network:
     driver: bridge
-
