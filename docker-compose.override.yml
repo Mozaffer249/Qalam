@@ -33,7 +33,7 @@ services:
     environment:
       # Override the hardcoded "Production" from docker-compose.yml so local dev gets
       # Development behavior (verbose logging, test-OTP allowed, etc.).
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
     depends_on:
       sqlserver:
         condition: service_started
@@ -43,7 +43,7 @@ services:
   qalam-api:
     environment:
       # Same override + unlocks the /Api/Test/FileUploadTest/upload endpoint (404s in Production).
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
     depends_on:
       sqlserver:
         condition: service_started
