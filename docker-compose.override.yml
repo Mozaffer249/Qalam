@@ -1,0 +1,66 @@
+# Local-dev override — auto-merged by `docker compose up` when this file sits next to docker-compose.yml.
+# Production deploys use `docker compose -f docker-compose.yml --env-file .env up` (single file flag),
+# which IGNORES this override. Safe to commit.
+#
+# What this override does:
+#   1. Adds a containerized SQL Server so the laptop doesn't need a native install.
+#   2. Forces qalam-api + messaging-api to wait for SQL Server's healthcheck.
+#   3. Drops the qalam-admin service (its build context /opt/qalam-admin only exists on the server).
+#      If you want to test the admin locally, clone the repo to ~/qalam-admin and uncomment the override below.
+
+services:
+  sqlserver:
+    # Azure SQL Edge — Microsoft's SQL Server flavor that runs natively on linux/arm64
+    # (the official mssql/server image is x86_64 only and fails on Apple Silicon).
+    # Supports EF Core migrations + all SQL the app uses. Production keeps using
+    # full SQL Server on the ECS host; this is laptop-only.
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: qalam-sqlserver-local
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD:-LocalDev@2026}
+    ports:
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - qalam-network
+    # No healthcheck — SQL Edge image lacks bash + sqlcmd + curl, and writing a probe
+    # in /bin/ash is fiddly. EF Core's own connection retry handles SQL not-ready races
+    # on app startup, so depends_on: service_started below is sufficient.
+
+  messaging-api:
+    environment:
+      # Override the hardcoded "Production" from docker-compose.yml so local dev gets
+      # Development behavior (verbose logging, test-OTP allowed, etc.).
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      sqlserver:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  qalam-api:
+    environment:
+      # Same override + unlocks the /Api/Test/FileUploadTest/upload endpoint (404s in Production).
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      sqlserver:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      messaging-api:
+        condition: service_started
+
+  # Disable the admin service for local dev (context path doesn't exist on the laptop).
+  # To re-enable: clone https://github.com/yassin-khalid/qalam-admin.git to ~/qalam-admin
+  # and replace this block with:
+  #   qalam-admin:
+  #     build:
+  #       context: /Users/muzafarragab/qalam-admin
+
+  qalam-admin:
+    profiles: ["never"]   # `profiles` not in active profile → service is skipped
+
+volumes:
+  sqlserver_data:

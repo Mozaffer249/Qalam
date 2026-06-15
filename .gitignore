@@ -403,3 +403,4 @@ Desktop.ini
 graphify-out/
 raw/
 *.old
+.env.local
