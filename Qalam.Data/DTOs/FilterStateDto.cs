@@ -23,19 +23,19 @@ public class FilterStateDto
     public int? LevelId { get; set; }
 
     /// <summary>
-    /// Grade ID within the education level
+    /// Grade ID within the education level (wizard step 4).
     /// </summary>
     public int? GradeId { get; set; }
 
     /// <summary>
-    /// Academic term/semester IDs (can select multiple terms)
-    /// </summary>
-    public List<int>? TermIds { get; set; }
-
-    /// <summary>
-    /// Subject ID
+    /// Subject ID (wizard step 5 — before term selection).
     /// </summary>
     public int? SubjectId { get; set; }
+
+    /// <summary>
+    /// Academic term/semester IDs (wizard step 6 — after subjectId).
+    /// </summary>
+    public List<int>? TermIds { get; set; }
 
     /// <summary>
     /// Quran content type ID (for Quran domain): Memorization, Recitation, Tajweed

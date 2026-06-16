@@ -6,7 +6,10 @@ public class FilterOptionsResponseDto
 {
     public FilterStateDto CurrentState { get; set; } = default!;
     public EducationRuleDto Rule { get; set; } = default!;
-    public string NextStep { get; set; } = default!; // "Curriculum", "Level", "Grade", "Term", "Subject", "QuranContentType", "QuranLevel", "Unit", "Done"
+    /// <summary>
+    /// Next wizard step. Standard flow: Curriculum, Level, Grade, Subject, Term, Unit, Done (in that order).
+    /// </summary>
+    public string NextStep { get; set; } = default!;
     
     // For non-paginated responses (backward compatibility)
     public List<FilterOptionDto> Options { get; set; } = new List<FilterOptionDto>();

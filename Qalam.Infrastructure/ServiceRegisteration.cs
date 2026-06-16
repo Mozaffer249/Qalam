@@ -105,6 +105,7 @@ namespace Qalam.Infrastructure
                 c.OperationFilter<AllowAnonymousOperationFilter>();
                 c.OperationFilter<AuthConfigOpenApiOperationFilter>();
                 c.OperationFilter<TeacherRegistrationOpenApiOperationFilter>();
+                c.OperationFilter<EducationFilterOptionsOpenApiOperationFilter>();
                 c.DocumentFilter<OpenApiTagDescriptionsDocumentFilter>();
 
                 // Add schema filter to show proper default values instead of null for all property types

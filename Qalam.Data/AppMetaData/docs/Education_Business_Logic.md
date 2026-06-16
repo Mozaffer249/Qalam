@@ -1,1126 +1,1094 @@
-# منصة قلم التعليمية - دليل منطق الأعمال الشامل
+# دليل `filter-options` — منصة قلم التعليمية
 
-> **للفريق الأمامي (Frontend Team)** | آخر تحديث: يناير 2026
+> مرجع API لمعالج اختيار المجال → المادة → الوحدات | آخر تحديث: مايو 2026  
+> **المصدر:** `EducationController` → `EducationFilterService`
+
+**متطلب مسبق:** `GET /Api/V1/Education/Domains` — لاختيار `domainId` (استخدم `code` وليس رقماً ثابتاً).  
+**إدارة CRUD (مشرف):** [Education-Management-CRUD.md](../../../docs/Education-Management-CRUD.md)
 
 ---
 
 ## جدول المحتويات
 
-1. [نظرة عامة على النظام](#نظرة-عامة-على-النظام)
-2. [هيكل الكيانات والعلاقات](#هيكل-الكيانات-والعلاقات)
-3. [المجالات التعليمية](#المجالات-التعليمية)
-4. [العمليات التفصيلية (CRUD)](#العمليات-التفصيلية-crud)
-5. [سيناريوهات الاستخدام](#سيناريوهات-الاستخدام)
-6. [منطق واجهة المستخدم](#منطق-واجهة-المستخدم)
-7. [قواعد التحقق](#قواعد-التحقق)
-8. [الأخطاء الشائعة وحلولها](#الأخطاء-الشائعة-وحلولها)
+1. [نظرة عامة](#نظرة-عامة)
+2. [شجرة القرار الرئيسية](#شجرة-القرار-الرئيسية)
+3. [شجرة المسار القياسي](#شجرة-المسار-القياسي)
+4. [أشجار المجالات](#أشجار-المجالات)
+5. [أعلام القواعد `rule`](#أعلام-القواعد-rule)
+6. [حالات `nextStep`](#حالات-nextstep)
+7. [معاملات الاستعلام](#معاملات-الاستعلام)
+8. [شكل الاستجابة](#شكل-الاستجابة)
+   - [غلاف API](#غلاف-api)
+   - [حقول data](#حقول-data)
+   - [استجابة حسب nextStep](#استجابة-حسب-nextstep)
+9. [خوارزمية الخادم](#خوارزمية-الخادم)
+10. [أمثلة حسب المجال](#أمثلة-حسب-المجال)
+11. [الحالات النهائية والحالات الحدية](#الحالات-النهائية-والحالات-الحدية)
+12. [أخطاء API](#أخطاء-api)
 
 ---
 
-## نظرة عامة على النظام
-
-### وصف المنصة
-
-منصة **قلم** هي منصة تعليمية متكاملة تدعم عدة مجالات تعليمية:
-
-| المجال | الوصف | يحتوي منهج؟ |
-|--------|-------|-------------|
-| 🏫 التعليم المدرسي | التعليم النظامي مع مناهج وفصول دراسية | ✅ نعم |
-| 📖 القرآن الكريم | تحفيظ وتلاوة القرآن الكريم | ❌ لا |
-| 🌍 اللغات | تعلم اللغات المختلفة | ❌ لا |
-| 💡 المهارات العامة | المهارات الحياتية والتقنية | ❌ لا |
-
-### الفرق الرئيسي
-
-- **المجالات ذات المنهج** (مثل التعليم المدرسي): تحتاج اختيار منهج → فصل دراسي
-- **المجالات بدون منهج** (مثل القرآن): تتعامل مباشرة مع المستويات
-
----
-
-## هيكل الكيانات والعلاقات
-
-### الرسم التوضيحي للعلاقات
-
-```
-                    ┌─────────────────────────────────────┐
-                    │      المجال التعليمي (Domain)        │
-                    │   مثال: التعليم المدرسي، القرآن       │
-                    │   HasCurriculum: true/false         │
-                    └─────────────────────────────────────┘
-                                     │
-              ┌──────────────────────┼──────────────────────┐
-              │                      │                      │
-              ▼                      │                      │
-   ┌─────────────────────┐           │                      │
-   │   المنهج (Curriculum) │           │                      │
-   │  (فقط إذا HasCurriculum)│           │                      │
-   │  مثال: السعودي، المصري │           │                      │
-   └─────────────────────┘           │                      │
-              │                      │                      │
-              ▼                      │                      │
-   ┌─────────────────────┐           │                      │
-   │ الفصل الدراسي (Term) │           │                      │
-   │  مثال: الفصل الأول    │           │                      │
-   └─────────────────────┘           │                      │
-                                     │                      │
-                                     ▼                      │
-                    ┌─────────────────────────────────────┐ │
-                    │      المرحلة التعليمية (Level)       │◄┘
-                    │   مثال: ابتدائي، متوسط، ثانوي        │
-                    └─────────────────────────────────────┘
-                                     │
-                                     ▼
-                    ┌─────────────────────────────────────┐
-                    │        الصف الدراسي (Grade)         │
-                    │   مثال: الأول، الثاني، الثالث        │
-                    └─────────────────────────────────────┘
-                                     │
-                                     ▼
-                    ┌─────────────────────────────────────┐
-                    │         المادة الدراسية (Subject)    │
-                    │   مثال: الرياضيات، اللغة العربية      │
-                    │   (يمكن ربطها بأي مستوى في الهرم)    │
-                    └─────────────────────────────────────┘
-```
-
-### تفاصيل كل كيان
-
-#### 1. المجال التعليمي (EducationDomain)
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `nameAr` | string | ✅ | الاسم بالعربية |
-| `nameEn` | string | ✅ | الاسم بالإنجليزية |
-| `code` | string | ✅ | الرمز (school, quran, language, skills) |
-| `hasCurriculum` | bool | ✅ | **مهم جداً**: هل يحتوي على منهج؟ |
-| `descriptionAr` | string | ❌ | الوصف بالعربية |
-| `descriptionEn` | string | ❌ | الوصف بالإنجليزية |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
-#### 2. المنهج الدراسي (Curriculum)
-
-> ⚠️ **يُستخدم فقط عندما** `Domain.HasCurriculum = true`
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `nameAr` | string | ✅ | مثل: "المنهج السعودي" |
-| `nameEn` | string | ✅ | مثل: "Saudi Curriculum" |
-| `country` | string | ❌ | الدولة |
-| `descriptionAr` | string | ❌ | الوصف بالعربية |
-| `descriptionEn` | string | ❌ | الوصف بالإنجليزية |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
-#### 3. المرحلة التعليمية (EducationLevel)
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `domainId` | int | ✅ | المجال التابع له |
-| `curriculumId` | int | ❌ | المنهج (فقط إذا المجال له منهج) |
-| `nameAr` | string | ✅ | مثل: "المرحلة الابتدائية" |
-| `nameEn` | string | ✅ | مثل: "Primary Stage" |
-| `orderIndex` | int | ✅ | ترتيب العرض |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
-#### 4. الصف الدراسي (Grade)
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `levelId` | int | ✅ | المرحلة التابع لها |
-| `nameAr` | string | ✅ | مثل: "الصف الأول" |
-| `nameEn` | string | ✅ | مثل: "Grade 1" |
-| `orderIndex` | int | ✅ | ترتيب العرض |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
-#### 5. الفصل الدراسي (AcademicTerm)
-
-> ⚠️ **يُستخدم فقط عندما** `Domain.HasCurriculum = true`
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `curriculumId` | int | ✅ | المنهج التابع له |
-| `nameAr` | string | ✅ | مثل: "الفصل الأول" |
-| `nameEn` | string | ✅ | مثل: "First Term" |
-| `orderIndex` | int | ✅ | ترتيب العرض |
-| `isMandatory` | bool | ✅ | هل إلزامي؟ |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
-#### 6. المادة الدراسية (Subject)
-
-> 📌 **مرنة**: يمكن ربطها بأي مستوى في الهرم
-
-| الحقل | النوع | مطلوب | الوصف |
-|-------|------|-------|-------|
-| `id` | int | تلقائي | المعرف الفريد |
-| `domainId` | int | ✅ | **مطلوب دائماً** |
-| `curriculumId` | int | ❌ | اختياري |
-| `levelId` | int | ❌ | اختياري |
-| `gradeId` | int | ❌ | اختياري |
-| `termId` | int | ❌ | اختياري |
-| `nameAr` | string | ✅ | مثل: "الرياضيات" |
-| `nameEn` | string | ✅ | مثل: "Mathematics" |
-| `descriptionAr` | string | ❌ | الوصف بالعربية |
-| `descriptionEn` | string | ❌ | الوصف بالإنجليزية |
-| `isActive` | bool | ✅ | هل مفعّل؟ |
-
----
-
-## المجالات التعليمية
-
-### 1. التعليم المدرسي (school)
-
-```
-HasCurriculum = true
-
-المسار الكامل:
-المجال → المنهج → المرحلة → الصف → الفصل → المادة
-
-مثال:
-التعليم المدرسي → المنهج السعودي → المرحلة الابتدائية → الصف الأول → الفصل الأول → الرياضيات
-```
-
-### 2. القرآن الكريم (quran)
-
-```
-HasCurriculum = false
-
-المسار:
-المجال → المرحلة → المادة
-
-مثال:
-القرآن الكريم → مستوى المبتدئين → الحفظ
-```
-
-### 3. اللغات (language)
-
-```
-HasCurriculum = false
-
-المسار:
-المجال → المرحلة → المادة
-
-مثال:
-اللغات → المستوى المتوسط → اللغة الإنجليزية
-```
-
-### 4. المهارات العامة (skills)
-
-```
-HasCurriculum = false
-
-المسار:
-المجال → المادة (مباشرة)
-
-مثال:
-المهارات العامة → مهارات التواصل
-```
-
----
-
-## العمليات التفصيلية (CRUD)
-
-### 1. المجالات التعليمية (Domains)
-
-#### عرض جميع المجالات
+## نظرة عامة
 
 ```http
-GET /Api/V1/Education/Domains?pageNumber=1&pageSize=10&search=
+GET /Api/V1/Education/filter-options
+Authorization: Bearer {token}
 ```
 
-**الاستجابة الناجحة:**
+| البند | القيمة |
+|-------|--------|
+| المصادقة | أي مستخدم مسجّل |
+| حالة المعالج | **لا تُخزَّن على الخادم** — كل الاختيارات في query string |
+| المبدأ | كل استدعاء يرسل **كل** المعرّفات المختارة حتى الآن |
+
+**حقول الاستجابة الأساسية:**
+
+| الحقل | الدور |
+|-------|------|
+| `nextStep` | الخطوة التالية (`Curriculum` … `Unit` … `Done`) |
+| `options[]` | خيارات الخطوة الحالية |
+| `unit[]` | الوحدات عند `nextStep === "Unit"` |
+| `rule` | أي خطوات مفعّلة لهذا المجال |
+| `currentState` | echo لمعاملات الاستعلام |
+| `subject`, `contentTypes`, `levels` | قرآن فقط |
+
+---
+
+## شجرة القرار الرئيسية
+
+### Mermaid
+
+```mermaid
+flowchart TD
+    START([GET filter-options]) --> V1{domainId set}
+    V1 -->|no| E400[400 DomainId required]
+    V1 -->|yes| V2{domain and rule exist}
+    V2 -->|no| E404[404 not found]
+    V2 -->|yes| BR{code is quran}
+    BR -->|yes| QPATH[Quran path one shot]
+    BR -->|no| STD[Standard path step by step]
+    QPATH --> QOUT[subject contentTypes levels units]
+    STD --> STEPS[Curriculum Level Grade Subject Term]
+    STEPS --> UOUT[unit list when nextStep Unit]
+    STEPS --> DOUT["end when nextStep Done"]
+```
+
+### ASCII
+
+```
+filter-options
+│
+├─ domainId مفقود ─────────────────────────────► 400
+├─ مجال/قاعدة غير موجودة ─────────────────────► 404
+│
+└─ domain.code == "quran"?
+       │
+       ├─ نعم ──► Unit (دفعة واحدة)
+       │          ├─ subject (تلقائي)
+       │          ├─ contentTypes[]
+       │          ├─ levels[]
+       │          └─ unit[] + totalCount/pageNumber/pageSize
+       │
+       └─ لا ──► مسار قياسي (خطوة/استدعاء):
+                  Curriculum? → Level? → Grade? → Subject → Term? → Unit | Done
+```
+
+---
+
+## شجرة المسار القياسي
+
+يُطبَّق عندما `domain.code ≠ "quran"`. كل عقدة تُقيَّم بالترتيب؛ أول شرط غير مُحقَّق يحدد `nextStep`.
+
+```mermaid
+flowchart TD
+    S0([Start with domainId]) --> C1{Need curriculum}
+    C1 -->|yes| NC[nextStep Curriculum]
+    C1 -->|no| C2{Need level}
+    C2 -->|yes| NL[nextStep Level]
+    C2 -->|no| C3{Need grade}
+    C3 -->|yes| NG[nextStep Grade]
+    C3 -->|no| C4{Need subject}
+    C4 -->|yes| NS[nextStep Subject]
+    C4 -->|no| C5{Need term}
+    C5 -->|yes| NT[nextStep Term]
+    C5 -->|no| C6{Has content units}
+    C6 -->|yes| NU[nextStep Unit]
+    C6 -->|no| ND[nextStep Done]
+```
+
+> **شروط العقد:** `Need curriculum` = `hasCurriculum` ولا `curriculumId` · `Need level` = `hasEducationLevel` ولا `levelId` · `Need grade` = `hasGrade` ولا `gradeId` · `Need subject` = لا `subjectId` · `Need term` = `hasAcademicTerm` ولا `termIds` · `Has content units` = `hasContentUnits`
+
+```
+المسار القياسي (شجرة نصية)
+domainId
+├── [hasCurriculum && !curriculumId]     → Curriculum  (+ curriculumId)
+├── [hasEducationLevel && !levelId]      → Level       (+ levelId)
+├── [hasGrade && !gradeId]               → Grade       (+ gradeId)  ※ يتطلب levelId
+├── [!subjectId]                         → Subject     (+ subjectId)  ※ دائماً بعد الخطوات السابقة
+├── [hasAcademicTerm && !termIds]        → Term        (+ termIds[])  ※ بعد subjectId
+├── [hasContentUnits]                    → Unit        (unit[])
+└── [else]                               → Done
+```
+
+> **ترتيب مهم:** المادة **قبل** الفصل. المواد لا تُفلتر بـ `termId` عند الاختيار.
+
+---
+
+## أشجار المجالات
+
+كل مجال = فرع من `GET /Education/Domains` ثم استدعاءات `filter-options` حسب الشجرة.
+
+### شجرة عامة — كل المجالات
+
+```
+Education/Domains
+├── school      → Curriculum → Level → Grade → Subject → Term → Unit
+├── university  → Curriculum → Level ──────────→ Subject → Term → Unit
+├── language    → Level ──────────────────────→ Subject ────────→ Unit
+├── skills      → Subject ──────────────────────────────────────→ Unit
+└── quran       → Unit (واحد: subject + contentTypes + levels + unit[])
+```
+
+### `school` — تعليم مدرسي
+
+```mermaid
+flowchart LR
+    D[domainId] --> CU[Curriculum] --> L[Level] --> G[Grade] --> SU[Subject] --> T[Term] --> U[Unit]
+```
+
+```
+school
+└── curriculumId
+    └── levelId
+        └── gradeId
+            └── subjectId
+                └── termIds[]  (اختياري متعدد — يفلتر unit[])
+                    └── unit[]
+```
+
+### `university` — تعليم جامعي
+
+```mermaid
+flowchart LR
+    D[domainId] --> CU[Curriculum] --> L[Level] --> SU[Subject] --> T[Term] --> U[Unit]
+```
+
+```
+university
+└── curriculumId
+    └── levelId          ← لا خطوة Grade
+        └── subjectId
+            └── termIds[]
+                └── unit[]
+```
+
+### `language` — لغات
+
+```mermaid
+flowchart LR
+    D[domainId] --> L[Level] --> SU[Subject] --> U[Unit]
+```
+
+### `skills` — مهارات عامة
+
+```mermaid
+flowchart LR
+    D[domainId] --> SU[Subject] --> U[Unit]
+```
+
+### `quran` — قرآن كريم
+
+```mermaid
+flowchart TD
+    D[domainId] --> U[nextStep Unit]
+    U --> S[subject auto]
+    U --> CT[contentTypes]
+    U --> LV[levels]
+    U --> UN[units paginated]
+```
+
+```
+quran  (استدعاء واحد)
+├── unitTypeCode: QuranPart (افتراضي) | QuranSurah
+├── pageNumber / pageSize  (ترقيم الوحدات فقط)
+├── subject        (مادة واحدة — تلقائي)
+├── contentTypes[] (حفظ / تلاوة / تجويد)
+├── levels[]       (نوراني … متقدم)
+└── unit[]
+```
+
+---
+
+## أعلام القواعد `rule`
+
+| المجال | `code` | منهج | مرحلة | صف | فصل | وحدات | قرآن نوع/مستوى |
+|--------|--------|:---:|:---:|:---:|:---:|:---:|:---:|
+| تعليم مدرسي | `school` | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| قرآن | `quran` | — | — | — | — | ✅ | تلميح UI |
+| لغات | `language` | — | ✅ | — | — | ✅ | — |
+| مهارات | `skills` | — | — | — | — | ✅ | — |
+| جامعة | `university` | ✅ | ✅ | — | ✅ | ✅ | — |
+
+| حقل `rule` | المعنى |
+|------------|--------|
+| `hasCurriculum` | خطوة المنهج |
+| `hasEducationLevel` | خطوة المرحلة |
+| `hasGrade` | خطوة الصف |
+| `hasAcademicTerm` | خطوة الفصل (متعدد) |
+| `hasContentUnits` | إرجاع `unit[]` |
+| `hasLessons` | المجال يدعم دروساً (خارج filter-options) |
+| `requiresQuranContentType` | تلميح — نوع محتوى قرآني |
+| `requiresQuranLevel` | تلميح — مستوى قرآني |
+| `requiresUnitTypeSelection` | تلميح — جزء vs سورة |
+
+> الخادم يفرّع القرآن بـ `domain.code === "quran"` وليس برقم `domainId`.
+
+---
+
+## حالات `nextStep`
+
+| `nextStep` | `options[]` | المعامل المُضاف للاستعلام التالي | ملاحظات |
+|------------|-------------|----------------------------------|---------|
+| `Curriculum` | مناهج | `curriculumId` | — |
+| `Level` | مراحل | `levelId` | — |
+| `Grade` | صفوف | `gradeId` | يتطلب `levelId` |
+| `Subject` | مواد | `subjectId` | إلزامي بعد الخطوات السابقة |
+| `Term` | فصول | `termIds` (متكرر: `termIds=1&termIds=2`) | اختياري؛ يفلتر `unit[]` |
+| `Unit` | فارغ | — | `unit[]` مملوء |
+| `Done` | فارغ | — | لا وحدات |
+
+---
+
+## معاملات الاستعلام
+
+| المعامل | النوع | مطلوب | ملاحظات |
+|---------|------|:---:|---------|
+| `domainId` | int | **نعم** | **400** إن غاب |
+| `curriculumId` | int? | حسب الخطوة | — |
+| `levelId` | int? | حسب الخطوة | قبل `gradeId` |
+| `gradeId` | int? | حسب الخطوة | — |
+| `termIds` | int[] | حسب الخطوة | `?termIds=1&termIds=2` |
+| `subjectId` | int? | بعد Subject | — |
+| `quranContentTypeId` | int? | اختياري | **echo فقط** — لا يفلتر الوحدات |
+| `quranLevelId` | int? | اختياري | **echo فقط** |
+| `unitTypeCode` | string? | قرآن | `QuranPart` (افتراضي), `QuranSurah` |
+| `pageNumber` | int | قرآن | افتراضي `1` — **يُتجاهل** في المسار القياسي |
+| `pageSize` | int | قرآن | افتراضي `20` — **يُتجاهل** في المسار القياسي |
+
+معاملات زائدة أو خاطئة للمجال **تُتجاهل** (لا 400).
+
+---
+
+## شكل الاستجابة
+
+### غلاف API
+
+كل استدعاء ناجح يعيد نفس الغلاف:
+
 ```json
 {
-    "statusCode": 200,
-    "succeeded": true,
-    "message": null,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "nameAr": "التعليم المدرسي",
-                "nameEn": "School Education",
-                "code": "school",
-                "hasCurriculum": true,
-                "descriptionAr": "التعليم النظامي من الابتدائي للثانوي",
-                "descriptionEn": "Formal education from primary to high school",
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            },
-            {
-                "id": 2,
-                "nameAr": "القرآن الكريم",
-                "nameEn": "Holy Quran",
-                "code": "quran",
-                "hasCurriculum": false,
-                "descriptionAr": "تحفيظ وتلاوة القرآن الكريم",
-                "descriptionEn": "Quran memorization and recitation",
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 4,
-        "pageNumber": 1,
-        "pageSize": 10,
-        "totalPages": 1
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": { },
+  "errors": null
+}
+```
+
+استدعاء فاشل:
+
+```json
+{
+  "statusCode": 400,
+  "succeeded": false,
+  "message": "DomainId is required",
+  "data": null,
+  "errors": null
+}
+```
+
+### حقول `data`
+
+| الحقل | النوع | متى يُملأ |
+|-------|------|----------|
+| `currentState` | object | دائماً |
+| `rule` | object | دائماً |
+| `nextStep` | string | دائماً |
+| `options` | `FilterOptionDto[]` | خطوات وسيطة (`Curriculum` … `Term`) |
+| `unit` | `FilterOptionDto[]` \| null | `nextStep === "Unit"` |
+| `subject` | `FilterOptionDto` \| null | قرآن فقط |
+| `contentTypes` | `FilterOptionDto[]` \| null | قرآن فقط |
+| `levels` | `FilterOptionDto[]` \| null | قرآن فقط |
+| `totalCount` | int \| null | قرآن (`Unit`) أو مسار قياسي (`Unit`) |
+| `pageNumber` | int \| null | قرآن (`Unit`) |
+| `pageSize` | int \| null | قرآن (`Unit`) |
+| `totalPages` | int \| null | قرآن (`Unit`) |
+
+#### `currentState`
+
+| الحقل | النوع | الوصف |
+|-------|------|--------|
+| `domainId` | int | المجال |
+| `curriculumId` | int \| null | المنهج |
+| `levelId` | int \| null | المرحلة |
+| `gradeId` | int \| null | الصف |
+| `termIds` | int[] \| null | الفصول المختارة |
+| `subjectId` | int \| null | المادة |
+| `quranContentTypeId` | int \| null | echo فقط (قرآن) |
+| `quranLevelId` | int \| null | echo فقط (قرآن) |
+| `unitTypeCode` | string \| null | نوع الوحدة (قرآن) |
+
+#### `FilterOptionDto`
+
+```json
+{
+  "id": 1,
+  "nameAr": "المنهج السعودي",
+  "nameEn": "Saudi Curriculum",
+  "code": "saudi"
+}
+```
+
+`code` اختياري — يظهر غالباً في وحدات القرآن (`QuranPart`, `QuranSurah`).
+
+### استجابة حسب `nextStep`
+
+| `nextStep` | `options` | `unit` | `subject` | `contentTypes` | `levels` | ترقيم |
+|------------|-----------|--------|-----------|----------------|----------|-------|
+| `Curriculum` | مناهج | null | null | null | null | null |
+| `Level` | مراحل | null | null | null | null | null |
+| `Grade` | صفوف | null | null | null | null | null |
+| `Subject` | مواد | null | null | null | null | null |
+| `Term` | فصول | null | null | null | null | null |
+| `Unit` | `[]` | وحدات | قرآن | قرآن | قرآن | قرآن فقط |
+| `Done` | `[]` | null | null | null | null | null |
+
+#### قالب — خطوة وسيطة (`options`)
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 1,
+      "curriculumId": null,
+      "levelId": null,
+      "gradeId": null,
+      "termIds": null,
+      "subjectId": null,
+      "quranContentTypeId": null,
+      "quranLevelId": null,
+      "unitTypeCode": null
     },
-    "errors": null
-}
-```
-
-#### عرض مجال واحد
-
-```http
-GET /Api/V1/Education/Domains/1
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "message": null,
-    "data": {
-        "id": 1,
-        "nameAr": "التعليم المدرسي",
-        "nameEn": "School Education",
-        "code": "school",
-        "hasCurriculum": true,
-        "descriptionAr": "التعليم النظامي",
-        "descriptionEn": "Formal education",
-        "isActive": true,
-        "createdAt": "2026-01-01T00:00:00"
+    "rule": {
+      "hasCurriculum": true,
+      "hasEducationLevel": true,
+      "hasGrade": true,
+      "hasAcademicTerm": true,
+      "hasContentUnits": true,
+      "hasLessons": true,
+      "requiresQuranContentType": false,
+      "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
     },
-    "errors": null
+    "nextStep": "Curriculum",
+    "options": [
+      { "id": 1, "nameAr": "...", "nameEn": "...", "code": null }
+    ],
+    "unit": null,
+    "totalCount": null,
+    "pageNumber": null,
+    "pageSize": null,
+    "totalPages": null,
+    "contentTypes": null,
+    "levels": null,
+    "subject": null
+  },
+  "errors": null
 }
 ```
 
-**استجابة غير موجود:**
+#### قالب — خطوة `Unit` (مسار قياسي)
+
 ```json
 {
-    "statusCode": 404,
-    "succeeded": false,
-    "message": "Education domain not found",
-    "data": null,
-    "errors": null
-}
-```
-
-#### إنشاء مجال جديد (Admin فقط)
-
-```http
-POST /Api/V1/Education/Domains
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "nameAr": "البرمجة",
-    "nameEn": "Programming",
-    "code": "programming",
-    "hasCurriculum": false,
-    "descriptionAr": "تعلم البرمجة",
-    "descriptionEn": "Learn programming",
-    "isActive": true
-}
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 201,
-    "succeeded": true,
-    "message": "Created Successfully",
-    "data": {
-        "id": 5,
-        "nameAr": "البرمجة",
-        "nameEn": "Programming",
-        "code": "programming",
-        "hasCurriculum": false,
-        "isActive": true,
-        "createdAt": "2026-01-16T12:00:00"
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 1,
+      "curriculumId": 1,
+      "levelId": 2,
+      "gradeId": 5,
+      "termIds": [1, 2],
+      "subjectId": 12,
+      "quranContentTypeId": null,
+      "quranLevelId": null,
+      "unitTypeCode": null
     },
-    "errors": null
+    "rule": { "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": true,
+              "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+              "requiresQuranContentType": false, "requiresQuranLevel": false,
+              "requiresUnitTypeSelection": false },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 201, "nameAr": "...", "nameEn": "...", "code": "SchoolUnit" }
+    ],
+    "totalCount": 3,
+    "pageNumber": 1,
+    "pageSize": 3,
+    "totalPages": 1,
+    "contentTypes": null,
+    "levels": null,
+    "subject": null
+  },
+  "errors": null
 }
 ```
 
-**استجابة خطأ (الكود موجود مسبقاً):**
-```json
-{
-    "statusCode": 400,
-    "succeeded": false,
-    "message": "Domain code already exists",
-    "data": null,
-    "errors": null
-}
-```
-
----
-
-### 2. المناهج (Curriculums)
-
-#### عرض جميع المناهج
-
-```http
-GET /Api/V1/Curriculum?pageNumber=1&pageSize=10&search=
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "nameAr": "المنهج السعودي",
-                "nameEn": "Saudi Curriculum",
-                "country": "SA",
-                "descriptionAr": "منهج المملكة العربية السعودية",
-                "descriptionEn": "Saudi Arabia curriculum",
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            },
-            {
-                "id": 2,
-                "nameAr": "المنهج المصري",
-                "nameEn": "Egyptian Curriculum",
-                "country": "EG",
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 2,
-        "pageNumber": 1,
-        "pageSize": 10
-    }
-}
-```
-
-#### إنشاء منهج جديد
-
-```http
-POST /Api/V1/Curriculum
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "nameAr": "المنهج الإماراتي",
-    "nameEn": "UAE Curriculum",
-    "country": "AE",
-    "descriptionAr": "منهج دولة الإمارات",
-    "descriptionEn": "United Arab Emirates curriculum",
-    "isActive": true
-}
-```
-
-#### تعديل منهج
-
-```http
-PUT /Api/V1/Curriculum/1
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "id": 1,
-    "nameAr": "المنهج السعودي المطور",
-    "nameEn": "Updated Saudi Curriculum",
-    "country": "SA",
-    "isActive": true
-}
-```
-
-#### حذف منهج
-
-```http
-DELETE /Api/V1/Curriculum/1
-Authorization: Bearer {token}
-```
-
-**استجابة النجاح:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "message": "Deleted Successfully",
-    "data": null
-}
-```
-
-**استجابة خطأ (يوجد مراحل مرتبطة):**
-```json
-{
-    "statusCode": 400,
-    "succeeded": false,
-    "message": "Cannot delete curriculum with existing education levels",
-    "data": null
-}
-```
-
-#### تفعيل/إلغاء تفعيل منهج
-
-```http
-PATCH /Api/V1/Curriculum/1/toggle-status
-Authorization: Bearer {token}
-```
-
-**الاستجابة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "message": "Curriculum status toggled successfully",
-    "data": true
-}
-```
-
----
-
-### 3. المراحل التعليمية (Levels)
-
-#### عرض المراحل مع الفلترة
-
-```http
-GET /Api/V1/Education/Levels?pageNumber=1&pageSize=10&curriculumId=1&search=
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "domainId": 1,
-                "domainNameAr": "التعليم المدرسي",
-                "domainNameEn": "School Education",
-                "curriculumId": 1,
-                "curriculumNameAr": "المنهج السعودي",
-                "curriculumNameEn": "Saudi Curriculum",
-                "nameAr": "المرحلة الابتدائية",
-                "nameEn": "Primary Stage",
-                "orderIndex": 1,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            },
-            {
-                "id": 2,
-                "domainId": 1,
-                "domainNameAr": "التعليم المدرسي",
-                "domainNameEn": "School Education",
-                "curriculumId": 1,
-                "curriculumNameAr": "المنهج السعودي",
-                "curriculumNameEn": "Saudi Curriculum",
-                "nameAr": "المرحلة المتوسطة",
-                "nameEn": "Middle Stage",
-                "orderIndex": 2,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 3,
-        "pageNumber": 1,
-        "pageSize": 10
-    }
-}
-```
-
-#### إنشاء مرحلة جديدة
-
-```http
-POST /Api/V1/Education/Levels
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "domainId": 1,
-    "curriculumId": 1,
-    "nameAr": "المرحلة الثانوية",
-    "nameEn": "High School Stage",
-    "orderIndex": 3,
-    "isActive": true
-}
-```
-
----
-
-### 4. الصفوف الدراسية (Grades)
-
-#### عرض الصفوف حسب المرحلة
-
-```http
-GET /Api/V1/Education/Grades?pageNumber=1&pageSize=10&levelId=1&search=
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "levelId": 1,
-                "levelNameAr": "المرحلة الابتدائية",
-                "levelNameEn": "Primary Stage",
-                "nameAr": "الصف الأول",
-                "nameEn": "Grade 1",
-                "orderIndex": 1,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            },
-            {
-                "id": 2,
-                "levelId": 1,
-                "levelNameAr": "المرحلة الابتدائية",
-                "levelNameEn": "Primary Stage",
-                "nameAr": "الصف الثاني",
-                "nameEn": "Grade 2",
-                "orderIndex": 2,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 6,
-        "pageNumber": 1,
-        "pageSize": 10
-    }
-}
-```
-
-#### إنشاء صف جديد
-
-```http
-POST /Api/V1/Education/Grades
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "levelId": 1,
-    "nameAr": "الصف السادس",
-    "nameEn": "Grade 6",
-    "orderIndex": 6,
-    "isActive": true
-}
-```
-
----
-
-### 5. الفصول الدراسية (Terms)
-
-#### عرض الفصول حسب المنهج
-
-```http
-GET /Api/V1/Education/Terms?pageNumber=1&pageSize=10&curriculumId=1
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "curriculumId": 1,
-                "curriculumNameAr": "المنهج السعودي",
-                "curriculumNameEn": "Saudi Curriculum",
-                "nameAr": "الفصل الدراسي الأول",
-                "nameEn": "First Semester",
-                "orderIndex": 1,
-                "isMandatory": true,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            },
-            {
-                "id": 2,
-                "curriculumId": 1,
-                "curriculumNameAr": "المنهج السعودي",
-                "curriculumNameEn": "Saudi Curriculum",
-                "nameAr": "الفصل الدراسي الثاني",
-                "nameEn": "Second Semester",
-                "orderIndex": 2,
-                "isMandatory": true,
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 3,
-        "pageNumber": 1,
-        "pageSize": 10
-    }
-}
-```
-
----
-
-### 6. المواد الدراسية (Subjects)
-
-#### عرض المواد مع كل الفلاتر
-
-```http
-GET /Api/V1/Subjects?pageNumber=1&pageSize=10&domainId=1&curriculumId=1&levelId=1&gradeId=1&termId=1&search=
-```
-
-**الاستجابة الناجحة:**
-```json
-{
-    "statusCode": 200,
-    "succeeded": true,
-    "data": {
-        "items": [
-            {
-                "id": 1,
-                "domainId": 1,
-                "domainNameAr": "التعليم المدرسي",
-                "domainNameEn": "School Education",
-                "curriculumId": 1,
-                "curriculumNameAr": "المنهج السعودي",
-                "curriculumNameEn": "Saudi Curriculum",
-                "levelId": 1,
-                "levelNameAr": "المرحلة الابتدائية",
-                "levelNameEn": "Primary Stage",
-                "gradeId": 1,
-                "gradeNameAr": "الصف الأول",
-                "gradeNameEn": "Grade 1",
-                "termId": 1,
-                "termNameAr": "الفصل الأول",
-                "termNameEn": "First Term",
-                "nameAr": "الرياضيات",
-                "nameEn": "Mathematics",
-                "descriptionAr": "مادة الرياضيات للصف الأول",
-                "descriptionEn": "Mathematics for Grade 1",
-                "isActive": true,
-                "createdAt": "2026-01-01T00:00:00"
-            }
-        ],
-        "totalCount": 1,
-        "pageNumber": 1,
-        "pageSize": 10
-    }
-}
-```
-
-#### إنشاء مادة جديدة
-
-**مادة مدرسية كاملة:**
-```http
-POST /Api/V1/Subjects
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "domainId": 1,
-    "curriculumId": 1,
-    "levelId": 1,
-    "gradeId": 1,
-    "termId": 1,
-    "nameAr": "العلوم",
-    "nameEn": "Science",
-    "descriptionAr": "مادة العلوم",
-    "descriptionEn": "Science subject",
-    "isActive": true
-}
-```
-
-**مادة قرآنية (بدون منهج):**
-```http
-POST /Api/V1/Subjects
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "domainId": 2,
-    "curriculumId": null,
-    "levelId": 5,
-    "gradeId": null,
-    "termId": null,
-    "nameAr": "التلاوة",
-    "nameEn": "Recitation",
-    "isActive": true
-}
-```
-
-**مادة مهارات عامة (على مستوى المجال):**
-```http
-POST /Api/V1/Subjects
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "domainId": 4,
-    "curriculumId": null,
-    "levelId": null,
-    "gradeId": null,
-    "termId": null,
-    "nameAr": "مهارات التفكير النقدي",
-    "nameEn": "Critical Thinking Skills",
-    "isActive": true
-}
-```
-
-#### تعديل مادة
-
-```http
-PUT /Api/V1/Subjects/1
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-    "id": 1,
-    "domainId": 1,
-    "curriculumId": 1,
-    "levelId": 1,
-    "gradeId": 1,
-    "termId": 1,
-    "nameAr": "الرياضيات المتقدمة",
-    "nameEn": "Advanced Mathematics",
-    "isActive": true
-}
-```
-
-#### حذف مادة
-
-```http
-DELETE /Api/V1/Subjects/1
-Authorization: Bearer {token}
-```
-
----
-
-## سيناريوهات الاستخدام
-
-### السيناريو 1: طالب يريد اختيار مادة مدرسية
-
-```
-1. يختار المجال: "التعليم المدرسي" (domainId: 1)
-   ↓ النظام يتحقق: hasCurriculum = true
-   ↓ يظهر قائمة المناهج
-
-2. يختار المنهج: "المنهج السعودي" (curriculumId: 1)
-   ↓ تُحمّل المراحل والفصول
-
-3. يختار المرحلة: "الابتدائية" (levelId: 1)
-   ↓ تُحمّل الصفوف
-
-4. يختار الصف: "الصف الأول" (gradeId: 1)
-   ↓ يظهر اختيار الفصل
-
-5. يختار الفصل: "الفصل الأول" (termId: 1)
-   ↓ تُحمّل المواد
-
-6. تظهر المواد المتاحة للصف الأول - الفصل الأول
-```
-
-### السيناريو 2: طالب يريد حفظ القرآن
-
-```
-1. يختار المجال: "القرآن الكريم" (domainId: 2)
-   ↓ النظام يتحقق: hasCurriculum = false
-   ↓ لا تظهر قائمة المناهج أو الفصول
-
-2. يختار المستوى: "مستوى المبتدئين" (levelId: 5)
-   ↓ تُحمّل المواد مباشرة
-
-3. تظهر مواد القرآن: الحفظ، التلاوة، التجويد
-```
-
-### السيناريو 3: طالب يريد تعلم مهارات عامة
-
-```
-1. يختار المجال: "المهارات العامة" (domainId: 4)
-   ↓ النظام يتحقق: hasCurriculum = false
-   ↓ المواد على مستوى المجال (بدون مراحل)
-
-2. تظهر المواد مباشرة:
-   - مهارات التواصل
-   - مهارات التفكير النقدي
-   - مهارات القيادة
-```
-
-### السيناريو 4: مدير يريد إضافة منهج جديد
-
-```
-1. يدخل صفحة إدارة المناهج
-2. يضغط "إضافة منهج جديد"
-3. يملأ البيانات:
-   - الاسم بالعربية: "المنهج الأردني"
-   - الاسم بالإنجليزية: "Jordanian Curriculum"
-   - الدولة: "JO"
-4. يضغط حفظ
-5. يتم إنشاء المنهج
-6. يمكنه الآن إضافة فصول دراسية لهذا المنهج
-```
-
----
-
-## منطق واجهة المستخدم
-
-### تسلسل القوائم المنسدلة
-
-```js
-// عند تغيير المجال
-async function onDomainChange(domainId) {
-    // 1. مسح جميع الاختيارات التابعة
-    clearCurriculum();
-    clearLevel();
-    clearGrade();
-    clearTerm();
-    clearSubjects();
-    
-    // 2. جلب بيانات المجال
-    const domain = await api.get(`/Education/Domains/${domainId}`);
-    
-    // 3. التحقق من وجود منهج
-    if (domain.data.hasCurriculum) {
-        // إظهار قوائم المنهج والفصول
-        showCurriculumDropdown();
-        showTermDropdown();
-        
-        // تحميل المناهج
-        const curriculums = await api.get('/Curriculum?isActive=true');
-        populateCurriculumDropdown(curriculums.data.items);
-    } else {
-        // إخفاء قوائم المنهج والفصول
-        hideCurriculumDropdown();
-        hideTermDropdown();
-        
-        // تحميل المراحل مباشرة (بدون منهج)
-        const levels = await api.get(`/Education/Levels?domainId=${domainId}`);
-        populateLevelDropdown(levels.data.items);
-    }
-}
-
-// عند تغيير المنهج
-async function onCurriculumChange(curriculumId) {
-    // مسح الاختيارات التابعة
-    clearLevel();
-    clearGrade();
-    clearTerm();
-    clearSubjects();
-    
-    // تحميل المراحل حسب المنهج
-    const levels = await api.get(`/Education/Levels?curriculumId=${curriculumId}`);
-    populateLevelDropdown(levels.data.items);
-    
-    // تحميل الفصول
-    const terms = await api.get(`/Education/Terms?curriculumId=${curriculumId}`);
-    populateTermDropdown(terms.data.items);
-}
-
-// عند تغيير المرحلة
-async function onLevelChange(levelId) {
-    // مسح الاختيارات التابعة
-    clearGrade();
-    clearSubjects();
-    
-    // تحميل الصفوف
-    const grades = await api.get(`/Education/Grades?levelId=${levelId}`);
-    populateGradeDropdown(grades.data.items);
-}
-
-// عند تغيير الصف أو الفصل
-async function loadSubjects() {
-    const params = {
-        domainId: selectedDomainId,
-        curriculumId: selectedCurriculumId || undefined,
-        levelId: selectedLevelId || undefined,
-        gradeId: selectedGradeId || undefined,
-        termId: selectedTermId || undefined
-    };
-    
-    const subjects = await api.get('/Subjects', { params });
-    displaySubjects(subjects.data.items);
-}
-```
-
-### قواعد الإظهار والإخفاء
-
-| العنصر | متى يظهر؟ |
-|--------|----------|
-| قائمة المناهج | فقط إذا `domain.hasCurriculum = true` |
-| قائمة الفصول | فقط إذا `domain.hasCurriculum = true` |
-| قائمة المراحل | دائماً (بعد اختيار المجال) |
-| قائمة الصفوف | بعد اختيار المرحلة |
-| قائمة المواد | بعد اختيار أي مستوى |
-
----
-
-## قواعد التحقق
-
-### تحقق المجال (Domain)
-- ✅ `nameAr` و `nameEn` مطلوبان
-- ✅ `code` فريد ولا يمكن تكراره
-- ✅ `code` يحتوي فقط على أحرف إنجليزية كبيرة وأرقام وشرطات سفلية
-
-### تحقق المنهج (Curriculum)
-- ✅ `nameAr` و `nameEn` مطلوبان
-- ✅ الاسم فريد
-
-### تحقق المرحلة (Level)
-- ✅ `domainId` مطلوب دائماً
-- ✅ إذا كان المجال `hasCurriculum = true`، يجب تحديد `curriculumId`
-- ✅ `nameAr` و `nameEn` مطلوبان
-
-### تحقق الصف (Grade)
-- ✅ `levelId` مطلوب
-- ✅ المرحلة يجب أن تكون مفعّلة
-- ✅ `nameAr` و `nameEn` مطلوبان
-
-### تحقق الفصل (Term)
-- ✅ `curriculumId` مطلوب
-- ✅ المنهج يجب أن يكون مفعّلاً
-
-### تحقق المادة (Subject)
-- ✅ `domainId` مطلوب دائماً
-- ✅ إذا تم تحديد `curriculumId`:
-  - المجال يجب أن يكون `hasCurriculum = true`
-- ✅ إذا تم تحديد `termId`:
-  - يجب تحديد `curriculumId` أيضاً
-  - الفصل يجب أن ينتمي للمنهج المختار
-- ✅ إذا تم تحديد `gradeId`:
-  - يجب تحديد `levelId` أيضاً
-  - الصف يجب أن ينتمي للمرحلة المختارة
-- ✅ إذا تم تحديد `levelId`:
-  - المرحلة يجب أن تنتمي للمجال المختار
-
----
-
-## الأخطاء الشائعة وحلولها
-
-### 1. خطأ: "Domain code already exists"
-
-**السبب:** محاولة إنشاء مجال بكود موجود مسبقاً
-
-**الحل:** استخدم كود فريد مختلف
+#### قالب — `Unit` (قرآن)
 
 ```json
 {
-    "statusCode": 400,
-    "succeeded": false,
-    "message": "Domain code already exists",
-    "data": null
-}
-```
-
-### 2. خطأ: "Cannot delete curriculum with existing education levels"
-
-**السبب:** محاولة حذف منهج مرتبط بمراحل تعليمية
-
-**الحل:** احذف المراحل المرتبطة أولاً، أو استخدم toggle-status لإلغاء التفعيل
-
-```json
-{
-    "statusCode": 400,
-    "succeeded": false,
-    "message": "Cannot delete curriculum with existing education levels",
-    "data": null
-}
-```
-
-### 3. خطأ: "Cannot delete level with existing grades"
-
-**السبب:** محاولة حذف مرحلة مرتبطة بصفوف
-
-**الحل:** احذف الصفوف المرتبطة أولاً
-
-### 4. خطأ: "Curriculum not found"
-
-**السبب:** المنهج المطلوب غير موجود أو محذوف
-
-**الحل:** تأكد من صحة curriculumId
-
-```json
-{
-    "statusCode": 404,
-    "succeeded": false,
-    "message": "Curriculum not found",
-    "data": null
-}
-```
-
-### 5. خطأ: "Validation errors"
-
-**السبب:** البيانات المرسلة لا تطابق قواعد التحقق
-
-**الحل:** راجع الحقول المطلوبة
-
-```json
-{
-    "statusCode": 400,
-    "succeeded": false,
-    "message": "Validation failed",
-    "data": null,
-    "errors": [
-        "Arabic name is required",
-        "English name is required"
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 2,
+      "curriculumId": null,
+      "levelId": null,
+      "gradeId": null,
+      "termIds": null,
+      "subjectId": 499,
+      "quranContentTypeId": null,
+      "quranLevelId": null,
+      "unitTypeCode": "QuranPart"
+    },
+    "rule": {
+      "hasCurriculum": false,
+      "hasEducationLevel": false,
+      "hasGrade": false,
+      "hasAcademicTerm": false,
+      "hasContentUnits": true,
+      "hasLessons": false,
+      "requiresQuranContentType": true,
+      "requiresQuranLevel": true,
+      "requiresUnitTypeSelection": true
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 115, "nameAr": "الجزء الأول", "nameEn": "Part 1", "code": "QuranPart" }
+    ],
+    "totalCount": 30,
+    "pageNumber": 1,
+    "pageSize": 20,
+    "totalPages": 2,
+    "subject": { "id": 499, "nameAr": "القرآن الكريم", "nameEn": "Quran", "code": "quran" },
+    "contentTypes": [
+      { "id": 1, "nameAr": "حفظ", "nameEn": "Memorization", "code": null },
+      { "id": 2, "nameAr": "تلاوة", "nameEn": "Recitation", "code": null },
+      { "id": 3, "nameAr": "تجويد", "nameEn": "Tajweed", "code": null }
+    ],
+    "levels": [
+      { "id": 1, "nameAr": "نوراني", "nameEn": "Noorani", "code": null },
+      { "id": 2, "nameAr": "مبتدئ", "nameEn": "Beginner", "code": null },
+      { "id": 3, "nameAr": "متوسط", "nameEn": "Intermediate", "code": null },
+      { "id": 4, "nameAr": "متقدم", "nameEn": "Advanced", "code": null }
     ]
+  },
+  "errors": null
 }
 ```
 
-### 6. خطأ: "Unauthorized"
+**قرآن — مراجع سريعة:**
 
-**السبب:** عدم وجود توكن صالح أو انتهاء صلاحيته
+| الحقل | القيم |
+|-------|-------|
+| `contentTypes` | 1 حفظ · 2 تلاوة · 3 تجويد |
+| `levels` | 1 نوراني · 2 مبتدئ · 3 متوسط · 4 متقدم |
+| `unitTypeCode` | `QuranPart` (30 جزء) · `QuranSurah` (114 سورة) |
 
-**الحل:** أعد تسجيل الدخول للحصول على توكن جديد
+---
+
+## خوارزمية الخادم
+
+(`EducationFilterService`)
+
+1. **تحقق:** `domainId` مطلوب → المجال + `EducationRule` موجودان.
+2. **تفرع:** `code == "quran"` → مسار قرآن؛ وإلا مسار قياسي.
+3. **قرآن:** مادة واحدة تلقائية، `unitTypeCode` افتراضي `QuranPart`، `contentTypes` + `levels` + `unit[]` مرقّم → `nextStep: Unit`.
+4. **قياسي:** بالترتيب — Curriculum → Level → Grade → **Subject** → Term → Unit → Done.
+5. **قرآن post-process:** المادة تُنقل من `options` إلى `subject` ويُفرَّغ `options`.
+
+---
+
+## أمثلة حسب المجال
+
+> كل مثال: **طلب** (`http`) ثم **استجابة** (`json`) بنفس غلاف API. للقوالب العامة راجع [شكل الاستجابة](#شكل-الاستجابة).
+
+### مثال 1 — `school`
+
+| # | `nextStep` | معاملات الاستعلام التراكمية |
+|:-:|------------|---------------------------|
+| 1 | `Curriculum` | `domainId=1` |
+| 2 | `Level` | `+ curriculumId=1` |
+| 3 | `Grade` | `+ levelId=2` |
+| 4 | `Subject` | `+ gradeId=5` |
+| 5 | `Term` | `+ subjectId=12` |
+| 6 | `Unit` | `+ termIds=1&termIds=2` |
+
+#### 1 — Curriculum
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=1
+Authorization: Bearer {token}
+```
+
+**Response**
 
 ```json
 {
-    "statusCode": 401,
-    "succeeded": false,
-    "message": "Unauthorized",
-    "data": null
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 1, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": null,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": true,
+      "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Curriculum",
+    "options": [
+      { "id": 1, "nameAr": "المنهج السعودي", "nameEn": "Saudi Curriculum", "code": "saudi" },
+      { "id": 2, "nameAr": "المنهج البريطاني", "nameEn": "British Curriculum", "code": "british" }
+    ],
+    "unit": null,
+    "totalCount": null, "pageNumber": null, "pageSize": null, "totalPages": null,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
 }
 ```
 
-### 7. خطأ: "Forbidden"
+#### 4 — Subject
 
-**السبب:** المستخدم ليس لديه صلاحيات Admin
+**Request**
 
-**الحل:** تأكد من أن المستخدم لديه دور Admin أو SuperAdmin
+```http
+GET /Api/V1/Education/filter-options?domainId=1&curriculumId=1&levelId=2&gradeId=5
+Authorization: Bearer {token}
+```
+
+**Response**
 
 ```json
 {
-    "statusCode": 403,
-    "succeeded": false,
-    "message": "You don't have permission to perform this action",
-    "data": null
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 1, "curriculumId": 1, "levelId": 2, "gradeId": 5,
+      "termIds": null, "subjectId": null,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": true,
+      "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Subject",
+    "options": [
+      { "id": 12, "nameAr": "الرياضيات", "nameEn": "Mathematics", "code": null },
+      { "id": 13, "nameAr": "العلوم", "nameEn": "Science", "code": null }
+    ],
+    "unit": null,
+    "totalCount": null, "pageNumber": null, "pageSize": null, "totalPages": null,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+#### 6 — Unit
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=1&curriculumId=1&levelId=2&gradeId=5&subjectId=12&termIds=1&termIds=2
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 1, "curriculumId": 1, "levelId": 2, "gradeId": 5,
+      "subjectId": 12, "termIds": [1, 2],
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": true,
+      "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 201, "nameAr": "الأعداد والعمليات", "nameEn": "Numbers and Operations", "code": "SchoolUnit" },
+      { "id": 202, "nameAr": "الكسور والنسب", "nameEn": "Fractions and Ratios", "code": "SchoolUnit" }
+    ],
+    "totalCount": 2, "pageNumber": 1, "pageSize": 2, "totalPages": 1,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+
+
+---
+
+### مثال 2 — `quran`
+
+| # | `nextStep` | معاملات الاستعلام |
+|:-:|------------|-------------------|
+| 1 | `Unit` | `domainId={quran}&unitTypeCode=QuranPart&pageNumber=1&pageSize=20` |
+
+#### 1 — Unit (استدعاء واحد)
+
+**Request — أجزاء (افتراضي)**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=2&pageNumber=1&pageSize=20
+Authorization: Bearer {token}
+```
+
+**Request — سور**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=2&unitTypeCode=QuranSurah&pageNumber=1&pageSize=50
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 2, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": 499,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": "QuranPart"
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": false,
+      "requiresQuranContentType": true, "requiresQuranLevel": true,
+      "requiresUnitTypeSelection": true
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 115, "nameAr": "الجزء الأول", "nameEn": "Part 1", "code": "QuranPart" }
+    ],
+    "totalCount": 30, "pageNumber": 1, "pageSize": 20, "totalPages": 2,
+    "subject": { "id": 499, "nameAr": "القرآن الكريم", "nameEn": "Quran", "code": "quran" },
+    "contentTypes": [
+      { "id": 1, "nameAr": "حفظ", "nameEn": "Memorization", "code": null },
+      { "id": 2, "nameAr": "تلاوة", "nameEn": "Recitation", "code": null },
+      { "id": 3, "nameAr": "تجويد", "nameEn": "Tajweed", "code": null }
+    ],
+    "levels": [
+      { "id": 1, "nameAr": "نوراني", "nameEn": "Noorani", "code": null },
+      { "id": 2, "nameAr": "مبتدئ", "nameEn": "Beginner", "code": null },
+      { "id": 3, "nameAr": "متوسط", "nameEn": "Intermediate", "code": null },
+      { "id": 4, "nameAr": "متقدم", "nameEn": "Advanced", "code": null }
+    ]
+  },
+  "errors": null
 }
 ```
 
 ---
 
-## ملاحظات مهمة للفريق الأمامي
+### مثال 3 — `language`
 
-1. **تحقق دائماً من `hasCurriculum`** قبل إظهار قوائم المنهج والفصول
+| # | `nextStep` | معاملات الاستعلام التراكمية |
+|:-:|------------|---------------------------|
+| 1 | `Level` | `domainId=3` |
+| 2 | `Subject` | `+ levelId=1` |
+| 3 | `Unit` | `+ subjectId=42` |
 
-2. **استخدم `orderIndex`** لترتيب العناصر في القوائم
+#### 1 — Level
 
-3. **فلتر بـ `isActive = true`** للقوائم التي تظهر للمستخدمين
+**Request**
 
-4. **خزّن بيانات المجالات** (Cache) لأنها لا تتغير كثيراً
+```http
+GET /Api/V1/Education/filter-options?domainId=3
+Authorization: Bearer {token}
+```
 
-5. **أعد تعيين القوائم التابعة** عند تغيير القائمة الأب
+**Response**
 
-6. **تعامل مع RTL**: 
-   - استخدم `nameAr` للواجهة العربية
-   - استخدم `nameEn` للواجهة الإنجليزية
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 3, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": null,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": true, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Level",
+    "options": [
+      { "id": 1, "nameAr": "مبتدئ", "nameEn": "Beginner", "code": null },
+      { "id": 2, "nameAr": "متوسط", "nameEn": "Intermediate", "code": null }
+    ],
+    "unit": null,
+    "totalCount": null, "pageNumber": null, "pageSize": null, "totalPages": null,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
 
-7. **أظهر رسائل الخطأ** من `errors[]` أو `message` للمستخدم
+#### 3 — Unit
 
-8. **تعامل مع الـ Pagination**:
-   - استخدم `totalCount` لعرض العدد الإجمالي
-   - استخدم `totalPages` للتنقل بين الصفحات
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=3&levelId=1&subjectId=42
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 3, "curriculumId": null, "levelId": 1, "gradeId": null,
+      "termIds": null, "subjectId": 42,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": true, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 301, "nameAr": "النحو الأساسي", "nameEn": "Basic Grammar", "code": "LanguageModule" },
+      { "id": 302, "nameAr": "المفردات", "nameEn": "Vocabulary", "code": "LanguageModule" }
+    ],
+    "totalCount": 2, "pageNumber": 1, "pageSize": 2, "totalPages": 1,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
 
 ---
 
-## للتواصل
+### مثال 4 — `skills`
 
-للاستفسارات أو الملاحظات، تواصل مع فريق Backend.
+| # | `nextStep` | معاملات الاستعلام التراكمية |
+|:-:|------------|---------------------------|
+| 1 | `Subject` | `domainId=4` |
+| 2 | `Unit` | `+ subjectId=10` |
+
+#### 1 — Subject
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=4
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 4, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": null,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Subject",
+    "options": [
+      { "id": 10, "nameAr": "البرمجة", "nameEn": "Programming", "code": null },
+      { "id": 11, "nameAr": "التصوير", "nameEn": "Photography", "code": null }
+    ],
+    "unit": null,
+    "totalCount": null, "pageNumber": null, "pageSize": null, "totalPages": null,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+#### 2 — Unit
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=4&subjectId=10
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 4, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": 10,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 401, "nameAr": "أساسيات بايثون", "nameEn": "Python Basics", "code": "SchoolUnit" }
+    ],
+    "totalCount": 1, "pageNumber": 1, "pageSize": 1, "totalPages": 1,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+---
+
+### مثال 5 — `university`
+
+| # | `nextStep` | معاملات الاستعلام التراكمية |
+|:-:|------------|---------------------------|
+| 1 | `Curriculum` | `domainId=5` |
+| 2 | `Level` | `+ curriculumId=2` |
+| 3 | `Subject` | `+ levelId=3` |
+| 4 | `Term` | `+ subjectId=20` |
+| 5 | `Unit` | `+ termIds=1` |
+
+> لا خطوة `Grade` لهذا المجال.
+
+#### 1 — Curriculum
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=5
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 5, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": null,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": false,
+      "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Curriculum",
+    "options": [
+      { "id": 2, "nameAr": "بكالوريوس علوم الحاسب", "nameEn": "BSc Computer Science", "code": "bsc_cs" }
+    ],
+    "unit": null,
+    "totalCount": null, "pageNumber": null, "pageSize": null, "totalPages": null,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+#### 5 — Unit
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=5&curriculumId=2&levelId=3&subjectId=20&termIds=1
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 5, "curriculumId": 2, "levelId": 3, "gradeId": null,
+      "termIds": [1], "subjectId": 20,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": null
+    },
+    "rule": {
+      "hasCurriculum": true, "hasEducationLevel": true, "hasGrade": false,
+      "hasAcademicTerm": true, "hasContentUnits": true, "hasLessons": true,
+      "requiresQuranContentType": false, "requiresQuranLevel": false,
+      "requiresUnitTypeSelection": false
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 501, "nameAr": "المصفوفات", "nameEn": "Arrays", "code": "SchoolUnit" },
+      { "id": 502, "nameAr": "القوائم المتصلة", "nameEn": "Linked Lists", "code": "SchoolUnit" }
+    ],
+    "totalCount": 2, "pageNumber": 1, "pageSize": 2, "totalPages": 1,
+    "contentTypes": null, "levels": null, "subject": null
+  },
+  "errors": null
+}
+```
+
+---
+
+## الحالات النهائية والحالات الحدية
+
+### الحالات النهائية
+
+| `nextStep` | المعنى |
+|------------|--------|
+| `Unit` | `unit[]` جاهزة — انتهى المعالج |
+| `Done` | `hasContentUnits == false` — لا وحدات (نادر في البذرة الحالية) |
+
+### حالات حدية
+
+- معاملات مجال خاطئ **تُتجاهل** (مثلاً `gradeId` في `skills`).
+- `pageNumber` / `pageSize` فعّالان في **القرآن فقط**؛ المسار القياسي يعيد كل الوحدات دفعة واحدة (`totalPages: 1`).
+- `termIds` فارغ أو غائب → يبقى `nextStep: Term` حتى يُرسل قيمة واحدة على الأقل.
+- `quranContentTypeId` / `quranLevelId` في الاستعلام: echo في `currentState` فقط.
+- لا يوجد `hasSubject` في `rule` — خطوة المادة إلزامية بعد الخطوات المطلوبة.
+- المواد عند Subject **لا تُفلتر بالفصل** (`termId: null` في الاستعلام الداخلي).
+- تخطي Term: أرسل كل `termIds` دفعة واحدة للانتقال مباشرة إلى `Unit`.
+- JSON: `unit`, `subject`, `contentTypes`, `levels` بأسماء `[JsonPropertyName]` صريحة.
+
+---
+
+## أخطاء API
+
+### جدول الأخطاء
+
+| السبب | HTTP | `message` |
+|-------|:---:|-----------|
+| غياب `domainId` | 400 | `DomainId is required` |
+| مجال بلا `EducationRule` | 404 | `Domain with ID '{id}' not found or has no rules configured` |
+| مجال غير موجود | 404 | `Domain with ID '{id}' not found` |
+| قرآن بلا مادة مبذورة | 404 | `Quran subject not found` |
+| `gradeId` بدون `levelId` | 404 | `LevelId is required before selecting Grade` |
+| Term بلا `curriculumId` | 404 | `CurriculumId is required before selecting Term` |
+| توكن غير صالح | 401 | — |
+
+### أمثلة استجابة خطأ
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 400,
+  "succeeded": false,
+  "message": "DomainId is required",
+  "data": null,
+  "errors": null
+}
+```
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=99999
+Authorization: Bearer {token}
+```
+
+**Response**
+
+```json
+{
+  "statusCode": 404,
+  "succeeded": false,
+  "message": "Domain with ID '99999' not found or has no rules configured",
+  "data": null,
+  "errors": null
+}
+```
+
+---
+
+**الكود:** `Qalam.Service/Implementations/EducationFilterService.cs` · `Qalam.Data/DTOs/FilterOptionsResponseDto.cs`

@@ -691,35 +691,166 @@ stateDiagram-v2
 | `Active` | Last required file approved | Block only |
 | `Blocked` | Admin Block | none (irreversible via API today) |
 
-### Endpoints
+### All endpoints (complete reference)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/Teachers` | Paginated list of **all** teachers with optional filters (`status` as string e.g. `Active`, `location`, `subjectId`, `search`, `sortBy`). Response `status` is also a string. |
-| GET | `/Pending` | Paginated queue of teachers in `PendingVerification` (and optionally `DocumentsRejected` — see filter) |
-| GET | `/{teacherId:int}` | Full preview — profile + every document + checklist + `canBeActivated` |
-| POST | `/{teacherId:int}/Documents/{documentId:int}/Approve` | Approve one document; auto-refreshes teacher status |
-| POST | `/{teacherId:int}/Documents/{documentId:int}/Reject` | Reject one document with `{ "reason": "…" }`; auto-refreshes status |
-| POST | `/{teacherId:int}/Block` | Block the teacher account |
-| GET | `/Subjects` | Paginated list of teacher subjects across all teachers (optional filters) |
-| GET | `/{teacherId:int}/Subjects` | All subjects for one teacher (active, inactive, rejected) |
-| GET | `/{teacherId:int}/Subjects/{teacherSubjectId:int}` | Single subject detail with units |
-| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Inactivate` | Deactivate subject; keeps approval status |
-| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Activate` | Reactivate an inactivated (non-rejected) subject |
-| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Reject` | Reject with `{ "reason": "…" }`; deactivates and blocks new courses |
-| POST | `/{teacherId:int}/Subjects/{teacherSubjectId:int}/Restore` | Clear rejection, approve, and reactivate |
+**Auth (every row):** `Authorization: Bearer <admin-jwt>` · roles `Admin` or `SuperAdmin`  
+**Envelope:** `{ "succeeded", "message", "data", "meta"?, "errors" }` — paginated lists put rows in `data` and page info in `meta`.
 
-`GET /{teacherId}` also returns `subjects` and `subjectSummary` (`totalSubjects`, `activeSubjects`, `inactiveSubjects`, `rejectedSubjects`) for the admin teacher-detail **Subjects** tab.
+| # | Method | Full path | Query / body | Response `data` |
+|---|--------|-----------|--------------|-----------------|
+| 1 | GET | `/Api/V1/Admin/TeacherManagement/Teachers` | `pageNumber`, `pageSize`, `status`, `location`, `subjectId`, `search`, `sortBy` | `AdminTeacherListItemDto[]` + `meta` |
+| 2 | GET | `/Api/V1/Admin/TeacherManagement/Pending` | `pageNumber`, `pageSize` | `PendingTeacherDto[]` + `meta` |
+| 3 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}` | — | `TeacherDetailsDto` (documents, checklist, subjects, `canBeActivated`) |
+| 4 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Approve` | — | `"Document approved successfully."` |
+| 5 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Document rejected successfully."` |
+| 6 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Block` | `{ "reason": "…" }` optional, max 500 | `"Teacher blocked successfully."` |
+| 7 | GET | `/Api/V1/Admin/TeacherManagement/Subjects` | `pageNumber`, `pageSize`, `teacherId`, `subjectId`, `isActive`, `verificationStatus` | `AdminTeacherSubjectDto[]` + `meta` |
+| 8 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects` | — | `AdminTeacherSubjectDto[]` |
+| 9 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}` | — | `AdminTeacherSubjectDto` |
+| 10 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` | — | `"Teacher subject inactivated successfully."` |
+| 11 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Activate` | — | `"Teacher subject activated successfully."` |
+| 12 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Teacher subject rejected successfully."` |
+| 13 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore` | — | `"Teacher subject restored successfully."` |
 
-New teacher subjects are **auto-approved and active** on `POST /Api/V1/Teacher/TeacherSubject`. Admin can inactivate or reject later. Rejected/inactive subjects cannot be used for new courses; existing published courses are left as-is in v1.
+**Query reference (quick)**
 
-**Frontend (admin Subjects tab + teacher display):** [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md)
+| Param | Endpoints | Values |
+|-------|-----------|--------|
+| `pageNumber`, `pageSize` | #1, #2, #7 | Pagination; #1 max `pageSize` 50 |
+| `status` | #1 | See [Endpoint 1 filters](#endpoint-1--browse-all-teachers) |
+| `location` | #1 | `InsideSaudiArabia`, `OutsideSaudiArabia` |
+| `subjectId` | #1, #7 | Catalog subject id |
+| `search` | #1 | Substring on name, phone, email |
+| `sortBy` | #1 | `1` Newest, `2` NameAsc, `3` Status |
+| `teacherId` | #7 | Filter global subjects list to one teacher |
+| `isActive` | #7 | `true` / `false` |
+| `verificationStatus` | #7 | `1` Pending, `2` Approved, `3` Rejected |
 
-Every endpoint requires `Authorization: Bearer <admin-jwt>` and role `Admin` or `SuperAdmin`. Responses use the standard envelope (`succeeded`, `message`, `data`).
+`GET /{teacherId}` (#3) also returns `subjects` and `subjectSummary` for the **Subjects** tab. New teacher subjects are **auto-approved and active** on `POST /Api/V1/Teacher/TeacherSubject`; admin uses #10–#13 to inactivate or reject later.
+
+**UI guide (Subjects tab):** [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md) · **Postman:** `Postman/Admin/TeacherManagement.postman_collection.json`
 
 ---
 
-### Step A — Pending queue
+### Endpoint 1 — Browse all teachers
+
+```http
+GET /Api/V1/Admin/TeacherManagement/Teachers?pageNumber=1&pageSize=10&status=Active&location=InsideSaudiArabia&subjectId=5&search=ahmed&sortBy=1
+Authorization: Bearer <admin-jwt>
+```
+
+All query parameters are **optional**. When more than one is sent, filters are **AND-combined** (a row must match every supplied filter).
+
+#### Filters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pageNumber` | int | `1` | 1-based page index. Values `< 1` are treated as `1`. |
+| `pageSize` | int | `10` | Rows per page. Clamped to **max 50** (`> 50` → `50`; `< 1` → `10`). |
+| `status` | string | *(none)* | Exact match on `Teacher.Status`. Case-insensitive enum name. Omit to include **all** statuses. |
+| `location` | string | *(none)* | Exact match on `Teacher.Location`. Case-insensitive enum name. |
+| `subjectId` | int | *(none)* | Teachers who have **at least one** `TeacherSubject` row with this catalog `subjectId` (any approval/active state). |
+| `search` | string | *(none)* | Case-sensitive **substring** (`Contains`) on concatenated `firstName + " " + lastName`, `phoneNumber`, or `email`. Whitespace trimmed. |
+| `sortBy` | int | `1` | Sort order (see below). |
+
+#### `status` values
+
+| Value | Meaning |
+|-------|---------|
+| `AwaitingDocuments` | Step 3 done; registration requirements not yet submitted |
+| `PendingVerification` | Submitted; awaiting admin document review |
+| `DocumentsRejected` | At least one required document rejected |
+| `Active` | All active required submissions approved |
+| `Blocked` | Admin blocked the account |
+
+Invalid `status` → **400** with message listing valid values.
+
+#### `location` values
+
+| Value | Meaning |
+|-------|---------|
+| `InsideSaudiArabia` | Teacher declared inside KSA |
+| `OutsideSaudiArabia` | Teacher declared outside KSA |
+
+#### `sortBy` values
+
+| Value | Enum | Order |
+|-------|------|-------|
+| `1` | `Newest` (default) | `createdAt` descending |
+| `2` | `NameAsc` | `firstName`, then `lastName` ascending |
+| `3` | `Status` | `status` ascending, then `createdAt` descending |
+
+You may also pass the enum name (`sortBy=NameAsc`) — ASP.NET binds it the same way.
+
+#### Example requests
+
+```http
+# Active teachers in KSA, newest first
+GET .../Teachers?status=Active&location=InsideSaudiArabia
+
+# Teachers who teach Mathematics (catalog subject id 5)
+GET .../Teachers?subjectId=5&status=Active
+
+# Search by name or phone (combine with status)
+GET .../Teachers?search=966501&status=PendingVerification&sortBy=2
+
+# All teachers, page 2
+GET .../Teachers?pageNumber=2&pageSize=20
+```
+
+#### Response
+
+`data` is `AdminTeacherListItemDto[]`. Pagination is in `meta`:
+
+```json
+{
+  "succeeded": true,
+  "data": [ /* rows */ ],
+  "meta": {
+    "pageNumber": 1,
+    "pageSize": 10,
+    "totalCount": 42,
+    "totalPages": 5,
+    "hasPreviousPage": false,
+    "hasNextPage": true
+  }
+}
+```
+
+Sample row:
+
+```json
+[
+  {
+    "teacherId": 12,
+    "userId": 84,
+    "fullName": "Ahmed Ali",
+    "phoneNumber": "+966501234567",
+    "email": "ahmed@example.com",
+    "status": "Active",
+    "location": "InsideSaudiArabia",
+    "createdAt": "2026-05-15T08:00:00Z",
+    "totalDocuments": 3,
+    "pendingDocuments": 0,
+    "approvedDocuments": 3,
+    "rejectedDocuments": 0
+  }
+]
+```
+
+| Response field | Notes |
+|----------------|-------|
+| `status` | String form of `TeacherStatus` (e.g. `"Active"`) |
+| `location` | `InsideSaudiArabia` or `OutsideSaudiArabia`, or `null` if not set |
+| `totalDocuments` / `pendingDocuments` / `approvedDocuments` / `rejectedDocuments` | Counts over all `TeacherDocument` rows for that teacher |
+
+Use for the main **Teachers** list (all statuses, filterable). For the verification queue only (`PendingVerification` + `DocumentsRejected`, no other filters), use endpoint #2.
+
+---
+
+### Endpoint 2 — Pending queue
+
+Returns teachers in `PendingVerification` **or** `DocumentsRejected` (awaiting admin action or re-upload).
 
 ```http
 GET /Api/V1/Admin/TeacherManagement/Pending
@@ -747,11 +878,11 @@ Returns the queue. Sample `data[]` (shape = `PendingTeacherDto`):
 ]
 ```
 
-UI: render a row per teacher with status pill + counts. Tap → fetch the preview (step B).
+UI: render a row per teacher with status pill + counts. Tap → fetch endpoint #3.
 
 ---
 
-### Step B — Preview teacher data
+### Endpoint 3 — Preview teacher data
 
 ```http
 GET /Api/V1/Admin/TeacherManagement/{teacherId}
@@ -809,7 +940,32 @@ Returns everything the admin needs to decide: profile, every document (with file
   "pendingDocuments": 2,
   "approvedDocuments": 0,
   "rejectedDocuments": 0,
-  "canBeActivated": false
+  "canBeActivated": false,
+
+  "subjectSummary": {
+    "totalSubjects": 2,
+    "activeSubjects": 1,
+    "inactiveSubjects": 0,
+    "rejectedSubjects": 1
+  },
+  "subjects": [
+    {
+      "id": 101,
+      "teacherId": 12,
+      "teacherFullName": "Ahmed Ali",
+      "subjectId": 5,
+      "subjectNameAr": "الرياضيات",
+      "subjectNameEn": "Mathematics",
+      "domainCode": "general_education",
+      "canTeachFullSubject": true,
+      "isActive": true,
+      "verificationStatus": 2,
+      "rejectionReason": null,
+      "reviewedAt": null,
+      "createdAt": "2026-05-20T10:00:00Z",
+      "units": []
+    }
+  ]
 }
 ```
 
@@ -818,13 +974,14 @@ Returns everything the admin needs to decide: profile, every document (with file
 - Header: name, phone, email, status pill, "Created" timestamp, `Block` button (top-right destructive).
 - Left pane: documents list — each row clickable to open `filePath` in a preview pane / new tab, with **Approve** / **Reject** buttons.
 - Right pane: registration-requirements checklist driven by `registrationRequirements[]` — a green check when `verificationStatus === "Approved"`, a yellow dot for `Pending`, a red X for `Rejected` + the reason.
-- Bottom: counts strip (Total / Pending / Approved / Rejected) and an `Activate` affordance disabled until `canBeActivated === true` (activation is automatic — the button just confirms; see Step C effects).
+- Bottom: counts strip (Total / Pending / Approved / Rejected) and an `Activate` affordance disabled until `canBeActivated === true` (activation is automatic — the button just confirms; see endpoint #4 effects).
+- **Subjects** tab: `subjectSummary` chips + `subjects[]` cards; row actions use endpoints #10–#13 (or lazy-load via #8).
 
 `canBeActivated === true` ↔ every active+required requirement is `Approved`.
 
 ---
 
-### Step C — Approve a document
+### Endpoint 4 — Approve a document
 
 ```http
 POST /Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Approve
@@ -844,11 +1001,11 @@ No body. Response: `{ "succeeded": true, "data": "Document approved successfully
    - At least one required `Rejected` → flips to `DocumentsRejected` (rare on Approve — happens when this was the LAST pending and another was already rejected).
 4. The next admin preview reflects updated counts + `canBeActivated`.
 
-After **Active**, no further admin actions are needed — the teacher gets the `Teacher` role's full capabilities (subjects, availability, courses).
+After **Active**, no further document actions are needed — the teacher gets the `Teacher` role's full capabilities (subjects, availability, courses). Subject moderation uses endpoints #7–#13.
 
 ---
 
-### Step D — Reject a document
+### Endpoint 5 — Reject a document
 
 ```http
 POST /Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject
@@ -867,13 +1024,13 @@ Response: `{ "succeeded": true, "data": "Document rejected successfully." }`.
 1. `TeacherDocument.VerificationStatus = Rejected`, `ReviewedByAdminId`, `ReviewedAt`, `RejectionReason = <reason>`.
 2. Linked submission row syncs to `Rejected` + `RejectionReason`.
 3. If the rejected document is **required**, teacher status → `DocumentsRejected`. Otherwise the recompute keeps `PendingVerification`.
-4. The teacher's next call to `GET /Api/V1/Teacher/TeacherDocuments/Status` shows the rejection reason and exposes the **Re-upload** affordance (see Step F).
+4. The teacher's next call to `GET /Api/V1/Teacher/TeacherDocuments/Status` shows the rejection reason and exposes the **Re-upload** affordance (see [Re-upload cycle](#re-upload-cycle-teacher)).
 
 UI: Reject button opens a modal with a `reason` textarea (required, max 500) + Cancel/Confirm. Pre-fill with the most common reasons as quick chips.
 
 ---
 
-### Step E — Block teacher
+### Endpoint 6 — Block teacher
 
 ```http
 POST /Api/V1/Admin/TeacherManagement/{teacherId}/Block
@@ -897,7 +1054,142 @@ UI: Block button is destructive (red). Confirm-modal warns it's effectively irre
 
 ---
 
-### Step F — Re-upload cycle
+### Endpoint 7 — Global teacher subjects list
+
+```http
+GET /Api/V1/Admin/TeacherManagement/Subjects?pageNumber=1&pageSize=10&verificationStatus=3
+Authorization: Bearer <admin-jwt>
+```
+
+Optional filters: `teacherId`, `subjectId`, `isActive`, `verificationStatus` (see table above).
+
+Sample `data[]` (`AdminTeacherSubjectDto`):
+
+```json
+[
+  {
+    "id": 102,
+    "teacherId": 12,
+    "teacherFullName": "Ahmed Ali",
+    "subjectId": 8,
+    "subjectNameAr": "القرآن",
+    "subjectNameEn": "Quran",
+    "domainCode": "quran",
+    "canTeachFullSubject": false,
+    "isActive": false,
+    "verificationStatus": 3,
+    "rejectionReason": "Qualification for this subject could not be verified.",
+    "reviewedAt": "2026-05-21T14:30:00Z",
+    "createdAt": "2026-05-19T09:00:00Z",
+    "units": [
+      {
+        "id": 201,
+        "unitId": 44,
+        "unitNameAr": "سورة البقرة",
+        "unitNameEn": "Surah Al-Baqarah",
+        "unitTypeCode": "surah",
+        "quranContentTypeId": 1,
+        "quranContentTypeNameAr": "حفظ",
+        "quranContentTypeNameEn": "Memorization",
+        "quranLevelId": 2,
+        "quranLevelNameAr": "مبتدئ",
+        "quranLevelNameEn": "Beginner"
+      }
+    ]
+  }
+]
+```
+
+Operations view across all teachers; link each row to endpoint #3 (teacher detail **Subjects** tab).
+
+---
+
+### Endpoint 8 — Teacher subjects list
+
+```http
+GET /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects
+Authorization: Bearer <admin-jwt>
+```
+
+Returns `data: AdminTeacherSubjectDto[]` (same shape as `subjects` on endpoint #3). **404** if teacher does not exist. Use when the Subjects tab lazy-loads without re-fetching the full preview.
+
+---
+
+### Endpoint 9 — Single teacher subject detail
+
+```http
+GET /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}
+Authorization: Bearer <admin-jwt>
+```
+
+Returns one `AdminTeacherSubjectDto` with `units[]` (Quran specialization fields when `domainCode === "quran"`). **404** if `teacherSubjectId` does not belong to `teacherId`.
+
+---
+
+### Endpoint 10 — Inactivate teacher subject
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate
+Authorization: Bearer <admin-jwt>
+```
+
+No body. Sets `isActive = false`; `verificationStatus` unchanged. Blocks new courses and matching; existing published courses stay as-is (v1).
+
+Response: `{ "succeeded": true, "data": "Teacher subject inactivated successfully." }`
+
+---
+
+### Endpoint 11 — Activate teacher subject
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Activate
+Authorization: Bearer <admin-jwt>
+```
+
+No body. Reactivates a subject that was inactivated but **not** rejected (`verificationStatus === 2`).
+
+**400** if subject is rejected: *"Rejected subjects must be restored before activation."* — use endpoint #13 instead.
+
+---
+
+### Endpoint 12 — Reject teacher subject
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject
+Authorization: Bearer <admin-jwt>
+Content-Type: application/json
+
+{ "reason": "Qualification for this subject could not be verified." }
+```
+
+`reason` required, max 500 chars. Sets `verificationStatus = Rejected` (3), `isActive = false`, stores `rejectionReason` and `reviewedAt`.
+
+Response: `{ "succeeded": true, "data": "Teacher subject rejected successfully." }`
+
+---
+
+### Endpoint 13 — Restore teacher subject
+
+```http
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore
+Authorization: Bearer <admin-jwt>
+```
+
+No body. Clears rejection, sets `verificationStatus = Approved` (2), `isActive = true`, clears `rejectionReason`.
+
+Response: `{ "succeeded": true, "data": "Teacher subject restored successfully." }`
+
+After any #10–#13 command, refresh via endpoint #3 or #8.
+
+| Subject state | Show actions |
+|---------------|--------------|
+| Active (`isActive && verificationStatus === 2`) | Inactivate (#10), Reject (#12) |
+| Inactive (`!isActive && verificationStatus === 2`) | Activate (#11), Reject (#12) |
+| Rejected (`verificationStatus === 3`) | Restore (#13) only |
+
+---
+
+### Re-upload cycle (teacher)
 
 A teacher in `DocumentsRejected` doesn't need admin help — they re-upload the rejected file themselves:
 
@@ -912,7 +1204,7 @@ Content-Type: multipart/form-data
 - If any required submission is still `Rejected` → teacher stays `DocumentsRejected`.
 - Otherwise (the just-re-uploaded one was the last rejection) → teacher → `PendingVerification`.
 
-The document re-enters the admin's pending queue (`GET /Pending`). Loop back to Step B.
+The document re-enters the admin's pending queue (endpoint #2). Loop back to endpoint #3.
 
 ---
 
@@ -935,6 +1227,9 @@ The document re-enters the admin's pending queue (`GET /Pending`). Loop back to 
 | 401 | Missing / expired admin token | — |
 | 403 | Token holder lacks `Admin` / `SuperAdmin` role | — |
 | 404 | Teacher or document not found, or `documentId` doesn't belong to that `teacherId` | `"Document {id} not found for teacher {teacherId}"` |
+| 400 | Invalid `status` on `GET /Teachers` | Lists valid status strings |
+| 400 | Activate (#11) on rejected subject | `"Rejected subjects must be restored before activation."` |
+| 404 | Unknown `teacherId` or `teacherSubjectId` on subject endpoints | Subject / teacher not found |
 
 ---
 
@@ -1151,9 +1446,12 @@ POST /Api/V1/Authentication/Admin/Login
 
 ### Admin panel
 
-- [ ] SuperAdmin: requirements CRUD
-- [ ] Review: pending list + checklist + `canBeActivated`
-- [ ] Approve/reject documents
+- [ ] SuperAdmin: requirements CRUD (`/Api/V1/Admin/TeacherRegistrationRequirements`)
+- [ ] `GET /TeacherManagement/Teachers` — browse all teachers (filters + pagination)
+- [ ] `GET /TeacherManagement/Pending` — verification queue
+- [ ] `GET /TeacherManagement/{teacherId}` — preview, checklist, `canBeActivated`, subjects tab
+- [ ] Approve / reject documents; block teacher
+- [ ] Subject moderation: `GET /Subjects`, `GET /{teacherId}/Subjects`, inactivate / activate / reject / restore
 
 ### DevOps
 

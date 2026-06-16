@@ -119,7 +119,7 @@ public class EducationFilterService : IEducationFilterService
 
         // ========================================
         // STANDARD DOMAIN FLOW (School, Language, Skills)
-        // Curriculum → Level → Grade → Term → Subject → Units
+        // Curriculum → Level → Grade → Subject → Term → Units
         // ========================================
         return await DetermineStandardNextStepAsync(state, rule, domainId);
     }

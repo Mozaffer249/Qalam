@@ -78,9 +78,14 @@ public class EducationController : AppControllerBase
     #region Filtering
 
     /// <summary>
-    /// Get filter options based on domain rules and current selection state
+    /// Education filter wizard — next step and options from cumulative query selections.
     /// </summary>
-    [HttpGet("filter-options")]
+    /// <remarks>
+    /// Stateless: send all IDs chosen so far on every call. After **Grade**, the next step is **Subject**, then **Term**, then **Unit**.
+    /// See OpenAPI description on this operation and `Qalam.Data/AppMetaData/docs/Education_Business_Logic.md`.
+    /// </remarks>
+    [HttpGet(Router.Education + "/filter-options")]
+    [ProducesResponseType(typeof(Qalam.Data.DTOs.FilterOptionsResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetFilterOptions([FromQuery] GetFilterOptionsQuery query)
     {
         return NewResult(await Mediator.Send(query));

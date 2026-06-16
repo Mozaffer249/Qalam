@@ -26,19 +26,19 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     public int? LevelId { get; set; }
 
     /// <summary>
-    /// Grade ID
+    /// Grade ID (wizard step 4 — next step is Subject).
     /// </summary>
     public int? GradeId { get; set; }
 
     /// <summary>
-    /// Academic term IDs (can select multiple terms)
-    /// </summary>
-    public List<int>? TermIds { get; set; }
-
-    /// <summary>
-    /// Subject ID
+    /// Subject ID (wizard step 5 — send after gradeId, before termIds).
     /// </summary>
     public int? SubjectId { get; set; }
+
+    /// <summary>
+    /// Academic term IDs (wizard step 6 — send after subjectId; repeat param for multi-select).
+    /// </summary>
+    public List<int>? TermIds { get; set; }
 
     /// <summary>
     /// Quran content type ID: Memorization, Recitation, Tajweed
