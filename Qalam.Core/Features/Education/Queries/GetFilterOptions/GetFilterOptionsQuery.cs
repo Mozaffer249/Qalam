@@ -41,6 +41,21 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     public List<int>? TermIds { get; set; }
 
     /// <summary>
+    /// Content unit ID (wizard step 7 — send after picking from unit[]).
+    /// </summary>
+    public int? ContentUnitId { get; set; }
+
+    /// <summary>
+    /// Lesson IDs (wizard step 8 — optional; repeat param for multi-select).
+    /// </summary>
+    public List<int>? LessonIds { get; set; }
+
+    /// <summary>
+    /// Skip optional lesson picker when true (with contentUnitId set).
+    /// </summary>
+    public bool SkipLessons { get; set; }
+
+    /// <summary>
     /// Quran content type ID: Memorization, Recitation, Tajweed
     /// </summary>
     public int? QuranContentTypeId { get; set; }

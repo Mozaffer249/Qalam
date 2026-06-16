@@ -15,6 +15,7 @@ public class EducationFilterService : IEducationFilterService
     private readonly IAcademicTermRepository _termRepository;
     private readonly ISubjectRepository _subjectRepository;
     private readonly IContentUnitRepository _contentUnitRepository;
+    private readonly ILessonRepository _lessonRepository;
     private readonly IQuranContentTypeRepository _quranContentTypeRepository;
     private readonly IQuranLevelRepository _quranLevelRepository;
 
@@ -26,6 +27,7 @@ public class EducationFilterService : IEducationFilterService
         IAcademicTermRepository termRepository,
         ISubjectRepository subjectRepository,
         IContentUnitRepository contentUnitRepository,
+        ILessonRepository lessonRepository,
         IQuranContentTypeRepository quranContentTypeRepository,
         IQuranLevelRepository quranLevelRepository)
     {
@@ -36,6 +38,7 @@ public class EducationFilterService : IEducationFilterService
         _termRepository = termRepository;
         _subjectRepository = subjectRepository;
         _contentUnitRepository = contentUnitRepository;
+        _lessonRepository = lessonRepository;
         _quranContentTypeRepository = quranContentTypeRepository;
         _quranLevelRepository = quranLevelRepository;
     }
@@ -199,7 +202,7 @@ public class EducationFilterService : IEducationFilterService
     }
 
     /// <summary>
-    /// Standard domain flow: Curriculum → Level → Grade → Subject → Term → Units
+    /// Standard domain flow: Curriculum → Level → Grade → Subject → Term → Unit → Lesson → Done
     /// </summary>
     private async Task<FilterStepResult> DetermineStandardNextStepAsync(
         FilterStateDto state,
@@ -253,13 +256,13 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Term", Options = terms };
         }
 
-        // Step 6: ContentUnits (filtered by selected terms if provided)
-        if (rule.HasContentUnits)
+        // Step 6: ContentUnits (when unit not yet selected)
+        if (rule.HasContentUnits && !state.ContentUnitId.HasValue)
         {
             var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
-                state.SubjectId.Value,
+                state.SubjectId!.Value,
                 unitTypeCode: null,
-                termIds: state.TermIds); // Pass termIds list to filter units
+                termIds: state.TermIds);
             return new FilterStepResult
             {
                 NextStep = "Unit",
@@ -272,8 +275,35 @@ public class EducationFilterService : IEducationFilterService
             };
         }
 
-        // All done
+        if (state.ContentUnitId.HasValue)
+            await ValidateContentUnitForSubjectAsync(state);
+
+        // Step 7: Lessons (optional — when domain supports lessons)
+        if (rule.HasLessons
+            && state.ContentUnitId.HasValue
+            && !state.SkipLessons
+            && (state.LessonIds == null || !state.LessonIds.Any()))
+        {
+            var lessons = await _lessonRepository.GetLessonsAsOptionsAsync(state.ContentUnitId.Value);
+            return new FilterStepResult { NextStep = "Lesson", Options = lessons };
+        }
+
+        // All done (unit selected and lessons skipped, picked, or not applicable)
         return new FilterStepResult { NextStep = "Done", Options = new List<FilterOptionDto>() };
+    }
+
+    private async Task ValidateContentUnitForSubjectAsync(FilterStateDto state)
+    {
+        if (!state.ContentUnitId.HasValue || !state.SubjectId.HasValue)
+            return;
+
+        var unit = await _contentUnitRepository.GetByIdAsync(state.ContentUnitId.Value);
+        if (unit == null)
+            throw new InvalidOperationException($"Content unit {state.ContentUnitId} not found");
+
+        if (unit.SubjectId != state.SubjectId.Value)
+            throw new ArgumentException(
+                $"Content unit {state.ContentUnitId} does not belong to subject {state.SubjectId}.");
     }
 
     private EducationRuleDto MapToRuleDto(EducationRule rule)

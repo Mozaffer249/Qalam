@@ -514,6 +514,8 @@ Authorization: Bearer <token>
 
 Returns `nextStep`, `options[]`, `unit[]`, `rule`, and domain-specific fields (`subject`, `contentTypes`, `levels` for Quran).
 
+**Standard path after Unit:** when `rule.hasLessons === true`, send `contentUnitId` → `nextStep: Lesson` with lessons in `options[]`. Finish with `lessonIds` (multi) or `skipLessons=true` → `Done`. Quran domain skips the lesson step (`hasLessons: false`).
+
 **Full reference:** [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md)
 
 ---

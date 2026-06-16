@@ -38,6 +38,21 @@ public class FilterStateDto
     public List<int>? TermIds { get; set; }
 
     /// <summary>
+    /// Selected content unit ID (wizard step 7 — after Unit).
+    /// </summary>
+    public int? ContentUnitId { get; set; }
+
+    /// <summary>
+    /// Selected lesson IDs (wizard step 8 — optional multi-select after unit).
+    /// </summary>
+    public List<int>? LessonIds { get; set; }
+
+    /// <summary>
+    /// When true with contentUnitId, skip the optional Lesson step and return Done.
+    /// </summary>
+    public bool SkipLessons { get; set; }
+
+    /// <summary>
     /// Quran content type ID (for Quran domain): Memorization, Recitation, Tajweed
     /// </summary>
     public int? QuranContentTypeId { get; set; }

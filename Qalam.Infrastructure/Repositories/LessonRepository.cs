@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -62,5 +63,20 @@ public class LessonRepository : GenericRepositoryAsync<Lesson>, ILessonRepositor
     {
         _context.Lessons.UpdateRange(entities);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<FilterOptionDto>> GetLessonsAsOptionsAsync(int contentUnitId)
+    {
+        return await _context.Lessons
+            .AsNoTracking()
+            .Where(l => l.UnitId == contentUnitId && l.IsActive)
+            .OrderBy(l => l.OrderIndex)
+            .Select(l => new FilterOptionDto
+            {
+                Id = l.Id,
+                NameAr = l.NameAr,
+                NameEn = l.NameEn
+            })
+            .ToListAsync();
     }
 }

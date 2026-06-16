@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.InfrastructureBases;
 
@@ -11,4 +12,5 @@ public interface ILessonRepository : IGenericRepositoryAsync<Lesson>
     Task<Lesson> GetLessonWithDetailsAsync(int id);
     Task<int> GetNextOrderIndexAsync(int contentUnitId);
     Task UpdateRangeAsync(IEnumerable<Lesson> entities);
+    Task<List<FilterOptionDto>> GetLessonsAsOptionsAsync(int contentUnitId);
 }

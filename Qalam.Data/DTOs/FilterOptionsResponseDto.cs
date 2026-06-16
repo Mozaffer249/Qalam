@@ -7,7 +7,7 @@ public class FilterOptionsResponseDto
     public FilterStateDto CurrentState { get; set; } = default!;
     public EducationRuleDto Rule { get; set; } = default!;
     /// <summary>
-    /// Next wizard step. Standard flow: Curriculum, Level, Grade, Subject, Term, Unit, Done (in that order).
+    /// Next wizard step. Standard flow: Curriculum, Level, Grade, Subject, Term, Unit, Lesson, Done (in that order).
     /// </summary>
     public string NextStep { get; set; } = default!;
     

@@ -18,9 +18,12 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
         "gradeId", "GradeId",
         "subjectId", "SubjectId",
         "termIds", "TermIds",
+        "contentUnitId", "ContentUnitId",
+        "lessonIds", "LessonIds",
         "quranContentTypeId", "QuranContentTypeId",
         "quranLevelId", "QuranLevelId",
         "unitTypeCode", "UnitTypeCode",
+        "skipLessons", "SkipLessons",
         "pageNumber", "PageNumber",
         "pageSize", "PageSize"
     ];
@@ -39,7 +42,7 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
 
             **Education filter wizard (stateless)**
             
-            Call repeatedly, passing **all** selections accumulated so far. Read `data.nextStep` and render `data.options[]` (or `data.unit[]` when `nextStep` is `Unit`).
+            Call repeatedly, passing **all** selections accumulated so far. Read `data.nextStep` and render `data.options[]`, `data.unit[]` (when `nextStep` is `Unit`), or finish at `Done`.
 
             ### Standard domains (`school`, `university`, `language`, …)
 
@@ -51,10 +54,11 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
             | 4 | `Grade` | `gradeId` |
             | 5 | **`Subject`** | **`subjectId`** ← **before term** |
             | 6 | **`Term`** | **`termIds`** (repeat: `termIds=1&termIds=2`) |
-            | 7 | `Unit` | (units in `data.unit[]`; terms filter units) |
-            | 8 | `Done` | selection complete |
+            | 7 | `Unit` | pick from `data.unit[]`, then send **`contentUnitId`** |
+            | 8 | `Lesson` (optional) | **`lessonIds`** (repeat) or **`skipLessons=true`** |
+            | 9 | `Done` | selection complete |
 
-            > **Order:** After grade, pick **subject** first, then **term(s)**. Subjects are year-long for the grade; terms filter **content units**, not the subject list.
+            > **Order:** Subject before Term. After unit, domains with `rule.hasLessons` show lessons (optional — use `skipLessons=true` to skip).
 
             ### Quran domain (`code = quran`)
 
@@ -76,6 +80,18 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
             "Step 4: grade ID — next step is Subject (not Term).");
         SetParameterDescription(operation, "GradeId",
             "Step 4: grade ID — next step is Subject (not Term).");
+        SetParameterDescription(operation, "contentUnitId",
+            "Step 7: content unit ID — send after picking from data.unit[] when nextStep was Unit.");
+        SetParameterDescription(operation, "ContentUnitId",
+            "Step 7: content unit ID — send after picking from data.unit[] when nextStep was Unit.");
+        SetParameterDescription(operation, "lessonIds",
+            "Step 8 (optional): lesson IDs after contentUnitId. Repeat param for multi-select.");
+        SetParameterDescription(operation, "LessonIds",
+            "Step 8 (optional): lesson IDs after contentUnitId. Repeat param for multi-select.");
+        SetParameterDescription(operation, "skipLessons",
+            "When true with contentUnitId, skip Lesson step and return Done.");
+        SetParameterDescription(operation, "SkipLessons",
+            "When true with contentUnitId, skip Lesson step and return Done.");
     }
 
     private static void ReorderQueryParameters(OpenApiOperation operation)

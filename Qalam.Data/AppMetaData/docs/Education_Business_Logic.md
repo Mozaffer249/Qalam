@@ -68,8 +68,9 @@ flowchart TD
     BR -->|yes| QPATH[Quran path one shot]
     BR -->|no| STD[Standard path step by step]
     QPATH --> QOUT[subject contentTypes levels units]
-    STD --> STEPS[Curriculum Level Grade Subject Term]
+    STD --> STEPS[Curriculum Level Grade Subject Term Unit Lesson]
     STEPS --> UOUT[unit list when nextStep Unit]
+    STEPS --> LOUT[lessons when nextStep Lesson]
     STEPS --> DOUT["end when nextStep Done"]
 ```
 
@@ -90,7 +91,7 @@ filter-options
        │          └─ unit[] + totalCount/pageNumber/pageSize
        │
        └─ لا ──► مسار قياسي (خطوة/استدعاء):
-                  Curriculum? → Level? → Grade? → Subject → Term? → Unit | Done
+                  Curriculum? → Level? → Grade? → Subject → Term? → Unit → Lesson? → Done
 ```
 
 ---
@@ -111,12 +112,14 @@ flowchart TD
     C4 -->|yes| NS[nextStep Subject]
     C4 -->|no| C5{Need term}
     C5 -->|yes| NT[nextStep Term]
-    C5 -->|no| C6{Has content units}
+    C5 -->|no| C6{Need unit}
     C6 -->|yes| NU[nextStep Unit]
-    C6 -->|no| ND[nextStep Done]
+    C6 -->|no| C7{Need lesson}
+    C7 -->|yes| NLs[nextStep Lesson]
+    C7 -->|no| ND[nextStep Done]
 ```
 
-> **شروط العقد:** `Need curriculum` = `hasCurriculum` ولا `curriculumId` · `Need level` = `hasEducationLevel` ولا `levelId` · `Need grade` = `hasGrade` ولا `gradeId` · `Need subject` = لا `subjectId` · `Need term` = `hasAcademicTerm` ولا `termIds` · `Has content units` = `hasContentUnits`
+> **شروط العقد:** `Need curriculum` = `hasCurriculum` ولا `curriculumId` · `Need level` = `hasEducationLevel` ولا `levelId` · `Need grade` = `hasGrade` ولا `gradeId` · `Need subject` = لا `subjectId` · `Need term` = `hasAcademicTerm` ولا `termIds` · `Need unit` = `hasContentUnits` ولا `contentUnitId` · `Need lesson` = `hasLessons` و`contentUnitId` ولا `skipLessons` ولا `lessonIds`
 
 ```
 المسار القياسي (شجرة نصية)
@@ -126,7 +129,8 @@ domainId
 ├── [hasGrade && !gradeId]               → Grade       (+ gradeId)  ※ يتطلب levelId
 ├── [!subjectId]                         → Subject     (+ subjectId)  ※ دائماً بعد الخطوات السابقة
 ├── [hasAcademicTerm && !termIds]        → Term        (+ termIds[])  ※ بعد subjectId
-├── [hasContentUnits]                    → Unit        (unit[])
+├── [hasContentUnits && !contentUnitId]  → Unit        (unit[])
+├── [hasLessons && contentUnitId && !skipLessons && !lessonIds] → Lesson (options[])
 └── [else]                               → Done
 ```
 
@@ -142,10 +146,10 @@ domainId
 
 ```
 Education/Domains
-├── school      → Curriculum → Level → Grade → Subject → Term → Unit
-├── university  → Curriculum → Level ──────────→ Subject → Term → Unit
-├── language    → Level ──────────────────────→ Subject ────────→ Unit
-├── skills      → Subject ──────────────────────────────────────→ Unit
+├── school      → Curriculum → Level → Grade → Subject → Term → Unit → Lesson? → Done
+├── university  → Curriculum → Level ──────────→ Subject → Term → Unit → Lesson? → Done
+├── language    → Level ──────────────────────→ Subject → Unit → Lesson? → Done
+├── skills      → Subject → Unit → Lesson? → Done
 └── quran       → Unit (واحد: subject + contentTypes + levels + unit[])
 ```
 
@@ -153,7 +157,7 @@ Education/Domains
 
 ```mermaid
 flowchart LR
-    D[domainId] --> CU[Curriculum] --> L[Level] --> G[Grade] --> SU[Subject] --> T[Term] --> U[Unit]
+    D[domainId] --> CU[Curriculum] --> L[Level] --> G[Grade] --> SU[Subject] --> T[Term] --> U[Unit] --> LS[Lesson]
 ```
 
 ```
@@ -164,6 +168,8 @@ school
             └── subjectId
                 └── termIds[]  (اختياري متعدد — يفلتر unit[])
                     └── unit[]
+                        └── contentUnitId
+                            └── lessonIds[] أو skipLessons=true → Done
 ```
 
 ### `university` — تعليم جامعي
@@ -236,7 +242,7 @@ quran  (استدعاء واحد)
 | `hasGrade` | خطوة الصف |
 | `hasAcademicTerm` | خطوة الفصل (متعدد) |
 | `hasContentUnits` | إرجاع `unit[]` |
-| `hasLessons` | المجال يدعم دروساً (خارج filter-options) |
+| `hasLessons` | خطوة الدرس (اختيارية بعد `contentUnitId` عندما `hasLessons === true`) |
 | `requiresQuranContentType` | تلميح — نوع محتوى قرآني |
 | `requiresQuranLevel` | تلميح — مستوى قرآني |
 | `requiresUnitTypeSelection` | تلميح — جزء vs سورة |
@@ -254,8 +260,9 @@ quran  (استدعاء واحد)
 | `Grade` | صفوف | `gradeId` | يتطلب `levelId` |
 | `Subject` | مواد | `subjectId` | إلزامي بعد الخطوات السابقة |
 | `Term` | فصول | `termIds` (متكرر: `termIds=1&termIds=2`) | اختياري؛ يفلتر `unit[]` |
-| `Unit` | فارغ | — | `unit[]` مملوء |
-| `Done` | فارغ | — | لا وحدات |
+| `Unit` | فارغ | `contentUnitId` | `unit[]` مملوء — اختر وحدة ثم أعد الطلب |
+| `Lesson` | دروس | `lessonIds` (متكرر) أو `skipLessons=true` | فقط عند `hasLessons`؛ اختياري |
+| `Done` | فارغ | — | اكتمل الاختيار |
 
 ---
 
@@ -269,6 +276,9 @@ quran  (استدعاء واحد)
 | `gradeId` | int? | حسب الخطوة | — |
 | `termIds` | int[] | حسب الخطوة | `?termIds=1&termIds=2` |
 | `subjectId` | int? | بعد Subject | — |
+| `contentUnitId` | int? | بعد Unit | يُرسل بعد اختيار وحدة من `unit[]` |
+| `lessonIds` | int[] | بعد Lesson | `?lessonIds=101&lessonIds=102` — اختياري متعدد |
+| `skipLessons` | bool | اختياري | افتراضي `false` — عند `true` مع `contentUnitId` يتخطى خطوة الدرس → `Done` |
 | `quranContentTypeId` | int? | اختياري | **echo فقط** — لا يفلتر الوحدات |
 | `quranLevelId` | int? | اختياري | **echo فقط** |
 | `unitTypeCode` | string? | قرآن | `QuranPart` (افتراضي), `QuranSurah` |
@@ -314,7 +324,7 @@ quran  (استدعاء واحد)
 | `currentState` | object | دائماً |
 | `rule` | object | دائماً |
 | `nextStep` | string | دائماً |
-| `options` | `FilterOptionDto[]` | خطوات وسيطة (`Curriculum` … `Term`) |
+| `options` | `FilterOptionDto[]` | خطوات وسيطة (`Curriculum` … `Term`, `Lesson`) |
 | `unit` | `FilterOptionDto[]` \| null | `nextStep === "Unit"` |
 | `subject` | `FilterOptionDto` \| null | قرآن فقط |
 | `contentTypes` | `FilterOptionDto[]` \| null | قرآن فقط |
@@ -334,6 +344,9 @@ quran  (استدعاء واحد)
 | `gradeId` | int \| null | الصف |
 | `termIds` | int[] \| null | الفصول المختارة |
 | `subjectId` | int \| null | المادة |
+| `contentUnitId` | int \| null | الوحدة المختارة |
+| `lessonIds` | int[] \| null | الدروس المختارة (اختياري) |
+| `skipLessons` | bool | تخطي خطوة الدرس |
 | `quranContentTypeId` | int \| null | echo فقط (قرآن) |
 | `quranLevelId` | int \| null | echo فقط (قرآن) |
 | `unitTypeCode` | string \| null | نوع الوحدة (قرآن) |
@@ -361,6 +374,7 @@ quran  (استدعاء واحد)
 | `Subject` | مواد | null | null | null | null | null |
 | `Term` | فصول | null | null | null | null | null |
 | `Unit` | `[]` | وحدات | قرآن | قرآن | قرآن | قرآن فقط |
+| `Lesson` | دروس | null | null | null | null | null |
 | `Done` | `[]` | null | null | null | null | null |
 
 #### قالب — خطوة وسيطة (`options`)
@@ -523,7 +537,7 @@ quran  (استدعاء واحد)
 1. **تحقق:** `domainId` مطلوب → المجال + `EducationRule` موجودان.
 2. **تفرع:** `code == "quran"` → مسار قرآن؛ وإلا مسار قياسي.
 3. **قرآن:** مادة واحدة تلقائية، `unitTypeCode` افتراضي `QuranPart`، `contentTypes` + `levels` + `unit[]` مرقّم → `nextStep: Unit`.
-4. **قياسي:** بالترتيب — Curriculum → Level → Grade → **Subject** → Term → Unit → Done.
+4. **قياسي:** بالترتيب — Curriculum → Level → Grade → **Subject** → Term → Unit → Lesson (اختياري) → Done.
 5. **قرآن post-process:** المادة تُنقل من `options` إلى `subject` ويُفرَّغ `options`.
 
 ---
@@ -542,6 +556,9 @@ quran  (استدعاء واحد)
 | 4 | `Subject` | `+ gradeId=5` |
 | 5 | `Term` | `+ subjectId=12` |
 | 6 | `Unit` | `+ termIds=1&termIds=2` |
+| 7 | `Lesson` | `+ contentUnitId=44` |
+| 8a | `Done` | `+ lessonIds=101&lessonIds=102` |
+| 8b | `Done` | `+ skipLessons=true` (بدون `lessonIds`) |
 
 #### 1 — Curriculum
 
