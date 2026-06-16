@@ -12,23 +12,23 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
 
     private static readonly string[] QueryParameterOrder =
     [
-        "domainId",
-        "curriculumId",
-        "levelId",
-        "gradeId",
-        "subjectId",
-        "termIds",
-        "quranContentTypeId",
-        "quranLevelId",
-        "unitTypeCode",
-        "pageNumber",
-        "pageSize"
+        "domainId", "DomainId",
+        "curriculumId", "CurriculumId",
+        "levelId", "LevelId",
+        "gradeId", "GradeId",
+        "subjectId", "SubjectId",
+        "termIds", "TermIds",
+        "quranContentTypeId", "QuranContentTypeId",
+        "quranLevelId", "QuranLevelId",
+        "unitTypeCode", "UnitTypeCode",
+        "pageNumber", "PageNumber",
+        "pageSize", "PageSize"
     ];
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         var path = context.ApiDescription.RelativePath?.TrimEnd('/') ?? string.Empty;
-        if (path != "Api/V1/Education/filter-options" ||
+        if (!path.EndsWith("Education/filter-options", StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(context.ApiDescription.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
         {
             return;
@@ -65,10 +65,16 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
 
         ReorderQueryParameters(operation);
         SetParameterDescription(operation, "subjectId",
-            "Step 5 (standard flow): subject ID — send after gradeId, **before** termIds.");
+            "Step 5 (standard flow): subject ID — send after gradeId, before termIds.");
+        SetParameterDescription(operation, "SubjectId",
+            "Step 5 (standard flow): subject ID — send after gradeId, before termIds.");
         SetParameterDescription(operation, "termIds",
-            "Step 6 (standard flow): one or more academic term IDs — send **after** subjectId. Repeat param for multi-select.");
+            "Step 6 (standard flow): one or more academic term IDs — send after subjectId. Repeat param for multi-select.");
+        SetParameterDescription(operation, "TermIds",
+            "Step 6 (standard flow): one or more academic term IDs — send after subjectId. Repeat param for multi-select.");
         SetParameterDescription(operation, "gradeId",
+            "Step 4: grade ID — next step is Subject (not Term).");
+        SetParameterDescription(operation, "GradeId",
             "Step 4: grade ID — next step is Subject (not Term).");
     }
 

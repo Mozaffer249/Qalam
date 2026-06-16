@@ -84,10 +84,46 @@ public class EducationController : AppControllerBase
     /// Stateless: send all IDs chosen so far on every call. After **Grade**, the next step is **Subject**, then **Term**, then **Unit**.
     /// See OpenAPI description on this operation and `Qalam.Data/AppMetaData/docs/Education_Business_Logic.md`.
     /// </remarks>
+    /// <param name="domainId">Required. Education domain ID — start here (`GET /Education/Domains`).</param>
+    /// <param name="curriculumId">Wizard step 2 — after `nextStep` was `Curriculum`.</param>
+    /// <param name="levelId">Wizard step 3 — after `nextStep` was `Level`.</param>
+    /// <param name="gradeId">Wizard step 4 — after `nextStep` was `Grade`. Next step is Subject.</param>
+    /// <param name="subjectId">Wizard step 5 — after `nextStep` was `Subject`. Send before termIds.</param>
+    /// <param name="termIds">Wizard step 6 — after `nextStep` was `Term`. Repeat param for multi-select (`termIds=1&amp;termIds=2`).</param>
+    /// <param name="quranContentTypeId">Quran domain only (echo / client state).</param>
+    /// <param name="quranLevelId">Quran domain only (echo / client state).</param>
+    /// <param name="unitTypeCode">Quran domain: `QuranPart` (default) or `QuranSurah`.</param>
+    /// <param name="pageNumber">Pagination when `nextStep` is `Unit` (Quran).</param>
+    /// <param name="pageSize">Pagination when `nextStep` is `Unit` (Quran).</param>
     [HttpGet(Router.Education + "/filter-options")]
     [ProducesResponseType(typeof(Qalam.Data.DTOs.FilterOptionsResponseDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFilterOptions([FromQuery] GetFilterOptionsQuery query)
+    public async Task<IActionResult> GetFilterOptions(
+        [FromQuery] int domainId,
+        [FromQuery] int? curriculumId,
+        [FromQuery] int? levelId,
+        [FromQuery] int? gradeId,
+        [FromQuery] int? subjectId,
+        [FromQuery] List<int>? termIds,
+        [FromQuery] int? quranContentTypeId,
+        [FromQuery] int? quranLevelId,
+        [FromQuery] string? unitTypeCode,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
     {
+        var query = new GetFilterOptionsQuery
+        {
+            DomainId = domainId,
+            CurriculumId = curriculumId,
+            LevelId = levelId,
+            GradeId = gradeId,
+            SubjectId = subjectId,
+            TermIds = termIds,
+            QuranContentTypeId = quranContentTypeId,
+            QuranLevelId = quranLevelId,
+            UnitTypeCode = unitTypeCode,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
         return NewResult(await Mediator.Send(query));
     }
 
