@@ -8,7 +8,7 @@ using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
 
-public class SubmitTeacherRegistrationRequirementsCommand : IRequest<Response<string>>, IAuthenticatedRequest
+public class SubmitTeacherRegistrationRequirementsCommand : IRequest<Response<TeacherRegistrationSubmitResponseDto>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }

@@ -62,6 +62,7 @@ public class TeacherSubjectsResponseDto
 {
     public int TeacherId { get; set; }
     public List<TeacherSubjectResponseDto> Subjects { get; set; } = new();
+    public RegistrationStepDto? NextStep { get; set; }
 }
 
 /// <summary>

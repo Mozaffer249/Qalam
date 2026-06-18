@@ -27,7 +27,7 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
                .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(e => e.VerificationStatus)
-               .HasDefaultValue(DocumentVerificationStatus.Approved);
+               .HasDefaultValue(DocumentVerificationStatus.Pending);
 
         builder.Property(e => e.RejectionReason)
                .HasMaxLength(500);

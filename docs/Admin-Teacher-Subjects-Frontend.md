@@ -16,9 +16,11 @@ Related:
 
 ## Overview
 
-When a teacher adds subjects via `POST /Api/V1/Teacher/TeacherSubject`, each row is **auto-approved and active** — there is no pending queue for new subjects.
+When a teacher adds subjects via `POST /Api/V1/Teacher/TeacherSubject`, each row starts as **`Pending`** (`verificationStatus = 1`, `isActive = true`). An admin approves or rejects after comparing the subject/units against uploaded **certificate** documents on the teacher profile.
 
-Admins can later **inactivate** or **reject** an offering. Rejected or inactive subjects:
+Teachers can add subjects **before account activation** (during `AwaitingDocuments`, `PendingVerification`, or `DocumentsRejected`). The teacher account becomes **Active** only when admin calls `POST /TeacherManagement/{teacherId}/Activate` after all documents and subjects are approved.
+
+Rejected or inactive subjects (and pending subjects):
 
 - Cannot be used for **new courses**
 - Are excluded from **student–teacher matching** by subject
@@ -26,22 +28,24 @@ Admins can later **inactivate** or **reject** an offering. Rejected or inactive 
 
 ```mermaid
 stateDiagram-v2
-  [*] --> ActiveApproved : Teacher POST subject
-  ActiveApproved --> Inactive : Admin Inactivate
-  Inactive --> ActiveApproved : Admin Activate
-  ActiveApproved --> Rejected : Admin Reject + reason
-  Rejected --> ActiveApproved : Admin Restore
+  [*] --> PendingReview : Teacher POST subject
+  PendingReview --> Approved : Admin Approve
+  PendingReview --> Rejected : Admin Reject + reason
+  Rejected --> Approved : Admin Restore
+  Approved --> Inactive : Admin Inactivate
+  Inactive --> Approved : Admin Activate
 ```
 
 | Admin action | `isActive` | `verificationStatus` | `rejectionReason` |
 |--------------|------------|----------------------|-------------------|
-| *(teacher adds)* | `true` | `Approved` (2) | `null` |
+| *(teacher adds)* | `true` | `Pending` (1) | `null` |
+| Approve | `true` | `Approved` (2) | cleared |
 | Inactivate | `false` | unchanged | unchanged |
 | Activate | `true` | unchanged (must not be `Rejected`) | unchanged |
 | Reject | `false` | `Rejected` (3) | required text |
 | Restore | `true` | `Approved` (2) | cleared |
 
-`verificationStatus` uses `DocumentVerificationStatus`: `Pending = 1`, `Approved = 2`, `Rejected = 3`. New teacher subjects are always `Approved`; `Pending` does not appear on subjects in v1.
+`verificationStatus` uses `DocumentVerificationStatus`: `Pending = 1`, `Approved = 2`, `Rejected = 3`.
 
 ---
 
@@ -79,7 +83,7 @@ Paginated list (`GET /Subjects`) puts rows in `data` and pagination in `meta`:
 
 ## TypeScript shapes
 
-```typescript
+```ts
 type DocumentVerificationStatus = 1 | 2 | 3; // Pending | Approved | Rejected
 
 interface TeacherSubjectUnit {
@@ -212,20 +216,26 @@ Authorization: Bearer <admin-jwt>
 
 ### Status pill logic
 
-```typescript
-function subjectStatusLabel(s: AdminTeacherSubject): 'Active' | 'Inactive' | 'Rejected' {
+```ts
+function subjectStatusLabel(s: AdminTeacherSubject): 'Pending' | 'Active' | 'Inactive' | 'Rejected' {
   if (s.verificationStatus === 3) return 'Rejected';
+  if (s.verificationStatus === 1) return 'Pending';
   if (!s.isActive) return 'Inactive';
   return 'Active';
 }
 ```
 
-Suggested colors: Active = green, Inactive = gray, Rejected = red (match document pills on the same page).
+Suggested colors: Pending = amber, Active = green, Inactive = gray, Rejected = red (match document pills on the same page).
+
+### Certificate comparison (manual)
+
+On teacher detail (`GET /{teacherId}`), show **certificate** documents (`documentType === 2`) beside each pending subject card. Admin compares subject name, domain, and unit scope against certificate title, issuer, and issue date before **Approve** or **Reject**.
 
 ### Action buttons
 
 | Current state | Show | API |
 |---------------|------|-----|
+| Pending (`verificationStatus === 1`) | **Approve**, **Reject** | POST `.../Approve`, POST `.../Reject` |
 | Active (`isActive && verificationStatus === 2`) | **Inactivate**, **Reject** | POST `.../Inactivate`, POST `.../Reject` |
 | Inactive (`!isActive && verificationStatus === 2`) | **Activate**, **Reject** | POST `.../Activate`, POST `.../Reject` |
 | Rejected (`verificationStatus === 3`) | **Restore** only | POST `.../Restore` |
@@ -285,6 +295,7 @@ All commands are `POST`, no body except **Reject**.
 
 | Action | Path | Body |
 |--------|------|------|
+| Approve | `/{teacherId}/Subjects/{teacherSubjectId}/Approve` | — |
 | Inactivate | `/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` | — |
 | Activate | `/{teacherId}/Subjects/{teacherSubjectId}/Activate` | — |
 | Reject | `/{teacherId}/Subjects/{teacherSubjectId}/Reject` | `{ "reason": "..." }` |

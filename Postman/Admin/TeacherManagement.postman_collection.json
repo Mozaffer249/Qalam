@@ -295,6 +295,35 @@
 			"name": "Commands",
 			"item": [
 				{
+					"name": "Activate Teacher Account",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept-Language",
+								"value": "ar-EG",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/Api/V1/Admin/TeacherManagement/{{teacher_id}}/Activate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"Api",
+								"V1",
+								"Admin",
+								"TeacherManagement",
+								"{{teacher_id}}",
+								"Activate"
+							]
+						},
+						"description": "Authorize teacher account when canBeActivated is true (all docs and subjects approved, at least 1 subject)."
+					},
+					"response": []
+				},
+				{
 					"name": "Approve Document",
 					"request": {
 						"method": "POST",
@@ -326,7 +355,7 @@
 								"Approve"
 							]
 						},
-						"description": "Approve a specific document for a teacher. Once all documents are approved, teacher status becomes Active."
+						"description": "Approve a specific document for a teacher. Does not activate account — use Activate Teacher Account when canBeActivated is true."
 					},
 					"response": []
 				},

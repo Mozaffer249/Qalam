@@ -8,7 +8,7 @@ using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 
-public class UploadTeacherDocumentsCommand : IRequest<Response<string>>, IAuthenticatedRequest
+public class UploadTeacherDocumentsCommand : IRequest<Response<TeacherRegistrationSubmitResponseDto>>, IAuthenticatedRequest
 {
     /// <summary>
     /// Automatically populated by UserIdentityBehavior from JWT token.

@@ -3,14 +3,15 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 
 /// <summary>
 /// Legacy endpoint wrapper — delegates to <see cref="SubmitTeacherRegistrationRequirementsCommandHandler"/>.
-/// </summary>
+/// </summary> 
 public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
-    IRequestHandler<UploadTeacherDocumentsCommand, Response<string>>
+    IRequestHandler<UploadTeacherDocumentsCommand, Response<TeacherRegistrationSubmitResponseDto>>
 {
     private readonly IMediator _mediator;
 
@@ -21,7 +22,9 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
         _mediator = mediator;
     }
 
-    public Task<Response<string>> Handle(UploadTeacherDocumentsCommand request, CancellationToken cancellationToken)
+    public Task<Response<TeacherRegistrationSubmitResponseDto>> Handle(
+        UploadTeacherDocumentsCommand request,
+        CancellationToken cancellationToken)
     {
         var submit = new SubmitTeacherRegistrationRequirementsCommand
         {

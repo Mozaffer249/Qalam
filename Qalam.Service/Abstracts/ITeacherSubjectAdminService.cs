@@ -20,5 +20,6 @@ public interface ITeacherSubjectAdminService
     Task<bool> InactivateSubjectAsync(int teacherId, int teacherSubjectId, int adminId, CancellationToken cancellationToken = default);
     Task<bool> ActivateSubjectAsync(int teacherId, int teacherSubjectId, int adminId, CancellationToken cancellationToken = default);
     Task<bool> RejectSubjectAsync(int teacherId, int teacherSubjectId, int adminId, string reason, CancellationToken cancellationToken = default);
+    Task<bool> ApproveSubjectAsync(int teacherId, int teacherSubjectId, int adminId, CancellationToken cancellationToken = default);
     Task<bool> RestoreSubjectAsync(int teacherId, int teacherSubjectId, int adminId, CancellationToken cancellationToken = default);
 }

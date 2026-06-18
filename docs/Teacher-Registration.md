@@ -1,5 +1,13 @@
 # Teacher Registration Documentation
 
+> **Updated flow (v2):** Subjects are added **before** account activation and start **Pending** until admin approves them alongside certificates.  
+> **Use these docs instead of the sections below for current behavior:**
+> - [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md) — end-to-end flow (recommended)
+> - [Teacher-Registration-Guide.md](Teacher-Registration-Guide.md) — full API reference
+> - [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md) — admin subject review UI
+
+---
+
 ## Overview
 
 The teacher registration system implements a secure 4-step phone-based registration process. Teachers verify their phone number, provide personal information, and upload required documents for admin verification.

@@ -13,15 +13,18 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
 {
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ILogger<TeacherSubjectAdminService> _logger;
 
     public TeacherSubjectAdminService(
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherRepository teacherRepository,
+        ITeacherRegistrationCompletionService completionService,
         ILogger<TeacherSubjectAdminService> logger)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
+        _completionService = completionService;
         _logger = logger;
     }
 
@@ -149,6 +152,41 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             "Teacher subject {TeacherSubjectId} rejected by admin {AdminId}",
             teacherSubjectId, adminId);
 
+        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
+
+        return true;
+    }
+
+    public async Task<bool> ApproveSubjectAsync(
+        int teacherId,
+        int teacherSubjectId,
+        int adminId,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = await GetTrackedSubjectAsync(teacherId, teacherSubjectId, cancellationToken);
+        if (subject == null)
+            return false;
+
+        if (subject.VerificationStatus != DocumentVerificationStatus.Pending)
+            throw new InvalidOperationException("Only pending subjects can be approved.");
+
+        subject.VerificationStatus = DocumentVerificationStatus.Approved;
+        subject.RejectionReason = null;
+        subject.ReviewedByAdminId = adminId;
+        subject.ReviewedAt = DateTime.UtcNow;
+        subject.IsActive = true;
+        subject.UpdatedAt = DateTime.UtcNow;
+        subject.UpdatedBy = adminId;
+
+        await _teacherSubjectRepository.UpdateAsync(subject);
+        await _teacherSubjectRepository.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Teacher subject {TeacherSubjectId} approved by admin {AdminId}",
+            teacherSubjectId, adminId);
+
+        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
+
         return true;
     }
 
@@ -176,6 +214,8 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         _logger.LogInformation(
             "Teacher subject {TeacherSubjectId} restored by admin {AdminId}",
             teacherSubjectId, adminId);
+
+        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
 
         return true;
     }
@@ -240,6 +280,7 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         {
             TotalSubjects = subjects.Count,
             ActiveSubjects = subjects.Count(s => s.IsActive && s.VerificationStatus == DocumentVerificationStatus.Approved),
+            PendingSubjects = subjects.Count(s => s.VerificationStatus == DocumentVerificationStatus.Pending),
             InactiveSubjects = subjects.Count(s => !s.IsActive && s.VerificationStatus != DocumentVerificationStatus.Rejected),
             RejectedSubjects = subjects.Count(s => s.VerificationStatus == DocumentVerificationStatus.Rejected)
         };

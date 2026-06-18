@@ -689,23 +689,23 @@ Authorization: Bearer {token}
 
 ### مثال 2 — `quran`
 
-| # | `nextStep` | معاملات الاستعلام |
-|:-:|------------|-------------------|
-| 1 | `Unit` | `domainId={quran}&unitTypeCode=QuranPart&pageNumber=1&pageSize=20` |
+القرآن **استدعاء واحد** يعيد كل شيء (`subject` + `contentTypes` + `levels` + `unit[]`) و`nextStep` يبقى `Unit` دائماً. لا خطوات وسيطة. الجدول أدناه يعرض السيناريوهات المختلفة لنفس الاستدعاء:
 
-#### 1 — Unit (استدعاء واحد)
+| # | السيناريو | معاملات الاستعلام | `totalCount` / `totalPages` |
+|:-:|-----------|-------------------|:---:|
+| 1a | أجزاء — صفحة 1 (افتراضي) | `domainId=2&pageNumber=1&pageSize=20` | 30 / 2 |
+| 1b | أجزاء — صفحة 2 (الأخيرة) | `domainId=2&pageNumber=2&pageSize=20` | 30 / 2 |
+| 1c | سور | `domainId=2&unitTypeCode=QuranSurah&pageNumber=1&pageSize=50` | 114 / 3 |
+| 1d | echo نوع/مستوى المحتوى | `domainId=2&quranContentTypeId=1&quranLevelId=2` | 30 / 2 |
 
-**Request — أجزاء (افتراضي)**
+> `unitTypeCode` يُحدِّد نوع الوحدات: `QuranPart` (30 جزءاً، افتراضي) أو `QuranSurah` (114 سورة). `quranContentTypeId` / `quranLevelId` **لا يفلتران الوحدات** — يُعادان echo في `currentState` فقط لمساعدة الواجهة على حفظ اختيار المستخدم.
+
+#### 1a — أجزاء، صفحة 1 (افتراضي)
+
+**Request**
 
 ```http
 GET /Api/V1/Education/filter-options?domainId=2&pageNumber=1&pageSize=20
-Authorization: Bearer {token}
-```
-
-**Request — سور**
-
-```http
-GET /Api/V1/Education/filter-options?domainId=2&unitTypeCode=QuranSurah&pageNumber=1&pageSize=50
 Authorization: Bearer {token}
 ```
 
@@ -750,6 +750,143 @@ Authorization: Bearer {token}
   "errors": null
 }
 ```
+
+#### 1b — أجزاء، صفحة 2 (الأخيرة)
+
+نفس الاستدعاء مع `pageNumber=2`. الوحدات فقط تتغيّر (الأجزاء 21–30)؛ `subject` و`contentTypes` و`levels` تُعاد كاملة في كل صفحة.
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=2&pageNumber=2&pageSize=20
+Authorization: Bearer {token}
+```
+
+**Response** (مختصر — `subject`/`contentTypes`/`levels` كما في 1a)
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 2, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": 499,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": "QuranPart"
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": false,
+      "requiresQuranContentType": true, "requiresQuranLevel": true,
+      "requiresUnitTypeSelection": true
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 135, "nameAr": "الجزء الحادي والعشرون", "nameEn": "Part 21", "code": "QuranPart" },
+      { "id": 144, "nameAr": "الجزء الثلاثون", "nameEn": "Part 30", "code": "QuranPart" }
+    ],
+    "totalCount": 30, "pageNumber": 2, "pageSize": 20, "totalPages": 2,
+    "subject": { "id": 499, "nameAr": "القرآن الكريم", "nameEn": "Quran", "code": "quran" },
+    "contentTypes": [ { "id": 1, "nameAr": "حفظ", "nameEn": "Memorization", "code": null } ],
+    "levels": [ { "id": 1, "nameAr": "نوراني", "nameEn": "Noorani", "code": null } ]
+  },
+  "errors": null
+}
+```
+
+#### 1c — سور (`unitTypeCode=QuranSurah`)
+
+`unitTypeCode=QuranSurah` يبدّل قائمة الوحدات إلى 114 سورة (`code: "QuranSurah"`). مع `pageSize=50` → `totalPages: 3`. `subject`/`contentTypes`/`levels` لا تتغيّر.
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=2&unitTypeCode=QuranSurah&pageNumber=1&pageSize=50
+Authorization: Bearer {token}
+```
+
+**Response** (مختصر)
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 2, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": 499,
+      "quranContentTypeId": null, "quranLevelId": null, "unitTypeCode": "QuranSurah"
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": false,
+      "requiresQuranContentType": true, "requiresQuranLevel": true,
+      "requiresUnitTypeSelection": true
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 201, "nameAr": "الفاتحة", "nameEn": "Al-Fatihah", "code": "QuranSurah" },
+      { "id": 202, "nameAr": "البقرة", "nameEn": "Al-Baqarah", "code": "QuranSurah" },
+      { "id": 250, "nameAr": "الناس", "nameEn": "An-Nas", "code": "QuranSurah" }
+    ],
+    "totalCount": 114, "pageNumber": 1, "pageSize": 50, "totalPages": 3,
+    "subject": { "id": 499, "nameAr": "القرآن الكريم", "nameEn": "Quran", "code": "quran" },
+    "contentTypes": [ { "id": 1, "nameAr": "حفظ", "nameEn": "Memorization", "code": null } ],
+    "levels": [ { "id": 1, "nameAr": "نوراني", "nameEn": "Noorani", "code": null } ]
+  },
+  "errors": null
+}
+```
+
+#### 1d — echo: `quranContentTypeId` / `quranLevelId`
+
+إرسال `quranContentTypeId=1&quranLevelId=2` **لا يفلتر** الوحدات — تُعاد كل الأجزاء كما هي. القيمتان تظهران في `currentState` فقط (echo) كي تحفظ الواجهة اختيار المستخدم لنوع المحتوى والمستوى.
+
+**Request**
+
+```http
+GET /Api/V1/Education/filter-options?domainId=2&quranContentTypeId=1&quranLevelId=2
+Authorization: Bearer {token}
+```
+
+**Response** (مختصر — لاحظ `quranContentTypeId` و`quranLevelId` في `currentState`)
+
+```json
+{
+  "statusCode": 200,
+  "succeeded": true,
+  "message": null,
+  "data": {
+    "currentState": {
+      "domainId": 2, "curriculumId": null, "levelId": null, "gradeId": null,
+      "termIds": null, "subjectId": 499,
+      "quranContentTypeId": 1, "quranLevelId": 2, "unitTypeCode": "QuranPart"
+    },
+    "rule": {
+      "hasCurriculum": false, "hasEducationLevel": false, "hasGrade": false,
+      "hasAcademicTerm": false, "hasContentUnits": true, "hasLessons": false,
+      "requiresQuranContentType": true, "requiresQuranLevel": true,
+      "requiresUnitTypeSelection": true
+    },
+    "nextStep": "Unit",
+    "options": [],
+    "unit": [
+      { "id": 115, "nameAr": "الجزء الأول", "nameEn": "Part 1", "code": "QuranPart" }
+    ],
+    "totalCount": 30, "pageNumber": 1, "pageSize": 20, "totalPages": 2,
+    "subject": { "id": 499, "nameAr": "القرآن الكريم", "nameEn": "Quran", "code": "quran" },
+    "contentTypes": [ { "id": 1, "nameAr": "حفظ", "nameEn": "Memorization", "code": null } ],
+    "levels": [ { "id": 1, "nameAr": "نوراني", "nameEn": "Noorani", "code": null } ]
+  },
+  "errors": null
+}
+```
+
+> **خطأ شائع:** بلا مادة قرآن مبذورة في القاعدة → `404 Quran subject not found`. راجع [أخطاء API](#أخطاء-api).
 
 ---
 

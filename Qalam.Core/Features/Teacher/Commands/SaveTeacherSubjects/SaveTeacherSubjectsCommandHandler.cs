@@ -4,6 +4,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -15,18 +16,21 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ISubjectService _subjectService;
+    private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherRepository teacherRepository,
         ISubjectService subjectService,
+        ITeacherRegistrationService teacherRegistrationService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
         _subjectService = subjectService;
+        _teacherRegistrationService = teacherRegistrationService;
         _mapper = mapper;
     }
 
@@ -39,6 +43,12 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         if (teacher == null)
         {
             return NotFound<TeacherSubjectsResponseDto>("Teacher not found");
+        }
+
+        if (teacher.Status == TeacherStatus.Blocked)
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                "Your account has been blocked. Please contact support.");
         }
 
         // Validate subjects exist (optimized - single batch query)
@@ -74,6 +84,14 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             TeacherId = teacher.Id,
             Subjects = _mapper.Map<List<TeacherSubjectResponseDto>>(savedSubjects)
         };
+
+        if (teacher.Status == TeacherStatus.PendingVerification
+            || teacher.Status == TeacherStatus.DocumentsRejected)
+        {
+            var hasSubjects = await _teacherSubjectRepository.HasAnySubjectOfferingsAsync(teacher.Id);
+            if (hasSubjects)
+                response.NextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
+        }
 
         return Success("Teacher subjects saved successfully", entity: response);
     }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
@@ -70,7 +71,10 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 SubjectId = subjectDto.SubjectId,
                 CanTeachFullSubject = subjectDto.CanTeachFullSubject,
                 IsActive = true,
-                VerificationStatus = DocumentVerificationStatus.Approved,
+                VerificationStatus = DocumentVerificationStatus.Pending,
+                RejectionReason = null,
+                ReviewedByAdminId = null,
+                ReviewedAt = null,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -116,6 +120,28 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .AnyAsync(ts => ts.TeacherId == teacherId
                             && ts.IsActive
                             && ts.VerificationStatus == DocumentVerificationStatus.Approved);
+    }
+
+    public async Task<bool> HasAnySubjectOfferingsAsync(int teacherId)
+    {
+        return await _teacherSubjects.AnyAsync(ts => ts.TeacherId == teacherId);
+    }
+
+    public async Task<TeacherSubjectActivationSnapshot> GetSubjectActivationSnapshotAsync(int teacherId)
+    {
+        var counts = await _teacherSubjects
+            .Where(ts => ts.TeacherId == teacherId)
+            .GroupBy(_ => 1)
+            .Select(g => new TeacherSubjectActivationSnapshot
+            {
+                Total = g.Count(),
+                Pending = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Pending),
+                Approved = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Approved),
+                Rejected = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Rejected)
+            })
+            .FirstOrDefaultAsync();
+
+        return counts ?? new TeacherSubjectActivationSnapshot();
     }
 
     public async Task RemoveAllTeacherSubjectsAsync(int teacherId)
@@ -183,7 +209,10 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 SubjectId = dto.SubjectId,
                 CanTeachFullSubject = dto.CanTeachFullSubject,
                 IsActive = true,
-                VerificationStatus = DocumentVerificationStatus.Approved,
+                VerificationStatus = DocumentVerificationStatus.Pending,
+                RejectionReason = null,
+                ReviewedByAdminId = null,
+                ReviewedAt = null,
                 CreatedAt = DateTime.UtcNow
             };
 

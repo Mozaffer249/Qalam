@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Admin;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -16,18 +15,21 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 	private readonly ITeacherRepository _teacherRepository;
 	private readonly ITeacherRegistrationStatusService _registrationStatusService;
 	private readonly ITeacherSubjectAdminService _subjectAdminService;
+	private readonly ITeacherRegistrationCompletionService _completionService;
 	private readonly ILogger<GetTeacherDetailsQueryHandler> _logger;
 
 	public GetTeacherDetailsQueryHandler(
 		ITeacherRepository teacherRepository,
 		ITeacherRegistrationStatusService registrationStatusService,
 		ITeacherSubjectAdminService subjectAdminService,
+		ITeacherRegistrationCompletionService completionService,
 		ILogger<GetTeacherDetailsQueryHandler> logger,
 		IStringLocalizer<SharedResources> localizer) : base(localizer)
 	{
 		_teacherRepository = teacherRepository;
 		_registrationStatusService = registrationStatusService;
 		_subjectAdminService = subjectAdminService;
+		_completionService = completionService;
 		_logger = logger;
 	}
 
@@ -55,18 +57,9 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 			teacherDetails.SubjectSummary =
 				await _subjectAdminService.GetSubjectSummaryAsync(request.TeacherId, cancellationToken);
 
-			var requiredItems = teacherDetails.RegistrationRequirements.Where(r => r.IsRequired).ToList();
-			if (requiredItems.Count > 0)
-			{
-				teacherDetails.CanBeActivated = requiredItems.All(r =>
-					r.IsSubmitted && r.VerificationStatus == DocumentVerificationStatus.Approved);
-			}
-			else
-			{
-				teacherDetails.CanBeActivated = teacherDetails.PendingDocuments == 0
-					&& teacherDetails.RejectedDocuments == 0
-					&& teacherDetails.TotalDocuments > 0;
-			}
+			teacherDetails.CanBeActivated = await _completionService.CanActivateTeacherAccountAsync(
+				request.TeacherId,
+				cancellationToken);
 
 			_logger.LogInformation(
 				"Successfully fetched details for teacher {TeacherId} with {DocumentCount} documents",

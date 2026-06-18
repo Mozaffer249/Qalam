@@ -12,6 +12,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private readonly ITeacherRegistrationSubmissionRepository _submissionRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ILogger<TeacherRegistrationCompletionService> _logger;
 
     public TeacherRegistrationCompletionService(
@@ -19,12 +20,14 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         ITeacherRegistrationSubmissionRepository submissionRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRepository teacherRepository,
+        ITeacherSubjectRepository teacherSubjectRepository,
         ILogger<TeacherRegistrationCompletionService> logger)
     {
         _requirementRepository = requirementRepository;
         _submissionRepository = submissionRepository;
         _documentRepository = documentRepository;
         _teacherRepository = teacherRepository;
+        _teacherSubjectRepository = teacherSubjectRepository;
         _logger = logger;
     }
 
@@ -50,6 +53,13 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
     public async Task RefreshTeacherStatusAfterReviewAsync(int teacherId, CancellationToken cancellationToken = default)
     {
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null)
+            return;
+
+        if (teacher.Status == TeacherStatus.Active)
+            return;
+
         var activeRequired = (await _requirementRepository.GetActiveOrderedAsync(cancellationToken))
             .Where(r => r.IsRequired)
             .ToList();
@@ -90,14 +100,12 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
                         return;
                     if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
                     {
-                        await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
-                        await _teacherRepository.SaveChangesAsync();
+                        await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
                         return;
                     }
                     if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
                     {
-                        await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.PendingVerification);
-                        await _teacherRepository.SaveChangesAsync();
+                        await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
                         return;
                     }
                     if (!fileSubs.All(s => s.VerificationStatus == DocumentVerificationStatus.Approved))
@@ -107,14 +115,12 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
                 {
                     if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
                     {
-                        await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
-                        await _teacherRepository.SaveChangesAsync();
+                        await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
                         return;
                     }
                     if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
                     {
-                        await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.PendingVerification);
-                        await _teacherRepository.SaveChangesAsync();
+                        await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
                         return;
                     }
                     if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
@@ -125,14 +131,12 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             {
                 if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
                 {
-                    await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
-                    await _teacherRepository.SaveChangesAsync();
+                    await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
                     return;
                 }
                 if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
                 {
-                    await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.PendingVerification);
-                    await _teacherRepository.SaveChangesAsync();
+                    await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
                     return;
                 }
                 if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
@@ -140,9 +144,43 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             }
         }
 
-        _logger.LogInformation("All required registration items approved for teacher {TeacherId}, activating", teacherId);
+        await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
+    }
+
+    public async Task<bool> CanActivateTeacherAccountAsync(int teacherId, CancellationToken cancellationToken = default)
+    {
+        var (_, isReady) = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
+        return isReady;
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> ActivateTeacherAccountAsync(
+        int teacherId,
+        int adminId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null)
+            return (false, "Teacher not found");
+
+        if (teacher.Status == TeacherStatus.Active)
+            return (false, "Teacher account is already active.");
+
+        if (teacher.Status == TeacherStatus.Blocked)
+            return (false, "Blocked teacher accounts cannot be activated.");
+
+        var (blockReason, isReady) = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
+        if (!isReady)
+            return (false, blockReason ?? "Teacher is not ready for activation.");
+
         await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.Active);
         await _teacherRepository.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Teacher {TeacherId} account activated by admin {AdminId}",
+            teacherId,
+            adminId);
+
+        return (true, null);
     }
 
     private async Task RefreshLegacyDocumentStatusAsync(int teacherId, List<TeacherDocument> documents)
@@ -151,17 +189,103 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         var hasPending = documents.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending);
         var allApproved = documents.All(d => d.VerificationStatus == DocumentVerificationStatus.Approved);
 
-        TeacherStatus newStatus;
         if (hasRejected)
-            newStatus = TeacherStatus.DocumentsRejected;
-        else if (allApproved)
-            newStatus = TeacherStatus.Active;
-        else if (hasPending)
-            newStatus = TeacherStatus.PendingVerification;
-        else
+        {
+            await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
             return;
+        }
 
-        await _teacherRepository.UpdateStatusAsync(teacherId, newStatus);
+        if (!allApproved)
+        {
+            if (hasPending)
+                await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
+            return;
+        }
+
+        await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
+    }
+
+    private async Task<(string? BlockReason, bool IsReady)> EvaluateActivationReadinessAsync(
+        int teacherId,
+        CancellationToken cancellationToken)
+    {
+        var activeRequired = (await _requirementRepository.GetActiveOrderedAsync(cancellationToken))
+            .Where(r => r.IsRequired)
+            .ToList();
+
+        if (activeRequired.Count == 0)
+        {
+            var legacyDocs = await _documentRepository.GetByTeacherIdAsync(teacherId);
+            if (legacyDocs.Count == 0)
+                return ("No registration documents found.", false);
+
+            if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Rejected))
+                return ("One or more documents were rejected.", false);
+
+            if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending))
+                return ("One or more documents are still pending admin approval.", false);
+
+            if (!legacyDocs.All(d => d.VerificationStatus == DocumentVerificationStatus.Approved))
+                return ("Not all documents are approved.", false);
+        }
+        else
+        {
+            var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
+            var submissionByReqId = submissions.ToDictionary(s => s.RequirementId);
+
+            foreach (var req in activeRequired)
+            {
+                if (!submissionByReqId.TryGetValue(req.Id, out var sub))
+                    return ($"Required registration item '{req.Code}' has not been submitted.", false);
+
+                if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
+                {
+                    var fileSubs = submissions.Where(s => s.RequirementId == req.Id).ToList();
+                    if (fileSubs.Count < req.MinCount)
+                        return ($"Requirement '{req.Code}' requires at least {req.MinCount} file(s).", false);
+                    if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
+                        return ("One or more required registration items were rejected.", false);
+                    if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
+                        return ("One or more required registration items are still pending approval.", false);
+                    if (!fileSubs.All(s => s.VerificationStatus == DocumentVerificationStatus.Approved))
+                        return ("Not all required registration items are approved.", false);
+                }
+                else
+                {
+                    if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
+                        return ("One or more required registration items were rejected.", false);
+                    if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
+                        return ("One or more required registration items are still pending approval.", false);
+                    if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
+                        return ("Not all required registration items are approved.", false);
+                }
+            }
+        }
+
+        var subjectBlock = await GetSubjectActivationBlockReasonAsync(teacherId);
+        if (subjectBlock != null)
+            return (subjectBlock, false);
+
+        return (null, true);
+    }
+
+    private async Task<string?> GetSubjectActivationBlockReasonAsync(int teacherId)
+    {
+        var snapshot = await _teacherSubjectRepository.GetSubjectActivationSnapshotAsync(teacherId);
+        if (snapshot.Total == 0)
+            return "Teacher has not added any teaching subjects yet.";
+        if (snapshot.Pending > 0)
+            return "One or more subjects are still pending admin approval.";
+        if (snapshot.Rejected > 0)
+            return "One or more subjects were rejected.";
+        if (snapshot.Approved != snapshot.Total)
+            return "Not all teaching subjects are approved.";
+        return null;
+    }
+
+    private async Task SetStatusAsync(int teacherId, TeacherStatus status)
+    {
+        await _teacherRepository.UpdateStatusAsync(teacherId, status);
         await _teacherRepository.SaveChangesAsync();
     }
 }

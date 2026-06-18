@@ -20,10 +20,11 @@ There's no canonical `GET /Profile` endpoint wired today. Cache the values from 
 
 - `firstName`, `lastName`, `email`, `phoneNumber` come from `data.account` returned by `POST /Authentication/Teacher/CompletePersonalInfo`, or decode them from the JWT claims.
 - `status` is derived from the most recent `nextStep.nextStepName` returned by `POST /Authentication/Teacher/VerifyOtp`:
-  - `"Awaiting Admin Verification"` → "Pending verification" pill.
-  - `"Re-upload Rejected Documents"` → "Documents rejected" pill.
-  - `"Add Teaching Subjects and Units"`, `"Set Your Availability"`, or `"Registration Complete"` → "Active" pill.
   - `"Upload Documents"` → "Awaiting documents" pill.
+  - `"Add Teaching Subjects and Units"` → subjects step during registration (before admin approval).
+  - `"Awaiting Admin Verification"` → docs and/or subjects under review.
+  - `"Re-upload Rejected Documents"` → "Documents rejected" pill.
+  - `"Set Your Availability"` or `"Registration Complete"` → "Active" pill.
 
 The Documents / Subjects / Availability count badges on the tiles come from the lightweight GET calls described in each section below.
 
@@ -127,7 +128,7 @@ The screen header shows the title "Subjects & Units" and a **+ Add Subject** but
 
 - A subject icon and name (English + Arabic).
 - A summary line: either "Teaches the full subject" OR "N units selected".
-- A status pill from `isActive` + `verificationStatus`: **Active** (`isActive: true`, `verificationStatus: Approved`), **Inactive** (`isActive: false`, still approved), or **Rejected** (`verificationStatus: Rejected`). When rejected, show `rejectionReason` and optional `reviewedAt` below the pill (same pattern as documents in §1).
+- A status pill from `isActive` + `verificationStatus`: **Pending review** (`verificationStatus: Pending`), **Active** (`isActive: true`, `verificationStatus: Approved`), **Inactive** (`isActive: false`, still approved), or **Rejected** (`verificationStatus: Rejected`). When rejected, show `rejectionReason` and optional `reviewedAt` below the pill (same pattern as documents in §1).
 - An expandable **View units** chevron at the bottom. When expanded, units appear as a vertical list with each unit's name and, for Quran units, two small badges showing the Quran content type (Memorization / Recitation / Tajweed) and the level (Noorani / Beginner / Intermediate / Advanced — or "All levels" when not specified).
 
 ### Taps
@@ -187,7 +188,8 @@ When `data.weeklySchedule` is empty, replace the Weekly schedule section's day r
 | Rule | Why |
 |---|---|
 | Show the teacher's status pill on every settings screen header | Several screens behave differently when the teacher is `Blocked`. Even read-only screens should warn the user. The status comes from the cached `nextStep.nextStepName` — see "Where the header data comes from" above |
-| Disable all POST / PUT / DELETE affordances when the teacher is `PendingVerification`, `AwaitingDocuments`, or `Blocked` | Server-side these flows generally need `Status == Active`. Pre-emptively disable in the UI so the user doesn't hit "Your account has been blocked" toasts |
+| Disable POST / PUT / DELETE on **Availability** and **Courses** when the teacher is `PendingVerification`, `AwaitingDocuments`, or `Blocked` | Those flows require `Status == Active` |
+| Allow **+ Add Subject** during `AwaitingDocuments`, `PendingVerification`, and `DocumentsRejected` | Subjects are reviewed before account activation; `POST /Teacher/TeacherSubject` is allowed unless `Blocked` |
 | On any 401 response from any endpoint here, redirect to phone-OTP login | The JWT has lapsed; the teacher must re-verify |
 | Re-upload sheet must restrict file types to `.pdf, .jpg, .jpeg, .png` and max 25 MB | Matches the document-validation rules from registration |
 

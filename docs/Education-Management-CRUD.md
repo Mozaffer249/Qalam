@@ -198,6 +198,38 @@ Content-Type: application/json
 }
 ```
 
+**Response** (`201`) — the handler returns `Created(entity: …)` with the **raw saved entity** in `data` (not a slim DTO), so audit fields and empty navigation collections are included:
+
+```json
+{
+  "statusCode": "Created",
+  "succeeded": true,
+  "message": "Created",
+  "data": {
+    "id": 6,
+    "nameAr": "تعليم مدرسي",
+    "nameEn": "School Education",
+    "code": "school",
+    "descriptionAr": "اختياري",
+    "descriptionEn": "Optional",
+    "isActive": true,
+    "createdAt": "2026-05-20T10:15:00Z",
+    "updatedAt": null,
+    "createdBy": 1,
+    "updatedBy": null,
+    "curricula": [],
+    "educationLevels": [],
+    "subjects": [],
+    "domainTeachingModes": [],
+    "educationRule": null
+  },
+  "errors": null,
+  "meta": null
+}
+```
+
+> All **create** endpoints in this guide follow the same pattern: `201` with `statusCode: "Created"` and the saved entity echoed in `data`. A duplicate `code` returns `400` with `message` describing the conflict.
+
 | Field | Rules |
 |-------|-------|
 | `nameAr`, `nameEn` | Required, max 200 |

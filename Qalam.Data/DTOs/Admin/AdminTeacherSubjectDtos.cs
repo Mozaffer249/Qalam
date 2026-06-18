@@ -25,6 +25,15 @@ public class TeacherSubjectSummaryDto
 {
     public int TotalSubjects { get; set; }
     public int ActiveSubjects { get; set; }
+    public int PendingSubjects { get; set; }
     public int InactiveSubjects { get; set; }
     public int RejectedSubjects { get; set; }
+}
+
+public class TeacherSubjectActivationSnapshot
+{
+    public int Total { get; set; }
+    public int Pending { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
 }

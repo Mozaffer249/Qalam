@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Admin.Commands.ActivateTeacherAccount;
 using Qalam.Core.Features.Admin.Commands.ApproveDocument;
 using Qalam.Core.Features.Admin.Commands.BlockTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
@@ -10,6 +11,7 @@ using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.ActivateTeacherSubject;
+using Qalam.Core.Features.Admin.TeacherSubjects.Commands.ApproveTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.InactivateTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.RejectTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.RestoreTeacherSubject;
@@ -88,7 +90,7 @@ public class TeacherManagementController : AppControllerBase
 	/// <param name="teacherId">Teacher ID</param>
 	/// <returns>
 	/// `documents` — uploaded files; `registrationRequirements` — per active catalog item with submission status;
-	/// `canBeActivated` — true when all required submissions are approved.
+	/// `canBeActivated` — true when all required submissions and subjects are approved; admin must POST Activate to authorize.
 	/// </returns>
 	/// <remarks>
 	/// Activation is based on **active required** registration submissions, not every document row.
@@ -108,13 +110,25 @@ public class TeacherManagementController : AppControllerBase
 	}
 
 	/// <summary>
+	/// Authorize (activate) a teacher account after all documents and subjects are approved.
+	/// </summary>
+	[HttpPost("{teacherId:int}/Activate")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	public async Task<IActionResult> ActivateTeacherAccount(int teacherId)
+	{
+		var command = new ActivateTeacherAccountCommand { TeacherId = teacherId };
+		var response = await _mediator.Send(command);
+		return NewResult(response);
+	}
+
+	/// <summary>
 	/// Approve a specific document for a teacher.
 	/// </summary>
 	/// <param name="teacherId">Teacher ID</param>
 	/// <param name="documentId">Document ID</param>
 	/// <remarks>
 	/// Syncs the linked `TeacherRegistrationSubmission` and refreshes teacher status.
-	/// Teacher becomes **Active** when all active required submissions are approved.
+	/// Does not activate the account — use POST `/{teacherId}/Activate` when `canBeActivated` is true.
 	/// </remarks>
 	[HttpPost("{teacherId:int}/Documents/{documentId:int}/Approve")]
 	[ProducesResponseType(StatusCodes.Status200OK)]
@@ -225,6 +239,21 @@ public class TeacherManagementController : AppControllerBase
 			TeacherSubjectId = teacherSubjectId
 		};
 		var response = await _mediator.Send(query);
+		return NewResult(response);
+	}
+
+	/// <summary>
+	/// Approve a pending teacher subject after certificate review.
+	/// </summary>
+	[HttpPost("{teacherId:int}/Subjects/{teacherSubjectId:int}/Approve")]
+	public async Task<IActionResult> ApproveTeacherSubject(int teacherId, int teacherSubjectId)
+	{
+		var command = new ApproveTeacherSubjectCommand
+		{
+			TeacherId = teacherId,
+			TeacherSubjectId = teacherSubjectId
+		};
+		var response = await _mediator.Send(command);
 		return NewResult(response);
 	}
 

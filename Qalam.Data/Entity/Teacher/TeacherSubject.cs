@@ -23,7 +23,7 @@ public class TeacherSubject : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    public DocumentVerificationStatus VerificationStatus { get; set; } = DocumentVerificationStatus.Approved;
+    public DocumentVerificationStatus VerificationStatus { get; set; } = DocumentVerificationStatus.Pending;
 
     [MaxLength(500)]
     public string? RejectionReason { get; set; }

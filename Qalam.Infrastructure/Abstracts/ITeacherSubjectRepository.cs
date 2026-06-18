@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
@@ -29,9 +30,19 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     Task<bool> TeacherHasSubjectAsync(int teacherId, int subjectId);
     
     /// <summary>
-    /// Check if teacher has any subjects (optimized - doesn't retrieve data)
+    /// Check if teacher has any approved active subjects (optimized - doesn't retrieve data)
     /// </summary>
     Task<bool> HasAnySubjectsAsync(int teacherId);
+
+    /// <summary>
+    /// Check if teacher has any subject offerings (any verification status)
+    /// </summary>
+    Task<bool> HasAnySubjectOfferingsAsync(int teacherId);
+
+    /// <summary>
+    /// Counts by verification status for activation gating
+    /// </summary>
+    Task<TeacherSubjectActivationSnapshot> GetSubjectActivationSnapshotAsync(int teacherId);
     
     /// <summary>
     /// Remove all subjects for a teacher

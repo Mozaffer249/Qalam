@@ -17,7 +17,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
 
 public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandler,
-    IRequestHandler<SubmitTeacherRegistrationRequirementsCommand, Response<string>>
+    IRequestHandler<SubmitTeacherRegistrationRequirementsCommand, Response<TeacherRegistrationSubmitResponseDto>>
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
@@ -46,31 +46,31 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         _logger = logger;
     }
 
-    public async Task<Response<string>> Handle(
+    public async Task<Response<TeacherRegistrationSubmitResponseDto>> Handle(
         SubmitTeacherRegistrationRequirementsCommand request,
         CancellationToken cancellationToken)
     {
         if (request.UserId == 0)
-            return Unauthorized<string>("User not authenticated");
+            return Unauthorized<TeacherRegistrationSubmitResponseDto>("User not authenticated");
 
         var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
         if (teacher == null)
-            return BadRequest<string>("Teacher profile not found. Please complete personal information first.");
+            return BadRequest<TeacherRegistrationSubmitResponseDto>("Teacher profile not found. Please complete personal information first.");
 
         if (teacher.Status == TeacherStatus.PendingVerification)
-            return BadRequest<string>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
+            return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
         if (teacher.Status == TeacherStatus.Active)
-            return BadRequest<string>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
+            return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
         if (teacher.Status == TeacherStatus.Blocked)
-            return Unauthorized<string>(_authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
+            return Unauthorized<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
 
         var activeRequirements = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
         if (activeRequirements.Count == 0)
-            return BadRequest<string>("No active registration requirements configured.");
+            return BadRequest<TeacherRegistrationSubmitResponseDto>("No active registration requirements configured.");
 
         var validationError = ValidateAgainstRequirements(request, activeRequirements);
         if (validationError != null)
-            return BadRequest<string>(validationError);
+            return BadRequest<TeacherRegistrationSubmitResponseDto>(validationError);
 
         // Identity business rules — run BEFORE delegating so we reject with a localized message.
         // Exclude this teacher's own rows so a previous partial attempt doesn't flag the retry as a duplicate.
@@ -89,7 +89,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
             }
             catch (ValidationException vex)
             {
-                return BadRequest<string>(vex.Message);
+                return BadRequest<TeacherRegistrationSubmitResponseDto>(vex.Message);
             }
         }
 
@@ -97,14 +97,21 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         {
             await _submitService.SubmitAsync(teacher, MapToInput(request), activeRequirements, cancellationToken);
             await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, request.IsInSaudiArabia ?? false);
-            return Success<string>("Registration submitted successfully. Your information is pending verification.");
+
+            var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
+            return Success(
+                entity: new TeacherRegistrationSubmitResponseDto
+                {
+                    Message = "Registration submitted successfully. Add your teaching subjects to continue.",
+                    NextStep = nextStep
+                });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "SubmitRegistrationRequirements handler caught teacherId={TeacherId}, userId={UserId}",
                 teacher.Id, request.UserId);
-            return BadRequest<string>(ex.Message);
+            return BadRequest<TeacherRegistrationSubmitResponseDto>(ex.Message);
         }
     }
 

@@ -1,7 +1,8 @@
 # Teacher registration — complete guide
 
-Single reference for **teacher onboarding**: auth config, OTP, personal info, admin-configured requirements, admin review, activation, and deployment.
+Single reference for **teacher onboarding**: auth config, OTP, personal info, admin-configured requirements, **subjects before activation**, admin review, activation, and deployment.
 
+> **End-to-end flow (v2):** [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md) — recommended starting point for FE/QA  
 > **Audience:** teacher app, admin panel, QA, DevOps  
 > **Scalar / Swagger:** `/scalar/v1` — tags **Teacher Authentication**, **Admin · Teacher registration requirements**, **Teacher · Documents**, **Authentication Config (Public)**
 
@@ -38,46 +39,43 @@ Single reference for **teacher onboarding**: auth config, OTP, personal info, ad
 | 3 | Name + password | POST | `/Api/V1/Authentication/Teacher/CompletePersonalInfo` | Bearer (step 2) |
 | 4 | Load dynamic fields | GET | `/Api/V1/Authentication/Teacher/RegistrationRequirements` | None |
 | 5 | Submit documents / bio / location | POST | `/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements` | Bearer (Teacher) |
+| 5b | Add teaching subjects | POST | `/Api/V1/Teacher/TeacherSubject` | Bearer (Teacher) — see [filter-options](Teacher-Availability-and-Subjects.md) |
 | 6 | Track review | GET | `/Api/V1/Teacher/TeacherDocuments/Status` | Bearer (Teacher) |
+| 7 | Set availability (after Active) | POST | `/Api/V1/Teacher/TeacherAvailability` | Bearer (Teacher) |
 
 **Legacy (deprecated):** `POST …/Teacher/UploadDocuments` — same handler as step 5.
 
+**Flow summary (v2):** Submit requirements → add subjects while `PendingVerification` → admin approves docs + subjects → **Active** → availability. Details: [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md).
+
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph CFG[Configuration]
-    direction TB
-    AD[SuperAdmin manages<br/>requirements catalog]
-    CAT[(Requirements catalog)]
+    AD[SuperAdmin catalog]
+    CAT[(Requirements)]
     AD --> CAT
   end
 
-  subgraph TCH[Teacher app - steps 0 to 6]
-    direction TB
-    S0[0 - GET Auth Config]
-    S1[1 - LoginOrRegister]
-    S2[2 - VerifyOtp]
-    S3[3 - CompletePersonalInfo]
-    S4[4 - GET Requirements]
-    S5[5 - Submit Requirements]
-    S6[6 - GET Documents Status]
-    S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
+  subgraph TCH[Teacher app]
+    S0[0 Auth config] --> S1[1-2 OTP] --> S3[3 Personal info]
+    S3 --> S4[4 GET Requirements] --> S5[5 Submit requirements]
+    S5 --> S5b[5b Add subjects]
+    S5b --> S6[6 Await admin review]
+    S6 --> S7[7 Availability after Active]
   end
 
-  subgraph ADM[Admin panel]
-    direction TB
-    A1[Pending queue]
-    A2[Teacher preview + checklist]
-    A3{Approve or Reject?}
-    A1 --> A2 --> A3
+  subgraph ADM[Admin]
+    A1[Pending queue] --> A2[Review docs + certificates + subjects]
+    A2 --> A3{All approved?}
   end
 
-  ACTIVE([Teacher Active])
+  ACTIVE([Active])
 
-  CAT -. reads .-> S4
-  S5 == PendingVerification ==> A1
-  A3 -- all required approved --> ACTIVE
-  A3 -- reject required file --> S6
-  S6 -. re-upload .-> S5
+  CAT -.-> S4
+  S5 -->|PendingVerification| A1
+  S5b -->|subjects Pending| A1
+  A3 -->|yes| ACTIVE
+  A3 -->|reject doc| S6
+  ACTIVE --> S7
 ```
 
 **Prerequisites (backend):**
@@ -673,8 +671,9 @@ The review cycle starts the moment a teacher submits step 5 (status flips to `Pe
 stateDiagram-v2
   [*] --> AwaitingDocuments : Step 3 done
   AwaitingDocuments --> PendingVerification : Step 5 submitted
-  PendingVerification --> PendingVerification : Approve - others still Pending
-  PendingVerification --> Active : Approve last required
+  PendingVerification --> PendingVerification : Teacher adds subjects (Pending)
+  PendingVerification --> PendingVerification : Approve docs/subjects - others still Pending
+  PendingVerification --> Active : All required docs + all subjects Approved
   PendingVerification --> DocumentsRejected : Reject required file
   DocumentsRejected --> PendingVerification : Teacher re-upload
   PendingVerification --> Blocked : Admin Block
@@ -686,9 +685,9 @@ stateDiagram-v2
 | State | Set by | Admin actions available |
 |-------|--------|-------------------------|
 | `AwaitingDocuments` | Step 3 (CompletePersonalInfo) | wait — teacher hasn't submitted yet |
-| `PendingVerification` | Step 5 (SubmitRegistrationRequirements) OR re-upload | Approve / Reject any document; Block |
+| `PendingVerification` | Step 5 (SubmitRegistrationRequirements) OR re-upload | Approve / Reject documents; Approve / Reject subjects; Block |
 | `DocumentsRejected` | Any required file rejected during review | Approve remaining; Block (re-upload comes from teacher) |
-| `Active` | Last required file approved | Block only |
+| `Active` | All required docs **and all subjects** approved | Block only |
 | `Blocked` | Admin Block | none (irreversible via API today) |
 
 ### All endpoints (complete reference)
@@ -704,13 +703,15 @@ stateDiagram-v2
 | 4 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Approve` | — | `"Document approved successfully."` |
 | 5 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Document rejected successfully."` |
 | 6 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Block` | `{ "reason": "…" }` optional, max 500 | `"Teacher blocked successfully."` |
+| 6b | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Activate` | — | `"Teacher account activated successfully."` (when `canBeActivated`) |
 | 7 | GET | `/Api/V1/Admin/TeacherManagement/Subjects` | `pageNumber`, `pageSize`, `teacherId`, `subjectId`, `isActive`, `verificationStatus` | `AdminTeacherSubjectDto[]` + `meta` |
 | 8 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects` | — | `AdminTeacherSubjectDto[]` |
 | 9 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}` | — | `AdminTeacherSubjectDto` |
-| 10 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` | — | `"Teacher subject inactivated successfully."` |
-| 11 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Activate` | — | `"Teacher subject activated successfully."` |
-| 12 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Teacher subject rejected successfully."` |
-| 13 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore` | — | `"Teacher subject restored successfully."` |
+| 10 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Approve` | — | `"Teacher subject approved successfully."` |
+| 11 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` | — | `"Teacher subject inactivated successfully."` |
+| 12 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Activate` | — | `"Teacher subject activated successfully."` |
+| 13 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Teacher subject rejected successfully."` |
+| 14 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore` | — | `"Teacher subject restored successfully."` |
 
 **Query reference (quick)**
 
@@ -726,7 +727,7 @@ stateDiagram-v2
 | `isActive` | #7 | `true` / `false` |
 | `verificationStatus` | #7 | `1` Pending, `2` Approved, `3` Rejected |
 
-`GET /{teacherId}` (#3) also returns `subjects` and `subjectSummary` for the **Subjects** tab. New teacher subjects are **auto-approved and active** on `POST /Api/V1/Teacher/TeacherSubject`; admin uses #10–#13 to inactivate or reject later.
+`GET /{teacherId}` (#3) also returns `subjects` and `subjectSummary` for the **Subjects** tab. New teacher subjects start **Pending** on `POST /Api/V1/Teacher/TeacherSubject`; admin uses **Approve** (#10) or **Reject** (#13) during review, then #11–#12/#14 for moderation after activation.
 
 **UI guide (Subjects tab):** [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md) · **Postman:** `Postman/Admin/TeacherManagement.postman_collection.json`
 
@@ -945,6 +946,7 @@ Returns everything the admin needs to decide: profile, every document (with file
   "subjectSummary": {
     "totalSubjects": 2,
     "activeSubjects": 1,
+    "pendingSubjects": 0,
     "inactiveSubjects": 0,
     "rejectedSubjects": 1
   },
@@ -974,10 +976,10 @@ Returns everything the admin needs to decide: profile, every document (with file
 - Header: name, phone, email, status pill, "Created" timestamp, `Block` button (top-right destructive).
 - Left pane: documents list — each row clickable to open `filePath` in a preview pane / new tab, with **Approve** / **Reject** buttons.
 - Right pane: registration-requirements checklist driven by `registrationRequirements[]` — a green check when `verificationStatus === "Approved"`, a yellow dot for `Pending`, a red X for `Rejected` + the reason.
-- Bottom: counts strip (Total / Pending / Approved / Rejected) and an `Activate` affordance disabled until `canBeActivated === true` (activation is automatic — the button just confirms; see endpoint #4 effects).
-- **Subjects** tab: `subjectSummary` chips + `subjects[]` cards; row actions use endpoints #10–#13 (or lazy-load via #8).
+- Bottom: counts strip (Total / Pending / Approved / Rejected) and an **Authorize account** button enabled when `canBeActivated === true` → `POST .../Activate`.
+- **Subjects** tab: `subjectSummary` chips + `subjects[]` cards; pending rows → **Approve** (#10) / **Reject** (#13); post-activation moderation → #11–#12 / #14
 
-`canBeActivated === true` ↔ every active+required requirement is `Approved`.
+`canBeActivated === true` ↔ every active+required requirement is `Approved` **and** `subjectSummary.totalSubjects >= 1` **and** `pendingSubjects === 0` **and** `rejectedSubjects === 0`.
 
 ---
 
@@ -1183,9 +1185,10 @@ After any #10–#13 command, refresh via endpoint #3 or #8.
 
 | Subject state | Show actions |
 |---------------|--------------|
-| Active (`isActive && verificationStatus === 2`) | Inactivate (#10), Reject (#12) |
-| Inactive (`!isActive && verificationStatus === 2`) | Activate (#11), Reject (#12) |
-| Rejected (`verificationStatus === 3`) | Restore (#13) only |
+| Pending (`verificationStatus === 1`) | Approve (#10), Reject (#13) |
+| Active (`isActive && verificationStatus === 2`) | Inactivate (#11), Reject (#13) |
+| Inactive (`!isActive && verificationStatus === 2`) | Activate (#12), Reject (#13) |
+| Rejected (`verificationStatus === 3`) | Restore (#14) only |
 
 ---
 
@@ -1212,7 +1215,9 @@ The document re-enters the admin's pending queue (endpoint #2). Loop back to end
 
 | Trigger | Document status before | Document status after | Teacher status after |
 |---------|----------------------|----------------------|---------------------|
-| Approve document | Pending or Rejected | Approved | `Active` if all required approved, else stays `PendingVerification` (or flips to `DocumentsRejected` if another required is still rejected) |
+| Approve document | Pending or Rejected | Approved | `Active` if all required docs **and all subjects** approved; else `PendingVerification` |
+| Approve subject | Pending | Approved | `Active` if all required docs **and all subjects** approved; else `PendingVerification` |
+| Reject subject | Pending or Approved | Rejected | stays `PendingVerification` (blocks activation until restored) |
 | Reject document (required) | Pending or Approved | Rejected | `DocumentsRejected` |
 | Reject document (non-required) | Pending or Approved | Rejected | unchanged (stays `PendingVerification`) |
 | Re-upload (teacher) | Rejected | Pending | `PendingVerification` if no other rejections remain; else stays `DocumentsRejected` |
@@ -1239,17 +1244,22 @@ The document re-enters the admin's pending queue (endpoint #2). Loop back to end
 |-------|--------|---------|
 | `TeacherRegistrationRequirements` | `teacher` | Catalog (code, type, labels, validation, active/required) |
 | `TeacherRegistrationSubmissions` | `teacher` | Per teacher × requirement (status, text/bool, link to document) |
+| `TeacherSubjects` | `education` | Teaching offerings per teacher (`VerificationStatus`, units via `TeacherSubjectUnits`) |
+| `TeacherDocuments` | `teacher` | Uploaded identity / certificate / other files |
 
 **System codes:** `identity_document`, `certificate`, `bio`, `location` (`IsSystem = true`).
+
+**Subject verification (v2):** new `TeacherSubject` rows default to `VerificationStatus = Pending` (migration `TeacherSubjectPendingByDefault`). Existing rows are unchanged.
 
 ---
 
 ## Activation rules
 
-- Only **active + required** catalog rows count toward activation.
+- Only **active + required** catalog rows count toward document approval.
 - **File** with `maxCount > 1`: need ≥ `minCount` submissions; any rejection → `DocumentsRejected`.
 - **Text / Boolean / Selection**: auto-**Approved** on submit (v1) — no manual review.
 - Admin approve/reject on documents syncs linked `TeacherRegistrationSubmission` via `ITeacherRegistrationCompletionService`.
+- **Subjects (v2):** teacher must add ≥1 subject while `PendingVerification`; each `TeacherSubject` starts **Pending**. `canBeActivated` is true when all required submissions and all subjects are **Approved**; admin must `POST .../Activate` to set **Active**. See [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md).
 
 ---
 
@@ -1441,8 +1451,10 @@ POST /Api/V1/Authentication/Admin/Login
 - [ ] `GET /Teacher/RegistrationRequirements` before documents step
 - [ ] Dynamic UI from `requirements[]`
 - [ ] `POST /Teacher/SubmitRegistrationRequirements`
+- [ ] **Step 5b:** `filter-options` wizard → `POST /Teacher/TeacherSubject` (while `PendingVerification`)
 - [ ] Status via `GET /Teacher/TeacherDocuments/Status`
 - [ ] Re-upload on reject
+- [ ] After Active: `POST /Teacher/TeacherAvailability`
 
 ### Admin panel
 
@@ -1450,8 +1462,8 @@ POST /Api/V1/Authentication/Admin/Login
 - [ ] `GET /TeacherManagement/Teachers` — browse all teachers (filters + pagination)
 - [ ] `GET /TeacherManagement/Pending` — verification queue
 - [ ] `GET /TeacherManagement/{teacherId}` — preview, checklist, `canBeActivated`, subjects tab
-- [ ] Approve / reject documents; block teacher
-- [ ] Subject moderation: `GET /Subjects`, `GET /{teacherId}/Subjects`, inactivate / activate / reject / restore
+- [ ] Approve / reject documents; **approve / reject subjects**; block teacher
+- [ ] Subject moderation: `GET /Subjects`, `GET /{teacherId}/Subjects`, approve / reject / inactivate / activate / restore
 
 ### DevOps
 
@@ -1472,6 +1484,11 @@ POST /Api/V1/Authentication/Admin/Login
 | Submit handler | `Qalam.Core/Features/Teacher/Commands/SubmitTeacherRegistrationRequirements/` |
 | Personal info | `Qalam.Core/Features/Authentication/Commands/CompletePersonalInfo/` |
 | Activation service | `Qalam.Service/Implementations/TeacherRegistrationCompletionService.cs` |
+| Teacher subjects (save) | `Qalam.Core/Features/Teacher/Commands/SaveTeacherSubjects/` |
+| Subject admin approve/reject | `Qalam.Service/Implementations/TeacherSubjectAdminService.cs` |
+| Registration next step | `Qalam.Service/Implementations/TeacherRegistrationService.cs` |
+| Subject repository | `Qalam.Infrastructure/Repositories/TeacherSubjectRepository.cs` |
+| Migration (Pending default) | `Qalam.Infrastructure/Migrations/*TeacherSubjectPendingByDefault*` |
 | Default seed | `Qalam.Data/AppMetaData/TeacherRegistrationRequirementsDefaults.cs` |
 | Seeder | `Qalam.Infrastructure/Seeding/TeacherRegistrationRequirementsSeeder.cs` |
 | Admin user seed | `Qalam.Infrastructure/Seeding/AdminUserSeeder.cs` |
@@ -1480,11 +1497,14 @@ POST /Api/V1/Authentication/Admin/Login
 
 ## After activation
 
-Once `TeacherStatus` is **Active**:
+Once `TeacherStatus` is **Active** (all required documents **and all subjects** approved):
 
-1. Availability & subjects — [`Teacher-Availability-and-Subjects.md`](Teacher-Availability-and-Subjects.md)
-2. Quran specialization — [`Teacher-Quran-Specialization-Design.md`](Teacher-Quran-Specialization-Design.md)
-3. Courses — [`CreateCourse.md`](CreateCourse.md), [`CourseManagement.md`](CourseManagement.md)
+1. Availability — [`Teacher-Availability-and-Subjects.md`](Teacher-Availability-and-Subjects.md)
+2. Additional subjects — same `POST /Api/V1/Teacher/TeacherSubject` (new rows start **Pending** until admin approves)
+3. Quran specialization — [`Teacher-Quran-Specialization-Design.md`](Teacher-Quran-Specialization-Design.md)
+4. Courses — [`CreateCourse.md`](CreateCourse.md), [`CourseManagement.md`](CourseManagement.md)
+
+**Registration order:** Submit requirements → **Add subjects** (while `PendingVerification`) → admin reviews documents + certificates against subjects → **Active** → set availability.
 
 Staging setup — [`deployment/03-staging-setup.md`](deployment/03-staging-setup.md)
 

@@ -239,41 +239,32 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 };
 
             case TeacherStatus.PendingVerification:
-                return new RegistrationStepDto
-                {
-                    CurrentStep = 4,
-                    NextStep = 0,
-                    NextStepName = "Awaiting Admin Verification",
-                    IsRegistrationComplete = false,
-                    Message = "Your documents are being reviewed by our team."
-                };
+                if (!await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id))
+                    return BuildAddSubjectsStep();
+
+                return BuildAwaitingAdminStep();
 
             case TeacherStatus.DocumentsRejected:
                 var rejectedDocs = await _documentRepository.GetRejectedDocumentsAsync(teacher.Id);
-                return new RegistrationStepDto
-                {
-                    CurrentStep = 4,
-                    NextStep = 4,
-                    NextStepName = "Re-upload Rejected Documents",
-                    IsRegistrationComplete = false,
-                    Message = "Some of your documents were rejected. Please check the rejection reasons and re-upload.",
-                    RejectedDocuments = rejectedDocs
-                };
-
-            case TeacherStatus.Active:
-                // Check if teacher has added subjects
-                if (!await _subjectRepository.HasAnySubjectsAsync(teacher.Id))
+                if (rejectedDocs.Count > 0)
                 {
                     return new RegistrationStepDto
                     {
                         CurrentStep = 4,
-                        NextStep = 5,
-                        NextStepName = "Add Teaching Subjects and Units",
+                        NextStep = 4,
+                        NextStepName = "Re-upload Rejected Documents",
                         IsRegistrationComplete = false,
-                        Message = "Your account is approved! Please add the subjects and content units you can teach."
+                        Message = "Some of your documents were rejected. Please check the rejection reasons and re-upload.",
+                        RejectedDocuments = rejectedDocs
                     };
                 }
 
+                if (!await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id))
+                    return BuildAddSubjectsStep();
+
+                return BuildAwaitingAdminStep();
+
+            case TeacherStatus.Active:
                 // Check if teacher has set availability
                 if (!await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id))
                 {
@@ -304,5 +295,25 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 throw new Exception("Unknown registration status");
         }
     }
+
+    private static RegistrationStepDto BuildAddSubjectsStep() =>
+        new()
+        {
+            CurrentStep = 4,
+            NextStep = 5,
+            NextStepName = "Add Teaching Subjects and Units",
+            IsRegistrationComplete = false,
+            Message = "Add the subjects and content units you can teach. An admin will review them with your certificates."
+        };
+
+    private static RegistrationStepDto BuildAwaitingAdminStep() =>
+        new()
+        {
+            CurrentStep = 5,
+            NextStep = 0,
+            NextStepName = "Awaiting Admin Verification",
+            IsRegistrationComplete = false,
+            Message = "Your documents and teaching subjects are being reviewed by our team."
+        };
 
 }
