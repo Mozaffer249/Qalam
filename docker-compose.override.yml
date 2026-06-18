@@ -31,9 +31,8 @@ services:
 
   messaging-api:
     environment:
-      # Override the hardcoded "Production" from docker-compose.yml so local dev gets
-      # Development behavior (verbose logging, test-OTP allowed, etc.).
-      - ASPNETCORE_ENVIRONMENT=Production
+      # Set ASPNETCORE_ENVIRONMENT=Development in .env.local for test OTP (1234) and verbose logs.
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
     depends_on:
       sqlserver:
         condition: service_started
@@ -42,8 +41,8 @@ services:
 
   qalam-api:
     environment:
-      # Same override + unlocks the /Api/Test/FileUploadTest/upload endpoint (404s in Production).
-      - ASPNETCORE_ENVIRONMENT=Production
+      # Development unlocks test OTP 1234 and /Api/Test/FileUploadTest/upload (404 in Production).
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
     depends_on:
       sqlserver:
         condition: service_started
