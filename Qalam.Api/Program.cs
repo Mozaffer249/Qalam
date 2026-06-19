@@ -279,6 +279,8 @@ app.UseMiddleware<RateLimitingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<BlockedTeacherMiddleware>();
+
 // Audit logging middleware (after authentication)
 app.UseMiddleware<AuditLoggingMiddleware>();
 

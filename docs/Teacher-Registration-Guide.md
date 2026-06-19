@@ -1058,7 +1058,7 @@ Response examples:
 While blocked:
 
 - `POST /Authentication/Teacher/LoginOrRegister` rejects the teacher's phone with **400** `"Your account has been blocked. Please contact support."`.
-- Teacher-role endpoints return 401/403.
+- **Any authenticated request** (teacher routes, registration, refresh token, etc.) returns **403** via `BlockedTeacherMiddleware` with the localized `AccountBlocked` message — even if the JWT has not expired.
 
 UI: Block button toggles label (Block / Unblock). Confirm modal explains the action. Optional reason field when blocking.
 

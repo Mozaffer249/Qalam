@@ -61,8 +61,6 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
         if (teacher.Status == TeacherStatus.Active)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
-        if (teacher.Status == TeacherStatus.Blocked)
-            return Unauthorized<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountBlocked]);
 
         var activeRequirements = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
         if (activeRequirements.Count == 0)

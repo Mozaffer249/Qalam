@@ -93,7 +93,7 @@ stateDiagram-v2
 | `PendingVerification` | Requirements submitted; may still need subjects or admin review |
 | `DocumentsRejected` | A required document was rejected; re-upload needed |
 | `Active` | Fully approved; can set availability and create courses |
-| `Blocked` | Admin blocked account |
+| `Blocked` | Admin blocked account | No authenticated API access (global middleware) |
 
 ---
 
@@ -261,6 +261,14 @@ Email failures are logged only — they never roll back the underlying status ch
 
 ---
 
+## Blocked teacher access control
+
+When `Teacher.Status = Blocked`, **every authenticated API request** for that user is rejected by [`BlockedTeacherMiddleware`](../Qalam.Core/MiddleWare/BlockedTeacherMiddleware.cs) with **403 Forbidden** and the localized `AccountBlocked` message — courses, availability, documents, registration, refresh token, etc.
+
+Unauthenticated entrypoints (`LoginOrRegister`, `VerifyOtp`) still rely on handler checks so blocked users cannot obtain a new session. Existing JWTs remain valid until expiry but cannot call any authenticated endpoint.
+
+---
+
 ## Admin review
 
 ### Queue
@@ -317,7 +325,7 @@ GET /Api/V1/Admin/TeacherManagement/Subjects?verificationStatus=1
 | Concern | Location |
 |---------|----------|
 | New subjects → `Pending` | `TeacherSubjectRepository.AddNewSubjectsAsync`, entity default + migration `TeacherSubjectPendingByDefault` |
-| Pre-activation POST allowed | `SaveTeacherSubjectsCommandHandler` (blocks only `Blocked`) |
+| Pre-activation POST allowed | `SaveTeacherSubjectsCommandHandler` (blocked users rejected by middleware) |
 | Registration wizard order | `TeacherRegistrationService.GetNextRegistrationStepAsync` |
 | Activation gate (docs + subjects) | `TeacherRegistrationCompletionService.CanActivateTeacherAccountAsync` |
 | Admin authorize account | `POST .../Activate` → `ActivateTeacherAccountAsync` |

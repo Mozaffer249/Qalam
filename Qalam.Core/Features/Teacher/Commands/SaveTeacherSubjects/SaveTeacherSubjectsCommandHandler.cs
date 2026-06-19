@@ -45,12 +45,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             return NotFound<TeacherSubjectsResponseDto>("Teacher not found");
         }
 
-        if (teacher.Status == TeacherStatus.Blocked)
-        {
-            return BadRequest<TeacherSubjectsResponseDto>(
-                "Your account has been blocked. Please contact support.");
-        }
-
         // Validate subjects exist (optimized - single batch query)
         var subjectIds = request.Subjects.Select(s => s.SubjectId);
         var invalidSubjectIds = await _subjectService.GetInvalidSubjectIdsAsync(subjectIds);
