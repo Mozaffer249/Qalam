@@ -433,7 +433,7 @@
 								"Block"
 							]
 						},
-						"description": "Block a teacher account permanently. Optional reason can be provided."
+						"description": "Toggle block on a teacher account. If not blocked: sets Blocked + stores StatusBeforeBlock + sends blocked email. If already blocked: restores previous status + sends unblocked email. Optional reason (max 500) when blocking."
 					},
 					"response": []
 				},

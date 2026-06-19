@@ -59,6 +59,7 @@ namespace Qalam.Infrastructure
             services.Configure<RabbitMQSettings>(configuration.GetSection("RabbitMQSettings"));
             services.Configure<RateLimitSettings>(configuration.GetSection("RateLimiting"));
             services.Configure<PasswordPolicySettings>(configuration.GetSection("PasswordPolicy"));
+            services.Configure<PlatformSettings>(configuration.GetSection("PlatformSettings"));
 
             services.AddAuthentication(x =>
             {

@@ -169,10 +169,10 @@ public class TeacherManagementController : AppControllerBase
 	}
 
 	/// <summary>
-	/// Block a teacher account
+	/// Toggle block on a teacher account (block if active, unblock if already blocked).
 	/// </summary>
 	/// <param name="teacherId">Teacher ID</param>
-	/// <param name="request">Block reason (optional)</param>
+	/// <param name="request">Block reason when blocking (optional; ignored when unblocking)</param>
 	[HttpPost("{teacherId:int}/Block")]
 	public async Task<IActionResult> BlockTeacher(int teacherId, [FromBody] RejectDocumentRequest? request)
 	{

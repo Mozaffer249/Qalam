@@ -13,6 +13,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
+    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly ILogger<TeacherRegistrationCompletionService> _logger;
 
     public TeacherRegistrationCompletionService(
@@ -21,6 +22,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         ITeacherDocumentRepository documentRepository,
         ITeacherRepository teacherRepository,
         ITeacherSubjectRepository teacherSubjectRepository,
+        ITeacherLifecycleEmailService lifecycleEmailService,
         ILogger<TeacherRegistrationCompletionService> logger)
     {
         _requirementRepository = requirementRepository;
@@ -28,6 +30,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         _documentRepository = documentRepository;
         _teacherRepository = teacherRepository;
         _teacherSubjectRepository = teacherSubjectRepository;
+        _lifecycleEmailService = lifecycleEmailService;
         _logger = logger;
     }
 
@@ -179,6 +182,8 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             "Teacher {TeacherId} account activated by admin {AdminId}",
             teacherId,
             adminId);
+
+        await _lifecycleEmailService.SendAccountActivatedAsync(teacherId, cancellationToken);
 
         return (true, null);
     }

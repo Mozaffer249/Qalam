@@ -10,7 +10,7 @@ public interface ITeacherManagementService
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
     Task<bool> ApproveDocumentAsync(int teacherId, int documentId, int adminId);
     Task<bool> RejectDocumentAsync(int teacherId, int documentId, int adminId, string reason);
-    Task<bool> BlockTeacherAsync(int teacherId, int adminId, string? reason);
+    Task<(bool Success, bool IsBlocked, string Message)> ToggleBlockTeacherAsync(int teacherId, int adminId, string? reason);
     
     // Teacher operations
     Task<bool> ReuploadDocumentAsync(int teacherId, int documentId, string newFilePath);

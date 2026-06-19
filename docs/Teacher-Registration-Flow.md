@@ -242,6 +242,25 @@ Requires `TeacherStatus.Active`.
 
 ---
 
+## Teacher lifecycle emails
+
+Queued bilingual emails (EN/AR) via RabbitMQ → Messaging API. Login links use `PlatformSettings.WebAppBaseUrl` (env: `PLATFORM_WEB_APP_BASE_URL`, default `https://qalam.net.sa/`).
+
+| Event | When | Login CTA |
+|-------|------|-----------|
+| Registration received | First submit (`AwaitingDocuments` → `PendingVerification`) | Yes |
+| Document rejected | Admin rejects a document | Yes |
+| Subject rejected | Admin rejects a subject | Yes |
+| Account activated | Admin `POST .../Activate` succeeds | Yes |
+| Account blocked | Admin toggles Block on | No (support copy only) |
+| Account unblocked | Admin toggles Block off (same endpoint) | Yes |
+
+**Not emailed:** per-document/subject approve, “ready for activation” nudge, teacher re-upload back to pending.
+
+Email failures are logged only — they never roll back the underlying status change.
+
+---
+
 ## Admin review
 
 ### Queue

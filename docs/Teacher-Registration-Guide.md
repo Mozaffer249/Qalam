@@ -665,6 +665,8 @@ Validation enforced server-side: `options` non-empty, each entry's three fields 
 
 The review cycle starts the moment a teacher submits step 5 (status flips to `PendingVerification`) and ends with `Active`, `DocumentsRejected`, or `Blocked`. Approve/reject of any single document is idempotent server-side and **automatically refreshes the teacher's status** via `ITeacherRegistrationCompletionService.RefreshTeacherStatusAfterReviewAsync`.
 
+**Lifecycle emails** (queued, bilingual, login link from `PLATFORM_WEB_APP_BASE_URL`): registration received (first submit only), document rejected, subject rejected, account activated, account blocked/unblocked. See [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md#teacher-lifecycle-emails).
+
 ### Lifecycle (state diagram)
 
 ```mermaid
@@ -676,10 +678,10 @@ stateDiagram-v2
   PendingVerification --> Active : All required docs + all subjects Approved
   PendingVerification --> DocumentsRejected : Reject required file
   DocumentsRejected --> PendingVerification : Teacher re-upload
-  PendingVerification --> Blocked : Admin Block
-  DocumentsRejected --> Blocked : Admin Block
-  Active --> Blocked : Admin Block
-  Blocked --> [*]
+  PendingVerification --> Blocked : Admin POST Block (toggle)
+  Active --> Blocked : Admin POST Block (toggle)
+  Blocked --> Active : Admin POST Block again (restores StatusBeforeBlock)
+  Blocked --> PendingVerification : Admin POST Block again (if blocked from pending)
 ```
 
 | State | Set by | Admin actions available |
@@ -688,7 +690,7 @@ stateDiagram-v2
 | `PendingVerification` | Step 5 (SubmitRegistrationRequirements) OR re-upload | Approve / Reject documents; Approve / Reject subjects; Block |
 | `DocumentsRejected` | Any required file rejected during review | Approve remaining; Block (re-upload comes from teacher) |
 | `Active` | All required docs **and all subjects** approved | Block only |
-| `Blocked` | Admin Block | none (irreversible via API today) |
+| `Blocked` | Admin POST Block (toggle — call again to unblock) | none |
 
 ### All endpoints (complete reference)
 
@@ -703,7 +705,7 @@ stateDiagram-v2
 | 4 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Approve` | — | `"Document approved successfully."` |
 | 5 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject` | `{ "reason": "…" }` required, max 500 | `"Document rejected successfully."` |
 | 6 | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Block` | `{ "reason": "…" }` optional, max 500 | `"Teacher blocked successfully."` |
-| 6b | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Activate` | — | `"Teacher account activated successfully."` (when `canBeActivated`) |
+| 6b | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Activate` | — | `"Teacher account activated successfully."` (when `canBeActivated`; queues welcome email) |
 | 7 | GET | `/Api/V1/Admin/TeacherManagement/Subjects` | `pageNumber`, `pageSize`, `teacherId`, `subjectId`, `isActive`, `verificationStatus` | `AdminTeacherSubjectDto[]` + `meta` |
 | 8 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects` | — | `AdminTeacherSubjectDto[]` |
 | 9 | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}` | — | `AdminTeacherSubjectDto` |
@@ -1032,7 +1034,7 @@ UI: Reject button opens a modal with a `reason` textarea (required, max 500) + C
 
 ---
 
-### Endpoint 6 — Block teacher
+### Endpoint 6 — Block / unblock teacher (toggle)
 
 ```http
 POST /Api/V1/Admin/TeacherManagement/{teacherId}/Block
@@ -1042,17 +1044,23 @@ Content-Type: application/json
 { "reason": "Multiple policy violations after warnings." }
 ```
 
-`reason` is optional, max 500 chars.
+`reason` is optional (max 500 chars), used when **blocking** only.
 
-Response: `{ "succeeded": true, "data": "Teacher blocked successfully." }`.
+**If teacher is not blocked:** sets `Status = Blocked`, `IsActive = false`, stores previous status in `StatusBeforeBlock`, queues **blocked** email (no login link).
 
-**Server side effects:** `Teacher.Status = Blocked` and `Teacher.IsActive = false`. From now on:
+**If teacher is already blocked:** restores `Status` from `StatusBeforeBlock` (defaults to `PendingVerification`), sets `IsActive = true` when restored to `Active`, queues **unblocked** email with login CTA.
+
+Response examples:
+
+- `{ "succeeded": true, "data": "Teacher account blocked successfully." }`
+- `{ "succeeded": true, "data": "Teacher account unblocked successfully." }`
+
+While blocked:
 
 - `POST /Authentication/Teacher/LoginOrRegister` rejects the teacher's phone with **400** `"Your account has been blocked. Please contact support."`.
-- All Teacher-role endpoints (Subjects, Availability, Documents, Courses) return 401/403.
-- There is **no Unblock endpoint exposed** today — DB intervention only.
+- Teacher-role endpoints return 401/403.
 
-UI: Block button is destructive (red). Confirm-modal warns it's effectively irreversible via API.
+UI: Block button toggles label (Block / Unblock). Confirm modal explains the action. Optional reason field when blocking.
 
 ---
 

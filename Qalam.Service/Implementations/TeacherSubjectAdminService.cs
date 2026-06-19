@@ -14,17 +14,20 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly ILogger<TeacherSubjectAdminService> _logger;
 
     public TeacherSubjectAdminService(
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherRepository teacherRepository,
         ITeacherRegistrationCompletionService completionService,
+        ITeacherLifecycleEmailService lifecycleEmailService,
         ILogger<TeacherSubjectAdminService> logger)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
         _completionService = completionService;
+        _lifecycleEmailService = lifecycleEmailService;
         _logger = logger;
     }
 
@@ -153,6 +156,14 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             teacherSubjectId, adminId);
 
         await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
+
+        var subjectDetails = await _teacherSubjectRepository.GetByIdForTeacherAsync(
+            teacherId, teacherSubjectId, cancellationToken);
+        var subjectName = subjectDetails?.Subject?.NameEn
+            ?? subjectDetails?.Subject?.NameAr
+            ?? $"Subject {subject.SubjectId}";
+
+        await _lifecycleEmailService.SendSubjectRejectedAsync(teacherId, subjectName, reason, cancellationToken);
 
         return true;
     }

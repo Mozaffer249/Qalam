@@ -4,6 +4,7 @@ using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
 using Xunit;
 
@@ -51,31 +52,41 @@ public class TeacherRegistrationCompletionServiceTests
     public async Task Activate_Succeeds_WhenReady()
     {
         TeacherStatus? updatedStatus = null;
+        var lifecycleEmail = new Mock<ITeacherLifecycleEmailService>();
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
             snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
-            onStatusUpdate: status => updatedStatus = status);
+            onStatusUpdate: status => updatedStatus = status,
+            lifecycleEmail: lifecycleEmail.Object);
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 
         Assert.True(success);
         Assert.Null(error);
         Assert.Equal(TeacherStatus.Active, updatedStatus);
+        lifecycleEmail.Verify(
+            e => e.SendAccountActivatedAsync(TeacherId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task Activate_Fails_WhenAlreadyActive()
     {
+        var lifecycleEmail = new Mock<ITeacherLifecycleEmailService>();
         var service = BuildService(
             teacherStatus: TeacherStatus.Active,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            lifecycleEmail: lifecycleEmail.Object);
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 
         Assert.False(success);
         Assert.Contains("already active", error, StringComparison.OrdinalIgnoreCase);
+        lifecycleEmail.Verify(
+            e => e.SendAccountActivatedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -125,7 +136,8 @@ public class TeacherRegistrationCompletionServiceTests
         TeacherStatus teacherStatus,
         bool requirementsApproved,
         TeacherSubjectActivationSnapshot snapshot,
-        Action<TeacherStatus>? onStatusUpdate = null)
+        Action<TeacherStatus>? onStatusUpdate = null,
+        ITeacherLifecycleEmailService? lifecycleEmail = null)
     {
         var teacher = new Teacher { Id = TeacherId, Status = teacherStatus };
 
@@ -191,6 +203,7 @@ public class TeacherRegistrationCompletionServiceTests
             documentRepo.Object,
             teacherRepo.Object,
             subjectRepo.Object,
+            lifecycleEmail ?? Mock.Of<ITeacherLifecycleEmailService>(),
             NullLogger<TeacherRegistrationCompletionService>.Instance);
     }
 }

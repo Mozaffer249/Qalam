@@ -20,6 +20,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ITeacherSubjectRepository _subjectRepository;
     private readonly ITeacherAvailabilityRepository _availabilityRepository;
     private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
+    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
@@ -29,7 +30,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         ILogger<TeacherRegistrationService> logger,
         ITeacherSubjectRepository subjectRepository,
         ITeacherAvailabilityRepository availabilityRepository,
-        IAuthLoginOtpHelper authLoginOtpHelper)
+        IAuthLoginOtpHelper authLoginOtpHelper,
+        ITeacherLifecycleEmailService lifecycleEmailService)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
@@ -39,6 +41,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _subjectRepository = subjectRepository;
         _availabilityRepository = availabilityRepository;
         _authLoginOtpHelper = authLoginOtpHelper;
+        _lifecycleEmailService = lifecycleEmailService;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null)
@@ -184,6 +187,9 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         int teacherId,
         bool isInSaudiArabia)
     {
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        var previousStatus = teacher?.Status ?? TeacherStatus.AwaitingDocuments;
+
         // Update teacher status to PendingVerification
         await _teacherRepository.UpdateStatusAsync(
             teacherId,
@@ -201,6 +207,9 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _logger.LogInformation(
             "Document upload completed for teacher {TeacherId}, status set to PendingVerification",
             teacherId);
+
+        if (previousStatus == TeacherStatus.AwaitingDocuments)
+            await _lifecycleEmailService.SendRegistrationReceivedAsync(teacherId);
     }
 
     public async Task<RegistrationStepDto> GetNextRegistrationStepAsync(int userId)

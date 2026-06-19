@@ -22,6 +22,11 @@ public class Teacher : AuditableEntity
 
     public TeacherStatus Status { get; set; } = TeacherStatus.AwaitingDocuments;
 
+    /// <summary>
+    /// Status to restore when admin unblocks the account (set when blocking).
+    /// </summary>
+    public TeacherStatus? StatusBeforeBlock { get; set; }
+
     public TeacherLocation? Location { get; set; }
 
     /// <summary>

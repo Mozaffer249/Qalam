@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -12,17 +13,20 @@ public class TeacherManagementService : ITeacherManagementService
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly ILogger<TeacherManagementService> _logger;
 
     public TeacherManagementService(
         ITeacherRepository teacherRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationCompletionService completionService,
+        ITeacherLifecycleEmailService lifecycleEmailService,
         ILogger<TeacherManagementService> logger)
     {
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
         _completionService = completionService;
+        _lifecycleEmailService = lifecycleEmailService;
         _logger = logger;
     }
 
@@ -93,27 +97,63 @@ public class TeacherManagementService : ITeacherManagementService
 
         _logger.LogInformation("Document {DocumentId} rejected by admin {AdminId}: {Reason}", documentId, adminId, reason);
 
+        await _lifecycleEmailService.SendDocumentRejectedAsync(
+            teacherId,
+            BuildDocumentLabel(document),
+            reason);
+
         return true;
     }
 
-    public async Task<bool> BlockTeacherAsync(int teacherId, int adminId, string? reason)
+    public async Task<(bool Success, bool IsBlocked, string Message)> ToggleBlockTeacherAsync(
+        int teacherId,
+        int adminId,
+        string? reason)
     {
         var teacher = await _teacherRepository.GetByIdAsync(teacherId);
         if (teacher == null)
         {
             _logger.LogWarning("Teacher {TeacherId} not found", teacherId);
-            return false;
+            return (false, false, "Teacher not found");
         }
 
+        if (teacher.Status == TeacherStatus.Blocked)
+        {
+            var restoredStatus = teacher.StatusBeforeBlock ?? TeacherStatus.PendingVerification;
+            teacher.Status = restoredStatus;
+            teacher.IsActive = restoredStatus == TeacherStatus.Active;
+            teacher.StatusBeforeBlock = null;
+
+            await _teacherRepository.UpdateAsync(teacher);
+            await _teacherRepository.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Teacher {TeacherId} unblocked by admin {AdminId}, restored status {Status}",
+                teacherId,
+                adminId,
+                restoredStatus);
+
+            await _lifecycleEmailService.SendAccountUnblockedAsync(teacherId);
+
+            return (true, false, "Teacher account unblocked successfully");
+        }
+
+        teacher.StatusBeforeBlock = teacher.Status;
         teacher.Status = TeacherStatus.Blocked;
         teacher.IsActive = false;
 
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
 
-        _logger.LogInformation("Teacher {TeacherId} blocked by admin {AdminId}: {Reason}", teacherId, adminId, reason);
+        _logger.LogInformation(
+            "Teacher {TeacherId} blocked by admin {AdminId}: {Reason}",
+            teacherId,
+            adminId,
+            reason);
 
-        return true;
+        await _lifecycleEmailService.SendAccountBlockedAsync(teacherId, reason);
+
+        return (true, true, "Teacher account blocked successfully");
     }
 
     public async Task<bool> ReuploadDocumentAsync(int teacherId, int documentId, string newFilePath)
@@ -154,4 +194,16 @@ public class TeacherManagementService : ITeacherManagementService
         return await _documentRepository.GetDocumentsStatusAsync(teacherId);
     }
 
+    private static string BuildDocumentLabel(TeacherDocument document)
+    {
+        if (!string.IsNullOrWhiteSpace(document.CertificateTitle))
+            return document.CertificateTitle;
+
+        return document.DocumentType switch
+        {
+            TeacherDocumentType.IdentityDocument => "Identity document",
+            TeacherDocumentType.Certificate => "Certificate",
+            _ => "Document"
+        };
+    }
 }
