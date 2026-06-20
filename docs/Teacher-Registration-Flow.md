@@ -344,14 +344,28 @@ Derived from `GetNextRegistrationStepAsync` + auth responses:
 | *(no profile)* | — | Complete Personal Information | Step 3 |
 | `AwaitingDocuments` | — | Upload Documents | Step 5 form |
 | `PendingVerification` | no subjects | Add Teaching Subjects and Units | filter-options wizard |
-| `PendingVerification` | has subjects | Awaiting Admin Verification | waiting screen |
+| `PendingVerification` | has subjects, review in progress | Awaiting Admin Verification | waiting screen — under review |
+| `PendingVerification` | has subjects, `canBeActivated` | Awaiting Final Approval | waiting screen — final approval section |
 | `DocumentsRejected` | rejected docs exist | Re-upload Rejected Documents | documents list |
 | `DocumentsRejected` | no rejected docs, no subjects | Add Teaching Subjects and Units | filter-options wizard |
-| `DocumentsRejected` | no rejected docs, has subjects | Awaiting Admin Verification | waiting screen |
-| `Active` | no availability | Set Your Availability | availability screen |
-| `Active` | has availability | Registration Complete | home / dashboard |
+| `DocumentsRejected` | no rejected docs, has subjects, review in progress | Awaiting Admin Verification | waiting screen |
+| `DocumentsRejected` | no rejected docs, has subjects, `canBeActivated` | Awaiting Final Approval | waiting screen — final approval section |
+| `Active` | any | **Dashboard** | teacher dashboard (`requiresAvailabilitySetup` flag on `nextStep` / Status) |
 
-Poll `GET /Teacher/TeacherDocuments/Status` or re-call VerifyOtp `nextStep` after submit/subject add.
+**Login (`VerifyOtp`):** active teachers always get `nextStepName = "Dashboard"` — not availability.
+
+**Waiting page poll** (`GET /Authentication/Teacher/AccountStatus` — lightweight):
+
+- Poll every few seconds on the waiting screen
+- `awaitingFinalApproval === true` → show **Awaiting final approval** section
+- `isAccountActivated` flips to `true` and `requiresAvailabilitySetup === true` → navigate to availability setup
+- `isAccountActivated && !requiresAvailabilitySetup` → navigate to dashboard (`nextStep.nextStepName`)
+
+Account status response fields: `teacherStatus`, `isAccountActivated`, `canBeActivated`, `awaitingFinalApproval`, `requiresAvailabilitySetup`, `nextStep`.
+
+**Full checklist** (`GET /Teacher/TeacherDocuments/Status` — use when rejection reasons or re-upload IDs are needed):
+
+Status response fields: `teacherStatus`, `isAccountActivated`, `canBeActivated`, `awaitingFinalApproval`, `requiresAvailabilitySetup`, `subjectSummary`, `requirements`, `legacyDocuments`.
 
 ---
 
@@ -395,7 +409,8 @@ Uploaded files are stored in Alibaba OSS. `filePath` in API responses is the obj
 | Personal info | POST | `/Api/V1/Authentication/Teacher/CompletePersonalInfo` |
 | Requirements catalog | GET | `/Api/V1/Authentication/Teacher/RegistrationRequirements` |
 | Submit requirements | POST | `/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements` |
-| Registration status | GET | `/Api/V1/Teacher/TeacherDocuments/Status` |
+| Account status poll | GET | `/Api/V1/Authentication/Teacher/AccountStatus` |
+| Registration checklist | GET | `/Api/V1/Teacher/TeacherDocuments/Status` |
 | Re-upload document | PUT | `/Api/V1/Teacher/TeacherDocuments/{id}/Reupload` |
 | Filter wizard | GET | `/Api/V1/Education/filter-options` |
 | Save subjects | POST | `/Api/V1/Teacher/TeacherSubject` |

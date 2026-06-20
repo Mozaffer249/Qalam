@@ -34,6 +34,7 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherUploadDocuments = Authentication + "/Teacher/UploadDocuments";
         public const string TeacherRegistrationRequirements = Authentication + "/Teacher/RegistrationRequirements";
         public const string TeacherSubmitRegistrationRequirements = Authentication + "/Teacher/SubmitRegistrationRequirements";
+        public const string TeacherAccountStatus = Authentication + "/Teacher/AccountStatus";
 
         public const string AdminTeacherRegistrationRequirements = Rule + "Admin/TeacherRegistrationRequirements";
 

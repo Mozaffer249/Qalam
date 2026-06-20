@@ -40,7 +40,8 @@ Single reference for **teacher onboarding**: auth config, OTP, personal info, ad
 | 4 | Load dynamic fields | GET | `/Api/V1/Authentication/Teacher/RegistrationRequirements` | None |
 | 5 | Submit documents / bio / location | POST | `/Api/V1/Authentication/Teacher/SubmitRegistrationRequirements` | Bearer (Teacher) |
 | 5b | Add teaching subjects | POST | `/Api/V1/Teacher/TeacherSubject` | Bearer (Teacher) — see [filter-options](Teacher-Availability-and-Subjects.md) |
-| 6 | Track review | GET | `/Api/V1/Teacher/TeacherDocuments/Status` | Bearer (Teacher) |
+| 6 | Poll account status | GET | `/Api/V1/Authentication/Teacher/AccountStatus` | Bearer (Teacher) |
+| 6b | Full checklist + re-upload | GET | `/Api/V1/Teacher/TeacherDocuments/Status` | Bearer (Teacher) |
 | 7 | Set availability (after Active) | POST | `/Api/V1/Teacher/TeacherAvailability` | Bearer (Teacher) |
 
 **Legacy (deprecated):** `POST …/Teacher/UploadDocuments` — same handler as step 5.
@@ -515,7 +516,34 @@ Status enum: `AwaitingDocuments=1`, `PendingVerification=2`, `Active=3`, `Blocke
 
 ---
 
-### Step 6 — Status & re-upload
+### Step 6 — Account status poll & full checklist
+
+**Poll account status (waiting screen):**
+
+```http
+GET /Api/V1/Authentication/Teacher/AccountStatus
+Authorization: Bearer {teacherJwt}
+```
+
+```json
+{
+  "teacherStatus": "PendingVerification",
+  "isAccountActivated": false,
+  "canBeActivated": true,
+  "awaitingFinalApproval": true,
+  "requiresAvailabilitySetup": false,
+  "nextStep": {
+    "nextStepName": "Awaiting Final Approval",
+    "isRegistrationComplete": false,
+    "awaitingFinalApproval": true,
+    "requiresAvailabilitySetup": false
+  }
+}
+```
+
+Poll every few seconds on the waiting page. When `isAccountActivated` becomes true and `requiresAvailabilitySetup` is true, route to availability setup. When activated with availability configured, route to dashboard via `nextStep.nextStepName`.
+
+**Full checklist (rejection reasons + re-upload IDs):**
 
 ```http
 GET /Api/V1/Teacher/TeacherDocuments/Status
@@ -524,6 +552,18 @@ Authorization: Bearer {teacherJwt}
 
 ```json
 {
+  "teacherStatus": "PendingVerification",
+  "isAccountActivated": false,
+  "canBeActivated": true,
+  "awaitingFinalApproval": true,
+  "requiresAvailabilitySetup": false,
+  "subjectSummary": {
+    "totalSubjects": 2,
+    "activeSubjects": 2,
+    "pendingSubjects": 0,
+    "inactiveSubjects": 0,
+    "rejectedSubjects": 0
+  },
   "requirements": [
     {
       "code": "identity_document",
@@ -567,6 +607,15 @@ Authorization: Bearer {teacherJwt}
 ```
 
 For Selection rows, the FE can render directly off `selectedOptions[]` (bilingual labels resolved server-side from the requirement's `OptionsJson`). `textValue` still holds the raw comma-joined option values for reference; on re-submit, split it by `,` to pre-fill the picker.
+
+| Field | When true | FE action |
+|-------|-----------|-----------|
+| `awaitingFinalApproval` | All docs + subjects approved; admin has not `POST Activate` yet | Show **Awaiting final approval** section on waiting page |
+| `isAccountActivated` | `teacherStatus === Active` | Account live — leave waiting page |
+| `requiresAvailabilitySetup` | Active and no weekly availability rows | After activation, route to availability wizard |
+| `canBeActivated` | Same as admin `canBeActivated` on teacher detail | Informational; prefer `awaitingFinalApproval` for UI |
+
+Poll this endpoint on the waiting screen every few seconds. When `isAccountActivated` becomes `true` and `requiresAvailabilitySetup` is `true`, navigate to availability. When activated and availability exists, go to dashboard.
 
 | `verificationStatus` | UI |
 |---------------------|-----|
@@ -1460,7 +1509,8 @@ POST /Api/V1/Authentication/Admin/Login
 - [ ] Dynamic UI from `requirements[]`
 - [ ] `POST /Teacher/SubmitRegistrationRequirements`
 - [ ] **Step 5b:** `filter-options` wizard → `POST /Teacher/TeacherSubject` (while `PendingVerification`)
-- [ ] Status via `GET /Teacher/TeacherDocuments/Status`
+- [ ] Poll account status via `GET /Authentication/Teacher/AccountStatus`
+- [ ] Full checklist via `GET /Teacher/TeacherDocuments/Status`
 - [ ] Re-upload on reject
 - [ ] After Active: `POST /Teacher/TeacherAvailability`
 

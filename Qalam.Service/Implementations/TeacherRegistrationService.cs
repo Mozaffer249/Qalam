@@ -21,6 +21,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ITeacherAvailabilityRepository _availabilityRepository;
     private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
+    private readonly ITeacherRegistrationCompletionService _completionService;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
@@ -31,7 +32,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         ITeacherSubjectRepository subjectRepository,
         ITeacherAvailabilityRepository availabilityRepository,
         IAuthLoginOtpHelper authLoginOtpHelper,
-        ITeacherLifecycleEmailService lifecycleEmailService)
+        ITeacherLifecycleEmailService lifecycleEmailService,
+        ITeacherRegistrationCompletionService completionService)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
@@ -42,6 +44,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _availabilityRepository = availabilityRepository;
         _authLoginOtpHelper = authLoginOtpHelper;
         _lifecycleEmailService = lifecycleEmailService;
+        _completionService = completionService;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null)
@@ -251,7 +254,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 if (!await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id))
                     return BuildAddSubjectsStep();
 
-                return BuildAwaitingAdminStep();
+                return await BuildWaitingStepAsync(teacher.Id);
 
             case TeacherStatus.DocumentsRejected:
                 var rejectedDocs = await _documentRepository.GetRejectedDocumentsAsync(teacher.Id);
@@ -271,31 +274,23 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 if (!await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id))
                     return BuildAddSubjectsStep();
 
-                return BuildAwaitingAdminStep();
+                return await BuildWaitingStepAsync(teacher.Id);
 
             case TeacherStatus.Active:
-                // Check if teacher has set availability
-                if (!await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id))
-                {
-                    return new RegistrationStepDto
-                    {
-                        CurrentStep = 5,
-                        NextStep = 6,
-                        NextStepName = "Set Your Availability",
-                        IsRegistrationComplete = false,
-                        Message = "Great! Now set your weekly availability so students can book sessions with you."
-                    };
-                }
-
-                // All setup complete
+            {
+                var requiresAvailability = !await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id);
                 return new RegistrationStepDto
                 {
                     CurrentStep = 6,
                     NextStep = 0,
-                    NextStepName = "Registration Complete",
+                    NextStepName = "Dashboard",
                     IsRegistrationComplete = true,
-                    Message = "Your profile is complete! You can now start accepting students."
+                    RequiresAvailabilitySetup = requiresAvailability,
+                    Message = requiresAvailability
+                        ? "Your account is active. Set your availability from the dashboard when you are ready."
+                        : "Welcome back! Your teacher dashboard is ready."
                 };
+            }
 
             case TeacherStatus.Blocked:
                 throw new Exception("Your account has been blocked. Please contact support.");
@@ -303,6 +298,14 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             default:
                 throw new Exception("Unknown registration status");
         }
+    }
+
+    private async Task<RegistrationStepDto> BuildWaitingStepAsync(int teacherId)
+    {
+        if (await _completionService.CanActivateTeacherAccountAsync(teacherId))
+            return BuildAwaitingFinalApprovalStep();
+
+        return BuildAwaitingAdminStep();
     }
 
     private static RegistrationStepDto BuildAddSubjectsStep() =>
@@ -323,6 +326,17 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStepName = "Awaiting Admin Verification",
             IsRegistrationComplete = false,
             Message = "Your documents and teaching subjects are being reviewed by our team."
+        };
+
+    private static RegistrationStepDto BuildAwaitingFinalApprovalStep() =>
+        new()
+        {
+            CurrentStep = 5,
+            NextStep = 0,
+            NextStepName = "Awaiting Final Approval",
+            IsRegistrationComplete = false,
+            AwaitingFinalApproval = true,
+            Message = "All documents and subjects are approved. Waiting for final account activation by admin."
         };
 
 }

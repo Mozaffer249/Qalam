@@ -11,6 +11,16 @@ public class RegistrationStepDto
     public string? Message { get; set; }
 
     /// <summary>
+    /// True when account is Active but weekly availability has not been configured yet.
+    /// </summary>
+    public bool RequiresAvailabilitySetup { get; set; }
+
+    /// <summary>
+    /// True when all docs and subjects are approved but admin has not activated the account yet.
+    /// </summary>
+    public bool AwaitingFinalApproval { get; set; }
+
+    /// <summary>
     /// List of rejected documents (only populated when Status = DocumentsRejected)
     /// </summary>
     public List<RejectedDocumentInfo>? RejectedDocuments { get; set; }

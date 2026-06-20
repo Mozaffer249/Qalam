@@ -23,8 +23,11 @@ There's no canonical `GET /Profile` endpoint wired today. Cache the values from 
   - `"Upload Documents"` → "Awaiting documents" pill.
   - `"Add Teaching Subjects and Units"` → subjects step during registration (before admin approval).
   - `"Awaiting Admin Verification"` → docs and/or subjects under review.
+  - `"Awaiting Final Approval"` → all items approved; waiting for admin final activation.
   - `"Re-upload Rejected Documents"` → "Documents rejected" pill.
-  - `"Set Your Availability"` or `"Registration Complete"` → "Active" pill.
+  - `"Dashboard"` → "Active" pill (login routes here for activated teachers).
+
+On the **waiting page**, poll `GET /Teacher/TeacherDocuments/Status`: show the final-approval section when `awaitingFinalApproval === true`; when `isAccountActivated` becomes true and `requiresAvailabilitySetup === true`, navigate to availability; otherwise go to dashboard.
 
 The Documents / Subjects / Availability count badges on the tiles come from the lightweight GET calls described in each section below.
 

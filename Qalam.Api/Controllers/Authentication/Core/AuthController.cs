@@ -13,7 +13,10 @@ using Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 using Qalam.Api.Helpers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Common;
+using Qalam.Data.DTOs.Teacher;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using System.Net;
 
 namespace Qalam.Api.Controllers.Authentication.Core
 {
@@ -23,10 +26,17 @@ namespace Qalam.Api.Controllers.Authentication.Core
     public class AuthController : AppControllerBase
     {
         private readonly IEnumService _enumService;
+        private readonly ITeacherRegistrationStatusService _registrationStatusService;
+        private readonly ITeacherRepository _teacherRepository;
 
-        public AuthController(IEnumService enumService)
+        public AuthController(
+            IEnumService enumService,
+            ITeacherRegistrationStatusService registrationStatusService,
+            ITeacherRepository teacherRepository)
         {
             _enumService = enumService;
+            _registrationStatusService = registrationStatusService;
+            _teacherRepository = teacherRepository;
         }
 
         // /// <summary>
@@ -189,6 +199,45 @@ namespace Qalam.Api.Controllers.Authentication.Core
             return NewResult(await Mediator.Send(command));
         }
 
+        /// <summary>
+        /// Re-check teacher account activation status and registration routing.
+        /// </summary>
+        /// <returns>Account flags and `nextStep` for UI routing</returns>
+        /// <remarks>
+        /// Requires **Teacher** JWT. Lightweight poll endpoint for the waiting screen — does not return
+        /// the full document checklist. Use `GET …/Teacher/TeacherDocuments/Status` when rejection reasons
+        /// or re-upload document IDs are needed.
+        ///
+        /// Poll every few seconds on the waiting page:
+        /// - `awaitingFinalApproval === true` → show **Awaiting final approval** section
+        /// - `isAccountActivated` and `requiresAvailabilitySetup` → navigate to availability setup
+        /// - `isAccountActivated` and `!requiresAvailabilitySetup` → navigate to dashboard (`nextStep.nextStepName`)
+        ///
+        /// Blocked teachers receive 403 from global middleware.
+        /// </remarks>
+        [Tags("Teacher Authentication")]
+        [HttpGet(Router.TeacherAccountStatus)]
+        [Authorize(Roles = Roles.Teacher)]
+        [ProducesResponseType(typeof(TeacherAccountStatusResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetTeacherAccountStatus()
+        {
+            var userId = GetUserId();
+            var teacher = await _teacherRepository.GetByUserIdAsync(userId);
+
+            if (teacher == null)
+                return NewResult(new Response<TeacherAccountStatusResponseDto?>("Teacher profile not found")
+                {
+                    StatusCode = HttpStatusCode.NotFound
+                });
+
+            var status = await _registrationStatusService.GetAccountStatusForTeacherAsync(teacher.Id, userId);
+            return NewResult(new Response<TeacherAccountStatusResponseDto>(status)
+            {
+                StatusCode = HttpStatusCode.OK
+            });
+        }
+
         #endregion
 
         #region Enum Helpers
@@ -224,6 +273,12 @@ namespace Qalam.Api.Controllers.Authentication.Core
             });
         }
         #endregion
+
+        private int GetUserId()
+        {
+            var userIdClaim = User.FindFirst("uid") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            return int.Parse(userIdClaim?.Value ?? "0");
+        }
     }
 }
 

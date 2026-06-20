@@ -42,8 +42,11 @@ public class TeacherDocumentsController : AppControllerBase
     /// </returns>
     /// <remarks>
     /// Requires **Teacher** JWT. Use after submit to track admin review progress.
-    /// Teacher becomes **Active** when all **active required** submissions are approved.
+    /// Poll this endpoint on the waiting screen; when `isAccountActivated` becomes true and
+    /// `requiresAvailabilitySetup` is true, route the teacher to set availability.
+    /// Show the **Awaiting final approval** section when `awaitingFinalApproval` is true.
     ///
+    /// Account becomes **Active** only after admin `POST .../TeacherManagement/{teacherId}/Activate`.
     /// See `docs/Teacher-Registration-Guide.md`.
     /// </remarks>
     [HttpGet("Status")]

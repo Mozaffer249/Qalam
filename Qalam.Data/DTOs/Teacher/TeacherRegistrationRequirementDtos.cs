@@ -123,6 +123,22 @@ public class TeacherRegistrationSubmissionStatusDto
 
 public class TeacherRegistrationStatusResponseDto
 {
+    public TeacherStatus TeacherStatus { get; set; }
+    public bool IsAccountActivated { get; set; }
+    public bool CanBeActivated { get; set; }
+    public bool AwaitingFinalApproval { get; set; }
+    public bool RequiresAvailabilitySetup { get; set; }
+    public TeacherSubjectSummaryDto SubjectSummary { get; set; } = new();
     public List<TeacherRegistrationSubmissionStatusDto> Requirements { get; set; } = new();
     public List<TeacherDocumentReviewDto> LegacyDocuments { get; set; } = new();
+}
+
+public class TeacherAccountStatusResponseDto
+{
+    public TeacherStatus TeacherStatus { get; set; }
+    public bool IsAccountActivated { get; set; }
+    public bool CanBeActivated { get; set; }
+    public bool AwaitingFinalApproval { get; set; }
+    public bool RequiresAvailabilitySetup { get; set; }
+    public RegistrationStepDto NextStep { get; set; } = null!;
 }
