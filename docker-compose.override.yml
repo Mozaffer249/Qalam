@@ -5,8 +5,9 @@
 # What this override does:
 #   1. Adds a containerized SQL Server so the laptop doesn't need a native install.
 #   2. Forces qalam-api + messaging-api to wait for SQL Server's healthcheck.
-#   3. Drops the qalam-admin service (its build context /opt/qalam-admin only exists on the server).
-#      If you want to test the admin locally, clone the repo to ~/qalam-admin and uncomment the override below.
+#   3. Drops VPS-only frontend services (admin/teacher build contexts live under /opt/... on the server).
+#      To test locally, clone the repos and set ADMIN_APP_PATH / TEACHER_APP_PATH in .env, then
+#      remove the `profiles: ["never"]` blocks below for the service you want.
 
 services:
   sqlserver:
@@ -60,6 +61,9 @@ services:
 
   qalam-admin:
     profiles: ["never"]   # `profiles` not in active profile → service is skipped
+
+  qalam-teacher:
+    profiles: ["never"]
 
 volumes:
   sqlserver_data:

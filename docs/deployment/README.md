@@ -12,6 +12,7 @@ All production/staging setup docs live in this folder. Follow the numbered files
 | 3 | [`03-staging-setup.md`](./03-staging-setup.md) | `api-staging.qalam.net.sa` (auto-migrate, demo admin) |
 | 4 | [`04-production-setup.md`](./04-production-setup.md) | `api.qalam.net.sa` (manual migration gate, prod secrets) |
 | 5 | [`05-nginx-subdomains.md`](./05-nginx-subdomains.md) | Frontend SPA vhosts + consolidated Certbot |
+| — | [`08-admin-frontend-docker.md`](./08-admin-frontend-docker.md) | Admin app Docker (`8090`) + `admin.qalam.net.sa` |
 | — | [`06-oss-storage.md`](./06-oss-storage.md) | Alibaba OSS buckets, env vars, local test, Wasabi migration |
 | — | [`07-vps-logging-limits.md`](./07-vps-logging-limits.md) | Cap Docker/rsyslog/journald so `/` cannot fill from logs |
 

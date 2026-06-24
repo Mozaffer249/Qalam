@@ -145,10 +145,10 @@ services:
   # ─────────────── Admin Frontend (Next.js) ───────────────
   qalam-admin:
     build:
-      context: /opt/qalam-admin
+      context: ${ADMIN_APP_PATH:-/opt/qalam-admin}
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://api.qalam.net.sa
+        NEXT_PUBLIC_API_URL: ${ADMIN_API_URL:-https://api.qalam.net.sa}
     image: qalam-admin:latest
     container_name: qalam-admin
     logging: *docker-logging
@@ -163,6 +163,32 @@ services:
       timeout: 5s
       retries: 3
       start_period: 45s
+
+  # ─────────────── Teacher Frontend (Nuxt) ───────────────
+  qalam-teacher:
+    build:
+      context: ${TEACHER_APP_PATH:-/opt/qalam-teacher}
+      dockerfile: Dockerfile
+      args:
+        MODE: ${TEACHER_BUILD_MODE:-production}
+    image: qalam-teacher:latest
+    container_name: qalam-teacher
+    logging: *docker-logging
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+    ports:
+      - "127.0.0.1:8091:3000"
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
 volumes:
   rabbitmq_data:
