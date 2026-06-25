@@ -12,6 +12,7 @@ public class DatabaseSeeder
         await AuthSettingsSeeder.SeedAsync(context);
         await TeacherRegistrationRequirementsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);
+        await TeacherDomainQuestionsSeeder.SeedAsync(context);
         await CurriculumsSeeder.SeedAsync(context);
         await TeachingModesSeeder.SeedAsync(context);
         await SessionTypesSeeder.SeedAsync(context);

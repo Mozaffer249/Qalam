@@ -17,6 +17,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepository;
     private readonly ISubjectService _subjectService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
+    private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
@@ -24,6 +25,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         ITeacherRepository teacherRepository,
         ISubjectService subjectService,
         ITeacherRegistrationService teacherRegistrationService,
+        ITeacherDomainQuestionStatusService domainQuestionStatusService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -31,6 +33,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         _teacherRepository = teacherRepository;
         _subjectService = subjectService;
         _teacherRegistrationService = teacherRegistrationService;
+        _domainQuestionStatusService = domainQuestionStatusService;
         _mapper = mapper;
     }
 
@@ -54,6 +57,13 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             return BadRequest<TeacherSubjectsResponseDto>(
                 $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
         }
+
+        var domainQuestionError = await _domainQuestionStatusService.ValidateSubjectsDomainQuestionsAsync(
+            teacher.Id,
+            subjectIds,
+            cancellationToken);
+        if (domainQuestionError != null)
+            return BadRequest<TeacherSubjectsResponseDto>(domainQuestionError);
 
         // Validate: if CanTeachFullSubject is false, units must be provided
         var subjectsWithoutUnits = request.Subjects

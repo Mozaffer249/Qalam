@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Commands.ActivateTeacherAccount;
 using Qalam.Core.Features.Admin.Commands.ApproveDocument;
+using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.BlockTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
+using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
@@ -166,6 +168,26 @@ public class TeacherManagementController : AppControllerBase
 		};
 		var response = await _mediator.Send(command);
 		return NewResult(response);
+	}
+
+	[HttpPost("DomainQuestionSubmissions/{submissionId:int}/Approve")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	public async Task<IActionResult> ApproveDomainQuestionSubmission(int submissionId)
+	{
+		var command = new ApproveTeacherDomainQuestionSubmissionCommand { SubmissionId = submissionId };
+		return NewResult(await _mediator.Send(command));
+	}
+
+	[HttpPost("DomainQuestionSubmissions/{submissionId:int}/Reject")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	public async Task<IActionResult> RejectDomainQuestionSubmission(int submissionId, [FromBody] RejectDocumentRequest request)
+	{
+		var command = new RejectTeacherDomainQuestionSubmissionCommand
+		{
+			SubmissionId = submissionId,
+			Reason = request.Reason
+		};
+		return NewResult(await _mediator.Send(command));
 	}
 
 	/// <summary>

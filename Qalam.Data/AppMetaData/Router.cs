@@ -37,6 +37,8 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherAccountStatus = Authentication + "/Teacher/AccountStatus";
 
         public const string AdminTeacherRegistrationRequirements = Rule + "Admin/TeacherRegistrationRequirements";
+        public const string AdminTeacherDomainQuestions = Rule + "Admin/TeacherDomainQuestions";
+        public const string TeacherDomainQuestionsSubmit = Rule + "Teacher/DomainQuestions/submit";
 
         // Student / Parent Authentication & Registration
         public const string StudentSendOtp = Authentication + "/Student/SendOttp";

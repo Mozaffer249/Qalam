@@ -3725,6 +3725,166 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("TeacherDocuments");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AllowedExtensionsJson")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DescriptionEn")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DomainId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MapsToDocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxFileSizeBytes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxLength")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OptionsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RequirementType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresAdminReview")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DomainId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("DomainId", "IsActive", "SortOrder");
+
+                    b.ToTable("TeacherDomainQuestions", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestionSubmission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("BoolValue")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReviewedByAdminId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TeacherDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TextValue")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("TeacherDocumentId");
+
+                    b.HasIndex("VerificationStatus");
+
+                    b.HasIndex("TeacherId", "QuestionId")
+                        .IsUnique();
+
+                    b.ToTable("TeacherDomainQuestionSubmissions", "teacher");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherRegistrationRequirement", b =>
                 {
                     b.Property<int>("Id")
@@ -5459,6 +5619,43 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestion", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Education.EducationDomain", "Domain")
+                        .WithMany()
+                        .HasForeignKey("DomainId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Domain");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestionSubmission", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherDomainQuestion", "Question")
+                        .WithMany("Submissions")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherDocument", "TeacherDocument")
+                        .WithMany()
+                        .HasForeignKey("TeacherDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Question");
+
+                    b.Navigation("Teacher");
+
+                    b.Navigation("TeacherDocument");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherRegistrationSubmission", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Teacher.TeacherRegistrationRequirement", "Requirement")
@@ -5785,6 +5982,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("TeacherReviews");
 
                     b.Navigation("TeacherSubjects");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestion", b =>
+                {
+                    b.Navigation("Submissions");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherRegistrationRequirement", b =>

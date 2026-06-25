@@ -389,4 +389,12 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         return new PaginatedResult<TeacherSubject>(items, totalCount, pageNumber, pageSize);
     }
+
+    public async Task<List<int>> GetDistinctDomainIdsForTeacherAsync(int teacherId, CancellationToken cancellationToken = default) =>
+        await _teacherSubjects
+            .AsNoTracking()
+            .Where(ts => ts.TeacherId == teacherId && ts.Subject != null)
+            .Select(ts => ts.Subject!.DomainId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 }

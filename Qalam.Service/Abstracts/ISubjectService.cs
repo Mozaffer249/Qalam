@@ -33,4 +33,5 @@ public interface ISubjectService
     /// Returns list of invalid IDs that don't exist in database
     /// </summary>
     Task<List<int>> GetInvalidSubjectIdsAsync(IEnumerable<int> subjectIds);
+    Task<List<SubjectDomainInfo>> GetDomainsForSubjectIdsAsync(IEnumerable<int> subjectIds);
 }

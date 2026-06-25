@@ -19,6 +19,8 @@ public class TeacherDetailsDto
 
     /// <summary>Active registration requirements with submission status (admin review checklist).</summary>
     public List<TeacherRegistrationSubmissionStatusDto> RegistrationRequirements { get; set; } = new();
+
+    public List<TeacherDomainQuestionGroupDto> DomainQuestionSubmissions { get; set; } = new();
     
     // Summary
     public int TotalDocuments { get; set; }

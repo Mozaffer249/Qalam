@@ -156,8 +156,11 @@ GET /Api/V1/Teacher/TeacherDocuments/Status
 **When:** `PendingVerification` and `nextStepName === "Add Teaching Subjects and Units"` (no subject offerings yet).  
 **Also allowed:** `AwaitingDocuments`, `DocumentsRejected`, and `Active` (blocked only: `Blocked`).
 
-1. Run the education wizard — `GET /Api/V1/Education/filter-options` (see [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md)).
-2. Save selection:
+**Domain questions (first time per domain):** Before the filter wizard for a domain, load domains with embedded questions. See [Teacher-Domain-Questions.md](Teacher-Domain-Questions.md).
+
+1. `GET /Api/V1/Education/Domains` — if the chosen domain has `requiresAnswer: true`, show the questionnaire from `questions[]` and submit via `POST /Api/V1/Teacher/DomainQuestions/submit` with `domainId` and `answers[]` (multipart; see [Teacher-Domain-Questions.md](Teacher-Domain-Questions.md)).
+2. Run the education wizard — `GET /Api/V1/Education/filter-options` (see [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md)).
+3. Save selection:
 
 ```http
 POST /Api/V1/Teacher/TeacherSubject

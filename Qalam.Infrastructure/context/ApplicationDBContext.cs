@@ -96,6 +96,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherAuditLog> TeacherAuditLogs { get; set; }
         public DbSet<TeacherRegistrationRequirement> TeacherRegistrationRequirements { get; set; }
         public DbSet<TeacherRegistrationSubmission> TeacherRegistrationSubmissions { get; set; }
+        public DbSet<TeacherDomainQuestion> TeacherDomainQuestions { get; set; }
+        public DbSet<TeacherDomainQuestionSubmission> TeacherDomainQuestionSubmissions { get; set; }
 
         // Course Schema DbSets
         public DbSet<Course> Courses { get; set; }

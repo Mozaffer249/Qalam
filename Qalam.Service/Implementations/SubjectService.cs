@@ -185,5 +185,25 @@ public class SubjectService : ISubjectService
         return requestedIds.Except(existingIds).ToList();
     }
 
+    public async Task<List<SubjectDomainInfo>> GetDomainsForSubjectIdsAsync(IEnumerable<int> subjectIds)
+    {
+        var requestedIds = subjectIds.Distinct().ToList();
+        if (requestedIds.Count == 0)
+            return new List<SubjectDomainInfo>();
+
+        return await _subjectRepository
+            .GetSubjectsQueryable()
+            .Where(s => requestedIds.Contains(s.Id) && s.Domain != null)
+            .Select(s => new SubjectDomainInfo
+            {
+                SubjectId = s.Id,
+                DomainId = s.DomainId,
+                DomainCode = s.Domain!.Code,
+                DomainNameEn = s.Domain.NameEn,
+                DomainNameAr = s.Domain.NameAr
+            })
+            .ToListAsync();
+    }
+
     #endregion
 }

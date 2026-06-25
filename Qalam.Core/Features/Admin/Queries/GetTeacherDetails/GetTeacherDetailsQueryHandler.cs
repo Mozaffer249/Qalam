@@ -14,6 +14,7 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 {
 	private readonly ITeacherRepository _teacherRepository;
 	private readonly ITeacherRegistrationStatusService _registrationStatusService;
+	private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
 	private readonly ITeacherSubjectAdminService _subjectAdminService;
 	private readonly ITeacherRegistrationCompletionService _completionService;
 	private readonly ILogger<GetTeacherDetailsQueryHandler> _logger;
@@ -21,6 +22,7 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 	public GetTeacherDetailsQueryHandler(
 		ITeacherRepository teacherRepository,
 		ITeacherRegistrationStatusService registrationStatusService,
+		ITeacherDomainQuestionStatusService domainQuestionStatusService,
 		ITeacherSubjectAdminService subjectAdminService,
 		ITeacherRegistrationCompletionService completionService,
 		ILogger<GetTeacherDetailsQueryHandler> logger,
@@ -28,6 +30,7 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 	{
 		_teacherRepository = teacherRepository;
 		_registrationStatusService = registrationStatusService;
+		_domainQuestionStatusService = domainQuestionStatusService;
 		_subjectAdminService = subjectAdminService;
 		_completionService = completionService;
 		_logger = logger;
@@ -51,6 +54,9 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 
 			teacherDetails.RegistrationRequirements =
 				await _registrationStatusService.GetChecklistForTeacherAsync(request.TeacherId, cancellationToken);
+
+			teacherDetails.DomainQuestionSubmissions =
+				await _domainQuestionStatusService.GetChecklistForTeacherAsync(request.TeacherId, cancellationToken);
 
 			teacherDetails.Subjects =
 				await _subjectAdminService.GetTeacherSubjectsForAdminAsync(request.TeacherId, cancellationToken);

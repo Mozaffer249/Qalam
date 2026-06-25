@@ -1,0 +1,116 @@
+{
+  "description": "Sample teacher domain questions (seeded on app startup via TeacherDomainQuestionsSeeder). Resolve domainId from GET /Api/V1/Education/Domains — seeded codes: school=1, quran=2, language=3 (typical fresh DB).",
+  "enumReference": {
+    "requirementType": { "File": 1, "Text": 2, "Boolean": 3, "Selection": 4 },
+    "mapsToDocumentType": { "IdentityDocument": 1, "Certificate": 2, "Other": 3 }
+  },
+  "schoolDomainExamples": [
+    {
+      "domainId": 1,
+      "domainCode": "school",
+      "code": "school_experience_years",
+      "nameAr": "سنوات الخبرة في التدريس",
+      "nameEn": "Years of teaching experience",
+      "requirementType": "Text",
+      "isActive": true,
+      "isRequired": true,
+      "requiresAdminReview": false,
+      "sortOrder": 10,
+      "minCount": 1,
+      "maxCount": 1,
+      "maxLength": 100,
+      "isSystem": true,
+      "teacherSubmitField": "text_school_experience_years"
+    },
+    {
+      "domainId": 1,
+      "domainCode": "school",
+      "code": "school_teaching_license",
+      "nameAr": "الرخصة المهنية للمعلمين",
+      "nameEn": "Professional teacher license",
+      "requirementType": "File",
+      "isActive": true,
+      "isRequired": false,
+      "requiresAdminReview": true,
+      "sortOrder": 20,
+      "minCount": 0,
+      "maxCount": 1,
+      "maxFileSizeBytes": 10485760,
+      "allowedExtensions": [".pdf", ".jpg", ".jpeg", ".png"],
+      "mapsToDocumentType": "Other",
+      "isSystem": true,
+      "teacherSubmitField": "file_school_teaching_license"
+    }
+  ],
+  "createRequestExamples": {
+    "schoolTextQuestion": {
+      "domainId": 1,
+      "code": "school_experience_years",
+      "nameAr": "سنوات الخبرة في التدريس",
+      "nameEn": "Years of teaching experience",
+      "descriptionAr": "عدد سنوات خبرتك في التعليم المدرسي",
+      "descriptionEn": "How many years you have taught in school settings",
+      "requirementType": 2,
+      "isActive": true,
+      "isRequired": true,
+      "requiresAdminReview": false,
+      "sortOrder": 10,
+      "minCount": 1,
+      "maxCount": 1,
+      "maxLength": 100
+    },
+    "quranFileWithReview": {
+      "domainId": 2,
+      "code": "quran_ijaza_certificate",
+      "nameAr": "شهادة الإجازة",
+      "nameEn": "Ijaza certificate",
+      "requirementType": 1,
+      "isActive": true,
+      "isRequired": false,
+      "requiresAdminReview": true,
+      "sortOrder": 30,
+      "minCount": 0,
+      "maxCount": 1,
+      "maxFileSizeBytes": 10485760,
+      "allowedExtensions": [".pdf", ".jpg", ".jpeg", ".png"],
+      "mapsToDocumentType": 2
+    }
+  },
+  "updateRequestExample": {
+    "nameAr": "سنوات الخبرة في التدريس",
+    "nameEn": "Years of teaching experience",
+    "descriptionAr": "عدد سنوات خبرتك",
+    "descriptionEn": "Your years of experience",
+    "isActive": true,
+    "isRequired": true,
+    "requiresAdminReview": false,
+    "sortOrder": 10,
+    "minCount": 1,
+    "maxCount": 1,
+    "maxFileSizeBytes": 10485760,
+    "maxLength": 100
+  },
+  "setActiveRequestExample": {
+    "isActive": false
+  },
+  "teacherSubmitListExample": {
+    "description": "POST /Api/V1/Teacher/DomainQuestions/submit — multipart/form-data",
+    "domainId": 1,
+    "multipartFields": [
+      "domainId=1",
+      "answers[0].code=school_experience_years",
+      "answers[0].textValue=5",
+      "answers[1].code=school_teaching_license",
+      "answers[1].files=@license.pdf"
+    ],
+    "successResponse": {
+      "domainId": 1,
+      "requiresAnswer": false,
+      "message": "Domain questions submitted successfully.",
+      "submittedCodes": [
+        "school_experience_years",
+        "school_teaching_license"
+      ]
+    }
+  }
+}

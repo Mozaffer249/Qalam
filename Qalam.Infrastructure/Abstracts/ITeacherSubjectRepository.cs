@@ -80,4 +80,7 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
         bool? isActive = null,
         DocumentVerificationStatus? verificationStatus = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Distinct education domain IDs from the teacher's subject offerings.</summary>
+    Task<List<int>> GetDistinctDomainIdsForTeacherAsync(int teacherId, CancellationToken cancellationToken = default);
 }
