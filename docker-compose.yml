@@ -143,9 +143,11 @@ services:
     restart: unless-stopped
 
   # ─────────────── Admin Frontend (Next.js) ───────────────
+  # Source lives in the apps/admin git submodule. Set ADMIN_APP_PATH only when
+  # building from a path outside the monorepo (e.g. legacy /opt/qalam-admin).
   qalam-admin:
     build:
-      context: ${ADMIN_APP_PATH:-/opt/qalam-admin}
+      context: ${ADMIN_APP_PATH:-./apps/admin}
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${ADMIN_API_URL:-https://api.qalam.net.sa}
@@ -164,10 +166,12 @@ services:
       retries: 3
       start_period: 45s
 
-  # ─────────────── Teacher Frontend (Nuxt) ───────────────
+  # ─────────────── Teacher Frontend (Vite + TanStack Start) ───────────────
+  # Source lives in the apps/teacher git submodule. Set TEACHER_APP_PATH only when
+  # building from a path outside the monorepo (e.g. legacy /opt/qalam-teacher).
   qalam-teacher:
     build:
-      context: ${TEACHER_APP_PATH:-/opt/qalam-teacher}
+      context: ${TEACHER_APP_PATH:-./apps/teacher}
       dockerfile: Dockerfile
       args:
         MODE: ${TEACHER_BUILD_MODE:-production}
