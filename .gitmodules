@@ -1,0 +1,8 @@
+[submodule "apps/admin"]
+	path = apps/admin
+	url = https://github.com/yassin-khalid/qalam-admin.git
+	branch = main
+[submodule "apps/teacher"]
+	path = apps/teacher
+	url = https://github.com/yassin-khalid/qalam.git
+	branch = main
