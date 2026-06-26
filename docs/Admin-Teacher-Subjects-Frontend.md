@@ -16,11 +16,11 @@ Related:
 
 ## Overview
 
-When a teacher adds subjects via `POST /Api/V1/Teacher/TeacherSubject`, each row starts as **`Pending`** (`verificationStatus = 1`, `isActive = true`). An admin approves or rejects after comparing the subject/units against uploaded **certificate** documents on the teacher profile.
+When a teacher adds subjects via `POST /Api/V1/Teacher/TeacherSubject`, each row is created as **`Approved`** (`verificationStatus = 2`, `isActive = true`) — but only when that domain's required questions are already **approved**. Admin reviews **domain question submissions** during registration, not individual subject rows.
 
-Teachers can add subjects **before account activation** (during `AwaitingDocuments`, `PendingVerification`, or `DocumentsRejected`). The teacher account becomes **Active** only when admin calls `POST /TeacherManagement/{teacherId}/Activate` after all documents and subjects are approved.
+Teachers can add subjects **before account activation** (during `AwaitingDocuments`, `PendingVerification`, or `DocumentsRejected`). The teacher account becomes **Active** only when admin calls `POST /TeacherManagement/{teacherId}/Activate` after documents, domain questions, and at least one subject are ready (`canBeActivated`).
 
-Rejected or inactive subjects (and pending subjects):
+Inactive or cascade-rejected subjects:
 
 - Cannot be used for **new courses**
 - Are excluded from **student–teacher matching** by subject
@@ -28,21 +28,18 @@ Rejected or inactive subjects (and pending subjects):
 
 ```mermaid
 stateDiagram-v2
-  [*] --> PendingReview : Teacher POST subject
-  PendingReview --> Approved : Admin Approve
-  PendingReview --> Rejected : Admin Reject + reason
-  Rejected --> Approved : Admin Restore
+  [*] --> Approved : Teacher POST subject (domain approved)
   Approved --> Inactive : Admin Inactivate
   Inactive --> Approved : Admin Activate
+  Approved --> Rejected : Domain question rejected (cascade)
+  Rejected --> Approved : Domain re-approved (cascade restore)
 ```
 
 | Admin action | `isActive` | `verificationStatus` | `rejectionReason` |
 |--------------|------------|----------------------|-------------------|
-| *(teacher adds)* | `true` | `Pending` (1) | `null` |
-| Approve | `true` | `Approved` (2) | cleared |
+| *(teacher adds, domain OK)* | `true` | `Approved` (2) | `null` |
 | Inactivate | `false` | unchanged | unchanged |
 | Activate | `true` | unchanged (must not be `Rejected`) | unchanged |
-| Reject | `false` | `Rejected` (3) | required text |
 | Restore | `true` | `Approved` (2) | cleared |
 
 `verificationStatus` uses `DocumentVerificationStatus`: `Pending = 1`, `Approved = 2`, `Rejected = 3`.
@@ -227,18 +224,17 @@ function subjectStatusLabel(s: AdminTeacherSubject): 'Pending' | 'Active' | 'Ina
 
 Suggested colors: Pending = amber, Active = green, Inactive = gray, Rejected = red (match document pills on the same page).
 
-### Certificate comparison (manual)
+### Domain + subject display
 
-On teacher detail (`GET /{teacherId}`), show **certificate** documents (`documentType === 2`) beside each pending subject card. Admin compares subject name, domain, and unit scope against certificate title, issuer, and issue date before **Approve** or **Reject**.
+On teacher detail (`GET /{teacherId}`), show **domain question submissions** for registration review. The **Subjects** tab lists offerings for context.
 
-### Action buttons
+### Action buttons (post-activation moderation)
 
 | Current state | Show | API |
 |---------------|------|-----|
-| Pending (`verificationStatus === 1`) | **Approve**, **Reject** | POST `.../Approve`, POST `.../Reject` |
-| Active (`isActive && verificationStatus === 2`) | **Inactivate**, **Reject** | POST `.../Inactivate`, POST `.../Reject` |
-| Inactive (`!isActive && verificationStatus === 2`) | **Activate**, **Reject** | POST `.../Activate`, POST `.../Reject` |
-| Rejected (`verificationStatus === 3`) | **Restore** only | POST `.../Restore` |
+| Active (`isActive && verificationStatus === 2`) | **Inactivate** | POST `.../Inactivate` |
+| Inactive (`!isActive && verificationStatus === 2`) | **Activate** | POST `.../Activate` |
+| Cascade-rejected (`verificationStatus === 3`) | **Restore** | POST `.../Restore` |
 
 Do **not** show **Activate** on rejected rows — the API returns 400: *"Rejected subjects must be restored before activation."*
 
@@ -291,14 +287,12 @@ Table columns: teacher name, subject name, scope, status pill, `createdAt`, link
 
 ## Command endpoints
 
-All commands are `POST`, no body except **Reject**.
+All commands are `POST`, no body.
 
 | Action | Path | Body |
 |--------|------|------|
-| Approve | `/{teacherId}/Subjects/{teacherSubjectId}/Approve` | — |
 | Inactivate | `/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` | — |
 | Activate | `/{teacherId}/Subjects/{teacherSubjectId}/Activate` | — |
-| Reject | `/{teacherId}/Subjects/{teacherSubjectId}/Reject` | `{ "reason": "..." }` |
 | Restore | `/{teacherId}/Subjects/{teacherSubjectId}/Restore` | — |
 
 Success `data` is a string message, e.g. `"Teacher subject inactivated successfully."`

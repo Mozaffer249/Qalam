@@ -6,23 +6,27 @@ Admin-defined questions shown when a teacher adds subjects in an education domai
 
 | Concern | Behavior |
 |---------|----------|
-| Scope | Per **education domain** (`EducationDomain`) |
-| Frequency | Once per teacher per domain; skip on later subject adds in same domain |
+| Scope | Every **catalog** education domain with at least one active **required** question (e.g. school, quran, language from seed) |
+| Registration order | **Before** subject selection — complete all catalog domains, wait for admin approval, then add subjects |
 | Admin review | Per-question `requiresAdminReview` flag |
 | Empty catalog | No change — same flow as before |
 
 ## Teacher flow
+
+Registration order: **documents → domain questions (all catalog domains) → admin domain review → subjects**.
 
 ```mermaid
 sequenceDiagram
     participant App as TeacherApp
     participant API as Qalam API
 
-    App->>API: GET /Education/Domains
-    API-->>App: domains[] with requiresAnswer + questions[]
-    alt requiresAnswer
-        App->>API: POST /Teacher/DomainQuestions/submit
-    end
+    App->>API: POST SubmitRegistrationRequirements
+    API-->>App: nextStep Complete Domain Questions
+    App->>API: GET /Teacher/DomainQuestions/status
+    App->>API: POST /Teacher/DomainQuestions/submit
+    API-->>App: nextStep Awaiting Domain Verification
+    Note over App,API: Admin approves all catalog domains
+    API-->>App: nextStep Add Teaching Subjects
     App->>API: GET /Education/filter-options?domainId=
     App->>API: POST /Teacher/TeacherSubject
 ```
@@ -58,12 +62,24 @@ For authenticated teachers, each domain includes:
 
 | Field | Meaning |
 |-------|---------|
-| `requiresAnswer` | `true` when at least one **active required** question has no submission |
+| `requiresAnswer` | `true` when a required question has **no** submission or a **Rejected** submission |
 | `questions[]` | Active catalog for the domain |
-| `isSubmitted` | Teacher already answered (immutable in v1) |
+| `isSubmitted` | Teacher already answered |
 | `verificationStatus` | `null` if not submitted; else `Pending` / `Approved` / `Rejected` |
+| `rejectionReason` | Populated when `verificationStatus` is `Rejected` |
 
 Non-teacher callers receive the same shape with `requiresAnswer: false` and `questions: []`.
+
+### Dedicated domain-questions screen
+
+Domain questions use a **separate screen** from subject selection (`/registration/domain-questions` or `/domain-questions/:domainCode`).
+
+```http
+GET /Api/V1/Teacher/DomainQuestions/status
+Authorization: Bearer <teacher-jwt>
+```
+
+Returns per-domain `requiresAnswer`, `hasRejectedAnswers`, `pendingCorrections[]`, and `questions[]` — no subject catalog mixed in.
 
 ### 2. Submit answers
 
@@ -91,18 +107,28 @@ answers[1].files=@license.pdf
 
 Rules:
 
-- All **required** active questions for the domain must be present in one submit.
-- Re-submit for an already-answered question returns `400`.
+- All **required** active questions for the domain must be present in one submit (first time).
+- Re-submit is allowed only when the existing submission is **Rejected** (resets to `Pending`).
+- Approved or pending submissions cannot be changed (`400`).
 - Unknown `code` in `answers[]` returns `400`.
-- Response includes `submittedCodes[]` for the codes processed in this call.
+- Response includes `submittedCodes[]` and optional `nextStep` for wizard navigation.
 - `requiresAdminReview=false` → submission `Approved` immediately.
 - `requiresAdminReview=true` → submission `Pending` until admin approves.
 
-### 3. Continue subject wizard
+### Admin rejection cascade
 
-Only proceed when `requiresAnswer === false` for the selected domain.
+When admin rejects a domain question that requires review:
 
-`POST /Api/V1/Teacher/TeacherSubject` returns `400` if required domain questions are still missing for any domain of the requested subjects.
+1. The submission (and linked document, if any) is set to `Rejected`.
+2. **All teacher subjects in that education domain** are auto-rejected (`rejectionSource: DomainQuestionCascade`).
+3. Teacher is routed to **Fix Domain Verification** via `nextStep` / `pendingCorrections`.
+4. After admin approves all required review questions in that domain, all subjects in that domain are set to **`Approved`**.
+
+Multi-domain: rejecting school license does **not** affect quran/language subjects in other domains.
+
+### 3. Add subjects (after all catalog domains approved)
+
+`POST /Api/V1/Teacher/TeacherSubject` returns `400` unless **all** catalog domains with required questions are fully **approved**.
 
 ## Admin — catalog CRUD (SuperAdmin)
 

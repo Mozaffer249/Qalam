@@ -14,16 +14,19 @@ public class ApproveTeacherDomainQuestionSubmissionCommandHandler : ResponseHand
     private readonly ITeacherDomainQuestionSubmissionRepository _submissionRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ITeacherDomainSubjectCascadeService _cascadeService;
 
     public ApproveTeacherDomainQuestionSubmissionCommandHandler(
         ITeacherDomainQuestionSubmissionRepository submissionRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationCompletionService completionService,
+        ITeacherDomainSubjectCascadeService cascadeService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _submissionRepository = submissionRepository;
         _documentRepository = documentRepository;
         _completionService = completionService;
+        _cascadeService = cascadeService;
     }
 
     public async Task<Response<string>> Handle(
@@ -58,6 +61,12 @@ public class ApproveTeacherDomainQuestionSubmissionCommandHandler : ResponseHand
         }
 
         await _submissionRepository.SaveChangesAsync();
+
+        await _cascadeService.ApproveSubjectsInDomainAsync(
+            submission.TeacherId,
+            submission.Question.DomainId,
+            cancellationToken);
+
         await _completionService.RefreshTeacherStatusAfterReviewAsync(submission.TeacherId, cancellationToken);
 
         return Success<string>("Domain question submission approved");

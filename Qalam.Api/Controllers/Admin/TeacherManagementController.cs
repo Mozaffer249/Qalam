@@ -13,9 +13,7 @@ using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.ActivateTeacherSubject;
-using Qalam.Core.Features.Admin.TeacherSubjects.Commands.ApproveTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.InactivateTeacherSubject;
-using Qalam.Core.Features.Admin.TeacherSubjects.Commands.RejectTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.RestoreTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.GetTeacherSubjectByIdForAdmin;
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.GetTeacherSubjectsForAdmin;
@@ -265,21 +263,6 @@ public class TeacherManagementController : AppControllerBase
 	}
 
 	/// <summary>
-	/// Approve a pending teacher subject after certificate review.
-	/// </summary>
-	[HttpPost("{teacherId:int}/Subjects/{teacherSubjectId:int}/Approve")]
-	public async Task<IActionResult> ApproveTeacherSubject(int teacherId, int teacherSubjectId)
-	{
-		var command = new ApproveTeacherSubjectCommand
-		{
-			TeacherId = teacherId,
-			TeacherSubjectId = teacherSubjectId
-		};
-		var response = await _mediator.Send(command);
-		return NewResult(response);
-	}
-
-	/// <summary>
 	/// Inactivate a teacher subject (keeps approval status; blocks new courses).
 	/// </summary>
 	[HttpPost("{teacherId:int}/Subjects/{teacherSubjectId:int}/Inactivate")]
@@ -304,25 +287,6 @@ public class TeacherManagementController : AppControllerBase
 		{
 			TeacherId = teacherId,
 			TeacherSubjectId = teacherSubjectId
-		};
-		var response = await _mediator.Send(command);
-		return NewResult(response);
-	}
-
-	/// <summary>
-	/// Reject a teacher subject with reason; deactivates and blocks new courses.
-	/// </summary>
-	[HttpPost("{teacherId:int}/Subjects/{teacherSubjectId:int}/Reject")]
-	public async Task<IActionResult> RejectTeacherSubject(
-		int teacherId,
-		int teacherSubjectId,
-		[FromBody] RejectDocumentRequest request)
-	{
-		var command = new RejectTeacherSubjectCommand
-		{
-			TeacherId = teacherId,
-			TeacherSubjectId = teacherSubjectId,
-			Reason = request.Reason
 		};
 		var response = await _mediator.Send(command);
 		return NewResult(response);

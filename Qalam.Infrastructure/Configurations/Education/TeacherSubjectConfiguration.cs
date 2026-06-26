@@ -31,6 +31,9 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
 
         builder.Property(e => e.RejectionReason)
                .HasMaxLength(500);
+
+        builder.Property(e => e.RejectionSource)
+               .HasConversion<int?>();
     }
 }
 

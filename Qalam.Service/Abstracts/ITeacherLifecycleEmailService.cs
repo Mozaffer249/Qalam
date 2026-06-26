@@ -16,6 +16,12 @@ public interface ITeacherLifecycleEmailService
         string reason,
         CancellationToken cancellationToken = default);
 
+    Task SendDomainVerificationRejectedAsync(
+        int teacherId,
+        string domainName,
+        string reason,
+        CancellationToken cancellationToken = default);
+
     Task SendAccountActivatedAsync(int teacherId, CancellationToken cancellationToken = default);
 
     Task SendAccountBlockedAsync(int teacherId, string? reason, CancellationToken cancellationToken = default);

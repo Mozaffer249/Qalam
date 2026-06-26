@@ -56,6 +56,14 @@ public class TeacherDomainQuestionRepository
         return q.AnyAsync(cancellationToken);
     }
 
+    public Task<List<int>> GetDomainIdsWithActiveRequiredQuestionsAsync(CancellationToken cancellationToken = default) =>
+        _set.AsNoTracking()
+            .Where(q => q.IsActive && q.IsRequired)
+            .Select(q => q.DomainId)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> HasSubmissionsAsync(int questionId, CancellationToken cancellationToken = default) =>
         _dbContext.Set<TeacherDomainQuestionSubmission>()
             .AnyAsync(s => s.QuestionId == questionId, cancellationToken);

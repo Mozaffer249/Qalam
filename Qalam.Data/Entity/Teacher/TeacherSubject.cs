@@ -32,6 +32,8 @@ public class TeacherSubject : AuditableEntity
 
     public DateTime? ReviewedAt { get; set; }
 
+    public TeacherSubjectRejectionSource? RejectionSource { get; set; }
+
     // Navigation Properties
     public Teacher Teacher { get; set; } = null!;
     public Subject Subject { get; set; } = null!;

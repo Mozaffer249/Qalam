@@ -21,6 +21,32 @@ public class TeacherDomainQuestionPublicDto
     public List<RequirementOptionDto>? Options { get; set; }
     public bool IsSubmitted { get; set; }
     public DocumentVerificationStatus? VerificationStatus { get; set; }
+    public string? RejectionReason { get; set; }
+}
+
+public class TeacherDomainQuestionCorrectionDto
+{
+    public int SubmissionId { get; set; }
+    public string QuestionCode { get; set; } = null!;
+    public string QuestionNameEn { get; set; } = null!;
+    public string RejectionReason { get; set; } = null!;
+}
+
+public class TeacherDomainQuestionStatusDomainDto
+{
+    public int DomainId { get; set; }
+    public string DomainCode { get; set; } = null!;
+    public string NameAr { get; set; } = null!;
+    public string NameEn { get; set; } = null!;
+    public bool RequiresAnswer { get; set; }
+    public bool HasRejectedAnswers { get; set; }
+    public List<TeacherDomainQuestionCorrectionDto> PendingCorrections { get; set; } = new();
+    public List<TeacherDomainQuestionPublicDto> Questions { get; set; } = new();
+}
+
+public class TeacherDomainQuestionStatusResponseDto
+{
+    public List<TeacherDomainQuestionStatusDomainDto> Domains { get; set; } = new();
 }
 
 public class EducationDomainTeacherDto
@@ -150,4 +176,5 @@ public class TeacherDomainQuestionSubmitResponseDto
     public bool RequiresAnswer { get; set; }
     public string Message { get; set; } = null!;
     public List<string> SubmittedCodes { get; set; } = new();
+    public RegistrationStepDto? NextStep { get; set; }
 }

@@ -514,6 +514,20 @@ Status enum: `AwaitingDocuments=1`, `PendingVerification=2`, `Active=3`, `Blocke
 
 **Re-submission:** if the teacher is in `DocumentsRejected` and wants to fix individual rejected files, do **not** re-call this endpoint — use the per-document re-upload route covered in §Step 6 + Step F of §Admin Review.
 
+#### After submit — registration `nextStep` order
+
+`VerifyOtp` and `AccountStatus` both return `nextStep` from `GetNextRegistrationStepAsync`. After documents are submitted (`PendingVerification`), the typical sequence is:
+
+| Order | `nextStepName` | When |
+|-------|----------------|------|
+| 1 | **Complete Domain Questions** | Catalog domains have required Q not yet answered |
+| 2 | **Awaiting Domain Verification** | All catalog domains submitted; admin review pending |
+| 3 | **Fix Domain Verification** | Admin rejected one or more domain answers (login still allowed) |
+| 4 | **Add Teaching Subjects and Units** | All catalog domains approved |
+| 5 | **Awaiting Admin Verification** / **Awaiting Final Approval** | Subjects added; account review |
+
+`POST /Teacher/DomainQuestions/submit` may include `nextStep` in the response for immediate navigation.
+
 ---
 
 ### Step 6 — Account status poll & full checklist
@@ -1030,7 +1044,7 @@ Returns everything the admin needs to decide: profile, every document (with file
 - Bottom: counts strip (Total / Pending / Approved / Rejected) and an **Authorize account** button enabled when `canBeActivated === true` → `POST .../Activate`.
 - **Subjects** tab: `subjectSummary` chips + `subjects[]` cards; pending rows → **Approve** (#10) / **Reject** (#13); post-activation moderation → #11–#12 / #14
 
-`canBeActivated === true` ↔ every active+required requirement is `Approved` **and** `subjectSummary.totalSubjects >= 1` **and** `pendingSubjects === 0` **and** `rejectedSubjects === 0`.
+`canBeActivated === true` ↔ every active+required requirement is `Approved` **and** `subjectSummary.totalSubjects >= 1` **and** all required domain questions are `Approved` per relevant domain.
 
 ---
 
@@ -1316,7 +1330,7 @@ The document re-enters the admin's pending queue (endpoint #2). Loop back to end
 - **File** with `maxCount > 1`: need ≥ `minCount` submissions; any rejection → `DocumentsRejected`.
 - **Text / Boolean / Selection**: auto-**Approved** on submit (v1) — no manual review.
 - Admin approve/reject on documents syncs linked `TeacherRegistrationSubmission` via `ITeacherRegistrationCompletionService`.
-- **Subjects (v2):** teacher must add ≥1 subject while `PendingVerification`; each `TeacherSubject` starts **Pending**. `canBeActivated` is true when all required submissions and all subjects are **Approved**; admin must `POST .../Activate` to set **Active**. See [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md).
+- **Subjects (v2):** teacher must add ≥1 subject while `PendingVerification`; each saved `TeacherSubject` is **Approved** when domain requirements are met. `canBeActivated` is true when all required submissions, domain questions, and ≥1 subject are ready; admin must `POST .../Activate` to set **Active**. See [Teacher-Registration-Flow.md](Teacher-Registration-Flow.md).
 
 ---
 

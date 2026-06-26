@@ -83,4 +83,25 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
 
     /// <summary>Distinct education domain IDs from the teacher's subject offerings.</summary>
     Task<List<int>> GetDistinctDomainIdsForTeacherAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>All teacher subject rows in an education domain.</summary>
+    Task<List<TeacherSubject>> GetTeacherSubjectsInDomainAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Subjects in a domain that are not yet rejected (for cascade reject).</summary>
+    Task<List<TeacherSubject>> GetSubjectsInDomainForCascadeRejectAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Cascade-rejected subjects in a domain (for restore after domain approval).</summary>
+    Task<List<TeacherSubject>> GetCascadeRejectedSubjectsInDomainAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Subjects rejected directly by admin (teacher may resubmit).</summary>
+    Task<List<TeacherSubject>> GetDirectRejectedSubjectsAsync(int teacherId, CancellationToken cancellationToken = default);
 }

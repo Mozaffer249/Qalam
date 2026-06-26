@@ -58,6 +58,12 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
                 $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
         }
 
+        if (!await _domainQuestionStatusService.AreAllCatalogDomainsFullyApprovedAsync(teacher.Id, cancellationToken))
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                "Complete and wait for approval of all domain verification requirements before adding subjects.");
+        }
+
         var domainQuestionError = await _domainQuestionStatusService.ValidateSubjectsDomainQuestionsAsync(
             teacher.Id,
             subjectIds,

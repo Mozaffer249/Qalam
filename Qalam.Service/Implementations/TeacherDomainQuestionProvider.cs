@@ -29,7 +29,10 @@ public class TeacherDomainQuestionProvider : ITeacherDomainQuestionProvider
             MaxLength = entity.MaxLength,
             Options = ToOptionDtos(entity),
             IsSubmitted = submission != null,
-            VerificationStatus = submission?.VerificationStatus
+            VerificationStatus = submission?.VerificationStatus,
+            RejectionReason = submission?.VerificationStatus == DocumentVerificationStatus.Rejected
+                ? submission.RejectionReason
+                : null
         };
 
     public TeacherDomainQuestionAdminDto ToAdminDto(TeacherDomainQuestion entity) =>

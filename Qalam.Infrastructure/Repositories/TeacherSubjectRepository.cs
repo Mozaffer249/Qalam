@@ -209,10 +209,9 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 SubjectId = dto.SubjectId,
                 CanTeachFullSubject = dto.CanTeachFullSubject,
                 IsActive = true,
-                VerificationStatus = DocumentVerificationStatus.Pending,
+                VerificationStatus = DocumentVerificationStatus.Approved,
                 RejectionReason = null,
-                ReviewedByAdminId = null,
-                ReviewedAt = null,
+                RejectionSource = null,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -396,5 +395,47 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.TeacherId == teacherId && ts.Subject != null)
             .Select(ts => ts.Subject!.DomainId)
             .Distinct()
+            .ToListAsync(cancellationToken);
+
+    public Task<List<TeacherSubject>> GetTeacherSubjectsInDomainAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default) =>
+        _teacherSubjects
+            .Include(ts => ts.Subject)
+            .Where(ts => ts.TeacherId == teacherId && ts.Subject!.DomainId == domainId)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<TeacherSubject>> GetSubjectsInDomainForCascadeRejectAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default) =>
+        _teacherSubjects
+            .Include(ts => ts.Subject)
+            .Where(ts => ts.TeacherId == teacherId
+                         && ts.Subject!.DomainId == domainId
+                         && ts.VerificationStatus != DocumentVerificationStatus.Rejected)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<TeacherSubject>> GetCascadeRejectedSubjectsInDomainAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default) =>
+        _teacherSubjects
+            .Include(ts => ts.Subject)
+            .Where(ts => ts.TeacherId == teacherId
+                         && ts.Subject!.DomainId == domainId
+                         && ts.VerificationStatus == DocumentVerificationStatus.Rejected
+                         && ts.RejectionSource == TeacherSubjectRejectionSource.DomainQuestionCascade)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<TeacherSubject>> GetDirectRejectedSubjectsAsync(int teacherId, CancellationToken cancellationToken = default) =>
+        _teacherSubjects
+            .AsNoTracking()
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Where(ts => ts.TeacherId == teacherId
+                         && ts.VerificationStatus == DocumentVerificationStatus.Rejected
+                         && ts.RejectionSource != TeacherSubjectRejectionSource.DomainQuestionCascade)
             .ToListAsync(cancellationToken);
 }

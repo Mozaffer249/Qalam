@@ -2,6 +2,7 @@
 
 End-to-end onboarding for new teachers: auth → documents → **subjects (before activation)** → admin review → **Active** → availability.
 
+> **Full cycle (single page):** [Teacher-Registration-Cycle.md](Teacher-Registration-Cycle.md)  
 > **Full API reference:** [Teacher-Registration-Guide.md](Teacher-Registration-Guide.md)  
 > **Subject picker wizard:** [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md) + [Teacher-Availability-and-Subjects.md](Teacher-Availability-and-Subjects.md)  
 > **Admin subject review UI:** [Admin-Teacher-Subjects-Frontend.md](Admin-Teacher-Subjects-Frontend.md)  
@@ -14,11 +15,11 @@ End-to-end onboarding for new teachers: auth → documents → **subjects (befor
 | Topic | v1 | v2 (current) |
 |-------|----|--------------|
 | When teacher adds subjects | After admin sets account **Active** | While **`PendingVerification`** (also allowed in `AwaitingDocuments`, `DocumentsRejected`, `Active`) |
-| New `TeacherSubject` status | Auto-**Approved** | **Pending** until admin approves |
-| Account activation | All required documents approved | Docs + ≥1 subject approved → admin **POST Activate** |
-| Admin subject action | Inactivate / Reject / Restore only | **Approve** for pending rows + existing moderation |
-| Certificate check | N/A at subject level | Admin compares certificate documents to subject scope **manually** (no FK) |
-| Active teacher adds subject | Immediately usable | Row **Pending**; teacher stays **Active**; new subject unusable until approved |
+| New `TeacherSubject` status | Auto-**Approved** | **Approved** when saved (domain requirements must be approved first) |
+| Account activation | All required documents approved | Docs + domain Q approved per domain + ≥1 subject → admin **POST Activate** |
+| Admin subject action | Inactivate / Reject / Restore only | **Inactivate / Activate / Restore** only (no per-subject approve/reject during registration) |
+| Domain verification | N/A | Admin reviews **domain questions** per education domain; subject save blocked until domain approved |
+| Active teacher adds subject | Immediately usable | Row **Approved** if domain already approved; cascade-rejected rows fixed via domain re-approval |
 
 ---
 
@@ -28,12 +29,14 @@ End-to-end onboarding for new teachers: auth → documents → **subjects (befor
 |-------|-----|------|
 | 1 — Auth | Teacher | OTP login/register, name + password |
 | 2 — Requirements | Teacher | Upload identity + certificates, bio, location (dynamic catalog) |
-| 3 — Subjects | Teacher | Pick catalog subjects/units via `filter-options` → `POST /Teacher/TeacherSubject` |
-| 4 — Review | Admin | Approve/reject **documents** and **subjects** (compare certificates manually) |
-| 5 — Active | Admin | `POST /TeacherManagement/{teacherId}/Activate` when `canBeActivated` is true |
-| 6 — Availability | Teacher | Weekly schedule (after Active only) |
+| 3 — Domain questions | Teacher | Answer required questions for **every catalog domain** with required Q (`GET /Teacher/DomainQuestions/status` → `POST /Teacher/DomainQuestions/submit`) |
+| 3b — Domain review | Admin | Approve/reject domain question submissions |
+| 4 — Subjects | Teacher | Pick catalog subjects/units **after all catalog domains approved** |
+| 5 — Review | Admin | Approve/reject **documents**; activate when `canBeActivated` |
+| 6 — Active | Admin | `POST /TeacherManagement/{teacherId}/Activate` when `canBeActivated` is true |
+| 7 — Availability | Teacher | Weekly schedule (after Active only) |
 
-**Key change from v1:** subjects are added **while** `PendingVerification`, not after admin activates the account. Each new subject starts **`Pending`** until admin approves it.
+**Key flow:** after document upload, `nextStep` is **Complete Domain Questions** (not Add Subjects). Teachers wait for **Awaiting Domain Verification** until admin approves all catalog domains, then **Add Teaching Subjects and Units**. Login always succeeds during domain pending/reject (only `Blocked` is denied); `nextStep` routes the app.
 
 ---
 
@@ -47,24 +50,28 @@ flowchart TB
     S3[3 Personal info]
     S4[4 Load requirements]
     S5[5 Submit requirements]
-    S5b[5b Add subjects]
+    S5a[5a Domain questions]
+    S5b[5b Wait domain review]
+    S5c[5c Add subjects]
     S6[6 Wait for review]
     S7[7 Set availability]
     S0 --> S1 --> S3 --> S4 --> S5
-    S5 --> S5b
-    S5b --> S6
+    S5 --> S5a --> S5b --> S5c
+    S5c --> S6
     S6 --> S7
   end
 
   subgraph admin [Admin panel]
     Q[Pending queue]
-    R[Review docs + certificates + subjects]
+    R[Review docs + domain questions]
     Q --> R
   end
 
   S5 -->|PendingVerification| Q
-  S5b -->|subjects Pending| Q
-  R -->|all docs + all subjects Approved| AUTH[Admin POST Activate]
+  S5a -->|domain Q submitted| Q
+  S5b -->|awaiting domain approval| Q
+  S5c -->|subjects saved| Q
+  R -->|docs + domain Q approved + ≥1 subject| AUTH[Admin POST Activate]
   AUTH --> ACTIVE[Teacher Active]
   ACTIVE --> S7
 ```
@@ -77,12 +84,12 @@ flowchart TB
 stateDiagram-v2
   [*] --> AwaitingDocuments : Step 3 CompletePersonalInfo
   AwaitingDocuments --> PendingVerification : SubmitRegistrationRequirements
-  PendingVerification --> PendingVerification : POST TeacherSubject (Pending)
-  PendingVerification --> PendingVerification : Admin partial approve
-  PendingVerification --> DocumentsRejected : Reject required document
-  DocumentsRejected --> PendingVerification : Teacher re-upload
+  PendingVerification --> PendingVerification : POST TeacherSubject (Approved when domain OK)
+  PendingVerification --> PendingVerification : Admin partial doc/domain approve
+  PendingVerification --> DocumentsRejected : Reject required document or domain question
+  DocumentsRejected --> PendingVerification : Teacher re-upload / fix domain Q
   PendingVerification --> Active : Admin POST Activate when canBeActivated
-  Active --> Active : Teacher adds new subject (Pending, account stays Active)
+  Active --> Active : Teacher adds subject (Approved if domain OK)
   PendingVerification --> Blocked : Admin block
   Active --> Blocked : Admin block
 ```
@@ -128,18 +135,19 @@ Content-Type: multipart/form-data
 
 Sets `teacher.Status = PendingVerification`. Files queue to OSS via RabbitMQ → MessagingApi.
 
-**Response** includes `nextStep` (usually → **Add Teaching Subjects and Units**):
+**Response** includes `nextStep` (usually → **Complete Domain Questions** when catalog domains have required questions):
 
 ```json
 {
   "succeeded": true,
   "data": {
-    "message": "Registration submitted successfully. Add your teaching subjects to continue.",
+    "message": "Registration submitted successfully.",
     "nextStep": {
       "currentStep": 4,
       "nextStep": 5,
-      "nextStepName": "Add Teaching Subjects and Units",
-      "isRegistrationComplete": false
+      "nextStepName": "Complete Domain Questions",
+      "isRegistrationComplete": false,
+      "message": "Complete the required domain verification questions for each education domain before adding teaching subjects."
     }
   }
 }
@@ -149,11 +157,24 @@ Track progress:
 
 ```http
 GET /Api/V1/Teacher/TeacherDocuments/Status
+GET /Api/V1/Authentication/Teacher/AccountStatus
 ```
 
-### Step 5b — Add teaching subjects (before activation)
+### Step 5a — Complete domain questions (before subjects)
 
-**When:** `PendingVerification` and `nextStepName === "Add Teaching Subjects and Units"` (no subject offerings yet).  
+**When:** `nextStepName === "Complete Domain Questions"` or **Fix Domain Verification** (after admin reject).
+
+1. `GET /Api/V1/Teacher/DomainQuestions/status` — per-domain checklist
+2. For each catalog domain with required questions: `POST /Api/V1/Teacher/DomainQuestions/submit`
+3. Response includes optional `nextStep` for immediate navigation
+
+**When all catalog domains submitted:** `nextStepName` → **Awaiting Domain Verification** (poll `AccountStatus`).
+
+**When admin rejects:** login still works → **Fix Domain Verification** with `pendingCorrections[]`; resubmit rejected answers.
+
+### Step 5b — Add teaching subjects (after all catalog domains approved)
+
+**When:** `nextStepName === "Add Teaching Subjects and Units"` (all catalog domain Q approved; no subject offerings yet).  
 **Also allowed:** `AwaitingDocuments`, `DocumentsRejected`, and `Active` (blocked only: `Blocked`).
 
 **Domain questions (first time per domain):** Before the filter wizard for a domain, load domains with embedded questions. See [Teacher-Domain-Questions.md](Teacher-Domain-Questions.md).
@@ -222,7 +243,7 @@ GET /Api/V1/Teacher/TeacherSubject
 
 When at least one subject exists and docs are submitted, `nextStepName === "Awaiting Admin Verification"`.
 
-Teacher waits; admin approves documents and subjects. When `canBeActivated === true` on `GET /Admin/TeacherManagement/{teacherId}`, admin authorizes the account:
+Teacher waits; admin approves documents and domain question submissions. When `canBeActivated === true` on `GET /Admin/TeacherManagement/{teacherId}`, admin authorizes the account:
 
 ```http
 POST /Api/V1/Admin/TeacherManagement/{teacherId}/Activate
@@ -231,8 +252,8 @@ POST /Api/V1/Admin/TeacherManagement/{teacherId}/Activate
 Prerequisites:
 
 - Every **active required** registration submission is `Approved`, **and**
-- `subjectSummary.totalSubjects >= 1`, **and**
-- No subject is `Pending` or `Rejected`.
+- All **required domain questions** are `Approved` for each domain the teacher has subjects in, **and**
+- `subjectSummary.totalSubjects >= 1`.
 
 ### Step 7 — Availability (after Active)
 
@@ -253,7 +274,7 @@ Queued bilingual emails (EN/AR) via RabbitMQ → Messaging API. Login links use 
 |-------|------|-----------|
 | Registration received | First submit (`AwaitingDocuments` → `PendingVerification`) | Yes |
 | Document rejected | Admin rejects a document | Yes |
-| Subject rejected | Admin rejects a subject | Yes |
+| Domain question rejected | Admin rejects a domain submission | Yes (login still works — route to fix screen) |
 | Account activated | Admin `POST .../Activate` succeeds | Yes |
 | Account blocked | Admin toggles Block on | No (support copy only) |
 | Account unblocked | Admin toggles Block off (same endpoint) | Yes |
@@ -290,9 +311,10 @@ GET /Api/V1/Admin/TeacherManagement/{teacherId}
 
 Use:
 
-- `documents[]` — identity + **certificates** (`documentType === 2`) for manual comparison
-- `subjects[]` + `subjectSummary` — pending subject offerings
-- `canBeActivated` — `true` when docs + subjects ready; admin must `POST .../Activate`
+- `documents[]` — identity + **certificates** (`documentType === 2`)
+- `subjects[]` + `subjectSummary` — teaching offerings (informational; not individually approved during registration)
+- `domainQuestionSubmissions[]` — per-domain verification checklist
+- `canBeActivated` — `true` when docs + domain Q + ≥1 subject ready; admin must `POST .../Activate`
 - `registrationRequirements[]` — dynamic catalog checklist
 
 ### Document actions
@@ -303,23 +325,15 @@ POST /Api/V1/Admin/TeacherManagement/{teacherId}/Documents/{documentId}/Reject
 Body: { "reason": "..." }
 ```
 
-### Subject actions (during registration)
+### Subject moderation (post-activation)
 
 ```http
-POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Approve
-POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject
-Body: { "reason": "..." }
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Activate
+POST /Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore
 ```
 
-**Certificate comparison (v1):** manual — admin opens certificate files from `documents[]` and compares title/issuer/subject scope to each pending `subjects[]` row. No FK links subject to a specific certificate document.
-
-Pending subjects queue (all teachers):
-
-```http
-GET /Api/V1/Admin/TeacherManagement/Subjects?verificationStatus=1
-```
-
-**Approve response:** `"Teacher subject approved successfully."` — does **not** auto-activate; use `POST .../Activate` when `canBeActivated` is true.
+During registration, admin reviews **domain question submissions** instead of approving individual subjects. See [Teacher-Domain-Questions.md](Teacher-Domain-Questions.md).
 
 ---
 
@@ -327,14 +341,16 @@ GET /Api/V1/Admin/TeacherManagement/Subjects?verificationStatus=1
 
 | Concern | Location |
 |---------|----------|
-| New subjects → `Pending` | `TeacherSubjectRepository.AddNewSubjectsAsync`, entity default + migration `TeacherSubjectPendingByDefault` |
+| New subjects → `Approved` (when domain OK) | `TeacherSubjectRepository.AddNewSubjectsAsync` |
+| Subject save blocked until domain approved | `SaveTeacherSubjectsCommandHandler` + `ITeacherDomainSubjectCascadeService` |
+| Domain approve → auto-approve subjects in domain | `TeacherDomainSubjectCascadeService.ApproveSubjectsInDomainAsync` |
 | Pre-activation POST allowed | `SaveTeacherSubjectsCommandHandler` (blocked users rejected by middleware) |
 | Registration wizard order | `TeacherRegistrationService.GetNextRegistrationStepAsync` |
-| Activation gate (docs + subjects) | `TeacherRegistrationCompletionService.CanActivateTeacherAccountAsync` |
+| Activation gate (docs + domain Q + ≥1 subject) | `TeacherRegistrationCompletionService.CanActivateTeacherAccountAsync` |
 | Admin authorize account | `POST .../Activate` → `ActivateTeacherAccountAsync` |
 | Courses / matching (unchanged) | Require `VerificationStatus.Approved` + `TeacherStatus.Active` |
 
-**Deploy:** apply migration `TeacherSubjectPendingByDefault`, then `docker compose ... up -d --build`.
+**Deploy:** apply pending EF migrations if any, then `docker compose ... up -d --build`.
 
 ---
 
@@ -346,13 +362,14 @@ Derived from `GetNextRegistrationStepAsync` + auth responses:
 |------------------|-----------|----------------|-----|
 | *(no profile)* | — | Complete Personal Information | Step 3 |
 | `AwaitingDocuments` | — | Upload Documents | Step 5 form |
-| `PendingVerification` | no subjects | Add Teaching Subjects and Units | filter-options wizard |
-| `PendingVerification` | has subjects, review in progress | Awaiting Admin Verification | waiting screen — under review |
-| `PendingVerification` | has subjects, `canBeActivated` | Awaiting Final Approval | waiting screen — final approval section |
-| `DocumentsRejected` | rejected docs exist | Re-upload Rejected Documents | documents list |
-| `DocumentsRejected` | no rejected docs, no subjects | Add Teaching Subjects and Units | filter-options wizard |
-| `DocumentsRejected` | no rejected docs, has subjects, review in progress | Awaiting Admin Verification | waiting screen |
-| `DocumentsRejected` | no rejected docs, has subjects, `canBeActivated` | Awaiting Final Approval | waiting screen — final approval section |
+| `PendingVerification` | rejected domain question(s) | **Fix Domain Verification** | domain-questions screen (`pendingCorrections[]`) — **login allowed** |
+| `PendingVerification` or `DocumentsRejected` | required domain answers missing | **Complete Domain Questions** | domain-questions screen |
+| Same | all catalog domains submitted, admin review pending | **Awaiting Domain Verification** | waiting screen — poll `AccountStatus` |
+| Same | all catalog domains approved, no subjects | **Add Teaching Subjects and Units** | subject wizard |
+| `PendingVerification` | has subjects, review in progress | **Awaiting Admin Verification** | waiting screen |
+| `PendingVerification` | has subjects, `canBeActivated` | **Awaiting Final Approval** | waiting screen |
+| `DocumentsRejected` | rejected docs exist | **Re-upload Rejected Documents** | documents list |
+| `DocumentsRejected` | rejected domain question(s) | **Fix Domain Verification** | domain-questions screen — **login allowed** |
 | `Active` | any | **Dashboard** | teacher dashboard (`requiresAvailabilitySetup` flag on `nextStep` / Status) |
 
 **Login (`VerifyOtp`):** active teachers always get `nextStepName = "Dashboard"` — not availability.
@@ -364,7 +381,7 @@ Derived from `GetNextRegistrationStepAsync` + auth responses:
 - `isAccountActivated` flips to `true` and `requiresAvailabilitySetup === true` → navigate to availability setup
 - `isAccountActivated && !requiresAvailabilitySetup` → navigate to dashboard (`nextStep.nextStepName`)
 
-Account status response fields: `teacherStatus`, `isAccountActivated`, `canBeActivated`, `awaitingFinalApproval`, `requiresAvailabilitySetup`, `nextStep`.
+Account status response fields: `teacherStatus`, `isAccountActivated`, `canBeActivated`, `awaitingFinalApproval`, `requiresAvailabilitySetup`, `nextStep` (includes `pendingCorrections[]` when corrections are needed).
 
 **Full checklist** (`GET /Teacher/TeacherDocuments/Status` — use when rejection reasons or re-upload IDs are needed):
 
@@ -376,11 +393,12 @@ Status response fields: `teacherStatus`, `isAccountActivated`, `canBeActivated`,
 
 | `verificationStatus` | Teacher UI | Admin actions | Usable for courses? |
 |---------------------|------------|---------------|---------------------|
-| `Pending` (1) | Pending review | Approve, Reject | No |
-| `Approved` (2) | Active / Inactive | Inactivate, Reject | Yes (if `Active` teacher + `isActive`) |
-| `Rejected` (3) | Rejected + reason | Restore | No |
+| `Approved` (2) | Active / Inactive | Inactivate, Restore (if cascade-rejected) | Yes (if `Active` teacher + `isActive`) |
+| `Rejected` (3) — cascade | Read-only — fix domain questions first | Restore after domain re-approved | No |
 
-New subjects from `POST /Teacher/TeacherSubject` always start **Pending**, including when an already-**Active** teacher adds another subject later (account stays Active; new row waits for admin).
+New subjects from `POST /Teacher/TeacherSubject` are created as **Approved** when the domain's required questions are already approved. Save returns `400` if domain questions are missing, pending, or rejected.
+
+When admin rejects a domain question, existing subjects in that domain are cascade-rejected. After domain re-approval, all subjects in that domain are auto-approved again.
 
 ---
 
@@ -390,8 +408,8 @@ All must be true for `canBeActivated` (admin **Authorize account** button):
 
 1. Teacher not already `Active` or `Blocked`
 2. All **active required** `TeacherRegistrationSubmission` rows → `Approved`
-3. At least **one** `TeacherSubject` row exists
-4. **Every** `TeacherSubject` → `Approved` (zero `Pending`, zero `Rejected`)
+3. All **required domain questions** → `Approved` for each relevant domain
+4. At least **one** `TeacherSubject` row exists
 
 Then admin calls `POST /Api/V1/Admin/TeacherManagement/{teacherId}/Activate`.
 
@@ -420,10 +438,9 @@ Uploaded files are stored in Alibaba OSS. `filePath` in API responses is the obj
 | List subjects | GET | `/Api/V1/Teacher/TeacherSubject` |
 | Admin pending | GET | `/Api/V1/Admin/TeacherManagement/Pending` |
 | Admin detail | GET | `/Api/V1/Admin/TeacherManagement/{teacherId}` |
-| Approve subject | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Approve` |
 | Activate account | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Activate` |
-| Reject subject | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Reject` |
-| Pending subjects list | GET | `/Api/V1/Admin/TeacherManagement/Subjects?verificationStatus=1` |
+| Inactivate subject | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Inactivate` |
+| Restore subject | POST | `/Api/V1/Admin/TeacherManagement/{teacherId}/Subjects/{teacherSubjectId}/Restore` |
 
 ---
 

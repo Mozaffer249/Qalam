@@ -27,14 +27,35 @@ public class TeacherRegistrationCompletionServiceTests
     }
 
     [Fact]
-    public async Task CanActivate_ReturnsFalse_WhenSubjectPending()
+    public async Task CanActivate_ReturnsTrue_WhenSubjectPendingButDomainApproved()
     {
+        var domainQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "school_experience",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+
+        var domainSubmission = new TeacherDomainQuestionSubmission
+        {
+            Id = 100,
+            TeacherId = TeacherId,
+            QuestionId = domainQuestion.Id,
+            Question = domainQuestion,
+            VerificationStatus = DocumentVerificationStatus.Approved
+        };
+
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Pending = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Pending = 1 },
+            domainIds: [1],
+            domainQuestions: [domainQuestion],
+            domainSubmissions: [domainSubmission]);
 
-        Assert.False(await service.CanActivateTeacherAccountAsync(TeacherId));
+        Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
 
     [Fact]
@@ -276,8 +297,14 @@ public class TeacherRegistrationCompletionServiceTests
         subjectRepo
             .Setup(r => r.GetDistinctDomainIdsForTeacherAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainIds ?? []);
+        subjectRepo
+            .Setup(r => r.GetDirectRejectedSubjectsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         var domainQuestionRepo = new Mock<ITeacherDomainQuestionRepository>();
+        domainQuestionRepo
+            .Setup(r => r.GetDomainIdsWithActiveRequiredQuestionsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(domainIds ?? []);
         domainQuestionRepo
             .Setup(r => r.GetActiveByDomainIdsAsync(It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainQuestions ?? []);

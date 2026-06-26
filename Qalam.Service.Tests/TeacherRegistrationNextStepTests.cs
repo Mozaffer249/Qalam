@@ -81,11 +81,146 @@ public class TeacherRegistrationNextStepTests
         Assert.False(step.AwaitingFinalApproval);
     }
 
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithRejectedDomainQuestion_ReturnsFixDomainVerification()
+    {
+        var corrections = new List<TeacherReviewCorrectionDto>
+        {
+            new()
+            {
+                Type = TeacherReviewCorrectionType.DomainQuestion,
+                DomainId = 1,
+                DomainCode = "school",
+                Label = "Professional teacher license",
+                RejectionReason = "Expired license"
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: true,
+            canActivate: false,
+            corrections: corrections);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Fix Domain Verification", step.NextStepName);
+        Assert.NotNull(step.PendingCorrections);
+        Assert.Single(step.PendingCorrections!);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithSubjectCorrection_IgnoresSubjectAndContinuesFlow()
+    {
+        var corrections = new List<TeacherReviewCorrectionDto>
+        {
+            new()
+            {
+                Type = TeacherReviewCorrectionType.Subject,
+                TeacherSubjectId = 99,
+                Label = "Math",
+                RejectionReason = "Certificate mismatch"
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: true,
+            canActivate: false,
+            corrections: corrections);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithIncompleteCatalogDomains_ReturnsCompleteDomainQuestions()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [1, 2],
+            hasIncompleteCatalogAnswers: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Complete Domain Questions", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithPendingDomainReview_ReturnsAwaitingDomainVerification()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [1, 2],
+            hasCatalogDomainsPendingReview: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWhenAllCatalogDomainsApproved_ReturnsAddSubjects()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [1, 2],
+            allCatalogDomainsApproved: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_DocumentsRejectedWithDomainReject_ReturnsFixDomainVerification()
+    {
+        var corrections = new List<TeacherReviewCorrectionDto>
+        {
+            new()
+            {
+                Type = TeacherReviewCorrectionType.DomainQuestion,
+                DomainId = 1,
+                DomainCode = "school",
+                Label = "License",
+                RejectionReason = "Expired"
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.DocumentsRejected,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            corrections: corrections);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Fix Domain Verification", step.NextStepName);
+    }
+
     private static TeacherRegistrationService BuildService(
         TeacherStatus teacherStatus,
         bool hasAvailability,
         bool hasSubjects,
-        bool canActivate)
+        bool canActivate,
+        List<TeacherReviewCorrectionDto>? corrections = null,
+        List<int>? catalogDomainIds = null,
+        bool hasIncompleteCatalogAnswers = false,
+        bool hasCatalogDomainsPendingReview = false,
+        bool allCatalogDomainsApproved = false)
     {
         var user = new User { Id = UserId, FirstName = "Test", LastName = "Teacher" };
         var userStore = new Mock<IUserStore<User>>();
@@ -112,6 +247,26 @@ public class TeacherRegistrationNextStepTests
             .Setup(s => s.CanActivateTeacherAccountAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(canActivate);
 
+        var reviewCorrectionService = new Mock<ITeacherReviewCorrectionService>();
+        reviewCorrectionService
+            .Setup(s => s.GetPendingCorrectionsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(corrections ?? []);
+
+        var domainQuestionStatusService = new Mock<ITeacherDomainQuestionStatusService>();
+        var catalogIds = catalogDomainIds ?? [];
+        domainQuestionStatusService
+            .Setup(s => s.GetCatalogDomainIdsWithRequiredQuestionsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(catalogIds);
+        domainQuestionStatusService
+            .Setup(s => s.HasIncompleteCatalogDomainAnswersAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasIncompleteCatalogAnswers);
+        domainQuestionStatusService
+            .Setup(s => s.HasCatalogDomainsPendingAdminReviewAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasCatalogDomainsPendingReview);
+        domainQuestionStatusService
+            .Setup(s => s.AreAllCatalogDomainsFullyApprovedAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(allCatalogDomainsApproved);
+
         return new TeacherRegistrationService(
             userManager.Object,
             teacherRepo.Object,
@@ -122,7 +277,9 @@ public class TeacherRegistrationNextStepTests
             availabilityRepo.Object,
             Mock.Of<IAuthLoginOtpHelper>(),
             Mock.Of<ITeacherLifecycleEmailService>(),
-            completionService.Object);
+            completionService.Object,
+            reviewCorrectionService.Object,
+            domainQuestionStatusService.Object);
     }
 }
 

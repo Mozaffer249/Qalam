@@ -129,78 +129,6 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         return true;
     }
 
-    public async Task<bool> RejectSubjectAsync(
-        int teacherId,
-        int teacherSubjectId,
-        int adminId,
-        string reason,
-        CancellationToken cancellationToken = default)
-    {
-        var subject = await GetTrackedSubjectAsync(teacherId, teacherSubjectId, cancellationToken);
-        if (subject == null)
-            return false;
-
-        subject.VerificationStatus = DocumentVerificationStatus.Rejected;
-        subject.RejectionReason = reason.Trim();
-        subject.ReviewedByAdminId = adminId;
-        subject.ReviewedAt = DateTime.UtcNow;
-        subject.IsActive = false;
-        subject.UpdatedAt = DateTime.UtcNow;
-        subject.UpdatedBy = adminId;
-
-        await _teacherSubjectRepository.UpdateAsync(subject);
-        await _teacherSubjectRepository.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Teacher subject {TeacherSubjectId} rejected by admin {AdminId}",
-            teacherSubjectId, adminId);
-
-        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
-
-        var subjectDetails = await _teacherSubjectRepository.GetByIdForTeacherAsync(
-            teacherId, teacherSubjectId, cancellationToken);
-        var subjectName = subjectDetails?.Subject?.NameEn
-            ?? subjectDetails?.Subject?.NameAr
-            ?? $"Subject {subject.SubjectId}";
-
-        await _lifecycleEmailService.SendSubjectRejectedAsync(teacherId, subjectName, reason, cancellationToken);
-
-        return true;
-    }
-
-    public async Task<bool> ApproveSubjectAsync(
-        int teacherId,
-        int teacherSubjectId,
-        int adminId,
-        CancellationToken cancellationToken = default)
-    {
-        var subject = await GetTrackedSubjectAsync(teacherId, teacherSubjectId, cancellationToken);
-        if (subject == null)
-            return false;
-
-        if (subject.VerificationStatus != DocumentVerificationStatus.Pending)
-            throw new InvalidOperationException("Only pending subjects can be approved.");
-
-        subject.VerificationStatus = DocumentVerificationStatus.Approved;
-        subject.RejectionReason = null;
-        subject.ReviewedByAdminId = adminId;
-        subject.ReviewedAt = DateTime.UtcNow;
-        subject.IsActive = true;
-        subject.UpdatedAt = DateTime.UtcNow;
-        subject.UpdatedBy = adminId;
-
-        await _teacherSubjectRepository.UpdateAsync(subject);
-        await _teacherSubjectRepository.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Teacher subject {TeacherSubjectId} approved by admin {AdminId}",
-            teacherSubjectId, adminId);
-
-        await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
-
-        return true;
-    }
-
     public async Task<bool> RestoreSubjectAsync(
         int teacherId,
         int teacherSubjectId,
@@ -213,6 +141,7 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
 
         subject.VerificationStatus = DocumentVerificationStatus.Approved;
         subject.RejectionReason = null;
+        subject.RejectionSource = null;
         subject.ReviewedByAdminId = adminId;
         subject.ReviewedAt = DateTime.UtcNow;
         subject.IsActive = true;

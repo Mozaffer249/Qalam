@@ -14,16 +14,22 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
     private readonly ITeacherDomainQuestionSubmissionRepository _submissionRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ITeacherDomainSubjectCascadeService _cascadeService;
+    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
 
     public RejectTeacherDomainQuestionSubmissionCommandHandler(
         ITeacherDomainQuestionSubmissionRepository submissionRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationCompletionService completionService,
+        ITeacherDomainSubjectCascadeService cascadeService,
+        ITeacherLifecycleEmailService lifecycleEmailService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _submissionRepository = submissionRepository;
         _documentRepository = documentRepository;
         _completionService = completionService;
+        _cascadeService = cascadeService;
+        _lifecycleEmailService = lifecycleEmailService;
     }
 
     public async Task<Response<string>> Handle(
@@ -61,7 +67,26 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
         }
 
         await _submissionRepository.SaveChangesAsync();
+
+        var domainId = submission.Question.DomainId;
+        var domainLabel = submission.Question.Domain?.NameEn
+            ?? submission.Question.NameEn
+            ?? $"Domain {domainId}";
+
+        await _cascadeService.RejectSubjectsInDomainAsync(
+            submission.TeacherId,
+            domainId,
+            request.UserId,
+            request.Reason.Trim(),
+            cancellationToken);
+
         await _completionService.RefreshTeacherStatusAfterReviewAsync(submission.TeacherId, cancellationToken);
+
+        await _lifecycleEmailService.SendDomainVerificationRejectedAsync(
+            submission.TeacherId,
+            domainLabel,
+            request.Reason.Trim(),
+            cancellationToken);
 
         return Success<string>("Domain question submission rejected");
     }

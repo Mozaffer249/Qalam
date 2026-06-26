@@ -20,6 +20,7 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
     private readonly ITeacherDomainQuestionSubmissionRepository _submissionRepository;
     private readonly ITeacherDomainQuestionSubmitService _submitService;
     private readonly ITeacherDomainQuestionStatusService _statusService;
+    private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly ILogger<SubmitTeacherDomainQuestionsCommandHandler> _logger;
 
     public SubmitTeacherDomainQuestionsCommandHandler(
@@ -28,6 +29,7 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
         ITeacherDomainQuestionSubmissionRepository submissionRepository,
         ITeacherDomainQuestionSubmitService submitService,
         ITeacherDomainQuestionStatusService statusService,
+        ITeacherRegistrationService teacherRegistrationService,
         IStringLocalizer<SharedResources> localizer,
         ILogger<SubmitTeacherDomainQuestionsCommandHandler> logger) : base(localizer)
     {
@@ -36,6 +38,7 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
         _submissionRepository = submissionRepository;
         _submitService = submitService;
         _statusService = statusService;
+        _teacherRegistrationService = teacherRegistrationService;
         _logger = logger;
     }
 
@@ -54,12 +57,40 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
         if (activeQuestions.Count == 0)
             return BadRequest<TeacherDomainQuestionSubmitResponseDto>("No active questions configured for this domain.");
 
-        foreach (var q in activeQuestions)
+        var existingSubmissions = await _submissionRepository.GetByTeacherAndDomainIdAsync(
+            teacher.Id, request.DomainId, cancellationToken);
+        var existingByQuestionId = new Dictionary<int, TeacherDomainQuestionSubmission>();
+        foreach (var submission in existingSubmissions)
         {
-            if (await _submissionRepository.ExistsForTeacherAndQuestionAsync(teacher.Id, q.Id, cancellationToken))
+            var tracked = await _submissionRepository.GetByTeacherAndQuestionAsync(
+                teacher.Id, submission.QuestionId, cancellationToken);
+            if (tracked != null)
+                existingByQuestionId[submission.QuestionId] = tracked;
+        }
+
+        var isResubmit = existingByQuestionId.Values.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
+
+        if (!isResubmit)
+        {
+            foreach (var q in activeQuestions)
             {
-                return BadRequest<TeacherDomainQuestionSubmitResponseDto>(
-                    $"Question '{q.Code}' was already answered and cannot be changed.");
+                if (await _submissionRepository.ExistsForTeacherAndQuestionAsync(teacher.Id, q.Id, cancellationToken))
+                {
+                    return BadRequest<TeacherDomainQuestionSubmitResponseDto>(
+                        $"Question '{q.Code}' was already answered and cannot be changed.");
+                }
+            }
+        }
+        else
+        {
+            foreach (var q in activeQuestions)
+            {
+                if (existingByQuestionId.TryGetValue(q.Id, out var existing)
+                    && existing.VerificationStatus != DocumentVerificationStatus.Rejected)
+                {
+                    return BadRequest<TeacherDomainQuestionSubmitResponseDto>(
+                        $"Question '{q.Code}' cannot be changed while it is under review or approved.");
+                }
             }
         }
 
@@ -71,15 +102,30 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
         if (unknownCodeError != null)
             return BadRequest<TeacherDomainQuestionSubmitResponseDto>(unknownCodeError);
 
-        var validationError = ValidateAgainstQuestions(input, activeQuestions);
+        var validationError = ValidateAgainstQuestions(
+            input,
+            isResubmit
+                ? activeQuestions.Where(q =>
+                    existingByQuestionId.TryGetValue(q.Id, out var existing)
+                    && existing.VerificationStatus == DocumentVerificationStatus.Rejected).ToList()
+                : activeQuestions);
         if (validationError != null)
             return BadRequest<TeacherDomainQuestionSubmitResponseDto>(validationError);
 
         try
         {
-            await _submitService.SubmitAsync(teacher, input, activeQuestions, cancellationToken);
+            if (isResubmit)
+            {
+                await _submitService.ResubmitRejectedAsync(
+                    teacher, input, activeQuestions, existingByQuestionId, cancellationToken);
+            }
+            else
+            {
+                await _submitService.SubmitAsync(teacher, input, activeQuestions, cancellationToken);
+            }
 
             var requiresAnswer = await _statusService.DomainRequiresAnswerAsync(teacher.Id, request.DomainId, cancellationToken);
+            var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
 
             return Success(
                 entity: new TeacherDomainQuestionSubmitResponseDto
@@ -87,6 +133,7 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
                     DomainId = request.DomainId,
                     RequiresAnswer = requiresAnswer,
                     SubmittedCodes = submittedCodes,
+                    NextStep = nextStep,
                     Message = requiresAnswer
                         ? "Some required questions are still unanswered."
                         : "Domain questions submitted successfully."

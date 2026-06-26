@@ -38,4 +38,13 @@ public class TeacherDomainQuestionSubmissionRepository
 
     public Task<TeacherDomainQuestionSubmission?> GetByTeacherDocumentIdAsync(int teacherDocumentId, CancellationToken cancellationToken = default) =>
         _set.FirstOrDefaultAsync(s => s.TeacherDocumentId == teacherDocumentId, cancellationToken);
+
+    public Task<TeacherDomainQuestionSubmission?> GetByTeacherAndQuestionAsync(int teacherId, int questionId, CancellationToken cancellationToken = default) =>
+        _set.FirstOrDefaultAsync(s => s.TeacherId == teacherId && s.QuestionId == questionId, cancellationToken);
+
+    public Task<List<TeacherDomainQuestionSubmission>> GetByTeacherAndDomainIdAsync(int teacherId, int domainId, CancellationToken cancellationToken = default) =>
+        _set.AsNoTracking()
+            .Include(s => s.Question)
+            .Where(s => s.TeacherId == teacherId && s.Question.DomainId == domainId)
+            .ToListAsync(cancellationToken);
 }

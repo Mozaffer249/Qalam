@@ -59,6 +59,18 @@ public class TeacherLifecycleEmailService : ITeacherLifecycleEmailService
             "subject rejected",
             cancellationToken);
 
+    public Task SendDomainVerificationRejectedAsync(
+        int teacherId,
+        string domainName,
+        string reason,
+        CancellationToken cancellationToken = default) =>
+        TrySendAsync(
+            teacherId,
+            TeacherLifecycleEmailTemplates.BuildDocumentRejectedSubject(domainName),
+            loginUrl => TeacherLifecycleEmailTemplates.BuildDocumentRejectedHtml(loginUrl, domainName, reason),
+            "domain verification rejected",
+            cancellationToken);
+
     public Task SendAccountActivatedAsync(int teacherId, CancellationToken cancellationToken = default) =>
         TrySendAsync(
             teacherId,

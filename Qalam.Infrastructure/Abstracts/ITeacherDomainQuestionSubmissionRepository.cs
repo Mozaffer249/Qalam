@@ -10,4 +10,6 @@ public interface ITeacherDomainQuestionSubmissionRepository : IGenericRepository
     Task<TeacherDomainQuestionSubmission?> GetByIdWithQuestionAsync(int submissionId, CancellationToken cancellationToken = default);
     Task<bool> ExistsForTeacherAndQuestionAsync(int teacherId, int questionId, CancellationToken cancellationToken = default);
     Task<TeacherDomainQuestionSubmission?> GetByTeacherDocumentIdAsync(int teacherDocumentId, CancellationToken cancellationToken = default);
+    Task<TeacherDomainQuestionSubmission?> GetByTeacherAndQuestionAsync(int teacherId, int questionId, CancellationToken cancellationToken = default);
+    Task<List<TeacherDomainQuestionSubmission>> GetByTeacherAndDomainIdAsync(int teacherId, int domainId, CancellationToken cancellationToken = default);
 }

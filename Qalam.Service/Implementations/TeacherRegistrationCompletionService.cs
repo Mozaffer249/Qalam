@@ -166,7 +166,21 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             }
         }
 
+        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, cancellationToken))
+        {
+            await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
+            return;
+        }
+
         await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
+    }
+
+    private async Task<bool> HasRejectedDomainQuestionSubmissionsAsync(
+        int teacherId,
+        CancellationToken cancellationToken)
+    {
+        var submissions = await _domainSubmissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
+        return submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
     }
 
     public async Task<bool> CanActivateTeacherAccountAsync(int teacherId, CancellationToken cancellationToken = default)
@@ -223,6 +237,12 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         {
             if (hasPending)
                 await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
+            return;
+        }
+
+        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, CancellationToken.None))
+        {
+            await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
             return;
         }
 
@@ -299,7 +319,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
     private async Task<string?> GetDomainQuestionActivationBlockReasonAsync(int teacherId, CancellationToken cancellationToken)
     {
-        var domainIds = await _teacherSubjectRepository.GetDistinctDomainIdsForTeacherAsync(teacherId, cancellationToken);
+        var domainIds = await _domainQuestionRepository.GetDomainIdsWithActiveRequiredQuestionsAsync(cancellationToken);
         if (domainIds.Count == 0)
             return null;
 
@@ -316,15 +336,14 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             if (!submissionByQuestionId.TryGetValue(req.Id, out var sub))
                 return $"Required domain question '{req.Code}' has not been submitted.";
 
-            if (req.RequiresAdminReview)
-            {
-                if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
-                    return "One or more domain question answers were rejected.";
-                if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
-                    return "One or more domain question answers are still pending approval.";
-                if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
-                    return "Not all required domain question answers are approved.";
-            }
+            if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
+                return "One or more domain question answers were rejected.";
+
+            if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
+                return "One or more domain question answers are still pending approval.";
+
+            if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
+                return "Not all required domain question answers are approved.";
         }
 
         return null;
@@ -335,12 +354,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         var snapshot = await _teacherSubjectRepository.GetSubjectActivationSnapshotAsync(teacherId);
         if (snapshot.Total == 0)
             return "Teacher has not added any teaching subjects yet.";
-        if (snapshot.Pending > 0)
-            return "One or more subjects are still pending admin approval.";
-        if (snapshot.Rejected > 0)
-            return "One or more subjects were rejected.";
-        if (snapshot.Approved != snapshot.Total)
-            return "Not all teaching subjects are approved.";
         return null;
     }
 

@@ -24,6 +24,30 @@ public class RegistrationStepDto
     /// List of rejected documents (only populated when Status = DocumentsRejected)
     /// </summary>
     public List<RejectedDocumentInfo>? RejectedDocuments { get; set; }
+
+    /// <summary>
+    /// Actionable review items for routing (domain questions, direct subject rejects, etc.)
+    /// </summary>
+    public List<TeacherReviewCorrectionDto>? PendingCorrections { get; set; }
+}
+
+public enum TeacherReviewCorrectionType
+{
+    RegistrationDocument = 1,
+    DomainQuestion = 2,
+    Subject = 3
+}
+
+public class TeacherReviewCorrectionDto
+{
+    public TeacherReviewCorrectionType Type { get; set; }
+    public int? DomainId { get; set; }
+    public string? DomainCode { get; set; }
+    public string? Label { get; set; }
+    public string RejectionReason { get; set; } = string.Empty;
+    public int? SubmissionId { get; set; }
+    public int? TeacherSubjectId { get; set; }
+    public int? DocumentId { get; set; }
 }
 
 /// <summary>

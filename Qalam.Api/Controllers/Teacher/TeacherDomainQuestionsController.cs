@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Api.Helpers;
 using Qalam.Core.Features.Teacher.Commands.SubmitTeacherDomainQuestions;
+using Qalam.Core.Features.Teacher.Queries.GetTeacherDomainQuestionStatus;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
 
@@ -48,5 +49,16 @@ public class TeacherDomainQuestionsController : AppControllerBase
         }
 
         return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Per-domain questionnaire status for the dedicated domain-questions screen (separate from subject selection).
+    /// </summary>
+    [HttpGet("status")]
+    [ProducesResponseType(typeof(TeacherDomainQuestionStatusResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetStatus()
+    {
+        return NewResult(await Mediator.Send(new GetTeacherDomainQuestionStatusQuery()));
     }
 }

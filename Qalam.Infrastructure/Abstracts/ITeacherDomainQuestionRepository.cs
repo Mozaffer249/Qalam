@@ -11,4 +11,6 @@ public interface ITeacherDomainQuestionRepository : IGenericRepositoryAsync<Teac
     Task<TeacherDomainQuestion?> GetByIdWithDomainAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> CodeExistsInDomainAsync(int domainId, string code, int? excludeId = null, CancellationToken cancellationToken = default);
     Task<bool> HasSubmissionsAsync(int questionId, CancellationToken cancellationToken = default);
+
+    Task<List<int>> GetDomainIdsWithActiveRequiredQuestionsAsync(CancellationToken cancellationToken = default);
 }

@@ -10,4 +10,11 @@ public interface ITeacherDomainQuestionSubmitService
         TeacherDomainQuestionSubmissionInput input,
         List<TeacherDomainQuestion> activeQuestions,
         CancellationToken cancellationToken);
+
+    Task ResubmitRejectedAsync(
+        Teacher teacher,
+        TeacherDomainQuestionSubmissionInput input,
+        List<TeacherDomainQuestion> activeQuestions,
+        Dictionary<int, TeacherDomainQuestionSubmission> existingByQuestionId,
+        CancellationToken cancellationToken);
 }
