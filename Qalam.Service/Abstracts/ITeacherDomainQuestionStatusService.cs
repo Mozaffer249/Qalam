@@ -35,5 +35,7 @@ public interface ITeacherDomainQuestionStatusService
 
     Task<bool> AreAllCatalogDomainsFullyApprovedAsync(int teacherId, CancellationToken cancellationToken = default);
 
+    Task<bool> HasAnyFullyApprovedCatalogDomainAsync(int teacherId, CancellationToken cancellationToken = default);
+
     Task<bool> HasCatalogDomainsPendingAdminReviewAsync(int teacherId, CancellationToken cancellationToken = default);
 }

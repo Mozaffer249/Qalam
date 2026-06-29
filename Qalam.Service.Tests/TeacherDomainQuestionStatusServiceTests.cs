@@ -285,6 +285,91 @@ public class TeacherDomainQuestionStatusServiceTests
         Assert.True(await service.HasCatalogDomainsPendingAdminReviewAsync(TeacherId));
     }
 
+    [Fact]
+    public async Task HasIncompleteCatalogDomainAnswers_ReturnsFalse_WhenOneOfTwoDomainsFullySubmitted()
+    {
+        const int domain2 = 2;
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 1,
+            DomainId = DomainId,
+            Code = "years",
+            IsActive = true,
+            IsRequired = true
+        };
+        var quranQuestion = new TeacherDomainQuestion
+        {
+            Id = 2,
+            DomainId = domain2,
+            Code = "ijaza",
+            IsActive = true,
+            IsRequired = true
+        };
+
+        var questionRepo = new Mock<ITeacherDomainQuestionRepository>();
+        questionRepo
+            .Setup(r => r.GetDomainIdsWithActiveRequiredQuestionsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DomainId, domain2]);
+        questionRepo
+            .Setup(r => r.GetActiveByDomainIdsAsync(It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([schoolQuestion, quranQuestion]);
+
+        var submissionRepo = new Mock<ITeacherDomainQuestionSubmissionRepository>();
+        submissionRepo
+            .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new TeacherDomainQuestionSubmission
+                {
+                    TeacherId = TeacherId,
+                    QuestionId = 1,
+                    VerificationStatus = DocumentVerificationStatus.Pending
+                }
+            ]);
+
+        var service = BuildStatusService(questionRepo.Object, submissionRepo.Object, Mock.Of<ITeacherDomainSubjectCascadeService>());
+
+        Assert.False(await service.HasIncompleteCatalogDomainAnswersAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task HasIncompleteCatalogDomainAnswers_ReturnsTrue_WhenNeitherDomainFullySubmitted()
+    {
+        const int domain2 = 2;
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 1,
+            DomainId = DomainId,
+            Code = "years",
+            IsActive = true,
+            IsRequired = true
+        };
+        var quranQuestion = new TeacherDomainQuestion
+        {
+            Id = 2,
+            DomainId = domain2,
+            Code = "ijaza",
+            IsActive = true,
+            IsRequired = true
+        };
+
+        var questionRepo = new Mock<ITeacherDomainQuestionRepository>();
+        questionRepo
+            .Setup(r => r.GetDomainIdsWithActiveRequiredQuestionsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DomainId, domain2]);
+        questionRepo
+            .Setup(r => r.GetActiveByDomainIdsAsync(It.IsAny<IReadOnlyCollection<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([schoolQuestion, quranQuestion]);
+
+        var submissionRepo = new Mock<ITeacherDomainQuestionSubmissionRepository>();
+        submissionRepo
+            .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var service = BuildStatusService(questionRepo.Object, submissionRepo.Object, Mock.Of<ITeacherDomainSubjectCascadeService>());
+
+        Assert.True(await service.HasIncompleteCatalogDomainAnswersAsync(TeacherId));
+    }
+
     private static TeacherDomainQuestionStatusService BuildStatusService(
         ITeacherDomainQuestionRepository questionRepo,
         ITeacherDomainQuestionSubmissionRepository submissionRepo,

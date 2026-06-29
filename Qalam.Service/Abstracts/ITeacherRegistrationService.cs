@@ -18,6 +18,12 @@ public interface ITeacherRegistrationService
         bool isInSaudiArabia);
 
     /// <summary>
+    /// Ensures the identity user has the Teacher role so teacher JWT endpoints authorize correctly.
+    /// Safe to call for users who already have the role (e.g. returning registrants with Student roles).
+    /// </summary>
+    Task EnsureTeacherRoleForUserAsync(int userId);
+
+    /// <summary>
     /// Determines the next registration step for a user
     /// </summary>
     Task<RegistrationStepDto> GetNextRegistrationStepAsync(int userId);

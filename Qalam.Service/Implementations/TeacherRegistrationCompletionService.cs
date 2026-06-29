@@ -12,7 +12,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private readonly ITeacherRegistrationSubmissionRepository _submissionRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRepository _teacherRepository;
-    private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherDomainQuestionRepository _domainQuestionRepository;
     private readonly ITeacherDomainQuestionSubmissionRepository _domainSubmissionRepository;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
@@ -23,7 +22,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         ITeacherRegistrationSubmissionRepository submissionRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRepository teacherRepository,
-        ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherDomainQuestionRepository domainQuestionRepository,
         ITeacherDomainQuestionSubmissionRepository domainSubmissionRepository,
         ITeacherLifecycleEmailService lifecycleEmailService,
@@ -33,7 +31,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         _submissionRepository = submissionRepository;
         _documentRepository = documentRepository;
         _teacherRepository = teacherRepository;
-        _teacherSubjectRepository = teacherSubjectRepository;
         _domainQuestionRepository = domainQuestionRepository;
         _domainSubmissionRepository = domainSubmissionRepository;
         _lifecycleEmailService = lifecycleEmailService;
@@ -204,6 +201,9 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (teacher.Status == TeacherStatus.Blocked)
             return (false, "Blocked teacher accounts cannot be activated.");
 
+        if (teacher.Status == TeacherStatus.DocumentsRejected)
+            return (false, "Rejected documents or domain answers must be corrected before activation.");
+
         var (blockReason, isReady) = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
         if (!isReady)
             return (false, blockReason ?? "Teacher is not ready for activation.");
@@ -306,10 +306,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             }
         }
 
-        var subjectBlock = await GetSubjectActivationBlockReasonAsync(teacherId);
-        if (subjectBlock != null)
-            return (subjectBlock, false);
-
         var domainBlock = await GetDomainQuestionActivationBlockReasonAsync(teacherId, cancellationToken);
         if (domainBlock != null)
             return (domainBlock, false);
@@ -319,42 +315,74 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
     private async Task<string?> GetDomainQuestionActivationBlockReasonAsync(int teacherId, CancellationToken cancellationToken)
     {
+        var submissions = await _domainSubmissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
+
+        if (submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
+            return "One or more domain verification answers were rejected.";
+
+        if (submissions.Any(s =>
+                s.Question.RequiresAdminReview
+                && s.VerificationStatus == DocumentVerificationStatus.Pending))
+            return "One or more domain verification answers are still pending admin review.";
+
         var domainIds = await _domainQuestionRepository.GetDomainIdsWithActiveRequiredQuestionsAsync(cancellationToken);
         if (domainIds.Count == 0)
             return null;
 
         var questions = await _domainQuestionRepository.GetActiveByDomainIdsAsync(domainIds, cancellationToken);
-        var required = questions.Where(q => q.IsRequired).ToList();
-        if (required.Count == 0)
+        var requiredByDomain = questions.Where(q => q.IsRequired).GroupBy(q => q.DomainId).ToList();
+        if (requiredByDomain.Count == 0)
             return null;
 
-        var submissions = await _domainSubmissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
         var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
 
-        foreach (var req in required)
+        foreach (var domain in requiredByDomain)
         {
-            if (!submissionByQuestionId.TryGetValue(req.Id, out var sub))
-                return $"Required domain question '{req.Code}' has not been submitted.";
-
-            if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
-                return "One or more domain question answers were rejected.";
-
-            if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
-                return "One or more domain question answers are still pending approval.";
-
-            if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
-                return "Not all required domain question answers are approved.";
+            var allApproved = domain.All(q =>
+                submissionByQuestionId.TryGetValue(q.Id, out var sub)
+                && sub.VerificationStatus == DocumentVerificationStatus.Approved);
+            if (allApproved)
+                return null;
         }
 
-        return null;
+        return "No education domain has all its required questions approved yet.";
     }
 
-    private async Task<string?> GetSubjectActivationBlockReasonAsync(int teacherId)
+    public async Task<bool> HasPendingRequiredRegistrationReviewAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
     {
-        var snapshot = await _teacherSubjectRepository.GetSubjectActivationSnapshotAsync(teacherId);
-        if (snapshot.Total == 0)
-            return "Teacher has not added any teaching subjects yet.";
-        return null;
+        var activeRequired = (await _requirementRepository.GetActiveOrderedAsync(cancellationToken))
+            .Where(r => r.IsRequired)
+            .ToList();
+
+        if (activeRequired.Count == 0)
+        {
+            var legacyDocs = await _documentRepository.GetByTeacherIdAsync(teacherId);
+            return legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending);
+        }
+
+        var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
+        var submissionByReqId = submissions.ToDictionary(s => s.RequirementId);
+
+        foreach (var req in activeRequired)
+        {
+            if (!submissionByReqId.TryGetValue(req.Id, out var sub))
+                return true;
+
+            if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
+            {
+                var fileSubs = submissions.Where(s => s.RequirementId == req.Id).ToList();
+                if (fileSubs.Count < req.MinCount)
+                    return true;
+                if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
+                    return true;
+            }
+            else if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
+                return true;
+        }
+
+        return false;
     }
 
     private async Task SetStatusAsync(int teacherId, TeacherStatus status)

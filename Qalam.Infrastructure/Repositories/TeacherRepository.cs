@@ -88,7 +88,11 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 TotalDocuments = t.TeacherDocuments.Count,
                 PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
                 ApprovedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Approved),
-                RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected)
+                RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected),
+                PendingDomainQuestions = _context.Set<TeacherDomainQuestionSubmission>()
+                    .Count(s => s.TeacherId == t.Id
+                                && s.VerificationStatus == DocumentVerificationStatus.Pending
+                                && s.Question.RequiresAdminReview)
             })
             .ToListAsync();
     }

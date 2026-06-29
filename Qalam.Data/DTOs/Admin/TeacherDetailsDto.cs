@@ -32,4 +32,6 @@ public class TeacherDetailsDto
 
     public List<AdminTeacherSubjectDto> Subjects { get; set; } = new();
     public TeacherSubjectSummaryDto SubjectSummary { get; set; } = new();
+
+    public TeacherReviewSummaryDto ReviewSummary { get; set; } = new();
 }

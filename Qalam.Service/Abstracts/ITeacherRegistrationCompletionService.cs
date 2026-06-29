@@ -18,9 +18,15 @@ public interface ITeacherRegistrationCompletionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// True when all required documents/submissions are approved and every subject is approved (≥1 subject).
+    /// True when all required registration submissions and domain question answers are approved.
+    /// Subjects are not required for activation.
     /// </summary>
     Task<bool> CanActivateTeacherAccountAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when any required registration submission is still pending admin review.
+    /// </summary>
+    Task<bool> HasPendingRequiredRegistrationReviewAsync(int teacherId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Manually authorizes a teacher account when <see cref="CanActivateTeacherAccountAsync"/> is true.

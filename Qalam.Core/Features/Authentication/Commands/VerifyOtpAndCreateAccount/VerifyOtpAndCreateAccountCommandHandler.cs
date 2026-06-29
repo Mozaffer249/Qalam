@@ -85,6 +85,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             if (teacher?.Status == TeacherStatus.Blocked)
                 return BadRequest<object>("Your account has been blocked. Please contact support.");
 
+            await _teacherRegistrationService.EnsureTeacherRoleForUserAsync(existingUser.Id);
+
             var jwtResult = await _authService.GetJWTToken(existingUser);
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(existingUser.Id);
 

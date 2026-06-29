@@ -16,14 +16,14 @@ public class TeacherRegistrationCompletionServiceTests
     private const int AdminId = 1;
 
     [Fact]
-    public async Task CanActivate_ReturnsFalse_WhenNoSubjects()
+    public async Task CanActivate_ReturnsTrue_WhenNoSubjects()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
             snapshot: new TeacherSubjectActivationSnapshot { Total = 0 });
 
-        Assert.False(await service.CanActivateTeacherAccountAsync(TeacherId));
+        Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
 
     [Fact]
@@ -227,6 +227,113 @@ public class TeacherRegistrationCompletionServiceTests
         Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
 
+    [Fact]
+    public async Task CanActivate_ReturnsTrue_WhenOneOfTwoDomainsFullyApproved()
+    {
+        const int domain2 = 2;
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "school_experience",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+        var quranQuestion = new TeacherDomainQuestion
+        {
+            Id = 11,
+            DomainId = domain2,
+            Code = "quran_ijaza",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, domain2],
+            domainQuestions: [schoolQuestion, quranQuestion],
+            domainSubmissions:
+            [
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 100,
+                    TeacherId = TeacherId,
+                    QuestionId = schoolQuestion.Id,
+                    Question = schoolQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                }
+            ]);
+
+        Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task CanActivate_ReturnsFalse_WhenAnyDomainSubmissionRejected()
+    {
+        const int domain2 = 2;
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "school_experience",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+        var licenseQuestion = new TeacherDomainQuestion
+        {
+            Id = 11,
+            DomainId = 1,
+            Code = "school_teaching_license",
+            IsRequired = false,
+            RequiresAdminReview = true
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, domain2],
+            domainQuestions: [schoolQuestion, licenseQuestion],
+            domainSubmissions:
+            [
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 100,
+                    TeacherId = TeacherId,
+                    QuestionId = schoolQuestion.Id,
+                    Question = schoolQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                },
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 101,
+                    TeacherId = TeacherId,
+                    QuestionId = licenseQuestion.Id,
+                    Question = licenseQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                    RejectionReason = "Expired"
+                }
+            ]);
+
+        Assert.False(await service.CanActivateTeacherAccountAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task Activate_Fails_WhenDocumentsRejectedStatus()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.DocumentsRejected,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+
+        var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
+
+        Assert.False(success);
+        Assert.Contains("corrected", error, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static TeacherRegistrationCompletionService BuildService(
         TeacherStatus teacherStatus,
         bool requirementsApproved,
@@ -290,17 +397,6 @@ public class TeacherRegistrationCompletionServiceTests
             .Returns(Task.CompletedTask);
         teacherRepo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
 
-        var subjectRepo = new Mock<ITeacherSubjectRepository>();
-        subjectRepo
-            .Setup(r => r.GetSubjectActivationSnapshotAsync(TeacherId))
-            .ReturnsAsync(snapshot);
-        subjectRepo
-            .Setup(r => r.GetDistinctDomainIdsForTeacherAsync(TeacherId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(domainIds ?? []);
-        subjectRepo
-            .Setup(r => r.GetDirectRejectedSubjectsAsync(TeacherId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
         var domainQuestionRepo = new Mock<ITeacherDomainQuestionRepository>();
         domainQuestionRepo
             .Setup(r => r.GetDomainIdsWithActiveRequiredQuestionsAsync(It.IsAny<CancellationToken>()))
@@ -313,13 +409,15 @@ public class TeacherRegistrationCompletionServiceTests
         domainSubmissionRepo
             .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainSubmissions ?? []);
+        domainSubmissionRepo
+            .Setup(r => r.GetByTeacherIdWithQuestionsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(domainSubmissions ?? []);
 
         return new TeacherRegistrationCompletionService(
             requirementRepo.Object,
             submissionRepo.Object,
             documentRepo.Object,
             teacherRepo.Object,
-            subjectRepo.Object,
             domainQuestionRepo.Object,
             domainSubmissionRepo.Object,
             lifecycleEmail ?? Mock.Of<ITeacherLifecycleEmailService>(),

@@ -58,6 +58,12 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
                 $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
         }
 
+        if (teacher.Status != TeacherStatus.Active)
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                "Your account must be activated by admin before adding teaching subjects.");
+        }
+
         if (!await _domainQuestionStatusService.AreAllCatalogDomainsFullyApprovedAsync(teacher.Id, cancellationToken))
         {
             return BadRequest<TeacherSubjectsResponseDto>(
@@ -95,13 +101,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
             Subjects = _mapper.Map<List<TeacherSubjectResponseDto>>(savedSubjects)
         };
 
-        if (teacher.Status == TeacherStatus.PendingVerification
-            || teacher.Status == TeacherStatus.DocumentsRejected)
-        {
-            var hasSubjects = await _teacherSubjectRepository.HasAnySubjectOfferingsAsync(teacher.Id);
-            if (hasSubjects)
-                response.NextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
-        }
+        response.NextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
 
         return Success("Teacher subjects saved successfully", entity: response);
     }

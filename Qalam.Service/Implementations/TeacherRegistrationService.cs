@@ -106,6 +106,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             throw new Exception("User not found");
         }
 
+        await EnsureTeacherRoleForUserAsync(user);
+
         // Email uniqueness check — only when the email actually changes for this user.
         if (!string.IsNullOrWhiteSpace(email))
         {
@@ -163,24 +165,34 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             throw new Exception($"Failed to update account: {errors}");
         }
 
-        // Create Teacher profile
-        var teacher = new Teacher
+        // Create Teacher profile when this is the first personal-info completion.
+        var existingTeacher = await _teacherRepository.GetByUserIdAsync(user.Id);
+        if (existingTeacher == null)
         {
-            UserId = user.Id,
-            Status = TeacherStatus.AwaitingDocuments,
-            IsActive = true
-        };
+            var teacher = new Teacher
+            {
+                UserId = user.Id,
+                Status = TeacherStatus.AwaitingDocuments,
+                IsActive = true
+            };
 
-        await _teacherRepository.AddAsync(teacher);
-        await _teacherRepository.SaveChangesAsync();
+            await _teacherRepository.AddAsync(teacher);
+            await _teacherRepository.SaveChangesAsync();
 
-        // Generate new JWT token with updated user info
+            _logger.LogInformation(
+                "Teacher account completed for user {UserId}, teacher {TeacherId}",
+                user.Id,
+                teacher.Id);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Teacher profile already exists for user {UserId} during personal-info completion",
+                user.Id);
+        }
+
+        // Generate new JWT token with updated user info (includes Teacher role).
         var jwtResult = await _authService.GetJWTToken(user);
-
-        _logger.LogInformation(
-            "Teacher account completed for user {UserId}, teacher {TeacherId}",
-            user.Id,
-            teacher.Id);
 
         return new TeacherAccountDto
         {
@@ -190,6 +202,30 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             PhoneNumber = user.PhoneNumber!,
             Token = jwtResult.AccessToken
         };
+    }
+
+    public async Task EnsureTeacherRoleForUserAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            throw new Exception("User not found");
+
+        await EnsureTeacherRoleForUserAsync(user);
+    }
+
+    private async Task EnsureTeacherRoleForUserAsync(User user)
+    {
+        if (await _userManager.IsInRoleAsync(user, Roles.Teacher))
+            return;
+
+        var result = await _userManager.AddToRoleAsync(user, Roles.Teacher);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new Exception($"Failed to assign Teacher role: {errors}");
+        }
+
+        _logger.LogInformation("Assigned Teacher role to user {UserId} during teacher registration", user.Id);
     }
 
     public async Task CompleteDocumentUploadAsync(
@@ -260,25 +296,32 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 return await BuildPostRegistrationStepAsync(teacher.Id);
 
             case TeacherStatus.DocumentsRejected:
-                var rejectedDocs = await _documentRepository.GetRejectedDocumentsAsync(teacher.Id);
-                if (rejectedDocs.Count > 0)
-                {
-                    return new RegistrationStepDto
-                    {
-                        CurrentStep = 4,
-                        NextStep = 4,
-                        NextStepName = "Re-upload Rejected Documents",
-                        IsRegistrationComplete = false,
-                        Message = "Some of your documents were rejected. Please check the rejection reasons and re-upload.",
-                        RejectedDocuments = rejectedDocs,
-                        PendingCorrections = await _reviewCorrectionService.GetPendingCorrectionsAsync(teacher.Id)
-                    };
-                }
+            {
+                var corrections = await _reviewCorrectionService.GetPendingCorrectionsAsync(teacher.Id);
+
+                var registrationRejected = corrections
+                    .Where(c => c.Type == TeacherReviewCorrectionType.RegistrationDocument
+                                && !string.IsNullOrWhiteSpace(c.RejectionReason))
+                    .ToList();
+                if (registrationRejected.Count > 0)
+                    return BuildReuploadRejectedDocumentsStep(registrationRejected);
+
+                var domainRejected = corrections
+                    .Where(c => c.Type == TeacherReviewCorrectionType.DomainQuestion
+                                && !string.IsNullOrWhiteSpace(c.RejectionReason))
+                    .ToList();
+                if (domainRejected.Count > 0)
+                    return BuildFixDomainVerificationStep(domainRejected);
 
                 return await BuildPostRegistrationStepAsync(teacher.Id);
+            }
 
             case TeacherStatus.Active:
             {
+                var hasSubjects = await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id);
+                if (!hasSubjects)
+                    return BuildAddSubjectsStep();
+
                 var requiresAvailability = !await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id);
                 return new RegistrationStepDto
                 {
@@ -305,6 +348,13 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     {
         var corrections = await _reviewCorrectionService.GetPendingCorrectionsAsync(teacherId);
 
+        var registrationRejected = corrections
+            .Where(c => c.Type == TeacherReviewCorrectionType.RegistrationDocument
+                        && !string.IsNullOrWhiteSpace(c.RejectionReason))
+            .ToList();
+        if (registrationRejected.Count > 0)
+            return BuildReuploadRejectedDocumentsStep(registrationRejected);
+
         var domainRejected = corrections
             .Where(c => c.Type == TeacherReviewCorrectionType.DomainQuestion
                         && !string.IsNullOrWhiteSpace(c.RejectionReason))
@@ -312,33 +362,35 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         if (domainRejected.Count > 0)
             return BuildFixDomainVerificationStep(domainRejected);
 
-        var hasSubjects = await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId);
         var catalogDomainIds = await _domainQuestionStatusService.GetCatalogDomainIdsWithRequiredQuestionsAsync();
+        if (catalogDomainIds.Count > 0
+            && await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId))
+            return BuildCompleteDomainQuestionsStep();
 
-        if (catalogDomainIds.Count > 0)
-        {
-            if (await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId))
-                return BuildCompleteDomainQuestionsStep();
+        var hasPendingRegistration =
+            await _completionService.HasPendingRequiredRegistrationReviewAsync(teacherId);
+        var hasPendingDomain = catalogDomainIds.Count > 0
+            && await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId);
+        if (hasPendingRegistration || hasPendingDomain)
+            return BuildAwaitingDomainVerificationStep();
 
-            if (!hasSubjects)
-            {
-                if (await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId))
-                    return BuildAwaitingDomainVerificationStep();
+        if (await _completionService.CanActivateTeacherAccountAsync(teacherId))
+            return BuildAwaitingFinalApprovalStep();
 
-                if (await _domainQuestionStatusService.AreAllCatalogDomainsFullyApprovedAsync(teacherId))
-                    return BuildAddSubjectsStep();
-            }
-        }
-        else if (!hasSubjects)
-        {
-            return BuildAddSubjectsStep();
-        }
-
-        if (!hasSubjects)
-            return BuildAddSubjectsStep();
-
-        return await BuildWaitingStepAsync(teacherId);
+        return BuildAwaitingDomainVerificationStep();
     }
+
+    private static RegistrationStepDto BuildReuploadRejectedDocumentsStep(
+        List<TeacherReviewCorrectionDto> corrections) =>
+        new()
+        {
+            CurrentStep = 4,
+            NextStep = 4,
+            NextStepName = "Re-upload Rejected Documents",
+            IsRegistrationComplete = false,
+            Message = "Some of your registration documents were rejected. Please check the rejection reasons and re-upload.",
+            PendingCorrections = corrections
+        };
 
     private static RegistrationStepDto BuildFixDomainVerificationStep(List<TeacherReviewCorrectionDto> corrections) =>
         new()
@@ -358,7 +410,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStep = 5,
             NextStepName = "Complete Domain Questions",
             IsRegistrationComplete = false,
-            Message = "Complete the required domain verification questions for each education domain before adding teaching subjects."
+            Message = "Complete the required domain verification questions for each education domain."
         };
 
     private static RegistrationStepDto BuildAwaitingDomainVerificationStep() =>
@@ -368,16 +420,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStep = 0,
             NextStepName = "Awaiting Domain Verification",
             IsRegistrationComplete = false,
-            Message = "Your domain verification answers are being reviewed. You can add teaching subjects after all domains are approved."
+            Message = "Your registration documents and domain answers are being reviewed. Please wait for admin approval."
         };
-
-    private async Task<RegistrationStepDto> BuildWaitingStepAsync(int teacherId)
-    {
-        if (await _completionService.CanActivateTeacherAccountAsync(teacherId))
-            return BuildAwaitingFinalApprovalStep();
-
-        return BuildAwaitingAdminStep();
-    }
 
     private static RegistrationStepDto BuildAddSubjectsStep() =>
         new()
@@ -386,17 +430,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStep = 5,
             NextStepName = "Add Teaching Subjects and Units",
             IsRegistrationComplete = false,
-            Message = "Add the subjects and content units you can teach. All domain verification requirements must be approved first."
-        };
-
-    private static RegistrationStepDto BuildAwaitingAdminStep() =>
-        new()
-        {
-            CurrentStep = 5,
-            NextStep = 0,
-            NextStepName = "Awaiting Admin Verification",
-            IsRegistrationComplete = false,
-            Message = "Your documents and teaching subjects are being reviewed by our team."
+            Message = "Add the subjects and content units you can teach."
         };
 
     private static RegistrationStepDto BuildAwaitingFinalApprovalStep() =>
@@ -407,7 +441,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStepName = "Awaiting Final Approval",
             IsRegistrationComplete = false,
             AwaitingFinalApproval = true,
-            Message = "All documents and subjects are approved. Waiting for final account activation by admin."
+            Message = "Your registration documents and domain answers are approved. Waiting for final account activation by admin."
         };
 
 }

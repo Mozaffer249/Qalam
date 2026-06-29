@@ -16,4 +16,5 @@ public class PendingTeacherDto
     public int PendingDocuments { get; set; }
     public int ApprovedDocuments { get; set; }
     public int RejectedDocuments { get; set; }
+    public int PendingDomainQuestions { get; set; }
 }

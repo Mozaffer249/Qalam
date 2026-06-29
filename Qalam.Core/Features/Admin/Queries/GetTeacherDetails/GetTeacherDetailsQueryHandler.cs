@@ -58,6 +58,9 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 			teacherDetails.DomainQuestionSubmissions =
 				await _domainQuestionStatusService.GetChecklistForTeacherAsync(request.TeacherId, cancellationToken);
 
+			teacherDetails.ReviewSummary = TeacherReviewSummaryCalculator.FromDomainQuestionGroups(
+				teacherDetails.DomainQuestionSubmissions);
+
 			teacherDetails.Subjects =
 				await _subjectAdminService.GetTeacherSubjectsForAdminAsync(request.TeacherId, cancellationToken);
 			teacherDetails.SubjectSummary =

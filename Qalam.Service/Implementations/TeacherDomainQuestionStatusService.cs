@@ -189,14 +189,17 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
             return false;
 
         var questions = await _questionRepository.GetActiveByDomainIdsAsync(catalogDomainIds, cancellationToken);
-        var required = questions.Where(q => q.IsRequired).ToList();
-        if (required.Count == 0)
+        var requiredByDomain = questions.Where(q => q.IsRequired).GroupBy(q => q.DomainId).ToList();
+        if (requiredByDomain.Count == 0)
             return false;
 
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submittedQuestionIds = submissions.Select(s => s.QuestionId).ToHashSet();
 
-        return required.Any(q => !submissionByQuestionId.ContainsKey(q.Id));
+        var anyDomainComplete = requiredByDomain.Any(g =>
+            g.All(q => submittedQuestionIds.Contains(q.Id)));
+
+        return !anyDomainComplete;
     }
 
     public async Task<bool> AreAllCatalogDomainsFullyApprovedAsync(
@@ -230,7 +233,24 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         if (await HasRejectedDomainQuestionsAsync(teacherId, cancellationToken))
             return false;
 
-        return !await AreAllCatalogDomainsFullyApprovedAsync(teacherId, cancellationToken);
+        return !await HasAnyFullyApprovedCatalogDomainAsync(teacherId, cancellationToken);
+    }
+
+    public async Task<bool> HasAnyFullyApprovedCatalogDomainAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var catalogDomainIds = await GetCatalogDomainIdsWithRequiredQuestionsAsync(cancellationToken);
+        if (catalogDomainIds.Count == 0)
+            return true;
+
+        foreach (var domainId in catalogDomainIds)
+        {
+            if (await _cascadeService.IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+                return true;
+        }
+
+        return false;
     }
 
     public async Task<bool> HasAnyDomainRequiringAnswerAsync(int teacherId, CancellationToken cancellationToken = default) =>

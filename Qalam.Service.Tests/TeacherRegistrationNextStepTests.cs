@@ -19,6 +19,21 @@ public class TeacherRegistrationNextStepTests
     private const int TeacherId = 20;
 
     [Fact]
+    public async Task GetNextStep_ActiveWithoutSubjects_ReturnsAddSubjects()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.Active,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.False(step.IsRegistrationComplete);
+    }
+
+    [Fact]
     public async Task GetNextStep_ActiveWithoutAvailability_ReturnsDashboardWithAvailabilityFlag()
     {
         var service = BuildService(
@@ -67,17 +82,18 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsAwaitingAdminVerification()
+    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsAwaitingDomainVerification()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             hasAvailability: false,
             hasSubjects: true,
-            canActivate: false);
+            canActivate: false,
+            hasPendingRegistrationReview: true);
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
         Assert.False(step.AwaitingFinalApproval);
     }
 
@@ -133,7 +149,33 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithRejectedRegistrationDocument_ReturnsReupload()
+    {
+        var corrections = new List<TeacherReviewCorrectionDto>
+        {
+            new()
+            {
+                Type = TeacherReviewCorrectionType.RegistrationDocument,
+                DocumentId = 5,
+                Label = "Identity",
+                RejectionReason = "Blurry image"
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            corrections: corrections);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Re-upload Rejected Documents", step.NextStepName);
     }
 
     [Fact]
@@ -169,19 +211,20 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenAllCatalogDomainsApproved_ReturnsAddSubjects()
+    public async Task GetNextStep_PendingVerificationWhenAllCatalogDomainsApproved_ReturnsAwaitingFinalApproval()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             hasAvailability: false,
             hasSubjects: false,
-            canActivate: false,
+            canActivate: true,
             catalogDomainIds: [1, 2],
             allCatalogDomainsApproved: true);
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.Equal("Awaiting Final Approval", step.NextStepName);
+        Assert.True(step.AwaitingFinalApproval);
     }
 
     [Fact]
@@ -211,6 +254,40 @@ public class TeacherRegistrationNextStepTests
         Assert.Equal("Fix Domain Verification", step.NextStepName);
     }
 
+    [Fact]
+    public async Task GetNextStep_DocumentsRejectedWithRegistrationReject_ReturnsReupload()
+    {
+        var corrections = new List<TeacherReviewCorrectionDto>
+        {
+            new()
+            {
+                Type = TeacherReviewCorrectionType.RegistrationDocument,
+                DocumentId = 5,
+                Label = "Identity",
+                RejectionReason = "Blurry image"
+            },
+            new()
+            {
+                Type = TeacherReviewCorrectionType.DomainQuestion,
+                DomainId = 1,
+                DomainCode = "school",
+                Label = "License",
+                RejectionReason = "Expired"
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.DocumentsRejected,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            corrections: corrections);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Re-upload Rejected Documents", step.NextStepName);
+    }
+
     private static TeacherRegistrationService BuildService(
         TeacherStatus teacherStatus,
         bool hasAvailability,
@@ -220,7 +297,8 @@ public class TeacherRegistrationNextStepTests
         List<int>? catalogDomainIds = null,
         bool hasIncompleteCatalogAnswers = false,
         bool hasCatalogDomainsPendingReview = false,
-        bool allCatalogDomainsApproved = false)
+        bool allCatalogDomainsApproved = false,
+        bool hasPendingRegistrationReview = false)
     {
         var user = new User { Id = UserId, FirstName = "Test", LastName = "Teacher" };
         var userStore = new Mock<IUserStore<User>>();
@@ -246,6 +324,9 @@ public class TeacherRegistrationNextStepTests
         completionService
             .Setup(s => s.CanActivateTeacherAccountAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(canActivate);
+        completionService
+            .Setup(s => s.HasPendingRequiredRegistrationReviewAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasPendingRegistrationReview);
 
         var reviewCorrectionService = new Mock<ITeacherReviewCorrectionService>();
         reviewCorrectionService

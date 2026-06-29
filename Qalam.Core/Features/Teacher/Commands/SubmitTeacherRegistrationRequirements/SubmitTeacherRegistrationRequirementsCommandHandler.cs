@@ -57,6 +57,8 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         if (teacher == null)
             return BadRequest<TeacherRegistrationSubmitResponseDto>("Teacher profile not found. Please complete personal information first.");
 
+        await _teacherRegistrationService.EnsureTeacherRoleForUserAsync(request.UserId);
+
         if (teacher.Status == TeacherStatus.PendingVerification)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
         if (teacher.Status == TeacherStatus.Active)
@@ -100,7 +102,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
             return Success(
                 entity: new TeacherRegistrationSubmitResponseDto
                 {
-                    Message = "Registration submitted successfully. Add your teaching subjects to continue.",
+                    Message = "Registration submitted successfully. Complete domain verification questions to continue.",
                     NextStep = nextStep
                 });
         }

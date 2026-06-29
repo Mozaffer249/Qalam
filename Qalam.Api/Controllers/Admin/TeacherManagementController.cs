@@ -9,6 +9,7 @@ using Qalam.Core.Features.Admin.Commands.BlockTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
 using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
+using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 using Qalam.Infrastructure.Abstracts;
@@ -20,6 +21,7 @@ using Qalam.Core.Features.Admin.TeacherSubjects.Queries.GetTeacherSubjectsForAdm
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.ListTeacherSubjects;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Api.Controllers.Admin;
@@ -107,6 +109,26 @@ public class TeacherManagementController : AppControllerBase
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
+	}
+
+	/// <summary>
+	/// Read-only weekly availability and exceptions for a teacher (admin view).
+	/// </summary>
+	[HttpGet("{teacherId:int}/Availability")]
+	[ProducesResponseType(typeof(TeacherAvailabilityResponseDto), StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	public async Task<IActionResult> GetTeacherAvailability(
+		int teacherId,
+		[FromQuery] DateOnly? fromDate = null,
+		[FromQuery] DateOnly? toDate = null)
+	{
+		var query = new GetTeacherAvailabilityForAdminQuery
+		{
+			TeacherId = teacherId,
+			FromDate = fromDate,
+			ToDate = toDate
+		};
+		return NewResult(await _mediator.Send(query));
 	}
 
 	/// <summary>
