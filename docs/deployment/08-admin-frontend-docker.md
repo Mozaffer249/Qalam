@@ -11,7 +11,7 @@ Same pattern as teacher (`8091` on `qalam.net.sa`). Admin uses subdomain **`admi
 ## 1. Clone admin repo (if missing)
 
 ```sh
-sudo git clone https://github.com/yassin-khalid/qalam-admin.git /opt/qalam-admin
+sudo git clone https://github.com/Mozaffer249/qalam-admin.git /opt/qalam-admin
 cd /opt/qalam-admin
 git pull
 ```

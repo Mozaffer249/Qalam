@@ -7,8 +7,8 @@ This repository is the entry point for the Qalam platform. The backend (.NET 8) 
 | Path | Tech | Source | Dev port |
 | --- | --- | --- | --- |
 | `Qalam.Api/`, `Qalam.Service/`, `Qalam.Core/`, `Qalam.Data/`, `Qalam.Infrastructure/`, `Qalam.MessagingApi/`, `Qalam.Service.Tests/` | .NET 8 / EF Core | This repo | 8080 (compose) |
-| `apps/admin/` | Next.js 16 + React 19 + Tailwind 4 | submodule → `github.com/yassin-khalid/qalam-admin` | 3005 |
-| `apps/teacher/` | Vite 7 + TanStack Start/Router + React 19 + Tailwind 4 | submodule → `github.com/yassin-khalid/qalam` | 3000 |
+| `apps/admin/` | Next.js 16 + React 19 + Tailwind 4 | submodule → `github.com/Mozaffer249/qalam-admin` | 3005 |
+| `apps/teacher/` | Vite 7 + TanStack Start/Router + React 19 + Tailwind 4 | submodule → `github.com/Mozaffer249/qalam-teacher` | 3000 |
 
 ## Cloning
 
@@ -61,8 +61,8 @@ This builds the backend image plus the two frontend images using the Dockerfiles
 
 Each frontend is still an independent repo with independent commits and pushes:
 
-- **Working on admin** — open `apps/admin/` (or your separate clone of `qalam-admin`) in your editor. `git pull / commit / push` inside that directory talks to `github.com/yassin-khalid/qalam-admin`, not to the monorepo.
-- **Working on teacher** — same, but for `github.com/yassin-khalid/qalam`.
+- **Working on admin** — open `apps/admin/` (or your separate clone of `qalam-admin`) in your editor. `git pull / commit / push` inside that directory talks to `github.com/Mozaffer249/qalam-admin`, not to the monorepo.
+- **Working on teacher** — same, but for `github.com/Mozaffer249/qalam-teacher`.
 - **Working on backend** — open this repo at its root. `git pull / commit / push` here talks to `github.com/Mozaffer249/Qalam`.
 
 ### Bumping a frontend version in the monorepo
@@ -100,7 +100,7 @@ Any CI job that builds the full stack must check out submodules. With GitHub Act
     submodules: recursive
 ```
 
-Existing CI/CD pipelines that build only one frontend (Vercel, GitHub Actions in the standalone repos) keep working unchanged — they build directly from `yassin-khalid/qalam-admin` or `yassin-khalid/qalam`.
+Existing CI/CD pipelines that build only one frontend (Vercel, GitHub Actions in the standalone repos) keep working unchanged — they build directly from `Mozaffer249/qalam-admin` or `Mozaffer249/qalam-teacher`.
 
 ## Rollback
 
