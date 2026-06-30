@@ -175,6 +175,7 @@ services:
       dockerfile: Dockerfile
       args:
         MODE: ${TEACHER_BUILD_MODE:-production}
+        VITE_API_URL: ${TEACHER_API_URL:-https://api.qalam.net.sa}
     image: qalam-teacher:latest
     container_name: qalam-teacher
     logging: *docker-logging
