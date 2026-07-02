@@ -27,10 +27,12 @@ Qalam.Infrastructure/Seeding/
 │
 ├── 📁 Languages Domain (مجال اللغات)
 │   ├── LanguageLevelsSeeder.cs        [المستويات: A1-A2, B1-B2, C1-C2]
-│   └── LanguageSubjectsSeeder.cs      [161 مادة لغوية]
+│   ├── LanguageSubjectsSeeder.cs      [161 مادة لغوية]
+│   └── LanguageSkillsCatalogSeeder.cs [وحدات ودروس — LanguageModule لكل المواد]
 │
 └── 📁 Skills Domain (مجال المهارات)
-    └── GeneralSkillsSubjectsSeeder.cs  [356 مهارة حياتية ومهنية وتقنية]
+    ├── GeneralSkillsSubjectsSeeder.cs  [30 مهارة حياتية ومهنية وتقنية]
+    └── LanguageSkillsCatalogSeeder.cs  [وحدات ودروس عينة — مشترك مع اللغات]
 ```
 
 ---
@@ -69,7 +71,10 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
     await LanguageSubjectsSeeder.SeedAsync(context);      // 161 مادة
     
     // المرحلة 5: المهارات العامة
-    await GeneralSkillsSubjectsSeeder.SeedAsync(context); // 356 مهارة
+    await GeneralSkillsSubjectsSeeder.SeedAsync(context); // 30 مهارة
+
+    // المرحلة 6: كتالوج اللغات والمهارات (وحدات + دروس عينة)
+    await LanguageSkillsCatalogSeeder.SeedAsync(context);
 }
 ```
 
@@ -79,7 +84,7 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 
 ### 1.1 EducationDomainsSeeder.cs
 
-**البيانات:** 4 مجالات تعليمية أساسية
+**البيانات:** 5 مجالات تعليمية (ترتيب الإدراج في قاعدة فارغة)
 
 | ID | Code | الاسم بالعربية | الاسم بالإنجليزية | HasCurriculum |
 |----|------|----------------|-------------------|---------------|
@@ -87,6 +92,9 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 | 2  | quran | قرآن كريم | Quran | ❌ No |
 | 3  | language | لغات | Languages | ❌ No |
 | 4  | skills | مهارات عامة | General Skills | ❌ No |
+| 5  | university | تعليم جامعي | University Education | ✅ Yes |
+
+**Hand-add samples (language & skills):** [`docs/seed-data/education-catalog-language-skills.json`](docs/seed-data/education-catalog-language-skills.json) — POST bodies for **additional** rows beyond startup seed. Sample `LanguageModule` units and lessons are auto-seeded by `LanguageSkillsCatalogSeeder.cs`. **University** catalog requires Phase 2: [`docs/university-multi-tenant-outline.md`](docs/university-multi-tenant-outline.md).
 
 **الاستخدام:**
 - المجال المدرسي يحتوي على منهج ثابت ومحدد
@@ -353,6 +361,8 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 
 ## 🌍 Languages Domain (مجال اللغات)
 
+**Startup catalog:** `LanguageSkillsCatalogSeeder.cs` seeds `LanguageModule` units and 2 lessons on **all ~161** language subjects. **Hand-add (additional rows):** [`docs/seed-data/education-catalog-language-skills.json`](docs/seed-data/education-catalog-language-skills.json) → `samplesByDomain.language`.
+
 ### 4.1 LanguageLevelsSeeder.cs
 
 **البيانات:** 3 مستويات + 6 درجات (CEFR Standard)
@@ -437,11 +447,43 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 
 ---
 
+### 4.3 LanguageSkillsCatalogSeeder.cs (language portion)
+
+**البيانات:** لكل مادة من الـ ~161 مادة في مجال اللغات:
+
+| الطبقة | القاعدة |
+|--------|---------|
+| وحدة | 1× `LanguageModule` (أو 2 للإسبانية المحادثة A1)، `termId: null` |
+| دروس | 2 دروس متداخلة لكل وحدة |
+
+**محتوى مخصص** لـ Spanish/English Conversation A1؛ **قالب افتراضي** (`Module 1 — Introduction` + Introduction / Practice) لباقي المواد.
+
+**Idempotency:** يتخطى كل مادة على حدة إذا وُجدت وحدة `LanguageModule` لها مسبقاً.
+
+---
+
 ## 🎯 Skills Domain (مجال المهارات العامة)
+
+**Startup catalog:** `LanguageSkillsCatalogSeeder.cs` seeds `LanguageModule` units and 2 lessons on **all 30** skills subjects. **Hand-add (additional rows):** [`docs/seed-data/education-catalog-language-skills.json`](docs/seed-data/education-catalog-language-skills.json) → `samplesByDomain.skills` and `workedExample`. Use `unitTypeCode: LanguageModule` for new units.
 
 ### 5.1 GeneralSkillsSubjectsSeeder.cs
 
-**البيانات:** 356 مهارة موزعة على 3 فئات
+**البيانات:** 30 مهارة موزعة على 3 فئات (8 حياتية + 7 مهنية + 15 تقنية)
+
+---
+
+### 5.2 LanguageSkillsCatalogSeeder.cs (skills portion)
+
+**البيانات:** لكل مادة من الـ 30 مادة في مجال المهارات:
+
+| الطبقة | القاعدة |
+|--------|---------|
+| وحدة | 1× `LanguageModule`، `termId: null` |
+| دروس | 2 دروس متداخلة لكل وحدة |
+
+**محتوى مخصص** لـ Communication Skills و Public Speaking & Presentation؛ **قالب افتراضي** (Unit 1 — Foundations + Introduction / Practice) لباقي المواد.
+
+**Idempotency:** يتخطى كل مادة على حدة إذا وُجدت وحدة `LanguageModule` لها مسبقاً (يدعم backfill على قواعد بيانات موجودة).
 
 ---
 
@@ -474,7 +516,7 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 
 ---
 
-### الفئة 3️⃣: Technical Skills (مهارات تقنية) - 19 مهارة
+### الفئة 3️⃣: Technical Skills (مهارات تقنية) - 15 مهارة
 
 #### البرمجة والتطوير:
 1. البرمجة بلغة بايثون (Python Programming)
@@ -501,7 +543,7 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 14. التسويق الرقمي (Digital Marketing)
 15. تحسين محركات البحث (SEO)
 
-**الإجمالي:** 34 مهارة تقنية × مستويات مختلفة = **356 مادة**
+**الإجمالي:** 8 + 7 + 15 = **30 مادة مهارة**
 
 ---
 
@@ -528,7 +570,7 @@ public static async Task SeedAllAsync(ApplicationDBContext context)
 | **مستويات اللغات** | 6 | A1, A2, B1, B2, C1, C2 |
 | **المواد اللغوية** | 161 | 10 لغات × مستويات متعددة |
 | | | |
-| **مواد المهارات** | 356 | حياتية + مهنية + تقنية |
+| **مواد المهارات** | 30 | حياتية + مهنية + تقنية |
 | | | |
 | **📈 الإجمالي الكلي** | **~1,000** | **إجمالي السجلات المُدخلة** |
 

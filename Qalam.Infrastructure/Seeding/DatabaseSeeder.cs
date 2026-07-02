@@ -38,6 +38,9 @@ public class DatabaseSeeder
 
         // General Skills Domain
         await GeneralSkillsSubjectsSeeder.SeedAsync(context);
+
+        // Language & skills catalog (units + lessons)
+        await LanguageSkillsCatalogSeeder.SeedAsync(context);
     }
 }
 

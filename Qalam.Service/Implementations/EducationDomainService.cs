@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
+using Qalam.Data.Entity.Teaching;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -43,6 +45,11 @@ public class EducationDomainService : IEducationDomainService
         return await _domainRepository.GetDomainWithLevelsAsync(id);
     }
 
+    public async Task<EducationDomain> GetDomainWithDetailsAsync(int id)
+    {
+        return await _domainRepository.GetDomainWithDetailsAsync(id);
+    }
+
     public async Task<EducationDomain> GetDomainByCodeAsync(string code)
     {
         return await _domainRepository.GetDomainByCodeAsync(code);
@@ -76,18 +83,21 @@ public class EducationDomainService : IEducationDomainService
 
     #region Command Operations
 
-    public async Task<EducationDomain> CreateDomainAsync(EducationDomain domain)
+    public async Task<EducationDomain> CreateDomainAsync(EducationDomain domain, EducationRuleDto? educationRule = null)
     {
         if (!await IsDomainCodeUniqueAsync(domain.Code))
             throw new InvalidOperationException($"Code '{domain.Code}' already exists");
 
+        var ruleDto = educationRule ?? EducationRuleDefaults.ForDomainCode(domain.Code);
         domain.CreatedAt = DateTime.UtcNow;
+        domain.EducationRule = EducationRuleDefaults.MapToEntity(ruleDto, 0);
+
         return await _domainRepository.AddAsync(domain);
     }
 
-    public async Task<EducationDomain> UpdateDomainAsync(EducationDomain domain)
+    public async Task<EducationDomain> UpdateDomainAsync(EducationDomain domain, EducationRuleDto? educationRule = null)
     {
-        var existing = await _domainRepository.GetByIdAsync(domain.Id);
+        var existing = await _domainRepository.GetDomainWithDetailsAsync(domain.Id);
         if (existing == null)
             throw new InvalidOperationException("Domain not found");
 
@@ -102,7 +112,13 @@ public class EducationDomainService : IEducationDomainService
         existing.IsActive = domain.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        await _domainRepository.UpdateAsync(existing);
+        var ruleDto = educationRule ?? EducationRuleDefaults.ForDomainCode(domain.Code);
+        if (existing.EducationRule == null)
+            existing.EducationRule = EducationRuleDefaults.MapToEntity(ruleDto, existing.Id);
+        else
+            EducationRuleDefaults.MapToEntity(ruleDto, existing.Id, existing.EducationRule);
+
+        await _domainRepository.SaveChangesAsync();
         return existing;
     }
 

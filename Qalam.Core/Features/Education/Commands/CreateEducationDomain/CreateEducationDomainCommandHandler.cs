@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
+using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Commands.CreateEducationDomain;
@@ -35,7 +37,8 @@ public class CreateEducationDomainCommandHandler : ResponseHandler,
                 IsActive = request.IsActive
             };
 
-            var result = await _domainService.CreateDomainAsync(domain);
+            var ruleDto = request.EducationRule ?? EducationRuleDefaults.ForDomainCode(request.Code);
+            var result = await _domainService.CreateDomainAsync(domain, ruleDto);
             return Created(entity: result);
         }
         catch (InvalidOperationException ex)

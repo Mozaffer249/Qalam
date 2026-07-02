@@ -37,6 +37,13 @@ docker compose up --build qalam-api messaging-api rabbitmq
 
 ### Frontend apps (host, for dev with hot reload)
 
+Point frontends at the API URL you use:
+
+| API mode | URL | Admin `NEXT_PUBLIC_API_URL` / Teacher `VITE_API_URL` |
+| --- | --- | --- |
+| Docker `qalam-api` | http://localhost:8080 | `http://localhost:8080` |
+| Native `dotnet run` / VS F5 | http://localhost:62900 | `http://localhost:62900` |
+
 ```bash
 # admin (Next.js, port 3005)
 cd apps/admin
@@ -48,6 +55,29 @@ cd apps/teacher
 npm install
 npm run dev
 ```
+
+### Run each project individually (Windows PowerShell)
+
+From repo root, in **separate terminals** (order matters for messaging):
+
+```powershell
+# 1) RabbitMQ only (Docker)
+.\scripts\dev\run-rabbitmq.ps1
+
+# 2) Messaging API → http://localhost:62901
+.\scripts\dev\run-messaging-api.ps1
+
+# 3) Main API → http://localhost:62900
+.\scripts\dev\run-api.ps1
+
+# 4) Admin → http://localhost:3005
+.\scripts\dev\run-admin.ps1
+
+# 5) Teacher → http://localhost:3000
+.\scripts\dev\run-teacher.ps1
+```
+
+Scripts load secrets from root `.env`. VS can also F5 **Qalam.Api** (port 62900) after setting user secrets or env vars from `.env`.
 
 ### Full stack via Docker
 

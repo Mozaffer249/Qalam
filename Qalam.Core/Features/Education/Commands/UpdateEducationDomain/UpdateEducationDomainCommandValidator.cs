@@ -21,5 +21,11 @@ public class UpdateEducationDomainCommandValidator : AbstractValidator<UpdateEdu
             .NotEmpty().WithMessage("Code is required")
             .MaximumLength(50).WithMessage("Code cannot exceed 50 characters")
             .Matches("^[a-z0-9_]+$").WithMessage("Code must contain only lowercase letters, numbers and underscores");
+
+        When(x => x.EducationRule != null, () =>
+        {
+            RuleFor(x => x.EducationRule!)
+                .SetValidator(new EducationRuleDtoValidator());
+        });
     }
 }

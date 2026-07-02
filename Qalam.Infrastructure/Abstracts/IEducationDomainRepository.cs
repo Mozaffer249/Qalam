@@ -12,6 +12,7 @@ public interface IEducationDomainRepository : IGenericRepositoryAsync<EducationD
     IQueryable<EducationDomainDto> GetDomainsDtoQueryable();
     Task<EducationDomainDto?> GetDomainDtoByIdAsync(int id);
     Task<EducationDomain> GetDomainWithLevelsAsync(int id);
+    Task<EducationDomain> GetDomainWithDetailsAsync(int id);
     Task<EducationDomain> GetDomainByCodeAsync(string code);
     Task<bool> IsDomainCodeUniqueAsync(string code, int? excludeId = null);
     Task<EducationRule?> GetEducationRuleByDomainCodeAsync(string domainCode);

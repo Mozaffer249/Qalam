@@ -23,7 +23,7 @@ public class GetEducationDomainByIdQueryHandler : ResponseHandler,
         GetEducationDomainByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var domain = await _domainService.GetDomainWithLevelsAsync(request.Id);
+        var domain = await _domainService.GetDomainWithDetailsAsync(request.Id);
         
         if (domain == null)
             return NotFound<EducationDomain>("Education domain not found");

@@ -12,12 +12,13 @@ public interface IEducationDomainService
     Task<EducationDomain> GetDomainByIdAsync(int id);
     Task<EducationDomainDto?> GetDomainDtoByIdAsync(int id);
     Task<EducationDomain> GetDomainWithLevelsAsync(int id);
+    Task<EducationDomain> GetDomainWithDetailsAsync(int id);
     Task<EducationDomain> GetDomainByCodeAsync(string code);
     Task<PaginatedResult<EducationDomainDto>> GetPaginatedDomainsAsync(int pageNumber, int pageSize, string? search = null);
 
     // Command operations
-    Task<EducationDomain> CreateDomainAsync(EducationDomain domain);
-    Task<EducationDomain> UpdateDomainAsync(EducationDomain domain);
+    Task<EducationDomain> CreateDomainAsync(EducationDomain domain, EducationRuleDto? educationRule = null);
+    Task<EducationDomain> UpdateDomainAsync(EducationDomain domain, EducationRuleDto? educationRule = null);
     Task<bool> DeleteDomainAsync(int id);
     Task<bool> ToggleDomainStatusAsync(int id);
 

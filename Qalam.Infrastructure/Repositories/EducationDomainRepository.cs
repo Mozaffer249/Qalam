@@ -39,6 +39,7 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 Code = d.Code,
                 DescriptionAr = d.DescriptionAr,
                 DescriptionEn = d.DescriptionEn,
+                IsActive = d.IsActive,
                 CreatedAt = d.CreatedAt
             });
     }
@@ -56,7 +57,31 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 Code = d.Code,
                 DescriptionAr = d.DescriptionAr,
                 DescriptionEn = d.DescriptionEn,
-                CreatedAt = d.CreatedAt
+                IsActive = d.IsActive,
+                CreatedAt = d.CreatedAt,
+                EducationRule = d.EducationRule == null ? null : new EducationRuleDto
+                {
+                    Id = d.EducationRule.Id,
+                    DomainId = d.EducationRule.DomainId,
+                    HasCurriculum = d.EducationRule.HasCurriculum,
+                    HasEducationLevel = d.EducationRule.HasEducationLevel,
+                    HasGrade = d.EducationRule.HasGrade,
+                    HasAcademicTerm = d.EducationRule.HasAcademicTerm,
+                    HasContentUnits = d.EducationRule.HasContentUnits,
+                    HasLessons = d.EducationRule.HasLessons,
+                    RequiresQuranContentType = d.EducationRule.RequiresQuranContentType,
+                    RequiresQuranLevel = d.EducationRule.RequiresQuranLevel,
+                    RequiresUnitTypeSelection = d.EducationRule.RequiresUnitTypeSelection,
+                    MinSessions = d.EducationRule.MinSessions,
+                    MaxSessions = d.EducationRule.MaxSessions,
+                    DefaultSessionDurationMinutes = d.EducationRule.DefaultSessionDurationMinutes,
+                    AllowExtension = d.EducationRule.AllowExtension,
+                    AllowFlexibleCourses = d.EducationRule.AllowFlexibleCourses,
+                    MinGroupSize = d.EducationRule.MinGroupSize,
+                    MaxGroupSize = d.EducationRule.MaxGroupSize,
+                    NotesAr = d.EducationRule.NotesAr,
+                    NotesEn = d.EducationRule.NotesEn,
+                }
             })
             .FirstOrDefaultAsync();
     }
@@ -65,6 +90,14 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
     {
         return await _dbContext.EducationDomains
             .Include(d => d.EducationLevels)
+            .FirstOrDefaultAsync(d => d.Id == id);
+    }
+
+    public async Task<EducationDomain> GetDomainWithDetailsAsync(int id)
+    {
+        return await _dbContext.EducationDomains
+            .Include(d => d.EducationLevels)
+            .Include(d => d.EducationRule)
             .FirstOrDefaultAsync(d => d.Id == id);
     }
 

@@ -1,5 +1,6 @@
 using MediatR;
 using Qalam.Core.Bases;
+using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 
 namespace Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
@@ -13,4 +14,5 @@ public class UpdateEducationDomainCommand : IRequest<Response<EducationDomain>>
     public string? DescriptionAr { get; set; }
     public string? DescriptionEn { get; set; }
     public bool IsActive { get; set; }
+    public EducationRuleDto? EducationRule { get; set; }
 }

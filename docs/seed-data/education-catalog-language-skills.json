@@ -1,0 +1,276 @@
+{
+  "description": "Hand-add catalog samples for Language and Skills domains. Resolve domainId from GET /Api/V1/Education/Domains â€” typical fresh seed: language=3, skills=4 (insertion order in EducationDomainsSeeder). Remote or customized DBs may differ.",
+  "idResolution": {
+    "steps": [
+      "GET /Api/V1/Education/Domains â€” map code (language | skills) to id",
+      "Admin UI: open /domains/{domainId}/tree â€” click canvas node, list via filter-options, Add opens create drawer",
+      "After each POST, refresh step panel or GET filter-options with parent ids to verify nextStep and list",
+      "Replace {{placeholders}} in bodyTemplate with ids returned from create responses or filter-options lists"
+    ],
+    "adminTreeUrls": {
+      "language": "/domains/{languageDomainId}/tree",
+      "skills": "/domains/{skillsDomainId}/tree"
+    },
+    "localDev": {
+      "apiBase": "http://localhost:8080",
+      "adminDev": "http://localhost:3005",
+      "auth": "Bearer <admin-jwt> on all POSTs"
+    }
+  },
+  "domainReference": {
+    "language": {
+      "typicalDomainId": 3,
+      "code": "language",
+      "nameEn": "Languages",
+      "wizardSteps": ["Level", "Subject", "Unit", "Lesson"],
+      "educationRule": {
+        "hasCurriculum": false,
+        "hasEducationLevel": true,
+        "hasGrade": false,
+        "hasAcademicTerm": false,
+        "hasContentUnits": true,
+        "hasLessons": true
+      },
+      "createEndpoints": {
+        "Level": "POST /Api/V1/Education/Levels",
+        "Subject": "POST /Api/V1/Subjects",
+        "Unit": "POST /Api/V1/Content/Units",
+        "Lesson": "POST /Api/V1/Content/Lessons"
+      },
+      "seededBy": [
+        "Qalam.Infrastructure/Seeding/LanguageLevelsSeeder.cs",
+        "Qalam.Infrastructure/Seeding/LanguageSubjectsSeeder.cs",
+        "Qalam.Infrastructure/Seeding/LanguageSkillsCatalogSeeder.cs"
+      ],
+      "notes": "DB seeds all ~161 language subjects with LanguageModule units (1 per subject) and 2 lessons each. Spanish/English Conversation A1 use curated module names; others use a default Introduction template. JSON samples add additional rows for testing admin tree."
+    },
+    "skills": {
+      "typicalDomainId": 4,
+      "code": "skills",
+      "nameEn": "General Skills",
+      "wizardSteps": ["Subject", "Unit", "Lesson"],
+      "educationRule": {
+        "hasCurriculum": false,
+        "hasEducationLevel": false,
+        "hasGrade": false,
+        "hasAcademicTerm": false,
+        "hasContentUnits": true,
+        "hasLessons": true
+      },
+      "createEndpoints": {
+        "Subject": "POST /Api/V1/Subjects",
+        "Unit": "POST /Api/V1/Content/Units",
+        "Lesson": "POST /Api/V1/Content/Lessons"
+      },
+      "seededBy": [
+        "Qalam.Infrastructure/Seeding/GeneralSkillsSubjectsSeeder.cs",
+        "Qalam.Infrastructure/Seeding/LanguageSkillsCatalogSeeder.cs"
+      ],
+      "notes": "DB seeds all 30 skills subjects with LanguageModule units (1 per subject) and 2 lessons each. Communication Skills and Public Speaking & Presentation use curated names; others use a default Foundations template. JSON samples add additional rows. Use unitTypeCode LanguageModule (no termId)."
+    }
+  },
+  "unitTypeCodeReference": {
+    "LanguageModule": "Language domain units; termId must be null",
+    "SchoolUnit": "School units; termId required â€” avoid for skills/language hand-add",
+    "QuranSurah": "Quran only",
+    "QuranPart": "Quran only"
+  },
+  "samplesByDomain": {
+    "language": {
+      "chainDescription": "Level â†’ Subject â†’ Unit (LanguageModule) â†’ Lesson",
+      "steps": [
+        {
+          "step": "Level",
+          "endpoint": "POST /Api/V1/Education/Levels",
+          "bodyTemplate": {
+            "nameAr": "ظ…ط³طھظˆظ‰ ظ…ط­ط§ط¯ط«ط©",
+            "nameEn": "Conversation Level",
+            "domainId": "{{domainId}}",
+            "orderIndex": 10,
+            "isActive": true
+          },
+          "typicalIdsExample": {
+            "domainId": 3
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}} â†’ nextStep Level, new row in options after refresh",
+          "notes": "No curriculumId. Seeded examples: Beginner Level, Intermediate Level, Advanced Level."
+        },
+        {
+          "step": "Subject",
+          "endpoint": "POST /Api/V1/Subjects",
+          "bodyTemplate": {
+            "nameAr": "ط§ظ„ط¥ط³ط¨ط§ظ†ظٹط©",
+            "nameEn": "Spanish",
+            "descriptionAr": "طھط¹ظ„ظ… ط§ظ„ظ„ط؛ط© ط§ظ„ط¥ط³ط¨ط§ظ†ظٹط©",
+            "descriptionEn": "Learn Spanish",
+            "domainId": "{{domainId}}",
+            "levelId": "{{levelId}}",
+            "curriculumId": null,
+            "gradeId": null,
+            "termId": null,
+            "isActive": true
+          },
+          "typicalIdsExample": {
+            "domainId": 3,
+            "levelId": "{{from previous Level POST response id}}"
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}}&levelId={{levelId}} â†’ nextStep Subject",
+          "notes": "Seeded examples include English, French, German. levelId required when rule.hasEducationLevel."
+        },
+        {
+          "step": "Unit",
+          "endpoint": "POST /Api/V1/Content/Units",
+          "bodyTemplate": {
+            "nameAr": "ط§ظ„ظˆط­ط¯ط© 1 â€” ط§ظ„طھط­ظٹط§طھ",
+            "nameEn": "Module 1 â€” Greetings",
+            "subjectId": "{{subjectId}}",
+            "termId": null,
+            "orderIndex": 1,
+            "unitTypeCode": "LanguageModule"
+          },
+          "typicalIdsExample": {
+            "subjectId": "{{from Subject POST response id}}"
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}}&levelId={{levelId}}&subjectId={{subjectId}} â†’ unit[] contains new module",
+          "notes": "Must use LanguageModule; termId null."
+        },
+        {
+          "step": "Lesson",
+          "endpoint": "POST /Api/V1/Content/Lessons",
+          "bodyTemplate": {
+            "nameAr": "ط§ظ„ط¯ط±ط³ 1 â€” ظ…ط±ط­ط¨ط§ظ‹",
+            "nameEn": "Lesson 1 â€” Hello",
+            "unitId": "{{unitId}}",
+            "orderIndex": 1
+          },
+          "typicalIdsExample": {
+            "unitId": "{{from Unit POST response id}}"
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?...&subjectId={{subjectId}}&contentUnitId={{unitId}} â†’ nextStep Lesson",
+          "notes": "Select unit in admin tree before listing/creating lessons."
+        }
+      ]
+    },
+    "skills": {
+      "chainDescription": "Subject â†’ Unit (LanguageModule) â†’ Lesson",
+      "steps": [
+        {
+          "step": "Subject",
+          "endpoint": "POST /Api/V1/Subjects",
+          "bodyTemplate": {
+            "nameAr": "ظ…ظ‡ط§ط±ط§طھ ط§ظ„ط¹ط±ط¶ ظˆط§ظ„طھظ‚ط¯ظٹظ…",
+            "nameEn": "Presentation Skills",
+            "descriptionAr": "طھط·ظˆظٹط± ظ…ظ‡ط§ط±ط§طھ ط§ظ„طھط­ط¯ط« ط£ظ…ط§ظ… ط§ظ„ط¬ظ…ظ‡ظˆط±",
+            "descriptionEn": "Developing public speaking and presentation skills",
+            "domainId": "{{domainId}}",
+            "curriculumId": null,
+            "levelId": null,
+            "gradeId": null,
+            "termId": null,
+            "isActive": true
+          },
+          "typicalIdsExample": {
+            "domainId": 4
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}} â†’ nextStep Subject",
+          "notes": "Seeded examples: Communication Skills, Critical Thinking, Time Management."
+        },
+        {
+          "step": "Unit",
+          "endpoint": "POST /Api/V1/Content/Units",
+          "bodyTemplate": {
+            "nameAr": "ط§ظ„ظˆط­ط¯ط© 1 â€” ط£ط³ط§ط³ظٹط§طھ ط§ظ„ط¹ط±ط¶",
+            "nameEn": "Unit 1 â€” Presentation Basics",
+            "subjectId": "{{subjectId}}",
+            "termId": null,
+            "orderIndex": 1,
+            "unitTypeCode": "LanguageModule"
+          },
+          "typicalIdsExample": {
+            "subjectId": "{{from Subject POST response id}}"
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}}&subjectId={{subjectId}} â†’ unit[]",
+          "notes": "Use LanguageModule not SchoolUnit â€” validator requires termId for SchoolUnit and skills has no terms."
+        },
+        {
+          "step": "Lesson",
+          "endpoint": "POST /Api/V1/Content/Lessons",
+          "bodyTemplate": {
+            "nameAr": "ط§ظ„ط¯ط±ط³ 1 â€” ظ‡ظٹظƒظ„ ط§ظ„ط¹ط±ط¶",
+            "nameEn": "Lesson 1 â€” Talk Structure",
+            "unitId": "{{unitId}}",
+            "orderIndex": 1
+          },
+          "typicalIdsExample": {
+            "unitId": "{{from Unit POST response id}}"
+          },
+          "filterOptionsVerify": "GET /Api/V1/Education/filter-options?domainId={{domainId}}&subjectId={{subjectId}}&contentUnitId={{unitId}} â†’ nextStep Lesson",
+          "notes": null
+        }
+      ]
+    }
+  },
+  "workedExample": {
+    "description": "End-to-end skills hand-add (simplest path). Replace domainId if GET Domains returns a different id for code=skills.",
+    "resolutionTable": [
+      { "placeholder": "domainId", "how": "GET Domains â†’ skills.id", "example": 4 },
+      { "placeholder": "subjectId", "how": "POST Subjects response data.id", "example": "e.g. 12001" },
+      { "placeholder": "unitId", "how": "POST Content/Units response data.id", "example": "e.g. 5001" }
+    ],
+    "requests": [
+      {
+        "order": 1,
+        "method": "GET",
+        "url": "/Api/V1/Education/Domains",
+        "note": "Find id where code === skills"
+      },
+      {
+        "order": 2,
+        "method": "POST",
+        "url": "/Api/V1/Subjects",
+        "body": {
+          "nameAr": "ظ…ظ‡ط§ط±ط§طھ ط§ظ„ط¹ط±ط¶ ظˆط§ظ„طھظ‚ط¯ظٹظ…",
+          "nameEn": "Presentation Skills",
+          "descriptionAr": null,
+          "descriptionEn": null,
+          "domainId": 4,
+          "isActive": true
+        }
+      },
+      {
+        "order": 3,
+        "method": "POST",
+        "url": "/Api/V1/Content/Units",
+        "body": {
+          "nameAr": "ط§ظ„ظˆط­ط¯ط© 1 â€” ط£ط³ط§ط³ظٹط§طھ ط§ظ„ط¹ط±ط¶",
+          "nameEn": "Unit 1 â€” Presentation Basics",
+          "subjectId": "{{subjectId from step 2}}",
+          "termId": null,
+          "orderIndex": 1,
+          "unitTypeCode": "LanguageModule"
+        }
+      },
+      {
+        "order": 4,
+        "method": "POST",
+        "url": "/Api/V1/Content/Lessons",
+        "body": {
+          "nameAr": "ط§ظ„ط¯ط±ط³ 1 â€” ظ‡ظٹظƒظ„ ط§ظ„ط¹ط±ط¶",
+          "nameEn": "Lesson 1 â€” Talk Structure",
+          "unitId": "{{unitId from step 3}}",
+          "orderIndex": 1
+        }
+      },
+      {
+        "order": 5,
+        "method": "GET",
+        "url": "/Api/V1/Education/filter-options?domainId=4&subjectId={{subjectId}}",
+        "note": "Confirm unit[] lists new module; admin tree Subject â†’ Unit nodes show selections"
+      }
+    ]
+  },
+  "universityDeferred": {
+    "reason": "Multi-university institutional model not implemented. See docs/university-multi-tenant-outline.md",
+    "handAddNotIncluded": true
+  }
+}

@@ -41,7 +41,7 @@ The education catalog is a **tree** rooted at **Domain**. Each domain has an **`
 | Layer | Entity | Admin CRUD in API |
 |-------|--------|-------------------|
 | Root | `EducationDomain` | **Full CRUD** |
-| Rule | `EducationRule` | **Seed / DB only** (no REST API) |
+| Rule | `EducationRule` | **Create/update with domain** (nested `educationRule` on domain APIs) |
 | Branch | `Curriculum` | **Full CRUD** + toggle active |
 | Branch | `EducationLevel` | **Create + list** |
 | Branch | `Grade` | **Create + list** |
@@ -235,8 +235,44 @@ Content-Type: application/json
 | `nameAr`, `nameEn` | Required, max 200 |
 | `code` | Required, max 50, pattern `^[a-z0-9_]+$`, unique |
 | `isActive` | Default `true` |
+| `educationRule` | Optional on create; if omitted, defaults are applied from domain `code` (see templates in `EducationRuleDefaults`). Required for `filter-options` wizard to work. |
 
-**Note:** Creating a domain via API does **not** auto-create an `EducationRule`. Seeded domains include rules; custom domains may need a DB rule row for `filter-options` to work.
+**`educationRule` fields:** `hasCurriculum`, `hasEducationLevel`, `hasGrade`, `hasAcademicTerm`, `hasContentUnits`, `hasLessons`, `requiresQuranContentType`, `requiresQuranLevel`, `requiresUnitTypeSelection`, `minSessions`, `maxSessions`, `defaultSessionDurationMinutes`, `minGroupSize`, `maxGroupSize`, `allowExtension`, `allowFlexibleCourses`, `notesAr`, `notesEn`.
+
+Example create body:
+
+```json
+{
+  "nameAr": "المدرسة",
+  "nameEn": "School",
+  "code": "school",
+  "descriptionAr": null,
+  "descriptionEn": null,
+  "isActive": true,
+  "educationRule": {
+    "hasCurriculum": true,
+    "hasEducationLevel": true,
+    "hasGrade": true,
+    "hasAcademicTerm": true,
+    "hasContentUnits": true,
+    "hasLessons": true,
+    "requiresQuranContentType": false,
+    "requiresQuranLevel": false,
+    "requiresUnitTypeSelection": false,
+    "minSessions": 1,
+    "maxSessions": 200,
+    "defaultSessionDurationMinutes": 45,
+    "minGroupSize": 1,
+    "maxGroupSize": 30,
+    "allowExtension": true,
+    "allowFlexibleCourses": true,
+    "notesAr": null,
+    "notesEn": null
+  }
+}
+```
+
+Creating a domain **auto-creates** an `EducationRule` (from body or code-based defaults). `GET /Education/Domains/{id}` includes `educationRule`.
 
 ### Update domain (Admin)
 
@@ -244,7 +280,7 @@ Content-Type: application/json
 PUT /Api/V1/Education/Domains/{id}
 ```
 
-Body: same fields as create + `"id": {id}` (must match route).
+Body: same fields as create + `"id": {id}` (must match route). Include `educationRule` to update settings (upserted 1:1 with domain).
 
 ### Delete domain (Admin)
 
@@ -550,6 +586,42 @@ Returns `nextStep`, `options[]`, `unit[]`, `rule`, and domain-specific fields (`
 
 **Full reference:** [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md)
 
+### Admin content tree (`/domains/{id}/tree`)
+
+Visual read-only canvas of enabled `EducationRule` steps (via `@xyflow/react`) plus a step panel that lists catalog items from `filter-options` and creates new rows through existing POST endpoints (Curriculum → Level → Grade → Subject → Unit → Lesson). Academic **Term** is list-only in v1 (no Terms REST API).
+
+| Active step | List source | Create API |
+|-------------|-------------|------------|
+| Curriculum | `filter-options` `nextStep=Curriculum` | `POST /Curriculum` |
+| Level | `nextStep=Level` | `POST /Education/Levels` |
+| Grade | `nextStep=Grade` | `POST /Education/Grades` |
+| Subject | `nextStep=Subject` | `POST /Subjects` |
+| Term | `nextStep=Term` | Read-only (seeded) |
+| Unit | `unit[]` | `POST /Content/Units` |
+| Lesson | `nextStep=Lesson` | `POST /Content/Lessons` |
+
+### Teacher wizard alignment (subjects survey)
+
+Shared helpers in `apps/teacher/src/lib/education/` drive group creation and unit picking from the same `rule` + `nextStep` contract:
+
+- camelCase query params (`domainId`, `curriculumId`, `termIds`, `contentUnitId`, `skipLessons`)
+- Term multi-select (or “show all units” = all term IDs) before units load
+- Quran branch when `rule.requiresQuranContentType` (not only `domainCode === 'quran'`)
+
+### Hand-add sample data (language & skills)
+
+Copy-paste POST bodies for manual catalog entry (admin tree or REST):
+
+→ [`docs/seed-data/education-catalog-language-skills.json`](seed-data/education-catalog-language-skills.json)  
+→ [`docs/seed-data/README.md`](seed-data/README.md)
+
+| Domain | Typical code | Wizard steps | Unit type for hand-add |
+|--------|--------------|--------------|-------------------------|
+| Languages | `language` | Level → Subject → Unit → Lesson | `LanguageModule`, `termId: null` |
+| General skills | `skills` | Subject → Unit → Lesson | `LanguageModule` (not `SchoolUnit` — term required) |
+
+Resolve `domainId` from `GET /Api/V1/Education/Domains` before posting. **University** catalog hand-add is deferred until the multi-institution model in [`university-multi-tenant-outline.md`](university-multi-tenant-outline.md) is implemented.
+
 ---
 
 ## 13. Gaps & limitations
@@ -557,7 +629,6 @@ Returns `nextStep`, `options[]`, `unit[]`, `rule`, and domain-specific fields (`
 | Gap | Impact |
 |-----|--------|
 | No **Terms** REST API | Manage terms via seeds/DB; use `filter-options` to list |
-| No **EducationRule** API | Rule flags edited in DB or seeder only |
 | **Levels / grades** — create only | No update, delete, or get-by-id |
 | **Units / lessons** — create only | No update or delete |
 | **Curriculum** writes not Admin-gated | Any authenticated user can mutate curriculum |
