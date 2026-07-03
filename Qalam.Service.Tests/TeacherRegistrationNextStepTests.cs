@@ -34,7 +34,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_ActiveWithoutAvailability_ReturnsDashboardWithAvailabilityFlag()
+    public async Task GetNextStep_ActiveWithoutAvailability_ReturnsSetAvailability()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.Active,
@@ -44,8 +44,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Dashboard", step.NextStepName);
-        Assert.True(step.IsRegistrationComplete);
+        Assert.Equal("Set Your Availability", step.NextStepName);
+        Assert.False(step.IsRegistrationComplete);
         Assert.True(step.RequiresAvailabilitySetup);
     }
 
@@ -66,11 +66,27 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenCanActivate_ReturnsAwaitingFinalApproval()
+    public async Task GetNextStep_PendingVerificationWhenCanActivate_ReturnsSetAvailabilityBeforeFinalApproval()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             hasAvailability: false,
+            hasSubjects: true,
+            canActivate: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Set Your Availability", step.NextStepName);
+        Assert.True(step.RequiresAvailabilitySetup);
+        Assert.False(step.IsRegistrationComplete);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWithSubjectsAndAvailability_ReturnsAwaitingFinalApproval()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: true,
             hasSubjects: true,
             canActivate: true);
 
@@ -82,11 +98,27 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsAwaitingDomainVerification()
+    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsSetAvailabilityWhenSubjectsExist()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             hasAvailability: false,
+            hasSubjects: true,
+            canActivate: false,
+            hasPendingRegistrationReview: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Set Your Availability", step.NextStepName);
+        Assert.True(step.RequiresAvailabilitySetup);
+    }
+
+    [Fact]
+    public async Task GetNextStep_PendingVerificationWhenNotReadyWithAvailability_ReturnsAwaitingDomainVerification()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: true,
             hasSubjects: true,
             canActivate: false,
             hasPendingRegistrationReview: true);
@@ -243,7 +275,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.Equal("Set Your Availability", step.NextStepName);
+        Assert.True(step.RequiresAvailabilitySetup);
     }
 
     [Fact]
@@ -729,8 +762,8 @@ public class TeacherAccountStatusServiceTests
     {
         var nextStep = new RegistrationStepDto
         {
-            NextStepName = "Dashboard",
-            IsRegistrationComplete = true,
+            NextStepName = "Set Your Availability",
+            IsRegistrationComplete = false,
             RequiresAvailabilitySetup = true
         };
 
@@ -745,7 +778,7 @@ public class TeacherAccountStatusServiceTests
         Assert.True(status.IsAccountActivated);
         Assert.False(status.AwaitingFinalApproval);
         Assert.True(status.RequiresAvailabilitySetup);
-        Assert.Equal("Dashboard", status.NextStep.NextStepName);
+        Assert.Equal("Set Your Availability", status.NextStep.NextStepName);
         Assert.True(status.NextStep.RequiresAvailabilitySetup);
     }
 

@@ -324,17 +324,17 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 if (!hasSubjects)
                     return BuildAddSubjectsStep();
 
-                var requiresAvailability = !await _availabilityRepository.HasAnyAvailabilityAsync(teacher.Id);
+                if (await ShouldOfferSetAvailabilityStepAsync(teacher.Id))
+                    return BuildSetAvailabilityStep();
+
                 return new RegistrationStepDto
                 {
                     CurrentStep = 6,
                     NextStep = 0,
                     NextStepName = "Dashboard",
                     IsRegistrationComplete = true,
-                    RequiresAvailabilitySetup = requiresAvailability,
-                    Message = requiresAvailability
-                        ? "Your account is active. Set your availability from the dashboard when you are ready."
-                        : "Welcome back! Your teacher dashboard is ready."
+                    RequiresAvailabilitySetup = false,
+                    Message = "Welcome back! Your teacher dashboard is ready."
                 };
             }
 
@@ -381,6 +381,9 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
                 return BuildAddSubjectsStep();
 
+            if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
+                return BuildSetAvailabilityStep();
+
             return BuildAwaitingDomainVerificationStep();
         }
 
@@ -389,11 +392,17 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
                 return BuildAddSubjectsStep();
 
+            if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
+                return BuildSetAvailabilityStep();
+
             return BuildAwaitingFinalApprovalStep();
         }
 
         if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
             return BuildAddSubjectsStep();
+
+        if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
+            return BuildSetAvailabilityStep();
 
         return BuildAwaitingDomainVerificationStep();
     }
@@ -407,6 +416,10 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         !await NeedsRegistrationActionBeforeSubjectsAsync(teacherId)
         && await _domainQuestionStatusService.HasAnyFullyApprovedCatalogDomainAsync(teacherId, cancellationToken)
         && !await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId);
+
+    private async Task<bool> ShouldOfferSetAvailabilityStepAsync(int teacherId) =>
+        await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId)
+        && !await _availabilityRepository.HasAnyAvailabilityAsync(teacherId);
 
     private static RegistrationStepDto BuildReuploadRejectedDocumentsStep(
         List<TeacherReviewCorrectionDto> corrections) =>
@@ -459,6 +472,17 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStepName = "Add Teaching Subjects and Units",
             IsRegistrationComplete = false,
             Message = "Add the subjects and content units you can teach."
+        };
+
+    private static RegistrationStepDto BuildSetAvailabilityStep() =>
+        new()
+        {
+            CurrentStep = 5,
+            NextStep = 6,
+            NextStepName = "Set Your Availability",
+            IsRegistrationComplete = false,
+            RequiresAvailabilitySetup = true,
+            Message = "Set the days and hours you are available to teach."
         };
 
     private static RegistrationStepDto BuildAwaitingFinalApprovalStep() =>
