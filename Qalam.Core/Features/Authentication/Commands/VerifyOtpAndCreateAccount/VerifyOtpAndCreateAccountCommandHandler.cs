@@ -22,6 +22,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
     private readonly IAuthenticationService _authService;
     private readonly IAuthSettingsProvider _authSettingsProvider;
     private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
+    private readonly ITeacherRegistrationCompletionService _completionService;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
@@ -32,6 +33,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         IAuthenticationService authService,
         IAuthSettingsProvider authSettingsProvider,
         IAuthLoginOtpHelper authLoginOtpHelper,
+        ITeacherRegistrationCompletionService completionService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -42,6 +44,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         _authService = authService;
         _authSettingsProvider = authSettingsProvider;
         _authLoginOtpHelper = authLoginOtpHelper;
+        _completionService = completionService;
     }
 
     public async Task<Response<object>> Handle(
@@ -86,6 +89,9 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
                 return BadRequest<object>("Your account has been blocked. Please contact support.");
 
             await _teacherRegistrationService.EnsureTeacherRoleForUserAsync(existingUser.Id);
+
+            if (teacher != null && teacher.Status != TeacherStatus.Active)
+                await _completionService.RefreshTeacherStatusAfterReviewAsync(teacher.Id, cancellationToken);
 
             var jwtResult = await _authService.GetJWTToken(existingUser);
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(existingUser.Id);

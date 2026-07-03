@@ -7,13 +7,13 @@ Admin-defined questions shown when a teacher adds subjects in an education domai
 | Concern | Behavior |
 |---------|----------|
 | Scope | Every **catalog** education domain with at least one active **required** question (e.g. school, quran, language from seed) |
-| Registration order | **Before** subject selection — complete all catalog domains, wait for admin approval, then add subjects |
+| Registration order | **Before** subject selection in a domain — complete that domain's questions and get admin approval; subject wizard shows only approved domains |
 | Admin review | Per-question `requiresAdminReview` flag |
 | Empty catalog | No change — same flow as before |
 
 ## Teacher flow
 
-Registration order: **documents → domain questions (all catalog domains) → admin domain review → subjects**.
+Registration order: **documents → domain questions (per domain) → admin domain review → subjects in approved domains**.
 
 ```mermaid
 sequenceDiagram
@@ -126,15 +126,23 @@ When admin rejects a domain question that requires review:
 
 Multi-domain: rejecting school license does **not** affect quran/language subjects in other domains.
 
-### 3. Add subjects (after all catalog domains approved)
+### 3. Add subjects (per-domain approval)
 
-`POST /Api/V1/Teacher/TeacherSubject` returns `400` unless **all** catalog domains with required questions are fully **approved**.
+`POST /Api/V1/Teacher/TeacherSubject` returns `400` unless the **education domain of each subject being saved** is fully approved:
+
+- All **required** questions must have **Approved** submissions.
+- Any **submitted** answer on a question with `requiresAdminReview=true` (required or optional) must be **Approved** — **Pending** or **Rejected** blocks subject selection.
+- Optional admin-review questions that were **not submitted** do not block selection.
+
+Teachers load domains via `GET /Api/V1/Education/Domains`. The subject wizard lists **all** catalog domains; domains where `canSelectForSubjects` is false appear **disabled** with hints (`requiresAnswer`, rejected answers, or pending admin review). Optional query `forSubjectSelection=true` still filters to eligible domains only (for other callers).
+
+Catalog domains with seeded verification questions: **school**, **quran**, **language**, **skills**, **university**.
 
 ## Admin — catalog CRUD (SuperAdmin)
 
 Base path: `/Api/V1/Admin/TeacherDomainQuestions`
 
-**Sample payloads & seeded defaults:** `docs/seed-data/teacher-domain-questions.json` (also inserted on startup via `TeacherDomainQuestionsSeeder` for `school`, `quran`, `language` domains).
+**Sample payloads & seeded defaults:** `docs/seed-data/teacher-domain-questions.json` (also inserted on startup via `TeacherDomainQuestionsSeeder` for `school`, `quran`, `language`, `skills`, `university` domains).
 
 | Method | Path | Notes |
 |--------|------|-------|

@@ -1,5 +1,4 @@
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -8,14 +7,14 @@ namespace Qalam.Service.Implementations;
 public class TeacherReviewCorrectionService : ITeacherReviewCorrectionService
 {
     private readonly ITeacherDocumentRepository _documentRepository;
-    private readonly ITeacherDomainQuestionSubmissionRepository _domainSubmissionRepository;
+    private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
 
     public TeacherReviewCorrectionService(
         ITeacherDocumentRepository documentRepository,
-        ITeacherDomainQuestionSubmissionRepository domainSubmissionRepository)
+        ITeacherDomainQuestionStatusService domainQuestionStatusService)
     {
         _documentRepository = documentRepository;
-        _domainSubmissionRepository = domainSubmissionRepository;
+        _domainQuestionStatusService = domainQuestionStatusService;
     }
 
     public async Task<List<TeacherReviewCorrectionDto>> GetPendingCorrectionsAsync(
@@ -33,20 +32,8 @@ public class TeacherReviewCorrectionService : ITeacherReviewCorrectionService
             RejectionReason = d.RejectionReason
         }));
 
-        var domainSubmissions = await _domainSubmissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
-        var rejectedDomain = domainSubmissions
-            .Where(s => s.VerificationStatus == DocumentVerificationStatus.Rejected)
-            .ToList();
-
-        corrections.AddRange(rejectedDomain.Select(s => new TeacherReviewCorrectionDto
-        {
-            Type = TeacherReviewCorrectionType.DomainQuestion,
-            DomainId = s.Question.DomainId,
-            DomainCode = s.Question.Domain?.Code,
-            SubmissionId = s.Id,
-            Label = s.Question.NameEn,
-            RejectionReason = s.RejectionReason ?? string.Empty
-        }));
+        corrections.AddRange(
+            await _domainQuestionStatusService.GetRejectedDomainCorrectionsAsync(teacherId, cancellationToken));
 
         return corrections;
     }

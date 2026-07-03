@@ -1,5 +1,5 @@
 {
-  "description": "Sample teacher domain questions (seeded on app startup via TeacherDomainQuestionsSeeder). Resolve domainId from GET /Api/V1/Education/Domains — seeded codes: school=1, quran=2, language=3 (typical fresh DB).",
+  "description": "Sample teacher domain questions (seeded on app startup via TeacherDomainQuestionsSeeder). Resolve domainId from GET /Api/V1/Education/Domains — typical codes: school, quran, language, skills, university.",
   "enumReference": {
     "requirementType": { "File": 1, "Text": 2, "Boolean": 3, "Selection": 4 },
     "mapsToDocumentType": { "IdentityDocument": 1, "Certificate": 2, "Other": 3 }
@@ -40,6 +40,42 @@
       "mapsToDocumentType": "Other",
       "isSystem": true,
       "teacherSubmitField": "file_school_teaching_license"
+    }
+  ],
+  "skillsDomainExamples": [
+    {
+      "domainCode": "skills",
+      "code": "skills_experience_years",
+      "nameEn": "Years of skills teaching experience",
+      "requirementType": "Text",
+      "isRequired": true,
+      "requiresAdminReview": false
+    },
+    {
+      "domainCode": "skills",
+      "code": "skills_certification",
+      "nameEn": "Professional or training certification",
+      "requirementType": "File",
+      "isRequired": false,
+      "requiresAdminReview": true
+    }
+  ],
+  "universityDomainExamples": [
+    {
+      "domainCode": "university",
+      "code": "university_teaching_experience",
+      "nameEn": "University teaching experience",
+      "requirementType": "Text",
+      "isRequired": true,
+      "requiresAdminReview": false
+    },
+    {
+      "domainCode": "university",
+      "code": "university_degree_certificate",
+      "nameEn": "Degree certificate",
+      "requirementType": "File",
+      "isRequired": true,
+      "requiresAdminReview": true
     }
   ],
   "createRequestExamples": {

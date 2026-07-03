@@ -81,22 +81,28 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
                 }
             }
         }
-        else
-        {
-            foreach (var q in activeQuestions)
-            {
-                if (existingByQuestionId.TryGetValue(q.Id, out var existing)
-                    && existing.VerificationStatus != DocumentVerificationStatus.Rejected)
-                {
-                    return BadRequest<TeacherDomainQuestionSubmitResponseDto>(
-                        $"Question '{q.Code}' cannot be changed while it is under review or approved.");
-                }
-            }
-        }
 
         var (input, submittedCodes, normalizeError) = NormalizeRequest(request);
         if (normalizeError != null)
             return BadRequest<TeacherDomainQuestionSubmitResponseDto>(normalizeError);
+
+        if (isResubmit)
+        {
+            foreach (var code in submittedCodes)
+            {
+                var question = activeQuestions.FirstOrDefault(q =>
+                    string.Equals(q.Code, code, StringComparison.OrdinalIgnoreCase));
+                if (question == null)
+                    continue;
+
+                if (existingByQuestionId.TryGetValue(question.Id, out var existing)
+                    && existing.VerificationStatus != DocumentVerificationStatus.Rejected)
+                {
+                    return BadRequest<TeacherDomainQuestionSubmitResponseDto>(
+                        $"Question '{question.Code}' cannot be changed while it is under review or approved.");
+                }
+            }
+        }
 
         var unknownCodeError = ValidateKnownCodes(submittedCodes, activeQuestions);
         if (unknownCodeError != null)
@@ -127,6 +133,12 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
             var requiresAnswer = await _statusService.DomainRequiresAnswerAsync(teacher.Id, request.DomainId, cancellationToken);
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
 
+            var message = requiresAnswer
+                ? "Some required questions are still unanswered."
+                : nextStep.NextStepName == "Awaiting Domain Verification"
+                    ? "Answers submitted. Waiting for admin approval."
+                    : "Domain questions submitted successfully.";
+
             return Success(
                 entity: new TeacherDomainQuestionSubmitResponseDto
                 {
@@ -134,9 +146,7 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
                     RequiresAnswer = requiresAnswer,
                     SubmittedCodes = submittedCodes,
                     NextStep = nextStep,
-                    Message = requiresAnswer
-                        ? "Some required questions are still unanswered."
-                        : "Domain questions submitted successfully."
+                    Message = message
                 });
         }
         catch (Exception ex)

@@ -306,18 +306,20 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 if (registrationRejected.Count > 0)
                     return BuildReuploadRejectedDocumentsStep(registrationRejected);
 
-                var domainRejected = corrections
-                    .Where(c => c.Type == TeacherReviewCorrectionType.DomainQuestion
-                                && !string.IsNullOrWhiteSpace(c.RejectionReason))
-                    .ToList();
-                if (domainRejected.Count > 0)
+                if (await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacher.Id))
+                {
+                    var domainRejected = await _domainQuestionStatusService.GetRejectedDomainCorrectionsAsync(teacher.Id);
                     return BuildFixDomainVerificationStep(domainRejected);
+                }
 
                 return await BuildPostRegistrationStepAsync(teacher.Id);
             }
 
             case TeacherStatus.Active:
             {
+                if (await NeedsRegistrationActionBeforeSubjectsAsync(teacher.Id))
+                    return await BuildPostRegistrationStepAsync(teacher.Id);
+
                 var hasSubjects = await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id);
                 if (!hasSubjects)
                     return BuildAddSubjectsStep();
@@ -355,30 +357,56 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         if (registrationRejected.Count > 0)
             return BuildReuploadRejectedDocumentsStep(registrationRejected);
 
-        var domainRejected = corrections
-            .Where(c => c.Type == TeacherReviewCorrectionType.DomainQuestion
-                        && !string.IsNullOrWhiteSpace(c.RejectionReason))
-            .ToList();
-        if (domainRejected.Count > 0)
+        if (await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacherId))
+        {
+            var domainRejected = await _domainQuestionStatusService.GetRejectedDomainCorrectionsAsync(teacherId);
             return BuildFixDomainVerificationStep(domainRejected);
+        }
 
         var catalogDomainIds = await _domainQuestionStatusService.GetCatalogDomainIdsWithRequiredQuestionsAsync();
         if (catalogDomainIds.Count > 0
             && await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId))
             return BuildCompleteDomainQuestionsStep();
 
+        if (catalogDomainIds.Count > 0
+            && await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId))
+            return BuildAwaitingDomainVerificationStep();
+
         var hasPendingRegistration =
             await _completionService.HasPendingRequiredRegistrationReviewAsync(teacherId);
         var hasPendingDomain = catalogDomainIds.Count > 0
             && await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId);
         if (hasPendingRegistration || hasPendingDomain)
+        {
+            if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
+                return BuildAddSubjectsStep();
+
             return BuildAwaitingDomainVerificationStep();
+        }
 
         if (await _completionService.CanActivateTeacherAccountAsync(teacherId))
+        {
+            if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
+                return BuildAddSubjectsStep();
+
             return BuildAwaitingFinalApprovalStep();
+        }
+
+        if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
+            return BuildAddSubjectsStep();
 
         return BuildAwaitingDomainVerificationStep();
     }
+
+    private async Task<bool> NeedsRegistrationActionBeforeSubjectsAsync(int teacherId) =>
+        await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacherId)
+        || await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId)
+        || await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId);
+
+    private async Task<bool> ShouldOfferAddSubjectsStepAsync(int teacherId, CancellationToken cancellationToken) =>
+        !await NeedsRegistrationActionBeforeSubjectsAsync(teacherId)
+        && await _domainQuestionStatusService.HasAnyFullyApprovedCatalogDomainAsync(teacherId, cancellationToken)
+        && !await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId);
 
     private static RegistrationStepDto BuildReuploadRejectedDocumentsStep(
         List<TeacherReviewCorrectionDto> corrections) =>

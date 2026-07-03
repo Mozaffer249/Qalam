@@ -58,16 +58,10 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
                 $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
         }
 
-        if (teacher.Status != TeacherStatus.Active)
+        if (teacher.Status is not (TeacherStatus.Active or TeacherStatus.PendingVerification))
         {
             return BadRequest<TeacherSubjectsResponseDto>(
-                "Your account must be activated by admin before adding teaching subjects.");
-        }
-
-        if (!await _domainQuestionStatusService.AreAllCatalogDomainsFullyApprovedAsync(teacher.Id, cancellationToken))
-        {
-            return BadRequest<TeacherSubjectsResponseDto>(
-                "Complete and wait for approval of all domain verification requirements before adding subjects.");
+                "Complete registration and domain verification before adding teaching subjects.");
         }
 
         var domainQuestionError = await _domainQuestionStatusService.ValidateSubjectsDomainQuestionsAsync(

@@ -334,6 +334,170 @@ public class TeacherRegistrationCompletionServiceTests
         Assert.Contains("corrected", error, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task CanActivate_DoesNotThrow_WithMultipleCertificateSubmissions()
+    {
+        var identityRequirement = new TeacherRegistrationRequirement
+        {
+            Id = 1,
+            Code = "identity",
+            NameAr = "identity",
+            NameEn = "identity",
+            RequirementType = RegistrationRequirementType.File,
+            IsActive = true,
+            IsRequired = true,
+            MinCount = 1,
+            MaxCount = 1
+        };
+
+        var certificateRequirement = new TeacherRegistrationRequirement
+        {
+            Id = 2,
+            Code = "certificate",
+            NameAr = "certificate",
+            NameEn = "certificate",
+            RequirementType = RegistrationRequirementType.File,
+            IsActive = true,
+            IsRequired = true,
+            MinCount = 1,
+            MaxCount = 5
+        };
+
+        var submissions = new List<TeacherRegistrationSubmission>
+        {
+            new()
+            {
+                Id = 1,
+                TeacherId = TeacherId,
+                RequirementId = identityRequirement.Id,
+                Requirement = identityRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            },
+            new()
+            {
+                Id = 2,
+                TeacherId = TeacherId,
+                RequirementId = certificateRequirement.Id,
+                Requirement = certificateRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            },
+            new()
+            {
+                Id = 3,
+                TeacherId = TeacherId,
+                RequirementId = certificateRequirement.Id,
+                Requirement = certificateRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            requirements: [identityRequirement, certificateRequirement],
+            registrationSubmissions: submissions);
+
+        var canActivate = await service.CanActivateTeacherAccountAsync(TeacherId);
+
+        Assert.True(canActivate);
+    }
+
+    [Fact]
+    public async Task RefreshTeacherStatusAfterReview_SetsDocumentsRejected_WhenDomainRejectedAndMultiFileCerts()
+    {
+        TeacherStatus? updatedStatus = null;
+
+        var identityRequirement = new TeacherRegistrationRequirement
+        {
+            Id = 1,
+            Code = "identity",
+            NameAr = "identity",
+            NameEn = "identity",
+            RequirementType = RegistrationRequirementType.File,
+            IsActive = true,
+            IsRequired = true,
+            MinCount = 1,
+            MaxCount = 1
+        };
+
+        var certificateRequirement = new TeacherRegistrationRequirement
+        {
+            Id = 2,
+            Code = "certificate",
+            NameAr = "certificate",
+            NameEn = "certificate",
+            RequirementType = RegistrationRequirementType.File,
+            IsActive = true,
+            IsRequired = true,
+            MinCount = 1,
+            MaxCount = 5
+        };
+
+        var domainQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "skills_certification",
+            IsRequired = false,
+            RequiresAdminReview = true
+        };
+
+        var submissions = new List<TeacherRegistrationSubmission>
+        {
+            new()
+            {
+                Id = 1,
+                TeacherId = TeacherId,
+                RequirementId = identityRequirement.Id,
+                Requirement = identityRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            },
+            new()
+            {
+                Id = 2,
+                TeacherId = TeacherId,
+                RequirementId = certificateRequirement.Id,
+                Requirement = certificateRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            },
+            new()
+            {
+                Id = 3,
+                TeacherId = TeacherId,
+                RequirementId = certificateRequirement.Id,
+                Requirement = certificateRequirement,
+                VerificationStatus = DocumentVerificationStatus.Approved
+            }
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            requirements: [identityRequirement, certificateRequirement],
+            registrationSubmissions: submissions,
+            domainIds: [1],
+            domainQuestions: [domainQuestion],
+            domainSubmissions:
+            [
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 100,
+                    TeacherId = TeacherId,
+                    QuestionId = domainQuestion.Id,
+                    Question = domainQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                    RejectionReason = "Invalid certificate"
+                }
+            ],
+            onStatusUpdate: status => updatedStatus = status);
+
+        await service.RefreshTeacherStatusAfterReviewAsync(TeacherId);
+
+        Assert.Equal(TeacherStatus.DocumentsRejected, updatedStatus);
+    }
+
     private static TeacherRegistrationCompletionService BuildService(
         TeacherStatus teacherStatus,
         bool requirementsApproved,
@@ -342,7 +506,9 @@ public class TeacherRegistrationCompletionServiceTests
         ITeacherLifecycleEmailService? lifecycleEmail = null,
         List<int>? domainIds = null,
         List<TeacherDomainQuestion>? domainQuestions = null,
-        List<TeacherDomainQuestionSubmission>? domainSubmissions = null)
+        List<TeacherDomainQuestionSubmission>? domainSubmissions = null,
+        List<TeacherRegistrationRequirement>? requirements = null,
+        List<TeacherRegistrationSubmission>? registrationSubmissions = null)
     {
         var teacher = new Teacher { Id = TeacherId, Status = teacherStatus };
 
@@ -370,15 +536,18 @@ public class TeacherRegistrationCompletionServiceTests
                 : DocumentVerificationStatus.Pending
         };
 
+        var activeRequirements = requirements ?? [requirement];
+        var activeSubmissions = registrationSubmissions ?? [submission];
+
         var requirementRepo = new Mock<ITeacherRegistrationRequirementRepository>();
         requirementRepo
             .Setup(r => r.GetActiveOrderedAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([requirement]);
+            .ReturnsAsync(activeRequirements);
 
         var submissionRepo = new Mock<ITeacherRegistrationSubmissionRepository>();
         submissionRepo
             .Setup(r => r.GetByTeacherIdWithRequirementsAsync(TeacherId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([submission]);
+            .ReturnsAsync(activeSubmissions);
 
         var documentRepo = new Mock<ITeacherDocumentRepository>();
         documentRepo

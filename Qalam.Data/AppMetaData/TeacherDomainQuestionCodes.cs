@@ -15,4 +15,12 @@ public static class TeacherDomainQuestionCodes
     // Languages (domain: language)
     public const string LanguageNativeSpeaker = "language_native_speaker";
     public const string LanguageProficiencyProof = "language_proficiency_proof";
+
+    // General skills (domain: skills)
+    public const string SkillsExperienceYears = "skills_experience_years";
+    public const string SkillsCertification = "skills_certification";
+
+    // University (domain: university)
+    public const string UniversityTeachingExperience = "university_teaching_experience";
+    public const string UniversityDegreeCertificate = "university_degree_certificate";
 }

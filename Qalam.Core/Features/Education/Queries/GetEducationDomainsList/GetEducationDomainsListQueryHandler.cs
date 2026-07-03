@@ -57,6 +57,11 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             items = result.Items.Select(MapWithoutQuestions).ToList();
         }
 
+        if (request.ForSubjectSelection && request.UserId > 0)
+        {
+            items = items.Where(d => d.CanSelectForSubjects).ToList();
+        }
+
         return Success(
             entity: items,
             Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
@@ -73,6 +78,7 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             DescriptionEn = domain.DescriptionEn,
             CreatedAt = domain.CreatedAt,
             RequiresAnswer = false,
+            CanSelectForSubjects = false,
             Questions = new List<TeacherDomainQuestionPublicDto>()
         };
 }

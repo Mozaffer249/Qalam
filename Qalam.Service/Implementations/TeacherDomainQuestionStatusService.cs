@@ -46,11 +46,12 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         var domainIds = domains.Select(d => d.Id).ToList();
         var questions = await _questionRepository.GetActiveByDomainIdsAsync(domainIds, cancellationToken);
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
         var questionsByDomain = questions.GroupBy(q => q.DomainId).ToDictionary(g => g.Key, g => g.ToList());
 
-        return domains.Select(domain =>
+        var result = new List<EducationDomainTeacherDto>(domains.Count);
+        foreach (var domain in domains)
         {
             var domainQuestions = questionsByDomain.GetValueOrDefault(domain.Id) ?? new List<Data.Entity.Teacher.TeacherDomainQuestion>();
             var publicQuestions = domainQuestions
@@ -61,7 +62,12 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
                 .Where(q => q.IsRequired)
                 .Any(q => QuestionNeedsAnswer(q.Id, submissionByQuestionId));
 
-            return new EducationDomainTeacherDto
+            var canSelectForSubjects = await _cascadeService.IsDomainFullyApprovedForTeacherAsync(
+                teacherId,
+                domain.Id,
+                cancellationToken);
+
+            result.Add(new EducationDomainTeacherDto
             {
                 Id = domain.Id,
                 NameAr = domain.NameAr,
@@ -71,9 +77,12 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
                 DescriptionEn = domain.DescriptionEn,
                 CreatedAt = domain.CreatedAt,
                 RequiresAnswer = requiresAnswer,
+                CanSelectForSubjects = canSelectForSubjects,
                 Questions = publicQuestions
-            };
-        }).ToList();
+            });
+        }
+
+        return result;
     }
 
     public async Task<bool> DomainRequiresAnswerAsync(int teacherId, int domainId, CancellationToken cancellationToken = default)
@@ -83,7 +92,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
             return false;
 
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
         return questions.Any(q => q.IsRequired && QuestionNeedsAnswer(q.Id, submissionByQuestionId));
     }
@@ -122,7 +131,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
 
         var questions = await _questionRepository.GetActiveByDomainIdsAsync(domainIds, cancellationToken);
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
         var questionsByDomain = questions.GroupBy(q => q.DomainId).ToDictionary(g => g.Key, g => g.ToList());
         var domainMeta = await BuildDomainMetaAsync(domainIds, cancellationToken);
@@ -177,6 +186,25 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         return submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
     }
 
+    public async Task<List<TeacherReviewCorrectionDto>> GetRejectedDomainCorrectionsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var submissions = await _submissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
+        return submissions
+            .Where(s => s.VerificationStatus == DocumentVerificationStatus.Rejected)
+            .Select(s => new TeacherReviewCorrectionDto
+            {
+                Type = TeacherReviewCorrectionType.DomainQuestion,
+                DomainId = s.Question.DomainId,
+                DomainCode = s.Question.Domain?.Code,
+                SubmissionId = s.Id,
+                Label = s.Question.NameEn,
+                RejectionReason = s.RejectionReason ?? string.Empty
+            })
+            .ToList();
+    }
+
     public Task<List<int>> GetCatalogDomainIdsWithRequiredQuestionsAsync(CancellationToken cancellationToken = default) =>
         _questionRepository.GetDomainIdsWithActiveRequiredQuestionsAsync(cancellationToken);
 
@@ -188,18 +216,35 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         if (catalogDomainIds.Count == 0)
             return false;
 
+        foreach (var domainId in catalogDomainIds)
+        {
+            if (await DomainRequiresAnswerAsync(teacherId, domainId, cancellationToken))
+                return true;
+        }
+
+        return false;
+    }
+
+    public async Task<bool> HasAnyAnswersPendingAdminReviewAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var catalogDomainIds = await GetCatalogDomainIdsWithRequiredQuestionsAsync(cancellationToken);
+        if (catalogDomainIds.Count == 0)
+            return false;
+
         var questions = await _questionRepository.GetActiveByDomainIdsAsync(catalogDomainIds, cancellationToken);
-        var requiredByDomain = questions.Where(q => q.IsRequired).GroupBy(q => q.DomainId).ToList();
-        if (requiredByDomain.Count == 0)
+        var adminReviewQuestionIds = questions
+            .Where(q => q.RequiresAdminReview)
+            .Select(q => q.Id)
+            .ToHashSet();
+        if (adminReviewQuestionIds.Count == 0)
             return false;
 
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        var submittedQuestionIds = submissions.Select(s => s.QuestionId).ToHashSet();
-
-        var anyDomainComplete = requiredByDomain.Any(g =>
-            g.All(q => submittedQuestionIds.Contains(q.Id)));
-
-        return !anyDomainComplete;
+        return submissions.Any(s =>
+            adminReviewQuestionIds.Contains(s.QuestionId)
+            && s.VerificationStatus == DocumentVerificationStatus.Pending);
     }
 
     public async Task<bool> AreAllCatalogDomainsFullyApprovedAsync(
@@ -278,6 +323,12 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
 
         return result;
     }
+
+    private static Dictionary<int, Data.Entity.Teacher.TeacherDomainQuestionSubmission> BuildLatestSubmissionByQuestionId(
+        IReadOnlyList<Data.Entity.Teacher.TeacherDomainQuestionSubmission> submissions) =>
+        submissions
+            .GroupBy(s => s.QuestionId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Id).First());
 
     private static bool QuestionNeedsAnswer(
         int questionId,

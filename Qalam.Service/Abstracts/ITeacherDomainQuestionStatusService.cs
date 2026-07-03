@@ -27,6 +27,10 @@ public interface ITeacherDomainQuestionStatusService
 
     Task<bool> HasRejectedDomainQuestionsAsync(int teacherId, CancellationToken cancellationToken = default);
 
+    Task<List<TeacherReviewCorrectionDto>> GetRejectedDomainCorrectionsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> HasAnyDomainRequiringAnswerAsync(int teacherId, CancellationToken cancellationToken = default);
 
     Task<List<int>> GetCatalogDomainIdsWithRequiredQuestionsAsync(CancellationToken cancellationToken = default);
@@ -38,4 +42,6 @@ public interface ITeacherDomainQuestionStatusService
     Task<bool> HasAnyFullyApprovedCatalogDomainAsync(int teacherId, CancellationToken cancellationToken = default);
 
     Task<bool> HasCatalogDomainsPendingAdminReviewAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    Task<bool> HasAnyAnswersPendingAdminReviewAsync(int teacherId, CancellationToken cancellationToken = default);
 }

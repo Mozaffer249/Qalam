@@ -131,18 +131,29 @@ builder.Services.AddCors(options =>
             //   2. env Cors__AllowedOrigins=a,b,c — single CSV string; .NET does NOT auto-split it,
             //      so GetSection().Get<string[]>() returns one element whose value is the whole CSV,
             //      and WithOrigins(...) then registers that literal CSV as a single (never-matching) origin.
-            // Detect the scalar/CSV case explicitly and split.
+            // Detect the scalar/CSV case explicitly and split (including a single origin with no comma).
             string[] allowedOrigins;
             var scalarCsv = builder.Configuration["Cors:AllowedOrigins"];
-            if (!string.IsNullOrWhiteSpace(scalarCsv) && scalarCsv.Contains(','))
+            if (!string.IsNullOrWhiteSpace(scalarCsv))
             {
-                allowedOrigins = scalarCsv
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                allowedOrigins = scalarCsv.Contains(',')
+                    ? scalarCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    : [scalarCsv.Trim()];
             }
             else
             {
                 allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                    ?? new[] { "*" };
+                    ?? [];
+            }
+
+            allowedOrigins = allowedOrigins
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Select(o => o.Trim())
+                .ToArray();
+
+            if (allowedOrigins.Length == 0)
+            {
+                allowedOrigins = ["*"];
             }
 
             if (allowedOrigins.Length == 1 && allowedOrigins[0] == "*")

@@ -31,12 +31,12 @@ End-to-end onboarding for new teachers: auth → documents → **subjects (befor
 | 2 — Requirements | Teacher | Upload identity + certificates, bio, location (dynamic catalog) |
 | 3 — Domain questions | Teacher | Answer required questions for **every catalog domain** with required Q (`GET /Teacher/DomainQuestions/status` → `POST /Teacher/DomainQuestions/submit`) |
 | 3b — Domain review | Admin | Approve/reject domain question submissions |
-| 4 — Subjects | Teacher | Pick catalog subjects/units **after all catalog domains approved** |
+| 4 — Subjects | Teacher | Pick catalog subjects/units **per approved domain** (`GET /Education/Domains?forSubjectSelection=true`) |
 | 5 — Review | Admin | Approve/reject **documents**; activate when `canBeActivated` |
 | 6 — Active | Admin | `POST /TeacherManagement/{teacherId}/Activate` when `canBeActivated` is true |
 | 7 — Availability | Teacher | Weekly schedule (after Active only) |
 
-**Key flow:** after document upload, `nextStep` is **Complete Domain Questions** (not Add Subjects). Teachers wait for **Awaiting Domain Verification** until admin approves all catalog domains, then **Add Teaching Subjects and Units**. Login always succeeds during domain pending/reject (only `Blocked` is denied); `nextStep` routes the app.
+**Key flow:** after document upload, `nextStep` is **Complete Domain Questions** (not Add Subjects). Teachers complete verification per domain; once at least one domain is approved they may add subjects in that domain. Login always succeeds during domain pending/reject (only `Blocked` is denied); `nextStep` routes the app.
 
 ---
 
@@ -168,13 +168,16 @@ GET /Api/V1/Authentication/Teacher/AccountStatus
 2. For each catalog domain with required questions: `POST /Api/V1/Teacher/DomainQuestions/submit`
 3. Response includes optional `nextStep` for immediate navigation
 
-**When all catalog domains submitted:** `nextStepName` → **Awaiting Domain Verification** (poll `AccountStatus`).
+**When all catalog domains are answered:** `nextStepName` → **Awaiting Domain Verification** while any answers are pending admin review. The teacher app redirects to `/teacher/await?phase=domain`. Poll `AccountStatus` on the await screen for updates.
+
+**Add Subjects** is offered only after at least one domain is fully approved **and** no required answers are pending admin review.
 
 **When admin rejects:** login still works → **Fix Domain Verification** with `pendingCorrections[]`; resubmit rejected answers.
 
-### Step 5b — Add teaching subjects (after all catalog domains approved)
+### Step 5b — Add teaching subjects (per approved domain)
 
-**When:** `nextStepName === "Add Teaching Subjects and Units"` (all catalog domain Q approved; no subject offerings yet).  
+**When:** `nextStepName === "Add Teaching Subjects and Units"` (at least one domain fully approved; no subject offerings yet).  
+**Domain picker:** `GET /Api/V1/Education/Domains` returns all catalog domains with `canSelectForSubjects` and `requiresAnswer`. The subject wizard shows every domain; ineligible ones are disabled with hints (verification needed, rejected, or pending approval).
 **Also allowed:** `AwaitingDocuments`, `DocumentsRejected`, and `Active` (blocked only: `Blocked`).
 
 **Domain questions (first time per domain):** Before the filter wizard for a domain, load domains with embedded questions. See [Teacher-Domain-Questions.md](Teacher-Domain-Questions.md).
@@ -365,7 +368,7 @@ Derived from `GetNextRegistrationStepAsync` + auth responses:
 | `PendingVerification` | rejected domain question(s) | **Fix Domain Verification** | domain-questions screen (`pendingCorrections[]`) — **login allowed** |
 | `PendingVerification` or `DocumentsRejected` | required domain answers missing | **Complete Domain Questions** | domain-questions screen |
 | Same | all catalog domains submitted, admin review pending | **Awaiting Domain Verification** | waiting screen — poll `AccountStatus` |
-| Same | all catalog domains approved, no subjects | **Add Teaching Subjects and Units** | subject wizard |
+| Same | at least one domain approved, no subjects | **Add Teaching Subjects and Units** | subject wizard (all domains; ineligible disabled with hints) |
 | `PendingVerification` | has subjects, review in progress | **Awaiting Admin Verification** | waiting screen |
 | `PendingVerification` | has subjects, `canBeActivated` | **Awaiting Final Approval** | waiting screen |
 | `DocumentsRejected` | rejected docs exist | **Re-upload Rejected Documents** | documents list |

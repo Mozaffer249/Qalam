@@ -93,9 +93,9 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         }
 
         var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
-        var submissionByReqId = submissions.ToDictionary(s => s.RequirementId);
+        var submissionsByReqId = GroupSubmissionsByRequirementId(submissions);
 
-        var missingRequired = activeRequired.Where(r => !submissionByReqId.ContainsKey(r.Id)).ToList();
+        var missingRequired = activeRequired.Where(r => IsRequirementMissing(r, submissionsByReqId)).ToList();
         if (missingRequired.Count > 0)
         {
             _logger.LogDebug(
@@ -107,14 +107,14 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
         foreach (var req in activeRequired)
         {
-            if (!submissionByReqId.TryGetValue(req.Id, out var sub))
+            if (!submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
                 return;
 
             if (req.RequirementType == RegistrationRequirementType.File)
             {
                 if (req.MaxCount > 1)
                 {
-                    var fileSubs = submissions.Where(s => s.RequirementId == req.Id).ToList();
+                    var fileSubs = reqSubs;
                     if (fileSubs.Count < req.MinCount)
                         return;
                     if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
@@ -132,6 +132,10 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
                 }
                 else
                 {
+                    var sub = GetRepresentativeSubmission(reqSubs);
+                    if (sub == null)
+                        return;
+
                     if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
                     {
                         await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
@@ -148,6 +152,10 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             }
             else
             {
+                var sub = GetRepresentativeSubmission(reqSubs);
+                if (sub == null)
+                    return;
+
                 if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
                 {
                     await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
@@ -275,16 +283,19 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         else
         {
             var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
-            var submissionByReqId = submissions.ToDictionary(s => s.RequirementId);
+            var submissionsByReqId = GroupSubmissionsByRequirementId(submissions);
 
             foreach (var req in activeRequired)
             {
-                if (!submissionByReqId.TryGetValue(req.Id, out var sub))
+                if (IsRequirementMissing(req, submissionsByReqId))
+                    return ($"Required registration item '{req.Code}' has not been submitted.", false);
+
+                if (!submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
                     return ($"Required registration item '{req.Code}' has not been submitted.", false);
 
                 if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
                 {
-                    var fileSubs = submissions.Where(s => s.RequirementId == req.Id).ToList();
+                    var fileSubs = reqSubs;
                     if (fileSubs.Count < req.MinCount)
                         return ($"Requirement '{req.Code}' requires at least {req.MinCount} file(s).", false);
                     if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
@@ -296,6 +307,10 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
                 }
                 else
                 {
+                    var sub = GetRepresentativeSubmission(reqSubs);
+                    if (sub == null)
+                        return ($"Required registration item '{req.Code}' has not been submitted.", false);
+
                     if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
                         return ("One or more required registration items were rejected.", false);
                     if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
@@ -334,7 +349,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (requiredByDomain.Count == 0)
             return null;
 
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
         foreach (var domain in requiredByDomain)
         {
@@ -363,27 +378,60 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         }
 
         var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
-        var submissionByReqId = submissions.ToDictionary(s => s.RequirementId);
+        var submissionsByReqId = GroupSubmissionsByRequirementId(submissions);
 
         foreach (var req in activeRequired)
         {
-            if (!submissionByReqId.TryGetValue(req.Id, out var sub))
+            if (IsRequirementMissing(req, submissionsByReqId))
+                return true;
+
+            if (!submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
                 return true;
 
             if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
             {
-                var fileSubs = submissions.Where(s => s.RequirementId == req.Id).ToList();
-                if (fileSubs.Count < req.MinCount)
+                if (reqSubs.Count < req.MinCount)
                     return true;
-                if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
+                if (reqSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
                     return true;
             }
-            else if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
-                return true;
+            else
+            {
+                var sub = GetRepresentativeSubmission(reqSubs);
+                if (sub?.VerificationStatus == DocumentVerificationStatus.Pending)
+                    return true;
+            }
         }
 
         return false;
     }
+
+    private static Dictionary<int, List<TeacherRegistrationSubmission>> GroupSubmissionsByRequirementId(
+        IReadOnlyList<TeacherRegistrationSubmission> submissions) =>
+        submissions.GroupBy(s => s.RequirementId).ToDictionary(g => g.Key, g => g.ToList());
+
+    private static bool IsRequirementMissing(
+        TeacherRegistrationRequirement req,
+        IReadOnlyDictionary<int, List<TeacherRegistrationSubmission>> submissionsByReqId)
+    {
+        if (!submissionsByReqId.TryGetValue(req.Id, out var subs) || subs.Count == 0)
+            return true;
+
+        if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
+            return subs.Count < req.MinCount;
+
+        return false;
+    }
+
+    private static TeacherRegistrationSubmission? GetRepresentativeSubmission(
+        IReadOnlyList<TeacherRegistrationSubmission> subs) =>
+        subs.OrderByDescending(s => (int)s.VerificationStatus).FirstOrDefault();
+
+    private static Dictionary<int, TeacherDomainQuestionSubmission> BuildLatestSubmissionByQuestionId(
+        IReadOnlyList<TeacherDomainQuestionSubmission> submissions) =>
+        submissions
+            .GroupBy(s => s.QuestionId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Id).First());
 
     private async Task SetStatusAsync(int teacherId, TeacherStatus status)
     {

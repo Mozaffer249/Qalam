@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -104,16 +105,19 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         CancellationToken cancellationToken = default)
     {
         var questions = await _questionRepository.GetActiveByDomainIdAsync(domainId, cancellationToken);
-        var required = questions.Where(q => q.IsRequired).ToList();
-        if (required.Count == 0)
+        if (questions.Count == 0)
             return true;
 
         var submissions = await _submissionRepository.GetByTeacherAndDomainIdAsync(teacherId, domainId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
-        return required.All(q =>
-            submissionByQuestionId.TryGetValue(q.Id, out var sub)
-            && sub.VerificationStatus == DocumentVerificationStatus.Approved);
+        foreach (var question in questions)
+        {
+            if (QuestionBlocksDomainApproval(question, submissionByQuestionId))
+                return false;
+        }
+
+        return true;
     }
 
     public async Task<string?> GetSubjectSaveBlockReasonForDomainAsync(
@@ -127,19 +131,19 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
             return null;
 
         var questions = await _questionRepository.GetActiveByDomainIdAsync(domainId, cancellationToken);
-        var required = questions.Where(q => q.IsRequired).ToList();
-        if (required.Count == 0)
+        if (questions.Count == 0)
             return null;
 
         var submissions = await _submissionRepository.GetByTeacherAndDomainIdAsync(teacherId, domainId, cancellationToken);
-        var submissionByQuestionId = submissions.ToDictionary(s => s.QuestionId);
+        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
+        var required = questions.Where(q => q.IsRequired).ToList();
         if (required.Any(q => !submissionByQuestionId.ContainsKey(q.Id)))
         {
             return $"Complete domain questions for '{domainNameEn}' ({domainCode}) before adding subjects.";
         }
 
-        if (required.Any(q =>
+        if (questions.Any(q =>
                 submissionByQuestionId.TryGetValue(q.Id, out var sub)
                 && sub.VerificationStatus == DocumentVerificationStatus.Rejected))
         {
@@ -148,4 +152,32 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
 
         return $"Complete and wait for approval of domain requirements for '{domainNameEn}' ({domainCode}) before adding subjects.";
     }
+
+    private static bool QuestionBlocksDomainApproval(
+        TeacherDomainQuestion question,
+        Dictionary<int, TeacherDomainQuestionSubmission> submissionByQuestionId)
+    {
+        if (question.IsRequired)
+        {
+            if (!submissionByQuestionId.TryGetValue(question.Id, out var requiredSub))
+                return true;
+
+            return requiredSub.VerificationStatus != DocumentVerificationStatus.Approved;
+        }
+
+        if (!question.RequiresAdminReview)
+            return false;
+
+        if (!submissionByQuestionId.TryGetValue(question.Id, out var optionalSub))
+            return false;
+
+        return optionalSub.VerificationStatus is DocumentVerificationStatus.Pending
+            or DocumentVerificationStatus.Rejected;
+    }
+
+    private static Dictionary<int, TeacherDomainQuestionSubmission> BuildLatestSubmissionByQuestionId(
+        IReadOnlyList<TeacherDomainQuestionSubmission> submissions) =>
+        submissions
+            .GroupBy(s => s.QuestionId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Id).First());
 }

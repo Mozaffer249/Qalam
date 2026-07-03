@@ -59,6 +59,8 @@ public class EducationDomainTeacherDto
     public string? DescriptionEn { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool RequiresAnswer { get; set; }
+    /// <summary>True when the teacher may add subjects in this domain (required questions approved, or none required).</summary>
+    public bool CanSelectForSubjects { get; set; }
     public List<TeacherDomainQuestionPublicDto> Questions { get; set; } = new();
 }
 
