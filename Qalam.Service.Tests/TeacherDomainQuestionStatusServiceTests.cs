@@ -408,7 +408,7 @@ public class TeacherDomainQuestionStatusServiceTests
     }
 
     [Fact]
-    public async Task HasIncompleteCatalogDomainAnswers_ReturnsTrue_WhenOneOfTwoDomainsFullySubmitted()
+    public async Task HasIncompleteCatalogDomainAnswers_ReturnsFalse_WhenOneOfTwoDomainsFullySubmitted()
     {
         const int domain2 = 2;
         var schoolQuestion = new TeacherDomainQuestion
@@ -453,7 +453,96 @@ public class TeacherDomainQuestionStatusServiceTests
 
         var service = BuildStatusService(questionRepo.Object, submissionRepo.Object, Mock.Of<ITeacherDomainSubjectCascadeService>());
 
-        Assert.True(await service.HasIncompleteCatalogDomainAnswersAsync(TeacherId));
+        Assert.False(await service.HasIncompleteCatalogDomainAnswersAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task HasRejectedDomainQuestions_ReturnsFalse_WhenOlderRejectedSubmissionSuperseded()
+    {
+        const int questionId = 20;
+        var question = new TeacherDomainQuestion
+        {
+            Id = questionId,
+            DomainId = DomainId,
+            Code = "skills_certification",
+            IsActive = true,
+            IsRequired = false,
+            RequiresAdminReview = true
+        };
+
+        var submissionRepo = new Mock<ITeacherDomainQuestionSubmissionRepository>();
+        submissionRepo
+            .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 1,
+                    TeacherId = TeacherId,
+                    QuestionId = questionId,
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                    RejectionReason = "Old rejection"
+                },
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 2,
+                    TeacherId = TeacherId,
+                    QuestionId = questionId,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                }
+            ]);
+
+        var service = BuildStatusService(
+            Mock.Of<ITeacherDomainQuestionRepository>(),
+            submissionRepo.Object,
+            Mock.Of<ITeacherDomainSubjectCascadeService>());
+
+        Assert.False(await service.HasRejectedDomainQuestionsAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task GetRejectedDomainCorrections_IgnoresSupersededRejectedSubmission()
+    {
+        const int questionId = 20;
+        var question = new TeacherDomainQuestion
+        {
+            Id = questionId,
+            DomainId = 4,
+            Code = "skills_certification",
+            NameEn = "Professional certification",
+            Domain = new EducationDomain { Id = 4, Code = "skills", NameEn = "General Skills" }
+        };
+
+        var submissionRepo = new Mock<ITeacherDomainQuestionSubmissionRepository>();
+        submissionRepo
+            .Setup(r => r.GetByTeacherIdWithQuestionsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 1,
+                    TeacherId = TeacherId,
+                    QuestionId = questionId,
+                    Question = question,
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                    RejectionReason = "Old rejection"
+                },
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 2,
+                    TeacherId = TeacherId,
+                    QuestionId = questionId,
+                    Question = question,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                }
+            ]);
+
+        var service = BuildStatusService(
+            Mock.Of<ITeacherDomainQuestionRepository>(),
+            submissionRepo.Object,
+            Mock.Of<ITeacherDomainSubjectCascadeService>());
+
+        var corrections = await service.GetRejectedDomainCorrectionsAsync(TeacherId);
+
+        Assert.Empty(corrections);
     }
 
     [Fact]

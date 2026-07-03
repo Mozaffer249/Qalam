@@ -185,7 +185,8 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         CancellationToken cancellationToken)
     {
         var submissions = await _domainSubmissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        return submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
+        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
+        return latestByQuestionId.Values.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
     }
 
     public async Task<bool> CanActivateTeacherAccountAsync(int teacherId, CancellationToken cancellationToken = default)
@@ -331,11 +332,12 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private async Task<string?> GetDomainQuestionActivationBlockReasonAsync(int teacherId, CancellationToken cancellationToken)
     {
         var submissions = await _domainSubmissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
+        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
 
-        if (submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
+        if (latestByQuestionId.Values.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
             return "One or more domain verification answers were rejected.";
 
-        if (submissions.Any(s =>
+        if (latestByQuestionId.Values.Any(s =>
                 s.Question.RequiresAdminReview
                 && s.VerificationStatus == DocumentVerificationStatus.Pending))
             return "One or more domain verification answers are still pending admin review.";
@@ -349,12 +351,10 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (requiredByDomain.Count == 0)
             return null;
 
-        var submissionByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
-
         foreach (var domain in requiredByDomain)
         {
             var allApproved = domain.All(q =>
-                submissionByQuestionId.TryGetValue(q.Id, out var sub)
+                latestByQuestionId.TryGetValue(q.Id, out var sub)
                 && sub.VerificationStatus == DocumentVerificationStatus.Approved);
             if (allApproved)
                 return null;

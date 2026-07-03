@@ -324,6 +324,65 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
+    public async Task GetNextStep_AfterOneDomainApprovedAndOthersIncomplete_ReturnsAddSubjects()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [1, 2, 3, 4],
+            hasIncompleteCatalogAnswers: false,
+            hasAnyAnswersPendingAdminReview: false,
+            hasAnyFullyApprovedCatalogDomain: true,
+            hasRejectedDomainQuestions: false);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.NotEqual("Complete Domain Questions", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_AfterResubmitApproved_NoRejectedLatest_ReturnsAddSubjectsNotFixDomain()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [3, 4],
+            hasIncompleteCatalogAnswers: false,
+            hasAnyAnswersPendingAdminReview: false,
+            hasAnyFullyApprovedCatalogDomain: true,
+            hasRejectedDomainQuestions: false);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.NotEqual("Fix Domain Verification", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_DocumentsRejectedWithNoRejectedLatest_ReturnsAddSubjects()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.DocumentsRejected,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [3, 4],
+            hasIncompleteCatalogAnswers: false,
+            hasAnyAnswersPendingAdminReview: false,
+            hasAnyFullyApprovedCatalogDomain: true,
+            hasRejectedDomainQuestions: false);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+    }
+
+    [Fact]
     public async Task GetNextStep_ReturnsFixDomain_WhenRejectedAndApprovedDomainCoexist()
     {
         var corrections = new List<TeacherReviewCorrectionDto>

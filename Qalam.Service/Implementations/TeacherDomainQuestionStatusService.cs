@@ -183,7 +183,8 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
     public async Task<bool> HasRejectedDomainQuestionsAsync(int teacherId, CancellationToken cancellationToken = default)
     {
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        return submissions.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
+        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
+        return latestByQuestionId.Values.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected);
     }
 
     public async Task<List<TeacherReviewCorrectionDto>> GetRejectedDomainCorrectionsAsync(
@@ -191,7 +192,8 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         CancellationToken cancellationToken = default)
     {
         var submissions = await _submissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
-        return submissions
+        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
+        return latestByQuestionId.Values
             .Where(s => s.VerificationStatus == DocumentVerificationStatus.Rejected)
             .Select(s => new TeacherReviewCorrectionDto
             {
@@ -216,13 +218,18 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         if (catalogDomainIds.Count == 0)
             return false;
 
+        var anyDomainFullySubmitted = false;
         foreach (var domainId in catalogDomainIds)
         {
-            if (await DomainRequiresAnswerAsync(teacherId, domainId, cancellationToken))
-                return true;
+            var questions = await _questionRepository.GetActiveByDomainIdAsync(domainId, cancellationToken);
+            if (!questions.Any(q => q.IsRequired))
+                continue;
+
+            if (!await DomainRequiresAnswerAsync(teacherId, domainId, cancellationToken))
+                anyDomainFullySubmitted = true;
         }
 
-        return false;
+        return !anyDomainFullySubmitted;
     }
 
     public async Task<bool> HasAnyAnswersPendingAdminReviewAsync(
@@ -242,7 +249,8 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
             return false;
 
         var submissions = await _submissionRepository.GetByTeacherIdAsync(teacherId, cancellationToken);
-        return submissions.Any(s =>
+        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
+        return latestByQuestionId.Values.Any(s =>
             adminReviewQuestionIds.Contains(s.QuestionId)
             && s.VerificationStatus == DocumentVerificationStatus.Pending);
     }
