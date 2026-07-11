@@ -75,6 +75,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
                 Code = domain.Code,
                 DescriptionAr = domain.DescriptionAr,
                 DescriptionEn = domain.DescriptionEn,
+                IsActive = domain.IsActive,
                 CreatedAt = domain.CreatedAt,
                 RequiresAnswer = requiresAnswer,
                 CanSelectForSubjects = canSelectForSubjects,

@@ -139,7 +139,7 @@ List endpoints return rows in `data` and pagination in `meta`. Command endpoints
 
 | Resource | GET list | GET by id | POST | PUT | DELETE | Other |
 |----------|----------|-----------|------|-----|--------|-------|
-| **Domains** | `/Education/Domains` | `/Education/Domains/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
+| **Domains** | `/Education/Domains` | `/Education/Domains/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | `PATCH …/toggle-status` |
 | **Curriculum** | `/Curriculum` | `/Curriculum/{id}` | ✓ | ✓ | ✓ | `PATCH …/toggle-status` |
 | **Levels** | `/Education/Levels` | `/Education/Levels/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
 | **Grades** | `/Education/Grades` | `/Education/Grades/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
@@ -173,6 +173,8 @@ Authorization: Bearer <token>
 |-------|-------------|
 | `pageNumber`, `pageSize` | Pagination (defaults 1 / 10) |
 | `search` | Substring on `nameAr`, `nameEn`, `code` |
+
+List items include `isActive`. When the caller is an authenticated **teacher**, inactive domains are omitted. Admin users still receive all domains, including inactive ones.
 
 ### Get domain by id
 
@@ -297,6 +299,17 @@ DELETE /Api/V1/Education/Domains/{id}
 ```
 
 **Blocked** when the domain has any `EducationLevel` rows → 400 *"Cannot delete domain with existing education levels"*.
+
+### Toggle domain status (Admin)
+
+```http
+PATCH /Api/V1/Education/Domains/{id}/toggle-status
+Authorization: Bearer <admin-jwt>
+```
+
+Flips `isActive` on the domain. Returns `200` with `succeeded: true` on success, or `404` when the domain does not exist.
+
+Inactive domains are hidden from teacher domain lists and rejected by `GET /Education/filter-options?domainId={inactive}` with a clear error.
 
 ---
 

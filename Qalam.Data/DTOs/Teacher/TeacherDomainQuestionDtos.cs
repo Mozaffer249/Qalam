@@ -57,6 +57,7 @@ public class EducationDomainTeacherDto
     public string Code { get; set; } = default!;
     public string? DescriptionAr { get; set; }
     public string? DescriptionEn { get; set; }
+    public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool RequiresAnswer { get; set; }
     /// <summary>True when the teacher may add subjects in this domain (required questions approved, or none required).</summary>

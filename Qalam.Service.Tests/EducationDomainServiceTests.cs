@@ -179,4 +179,41 @@ public class EducationDomainServiceTests
         Assert.False(result.EducationRule!.HasCurriculum);
         Assert.False(result.EducationRule.RulesConfigured);
     }
+
+    [Fact]
+    public async Task ToggleDomainStatusAsync_FlipsIsActive()
+    {
+        var domain = new EducationDomain
+        {
+            Id = 3,
+            NameEn = "School",
+            Code = "school",
+            IsActive = true,
+        };
+
+        var repo = new Mock<IEducationDomainRepository>();
+        repo.Setup(r => r.GetByIdAsync(3)).ReturnsAsync(domain);
+        repo.Setup(r => r.UpdateAsync(It.IsAny<EducationDomain>())).Returns(Task.CompletedTask);
+
+        var service = new EducationDomainService(repo.Object);
+        var result = await service.ToggleDomainStatusAsync(3);
+
+        Assert.True(result);
+        Assert.False(domain.IsActive);
+        Assert.NotNull(domain.UpdatedAt);
+        repo.Verify(r => r.UpdateAsync(domain), Times.Once);
+    }
+
+    [Fact]
+    public async Task ToggleDomainStatusAsync_WhenMissing_ReturnsFalse()
+    {
+        var repo = new Mock<IEducationDomainRepository>();
+        repo.Setup(r => r.GetByIdAsync(404)).ReturnsAsync((EducationDomain?)null);
+
+        var service = new EducationDomainService(repo.Object);
+        var result = await service.ToggleDomainStatusAsync(404);
+
+        Assert.False(result);
+        repo.Verify(r => r.UpdateAsync(It.IsAny<EducationDomain>()), Times.Never);
+    }
 }

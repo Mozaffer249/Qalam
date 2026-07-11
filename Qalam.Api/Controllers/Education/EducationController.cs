@@ -10,6 +10,7 @@ using Qalam.Core.Features.Education.Commands.DeleteEducationDomain;
 using Qalam.Core.Features.Education.Commands.DeleteEducationLevel;
 using Qalam.Core.Features.Education.Commands.DeleteGrade;
 using Qalam.Core.Features.Education.Commands.UpdateAcademicTerm;
+using Qalam.Core.Features.Education.Commands.ToggleEducationDomainStatus;
 using Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
 using Qalam.Core.Features.Education.Commands.UpdateEducationLevel;
 using Qalam.Core.Features.Education.Commands.UpdateGrade;
@@ -82,6 +83,16 @@ public class EducationController : AppControllerBase
     public async Task<IActionResult> DeleteDomain(int id)
     {
         return NewResult(await Mediator.Send(new DeleteEducationDomainCommand { Id = id }));
+    }
+
+    /// <summary>
+    /// Toggle education domain active status
+    /// </summary>
+    [HttpPatch(Router.EducationDomainById + "/toggle-status")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> ToggleDomainStatus(int id)
+    {
+        return NewResult(await Mediator.Send(new ToggleEducationDomainStatusCommand { Id = id }));
     }
 
     #endregion

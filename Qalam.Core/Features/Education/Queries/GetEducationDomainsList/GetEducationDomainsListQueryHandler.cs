@@ -36,10 +36,11 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             request.Search);
 
         List<EducationDomainTeacherDto> items;
+        Data.Entity.Teacher.Teacher? teacher = null;
 
         if (request.UserId > 0)
         {
-            var teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
+            teacher = await _teacherRepository.GetByUserIdAsync(request.UserId);
             if (teacher != null)
             {
                 items = await _domainQuestionStatusService.EnrichDomainsForTeacherAsync(
@@ -57,9 +58,14 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             items = result.Items.Select(MapWithoutQuestions).ToList();
         }
 
-        if (request.ForSubjectSelection && request.UserId > 0)
+        if (request.ForSubjectSelection && teacher != null)
         {
             items = items.Where(d => d.CanSelectForSubjects).ToList();
+        }
+
+        if (teacher != null)
+        {
+            items = items.Where(d => d.IsActive).ToList();
         }
 
         return Success(
@@ -76,6 +82,7 @@ public class GetEducationDomainsListQueryHandler : ResponseHandler,
             Code = domain.Code,
             DescriptionAr = domain.DescriptionAr,
             DescriptionEn = domain.DescriptionEn,
+            IsActive = domain.IsActive,
             CreatedAt = domain.CreatedAt,
             RequiresAnswer = false,
             CanSelectForSubjects = false,

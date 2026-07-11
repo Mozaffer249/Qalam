@@ -59,6 +59,9 @@ public class EducationFilterService : IEducationFilterService
         if (domain == null)
             throw new InvalidOperationException($"Domain with ID '{domainId}' not found");
 
+        if (!domain.IsActive)
+            throw new InvalidOperationException("Education domain is inactive");
+
         // Set default UnitTypeCode for Quran domain if not specified
         if (domain.Code?.ToLowerInvariant() == "quran" && string.IsNullOrEmpty(state.UnitTypeCode))
         {
