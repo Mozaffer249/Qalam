@@ -10,10 +10,14 @@ namespace Qalam.Service.Implementations;
 public class SubjectService : ISubjectService
 {
     private readonly ISubjectRepository _subjectRepository;
+    private readonly IEducationDeleteGuardService _deleteGuard;
 
-    public SubjectService(ISubjectRepository subjectRepository)
+    public SubjectService(
+        ISubjectRepository subjectRepository,
+        IEducationDeleteGuardService deleteGuard)
     {
         _subjectRepository = subjectRepository;
+        _deleteGuard = deleteGuard;
     }
 
     #region Query Operations
@@ -102,8 +106,7 @@ public class SubjectService : ISubjectService
         if (subject == null)
             return false;
 
-        if (subject.ContentUnits?.Any() == true)
-            throw new InvalidOperationException("Cannot delete subject with existing content units");
+        await _deleteGuard.AssertCanDeleteSubjectAsync(id);
 
         await _subjectRepository.DeleteAsync(subject);
         return true;

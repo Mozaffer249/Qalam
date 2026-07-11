@@ -175,7 +175,8 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
                 Id = s.Id,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
-                Code = s.Code
+                Code = s.Code,
+                CanDelete = !s.ContentUnits.Any()
             })
             .ToListAsync();
     }

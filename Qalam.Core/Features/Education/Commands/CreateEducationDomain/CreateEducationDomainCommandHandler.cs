@@ -4,13 +4,12 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
-using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Commands.CreateEducationDomain;
 
 public class CreateEducationDomainCommandHandler : ResponseHandler,
-    IRequestHandler<CreateEducationDomainCommand, Response<EducationDomain>>
+    IRequestHandler<CreateEducationDomainCommand, Response<EducationDomainDto>>
 {
     private readonly IEducationDomainService _domainService;
 
@@ -21,7 +20,7 @@ public class CreateEducationDomainCommandHandler : ResponseHandler,
         _domainService = domainService;
     }
 
-    public async Task<Response<EducationDomain>> Handle(
+    public async Task<Response<EducationDomainDto>> Handle(
         CreateEducationDomainCommand request,
         CancellationToken cancellationToken)
     {
@@ -37,13 +36,16 @@ public class CreateEducationDomainCommandHandler : ResponseHandler,
                 IsActive = request.IsActive
             };
 
-            var ruleDto = request.EducationRule ?? EducationRuleDefaults.ForDomainCode(request.Code);
-            var result = await _domainService.CreateDomainAsync(domain, ruleDto);
-            return Created(entity: result);
+            var result = await _domainService.CreateDomainAsync(domain, request.EducationRule);
+            var dto = await _domainService.GetDomainDtoByIdAsync(result.Id);
+            if (dto == null)
+                return BadRequest<EducationDomainDto>("Domain was created but could not be loaded");
+
+            return Created(entity: dto);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest<EducationDomain>(ex.Message);
+            return BadRequest<EducationDomainDto>(ex.Message);
         }
     }
 }

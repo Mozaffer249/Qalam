@@ -106,7 +106,8 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
             {
                 Id = el.Id,
                 NameAr = el.NameAr,
-                NameEn = el.NameEn
+                NameEn = el.NameEn,
+                CanDelete = !el.Grades.Any()
             })
             .ToListAsync();
     }

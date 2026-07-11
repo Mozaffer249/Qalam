@@ -1409,6 +1409,12 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("OrderIndex")
                         .HasColumnType("int");
 
+                    b.Property<int?>("QuranContentTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuranLevelId")
+                        .HasColumnType("int");
+
                     b.Property<int>("UnitId")
                         .HasColumnType("int");
 
@@ -1420,10 +1426,19 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("QuranContentTypeId");
+
+                    b.HasIndex("QuranLevelId");
+
                     b.HasIndex("UnitId");
 
                     b.HasIndex("UnitId", "NameEn")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[QuranContentTypeId] IS NULL AND [QuranLevelId] IS NULL");
+
+                    b.HasIndex("UnitId", "QuranContentTypeId", "QuranLevelId", "NameEn")
+                        .IsUnique()
+                        .HasFilter("[QuranContentTypeId] IS NOT NULL AND [QuranLevelId] IS NOT NULL");
 
                     b.ToTable("Lessons", "education");
                 });
@@ -4312,6 +4327,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<bool>("RequiresUnitTypeSelection")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("RulesConfigured")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -4868,11 +4886,25 @@ namespace Qalam.Infrastructure.Migrations
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.Lesson", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Quran.QuranContentType", "QuranContentType")
+                        .WithMany()
+                        .HasForeignKey("QuranContentTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Qalam.Data.Entity.Quran.QuranLevel", "QuranLevel")
+                        .WithMany()
+                        .HasForeignKey("QuranLevelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Education.ContentUnit", "Unit")
                         .WithMany("Lessons")
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("QuranContentType");
+
+                    b.Navigation("QuranLevel");
 
                     b.Navigation("Unit");
                 });

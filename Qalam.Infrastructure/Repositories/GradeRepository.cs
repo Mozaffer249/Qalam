@@ -98,9 +98,9 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             .FirstOrDefaultAsync(g => g.Id == id);
     }
 
-    public async Task<bool> IsGradeCodeUniqueAsync(string code, int? excludeId = null)
+    public async Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null)
     {
-        var query = _context.Grades.Where(g => g.NameEn == code);
+        var query = _context.Grades.Where(g => g.NameEn == code && g.LevelId == levelId);
         if (excludeId.HasValue)
             query = query.Where(g => g.Id != excludeId.Value);
         return !await query.AnyAsync();
@@ -116,7 +116,8 @@ public class GradeRepository : GenericRepositoryAsync<Grade>, IGradeRepository
             {
                 Id = g.Id,
                 NameAr = g.NameAr,
-                NameEn = g.NameEn
+                NameEn = g.NameEn,
+                CanDelete = !g.Subjects.Any()
             })
             .ToListAsync();
     }

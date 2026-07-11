@@ -60,6 +60,7 @@ namespace Qalam.Service
             services.AddTransient<IQuranService, QuranService>();
             services.AddTransient<ITeachingConfigurationService, TeachingConfigurationService>();
             services.AddTransient<IEducationFilterService, EducationFilterService>();
+            services.AddTransient<IEducationDeleteGuardService, EducationDeleteGuardService>();
             services.AddTransient<ITeacherCourseService, TeacherCourseService>();
 
             // Course / Schedule Services

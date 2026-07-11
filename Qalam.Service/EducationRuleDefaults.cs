@@ -132,6 +132,7 @@ public static class EducationRuleDefaults
         rule.MaxGroupSize = dto.MaxGroupSize;
         rule.NotesAr = dto.NotesAr;
         rule.NotesEn = dto.NotesEn;
+        rule.RulesConfigured = dto.RulesConfigured;
         return rule;
     }
 
@@ -157,5 +158,6 @@ public static class EducationRuleDefaults
         MaxGroupSize = rule.MaxGroupSize,
         NotesAr = rule.NotesAr,
         NotesEn = rule.NotesEn,
+        RulesConfigured = rule.RulesConfigured,
     };
 }

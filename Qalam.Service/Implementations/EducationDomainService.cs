@@ -91,6 +91,7 @@ public class EducationDomainService : IEducationDomainService
         var ruleDto = educationRule ?? EducationRuleDefaults.ForDomainCode(domain.Code);
         domain.CreatedAt = DateTime.UtcNow;
         domain.EducationRule = EducationRuleDefaults.MapToEntity(ruleDto, 0);
+        domain.EducationRule.RulesConfigured = educationRule != null;
 
         return await _domainRepository.AddAsync(domain);
     }
@@ -112,11 +113,15 @@ public class EducationDomainService : IEducationDomainService
         existing.IsActive = domain.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 
-        var ruleDto = educationRule ?? EducationRuleDefaults.ForDomainCode(domain.Code);
-        if (existing.EducationRule == null)
-            existing.EducationRule = EducationRuleDefaults.MapToEntity(ruleDto, existing.Id);
-        else
-            EducationRuleDefaults.MapToEntity(ruleDto, existing.Id, existing.EducationRule);
+        if (educationRule != null)
+        {
+            if (existing.EducationRule == null)
+                existing.EducationRule = EducationRuleDefaults.MapToEntity(educationRule, existing.Id);
+            else
+                EducationRuleDefaults.MapToEntity(educationRule, existing.Id, existing.EducationRule);
+
+            existing.EducationRule.RulesConfigured = true;
+        }
 
         await _domainRepository.SaveChangesAsync();
         return existing;

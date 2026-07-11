@@ -1,4 +1,4 @@
-# Qalam Platform — Monorepo
+# Qalam Platform â€” Monorepo
 
 This repository is the entry point for the Qalam platform. The backend (.NET 8) lives at the root; the frontend apps live under `apps/` as **git submodules** so each one keeps its own GitHub repo, its own commits, and its own release cadence.
 
@@ -7,12 +7,13 @@ This repository is the entry point for the Qalam platform. The backend (.NET 8) 
 | Path | Tech | Source | Dev port |
 | --- | --- | --- | --- |
 | `Qalam.Api/`, `Qalam.Service/`, `Qalam.Core/`, `Qalam.Data/`, `Qalam.Infrastructure/`, `Qalam.MessagingApi/`, `Qalam.Service.Tests/` | .NET 8 / EF Core | This repo | 8080 (compose) |
-| `apps/admin/` | Next.js 16 + React 19 + Tailwind 4 | submodule → `github.com/Mozaffer249/qalam-admin` | 3005 |
+| `apps/admin/` | Next.js 16 + React 19 + Tailwind 4 | submodule â†’ `github.com/Mozaffer249/qalam-admin` | 3005 |
 | `apps/teacher/` | Vite 7 + TanStack Start/Router + React 19 + Tailwind 4 | submodule → `github.com/Mozaffer249/qalam-teacher` | 3000 |
+| `apps/Qalam/` | Flutter (student app) | submodule → `github.com/ahmedhantop/qalam` | — |
 
 ## Cloning
 
-First clone — pull everything including submodules:
+First clone â€” pull everything including submodules:
 
 ```bash
 git clone --recurse-submodules https://github.com/Mozaffer249/Qalam.git
@@ -24,7 +25,7 @@ Already cloned without submodules?
 git submodule update --init --recursive
 ```
 
-If `apps/admin` or `apps/teacher` ever looks empty after a `git pull`, run the same command above.
+If `apps/admin`, `apps/teacher`, or `apps/Qalam` ever looks empty after a `git pull`, run the same command above.
 
 ## Running locally
 
@@ -64,16 +65,16 @@ From repo root, in **separate terminals** (order matters for messaging):
 # 1) RabbitMQ only (Docker)
 .\scripts\dev\run-rabbitmq.ps1
 
-# 2) Messaging API → http://localhost:62901
+# 2) Messaging API â†’ http://localhost:62901
 .\scripts\dev\run-messaging-api.ps1
 
-# 3) Main API → http://localhost:62900
+# 3) Main API â†’ http://localhost:62900
 .\scripts\dev\run-api.ps1
 
-# 4) Admin → http://localhost:3005
+# 4) Admin â†’ http://localhost:3005
 .\scripts\dev\run-admin.ps1
 
-# 5) Teacher → http://localhost:3000
+# 5) Teacher â†’ http://localhost:3000
 .\scripts\dev\run-teacher.ps1
 ```
 
@@ -91,9 +92,9 @@ This builds the backend image plus the two frontend images using the Dockerfiles
 
 Each frontend is still an independent repo with independent commits and pushes:
 
-- **Working on admin** — open `apps/admin/` (or your separate clone of `qalam-admin`) in your editor. `git pull / commit / push` inside that directory talks to `github.com/Mozaffer249/qalam-admin`, not to the monorepo.
-- **Working on teacher** — same, but for `github.com/Mozaffer249/qalam-teacher`.
-- **Working on backend** — open this repo at its root. `git pull / commit / push` here talks to `github.com/Mozaffer249/Qalam`.
+- **Working on admin** â€” open `apps/admin/` (or your separate clone of `qalam-admin`) in your editor. `git pull / commit / push` inside that directory talks to `github.com/Mozaffer249/qalam-admin`, not to the monorepo.
+- **Working on teacher** â€” same, but for `github.com/Mozaffer249/qalam-teacher`.
+- **Working on backend** â€” open this repo at its root. `git pull / commit / push` here talks to `github.com/Mozaffer249/Qalam`.
 
 ### Bumping a frontend version in the monorepo
 
@@ -130,7 +131,7 @@ Any CI job that builds the full stack must check out submodules. With GitHub Act
     submodules: recursive
 ```
 
-Existing CI/CD pipelines that build only one frontend (Vercel, GitHub Actions in the standalone repos) keep working unchanged — they build directly from `Mozaffer249/qalam-admin` or `Mozaffer249/qalam-teacher`.
+Existing CI/CD pipelines that build only one frontend (Vercel, GitHub Actions in the standalone repos) keep working unchanged â€” they build directly from `Mozaffer249/qalam-admin` or `Mozaffer249/qalam-teacher`.
 
 ## Rollback
 

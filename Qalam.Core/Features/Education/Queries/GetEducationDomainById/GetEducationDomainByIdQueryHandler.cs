@@ -2,13 +2,13 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Queries.GetEducationDomainById;
 
 public class GetEducationDomainByIdQueryHandler : ResponseHandler,
-    IRequestHandler<GetEducationDomainByIdQuery, Response<EducationDomain>>
+    IRequestHandler<GetEducationDomainByIdQuery, Response<EducationDomainDto>>
 {
     private readonly IEducationDomainService _domainService;
 
@@ -19,14 +19,14 @@ public class GetEducationDomainByIdQueryHandler : ResponseHandler,
         _domainService = domainService;
     }
 
-    public async Task<Response<EducationDomain>> Handle(
+    public async Task<Response<EducationDomainDto>> Handle(
         GetEducationDomainByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var domain = await _domainService.GetDomainWithDetailsAsync(request.Id);
-        
+        var domain = await _domainService.GetDomainDtoByIdAsync(request.Id);
+
         if (domain == null)
-            return NotFound<EducationDomain>("Education domain not found");
+            return NotFound<EducationDomainDto>("Education domain not found");
 
         return Success(entity: domain);
     }

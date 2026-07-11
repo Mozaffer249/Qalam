@@ -4,13 +4,12 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
-using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
 
 public class UpdateEducationDomainCommandHandler : ResponseHandler,
-    IRequestHandler<UpdateEducationDomainCommand, Response<EducationDomain>>
+    IRequestHandler<UpdateEducationDomainCommand, Response<EducationDomainDto>>
 {
     private readonly IEducationDomainService _domainService;
 
@@ -21,7 +20,7 @@ public class UpdateEducationDomainCommandHandler : ResponseHandler,
         _domainService = domainService;
     }
 
-    public async Task<Response<EducationDomain>> Handle(
+    public async Task<Response<EducationDomainDto>> Handle(
         UpdateEducationDomainCommand request,
         CancellationToken cancellationToken)
     {
@@ -38,13 +37,16 @@ public class UpdateEducationDomainCommandHandler : ResponseHandler,
                 IsActive = request.IsActive
             };
 
-            var ruleDto = request.EducationRule ?? EducationRuleDefaults.ForDomainCode(request.Code);
-            var result = await _domainService.UpdateDomainAsync(domain, ruleDto);
-            return Success(entity: result);
+            await _domainService.UpdateDomainAsync(domain, request.EducationRule);
+            var dto = await _domainService.GetDomainDtoByIdAsync(request.Id);
+            if (dto == null)
+                return NotFound<EducationDomainDto>("Education domain not found");
+
+            return Success(entity: dto);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest<EducationDomain>(ex.Message);
+            return BadRequest<EducationDomainDto>(ex.Message);
         }
     }
 }

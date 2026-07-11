@@ -62,7 +62,7 @@ public class EducationDomainsSeeder
                         HasGrade = false,
                         HasAcademicTerm = false,
                         HasContentUnits = true,
-                        HasLessons = false,
+                        HasLessons = true,
                         RequiresQuranContentType = true,
                         RequiresQuranLevel = true,
                         RequiresUnitTypeSelection = true,

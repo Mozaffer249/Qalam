@@ -130,7 +130,7 @@ services:
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
     ports:
-      - "127.0.0.1:8080:80"
+      - "8080:80"
     volumes:
       - app_logs:/app/Logs
     depends_on:

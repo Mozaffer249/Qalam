@@ -91,7 +91,8 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
             {
                 Id = at.Id,
                 NameAr = at.NameAr,
-                NameEn = at.NameEn
+                NameEn = at.NameEn,
+                CanDelete = !at.Subjects.Any()
             })
             .ToListAsync();
     }

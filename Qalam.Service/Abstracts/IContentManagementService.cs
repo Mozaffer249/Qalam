@@ -33,5 +33,6 @@ public interface IContentManagementService
     Task<PaginatedResult<ContentUnit>> GetPaginatedContentUnitsAsync(
         int pageNumber, int pageSize, int? subjectId = null, List<int>? termIds = null, string? unitTypeCode = null, string? search = null);
     Task<PaginatedResult<Lesson>> GetPaginatedLessonsAsync(
-        int pageNumber, int pageSize, int? contentUnitId = null, int? subjectId = null, string? search = null);
+        int pageNumber, int pageSize, int? contentUnitId = null, int? subjectId = null, string? search = null,
+        int? quranContentTypeId = null, int? quranLevelId = null);
 }

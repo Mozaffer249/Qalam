@@ -438,4 +438,25 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                          && ts.VerificationStatus == DocumentVerificationStatus.Rejected
                          && ts.RejectionSource != TeacherSubjectRejectionSource.DomainQuestionCascade)
             .ToListAsync(cancellationToken);
+
+    public async Task<List<TeacherSubject>> GetApprovedActiveSubjectsWithUnitsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _teacherSubjects
+            .AsNoTracking()
+            .Where(ts => ts.TeacherId == teacherId
+                         && ts.IsActive
+                         && ts.VerificationStatus == DocumentVerificationStatus.Approved)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.Domain)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.Unit)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranContentType)
+            .Include(ts => ts.TeacherSubjectUnits)
+                .ThenInclude(tsu => tsu.QuranLevel)
+            .OrderBy(ts => ts.Subject.NameAr)
+            .ToListAsync(cancellationToken);
+    }
 }

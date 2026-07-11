@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Qalam.Data.Commons;
 using Qalam.Data.Entity.Education;
 
@@ -9,6 +10,8 @@ public class EducationRule : AuditableEntity
     public int Id { get; set; }
 
     public int DomainId { get; set; }
+
+    [JsonIgnore]
     public EducationDomain Domain { get; set; } = default!;
 
     // Tree structure rules (UI/validation)
@@ -43,5 +46,10 @@ public class EducationRule : AuditableEntity
 
     [MaxLength(500)]
     public string? NotesEn { get; set; }
+
+    /// <summary>
+    /// True after an admin explicitly saves rules on the domain rules page.
+    /// </summary>
+    public bool RulesConfigured { get; set; }
 }
 

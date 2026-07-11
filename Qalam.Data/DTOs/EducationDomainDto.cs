@@ -10,5 +10,6 @@ public class EducationDomainDto
     public string? DescriptionEn { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public EducationRuleDto? EducationRule { get; set; }
 }

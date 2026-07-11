@@ -104,4 +104,9 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
 
     /// <summary>Subjects rejected directly by admin (teacher may resubmit).</summary>
     Task<List<TeacherSubject>> GetDirectRejectedSubjectsAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>Approved + active subjects with units for student teacher profile / wizard.</summary>
+    Task<List<TeacherSubject>> GetApprovedActiveSubjectsWithUnitsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
 }

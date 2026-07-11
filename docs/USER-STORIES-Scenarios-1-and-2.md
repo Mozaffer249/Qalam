@@ -690,7 +690,9 @@ Auth pattern: `[Authorize(Roles = ...)]` on controllers. Guardian uses same endp
 
 Full Scenario 2 user stories (S2-ST, S2-TE, S2-AD), endpoint/entity inventories, and S2-specific discrepancies live in a dedicated file:
 
-→ **[USER-STORIES-Scenario-2.md](USER-STORIES-Scenario-2.md)**
+→ **[USER-STORIES-Scenario-2.md](USER-STORIES-Scenario-2.md)** — user stories, entities, discrepancies.
+
+→ **[S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)** — flows, backend endpoints (implemented + planned), targeted-teacher wizard map.
 
 | Area | Count | Maturity |
 |------|-------|----------|

@@ -40,7 +40,8 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 DescriptionAr = d.DescriptionAr,
                 DescriptionEn = d.DescriptionEn,
                 IsActive = d.IsActive,
-                CreatedAt = d.CreatedAt
+                CreatedAt = d.CreatedAt,
+                UpdatedAt = d.UpdatedAt,
             });
     }
 
@@ -59,6 +60,7 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                 DescriptionEn = d.DescriptionEn,
                 IsActive = d.IsActive,
                 CreatedAt = d.CreatedAt,
+                UpdatedAt = d.UpdatedAt,
                 EducationRule = d.EducationRule == null ? null : new EducationRuleDto
                 {
                     Id = d.EducationRule.Id,
@@ -81,6 +83,7 @@ public class EducationDomainRepository : GenericRepositoryAsync<EducationDomain>
                     MaxGroupSize = d.EducationRule.MaxGroupSize,
                     NotesAr = d.EducationRule.NotesAr,
                     NotesEn = d.EducationRule.NotesEn,
+                    RulesConfigured = d.EducationRule.RulesConfigured,
                 }
             })
             .FirstOrDefaultAsync();

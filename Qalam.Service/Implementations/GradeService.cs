@@ -12,15 +12,18 @@ public class GradeService : IGradeService
     private readonly IEducationLevelRepository _levelRepository;
     private readonly IGradeRepository _gradeRepository;
     private readonly IAcademicTermRepository _termRepository;
+    private readonly IEducationDeleteGuardService _deleteGuard;
 
     public GradeService(
         IEducationLevelRepository levelRepository,
         IGradeRepository gradeRepository,
-        IAcademicTermRepository termRepository)
+        IAcademicTermRepository termRepository,
+        IEducationDeleteGuardService deleteGuard)
     {
         _levelRepository = levelRepository;
         _gradeRepository = gradeRepository;
         _termRepository = termRepository;
+        _deleteGuard = deleteGuard;
     }
 
     #region Education Level Operations
@@ -91,8 +94,7 @@ public class GradeService : IGradeService
         if (level == null)
             return false;
 
-        if (level.Grades?.Any() == true)
-            throw new InvalidOperationException("Cannot delete level with existing grades");
+        await _deleteGuard.AssertCanDeleteLevelAsync(id);
 
         await _levelRepository.DeleteAsync(level);
         return true;
@@ -134,7 +136,7 @@ public class GradeService : IGradeService
 
     public async Task<Grade> CreateGradeAsync(Grade grade)
     {
-        if (!await IsGradeCodeUniqueAsync(grade.NameEn))
+        if (!await IsGradeCodeUniqueAsync(grade.NameEn, grade.LevelId))
             throw new InvalidOperationException("Grade name already exists");
 
         grade.CreatedAt = DateTime.UtcNow;
@@ -147,7 +149,7 @@ public class GradeService : IGradeService
         if (existing == null)
             throw new InvalidOperationException("Grade not found");
 
-        if (!await IsGradeCodeUniqueAsync(grade.NameEn, grade.Id))
+        if (!await IsGradeCodeUniqueAsync(grade.NameEn, grade.LevelId, grade.Id))
             throw new InvalidOperationException("Grade name already exists");
 
         existing.NameAr = grade.NameAr;
@@ -167,8 +169,7 @@ public class GradeService : IGradeService
         if (grade == null)
             return false;
 
-        if (grade.Subjects?.Any() == true)
-            throw new InvalidOperationException("Cannot delete grade with existing subjects");
+        await _deleteGuard.AssertCanDeleteGradeAsync(id);
 
         await _gradeRepository.DeleteAsync(grade);
         return true;
@@ -324,9 +325,9 @@ public class GradeService : IGradeService
         return await _levelRepository.IsLevelCodeUniqueAsync(code, excludeId);
     }
 
-    public async Task<bool> IsGradeCodeUniqueAsync(string code, int? excludeId = null)
+    public async Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null)
     {
-        return await _gradeRepository.IsGradeCodeUniqueAsync(code, excludeId);
+        return await _gradeRepository.IsGradeCodeUniqueAsync(code, levelId, excludeId);
     }
 
     #endregion

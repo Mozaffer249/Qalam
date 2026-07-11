@@ -30,7 +30,9 @@ public class CreateLessonCommandHandler : ResponseHandler,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
                 UnitId = request.UnitId,
-                OrderIndex = request.OrderIndex
+                OrderIndex = request.OrderIndex,
+                QuranContentTypeId = request.QuranContentTypeId,
+                QuranLevelId = request.QuranLevelId
             };
 
             var result = await _contentService.CreateLessonAsync(lesson);

@@ -82,7 +82,8 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
             {
                 Id = cu.Id,
                 NameAr = cu.NameAr,
-                NameEn = cu.NameEn
+                NameEn = cu.NameEn,
+                CanDelete = !cu.Lessons.Any()
             })
             .ToListAsync();
     }
@@ -115,7 +116,8 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
             {
                 Id = cu.Id,
                 NameAr = cu.NameAr,
-                NameEn = cu.NameEn
+                NameEn = cu.NameEn,
+                CanDelete = !cu.Lessons.Any()
             })
             .ToListAsync();
 

@@ -19,5 +19,12 @@ public class Lesson : AuditableEntity
     public int OrderIndex { get; set; }
     
     public bool IsActive { get; set; } = true;
+
+    // Quran catalog: lessons scoped per content type + level within a unit
+    public int? QuranContentTypeId { get; set; }
+    public Quran.QuranContentType? QuranContentType { get; set; }
+
+    public int? QuranLevelId { get; set; }
+    public Quran.QuranLevel? QuranLevel { get; set; }
 }
 

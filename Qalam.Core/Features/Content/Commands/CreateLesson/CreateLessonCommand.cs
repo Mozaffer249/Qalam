@@ -10,4 +10,6 @@ public class CreateLessonCommand : IRequest<Response<Lesson>>
     public string NameEn { get; set; } = string.Empty;
     public int UnitId { get; set; }
     public int OrderIndex { get; set; }
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
 }

@@ -316,6 +316,124 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         return new PaginatedResult<TeacherCardDto>(items, total, filters.PageNumber, filters.PageSize);
     }
 
+    public async Task<StudentTeacherProfileDto?> GetStudentProfileAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeStatuses = new[] { EnrollmentStatus.Active, EnrollmentStatus.Completed };
+
+        return await ActiveTeachersBaseQuery()
+            .Where(t => t.Id == teacherId)
+            .Select(t => new StudentTeacherProfileDto
+            {
+                Id = t.Id,
+                UserId = t.UserId,
+                FullName = t.User != null
+                    ? ((t.User.FirstName ?? string.Empty) + " " + (t.User.LastName ?? string.Empty)).Trim()
+                    : string.Empty,
+                ProfilePictureUrl = t.User != null ? t.User.ProfilePictureUrl : null,
+                Bio = t.Bio,
+                RatingAverage = t.RatingAverage,
+                ReviewsCount = t.TeacherReviews.Count(r => r.IsApproved),
+                Location = t.Location,
+                StudentsCount = _context.Set<Qalam.Data.Entity.Course.EnrollmentParticipant>()
+                    .Where(p => activeStatuses.Contains(p.Enrollment.EnrollmentStatus)
+                                && p.Enrollment.ApprovedByTeacherId == teacherId)
+                    .Select(p => p.StudentId)
+                    .Distinct()
+                    .Count(),
+                CoursesCount = _context.Set<Qalam.Data.Entity.Course.Course>()
+                    .Count(c => c.TeacherId == teacherId
+                                && c.Status == CourseStatus.Published
+                                && c.IsActive),
+                SubjectsCount = t.TeacherSubjects.Count(ts => ts.IsActive
+                    && ts.VerificationStatus == DocumentVerificationStatus.Approved),
+                Subjects = t.TeacherSubjects
+                    .Where(ts => ts.IsActive
+                                 && ts.VerificationStatus == DocumentVerificationStatus.Approved
+                                 && ts.Subject != null)
+                    .OrderBy(ts => ts.Subject!.NameAr)
+                    .Take(5)
+                    .Select(ts => new TeacherCardSubjectDto
+                    {
+                        SubjectId = ts.SubjectId,
+                        SubjectNameAr = ts.Subject!.NameAr,
+                        SubjectNameEn = ts.Subject.NameEn,
+                        DomainId = ts.Subject.DomainId,
+                        DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                        CanTeachFullSubject = ts.CanTeachFullSubject,
+                        UnitsCount = ts.TeacherSubjectUnits.Count
+                    })
+                    .ToList()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResult<StudentTeacherReviewDto>> GetStudentReviewsAsync(
+        int teacherId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var isActive = await ActiveTeachersBaseQuery()
+            .AnyAsync(t => t.Id == teacherId, cancellationToken);
+        if (!isActive)
+            return new PaginatedResult<StudentTeacherReviewDto>([], 0, pageNumber, pageSize);
+
+        var query = _context.Set<TeacherReview>()
+            .AsNoTracking()
+            .Where(r => r.TeacherId == teacherId && r.IsApproved)
+            .OrderByDescending(r => r.CreatedAt);
+
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => new StudentTeacherReviewDto
+            {
+                Id = r.Id,
+                Rating = r.Rating,
+                Feedback = r.Feedback,
+                StudentDisplayName = r.Student != null && r.Student.User != null
+                    ? (r.Student.User.FirstName ?? "Student")
+                    : "Student",
+                CreatedAt = r.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PaginatedResult<StudentTeacherReviewDto>(items, total, pageNumber, pageSize);
+    }
+
+    public async Task<List<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
+        int teacherId,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var isActive = await ActiveTeachersBaseQuery()
+            .AnyAsync(t => t.Id == teacherId, cancellationToken);
+        if (!isActive)
+            return [];
+
+        var limit = take is < 1 or > 50 ? 10 : take;
+
+        return await _context.Set<TeacherDocument>()
+            .AsNoTracking()
+            .Where(d => d.TeacherId == teacherId
+                        && d.DocumentType == TeacherDocumentType.Certificate
+                        && d.VerificationStatus == DocumentVerificationStatus.Approved)
+            .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue)
+            .Take(limit)
+            .Select(d => new StudentTeacherCertificateDto
+            {
+                Id = d.Id,
+                Title = d.CertificateTitle,
+                Issuer = d.Issuer,
+                IssueDate = d.IssueDate,
+                FileUrl = d.FilePath
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     private IQueryable<Teacher> ActiveTeachersBaseQuery() =>
         _teachers.AsNoTracking().Where(t => t.Status == TeacherStatus.Active && t.IsActive);
 

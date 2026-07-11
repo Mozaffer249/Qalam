@@ -25,12 +25,24 @@ public class LessonRepository : GenericRepositoryAsync<Lesson>, ILessonRepositor
             .ThenBy(l => l.OrderIndex);
     }
 
-    public IQueryable<Lesson> GetLessonsByContentUnitId(int contentUnitId)
+    public IQueryable<Lesson> GetLessonsByContentUnitId(int contentUnitId, int? quranContentTypeId = null, int? quranLevelId = null)
     {
-        return _context.Lessons
+        var query = _context.Lessons
             .AsNoTracking()
-            .Where(l => l.UnitId == contentUnitId)
-            .OrderBy(l => l.OrderIndex);
+            .Where(l => l.UnitId == contentUnitId);
+
+        if (quranContentTypeId.HasValue && quranLevelId.HasValue)
+        {
+            query = query.Where(l =>
+                l.QuranContentTypeId == quranContentTypeId.Value &&
+                l.QuranLevelId == quranLevelId.Value);
+        }
+        else
+        {
+            query = query.Where(l => l.QuranContentTypeId == null && l.QuranLevelId == null);
+        }
+
+        return query.OrderBy(l => l.OrderIndex);
     }
 
     public IQueryable<Lesson> GetLessonsBySubjectId(int subjectId)
@@ -51,11 +63,22 @@ public class LessonRepository : GenericRepositoryAsync<Lesson>, ILessonRepositor
             .FirstOrDefaultAsync(l => l.Id == id);
     }
 
-    public async Task<int> GetNextOrderIndexAsync(int contentUnitId)
+    public async Task<int> GetNextOrderIndexAsync(int contentUnitId, int? quranContentTypeId = null, int? quranLevelId = null)
     {
-        var maxOrder = await _context.Lessons
-            .Where(l => l.UnitId == contentUnitId)
-            .MaxAsync(l => (int?)l.OrderIndex) ?? 0;
+        var query = _context.Lessons.Where(l => l.UnitId == contentUnitId);
+
+        if (quranContentTypeId.HasValue && quranLevelId.HasValue)
+        {
+            query = query.Where(l =>
+                l.QuranContentTypeId == quranContentTypeId.Value &&
+                l.QuranLevelId == quranLevelId.Value);
+        }
+        else
+        {
+            query = query.Where(l => l.QuranContentTypeId == null && l.QuranLevelId == null);
+        }
+
+        var maxOrder = await query.MaxAsync(l => (int?)l.OrderIndex) ?? 0;
         return maxOrder + 1;
     }
 
@@ -65,17 +88,16 @@ public class LessonRepository : GenericRepositoryAsync<Lesson>, ILessonRepositor
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<FilterOptionDto>> GetLessonsAsOptionsAsync(int contentUnitId)
+    public async Task<List<FilterOptionDto>> GetLessonsAsOptionsAsync(int contentUnitId, int? quranContentTypeId = null, int? quranLevelId = null)
     {
-        return await _context.Lessons
-            .AsNoTracking()
-            .Where(l => l.UnitId == contentUnitId && l.IsActive)
-            .OrderBy(l => l.OrderIndex)
+        return await GetLessonsByContentUnitId(contentUnitId, quranContentTypeId, quranLevelId)
+            .Where(l => l.IsActive)
             .Select(l => new FilterOptionDto
             {
                 Id = l.Id,
                 NameAr = l.NameAr,
-                NameEn = l.NameEn
+                NameEn = l.NameEn,
+                CanDelete = true
             })
             .ToListAsync();
     }

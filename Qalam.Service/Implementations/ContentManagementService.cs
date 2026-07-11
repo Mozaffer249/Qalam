@@ -10,13 +10,16 @@ public class ContentManagementService : IContentManagementService
 {
     private readonly IContentUnitRepository _contentUnitRepository;
     private readonly ILessonRepository _lessonRepository;
+    private readonly IEducationDeleteGuardService _deleteGuard;
 
     public ContentManagementService(
         IContentUnitRepository contentUnitRepository,
-        ILessonRepository lessonRepository)
+        ILessonRepository lessonRepository,
+        IEducationDeleteGuardService deleteGuard)
     {
         _contentUnitRepository = contentUnitRepository;
         _lessonRepository = lessonRepository;
+        _deleteGuard = deleteGuard;
     }
 
     #region Content Unit Operations
@@ -78,8 +81,7 @@ public class ContentManagementService : IContentManagementService
         if (contentUnit == null)
             return false;
 
-        if (contentUnit.Lessons?.Any() == true)
-            throw new InvalidOperationException("Cannot delete content unit with existing lessons");
+        await _deleteGuard.AssertCanDeleteContentUnitAsync(id);
 
         await _contentUnitRepository.DeleteAsync(contentUnit);
         return true;
@@ -148,10 +150,23 @@ public class ContentManagementService : IContentManagementService
 
     public async Task<Lesson> CreateLessonAsync(Lesson lesson)
     {
-        lesson.OrderIndex = await _lessonRepository.GetNextOrderIndexAsync(lesson.UnitId);
+        await ValidateLessonQuranFieldsAsync(lesson);
+
+        if (lesson.OrderIndex <= 0)
+        {
+            lesson.OrderIndex = await _lessonRepository.GetNextOrderIndexAsync(
+                lesson.UnitId,
+                lesson.QuranContentTypeId,
+                lesson.QuranLevelId);
+        }
+
         lesson.CreatedAt = DateTime.UtcNow;
         lesson.IsActive = true;
-        return await _lessonRepository.AddAsync(lesson);
+        var created = await _lessonRepository.AddAsync(lesson);
+        created.Unit = null!;
+        created.QuranContentType = null;
+        created.QuranLevel = null;
+        return created;
     }
 
     public async Task<Lesson> UpdateLessonAsync(Lesson lesson)
@@ -160,14 +175,21 @@ public class ContentManagementService : IContentManagementService
         if (existing == null)
             throw new InvalidOperationException("Lesson not found");
 
+        await ValidateLessonQuranFieldsAsync(lesson);
+
         existing.NameAr = lesson.NameAr;
         existing.NameEn = lesson.NameEn;
         existing.UnitId = lesson.UnitId;
         existing.OrderIndex = lesson.OrderIndex;
         existing.IsActive = lesson.IsActive;
+        existing.QuranContentTypeId = lesson.QuranContentTypeId;
+        existing.QuranLevelId = lesson.QuranLevelId;
         existing.UpdatedAt = DateTime.UtcNow;
 
         await _lessonRepository.UpdateAsync(existing);
+        existing.Unit = null!;
+        existing.QuranContentType = null;
+        existing.QuranLevel = null;
         return existing;
     }
 
@@ -252,7 +274,8 @@ public class ContentManagementService : IContentManagementService
     }
 
     public async Task<PaginatedResult<Lesson>> GetPaginatedLessonsAsync(
-        int pageNumber, int pageSize, int? contentUnitId = null, int? subjectId = null, string? search = null)
+        int pageNumber, int pageSize, int? contentUnitId = null, int? subjectId = null, string? search = null,
+        int? quranContentTypeId = null, int? quranLevelId = null)
     {
         var query = _lessonRepository.GetLessonsQueryable();
 
@@ -261,6 +284,17 @@ public class ContentManagementService : IContentManagementService
 
         if (subjectId.HasValue)
             query = query.Where(l => l.Unit.SubjectId == subjectId.Value);
+
+        if (quranContentTypeId.HasValue && quranLevelId.HasValue)
+        {
+            query = query.Where(l =>
+                l.QuranContentTypeId == quranContentTypeId.Value &&
+                l.QuranLevelId == quranLevelId.Value);
+        }
+        else if (contentUnitId.HasValue)
+        {
+            query = query.Where(l => l.QuranContentTypeId == null && l.QuranLevelId == null);
+        }
 
         if (!string.IsNullOrEmpty(search))
         {
@@ -279,6 +313,26 @@ public class ContentManagementService : IContentManagementService
             .ToListAsync();
 
         return new PaginatedResult<Lesson>(items, totalCount, pageNumber, pageSize);
+    }
+
+    private static bool IsQuranUnitType(string? unitTypeCode) =>
+        unitTypeCode is "QuranSurah" or "QuranPart";
+
+    private async Task ValidateLessonQuranFieldsAsync(Lesson lesson)
+    {
+        var unit = await _contentUnitRepository.GetByIdAsync(lesson.UnitId);
+        if (unit == null)
+            throw new InvalidOperationException("Content unit not found");
+
+        if (IsQuranUnitType(unit.UnitTypeCode))
+        {
+            if (!lesson.QuranContentTypeId.HasValue || !lesson.QuranLevelId.HasValue)
+                throw new InvalidOperationException("Quran content type and level are required for Quran unit lessons");
+        }
+        else if (lesson.QuranContentTypeId.HasValue || lesson.QuranLevelId.HasValue)
+        {
+            throw new InvalidOperationException("Quran content type and level are only allowed for Quran units");
+        }
     }
 
     #endregion

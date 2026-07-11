@@ -5,7 +5,7 @@ using Qalam.Data.Entity.Education;
 
 namespace Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
 
-public class UpdateEducationDomainCommand : IRequest<Response<EducationDomain>>
+public class UpdateEducationDomainCommand : IRequest<Response<EducationDomainDto>>
 {
     public int Id { get; set; }
     public string NameAr { get; set; } = string.Empty;

@@ -6,4 +6,5 @@ public class FilterOptionDto
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;
     public string? Code { get; set; } // for domains/subjects
+    public bool CanDelete { get; set; } = true;
 }

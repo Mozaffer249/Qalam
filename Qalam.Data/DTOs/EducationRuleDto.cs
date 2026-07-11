@@ -28,4 +28,6 @@ public class EducationRuleDto
 
     public string? NotesAr { get; set; }
     public string? NotesEn { get; set; }
+
+    public bool RulesConfigured { get; set; }
 }

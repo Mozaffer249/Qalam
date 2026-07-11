@@ -1,14 +1,29 @@
-# User Stories — Scenario 2: Open Session Request
-## قصص المستخدم — السيناريو الثاني: طلب جلسات مفتوح
+# User Stories â€” Scenario 2: Open Session Request
+## ظ‚طµطµ ط§ظ„ظ…ط³طھط®ط¯ظ… â€” ط§ظ„ط³ظٹظ†ط§ط±ظٹظˆ ط§ظ„ط«ط§ظ†ظٹ: ط·ظ„ط¨ ط¬ظ„ط³ط§طھ ظ…ظپطھظˆط­
 
 > Source of truth: codebase as of **2026-06-17**. Where BRD/role docs and code diverge, **code wins**; divergences are listed in §12.
 >
-> **Related:** [Scenario 1 — Course Enrollment](USER-STORIES-Scenarios-1-and-2.md#4-scenario-1--course-enrollment) · [Combined index](USER-STORIES-Scenarios-1-and-2.md) · [Teacher role (S2)](TEACHER-ROLE-Scenario2.md) · [Admin role (S2)](ADMIN-ROLE-Scenario2.md)
+> **Related:** [Scenario 1 — Course Enrollment](USER-STORIES-Scenarios-1-and-2.md#4-scenario-1--course-enrollment) · [Combined index](USER-STORIES-Scenarios-1-and-2.md) · **[Flow & API reference](S2-FLOW-AND-ENDPOINTS.md)** · [Teacher role (S2)](TEACHER-ROLE-Scenario2.md) · [Admin role (S2)](ADMIN-ROLE-Scenario2.md)
+
+---
+
+## Frontend developers — start here
+
+This file is **user stories and backend entity reference**. For screens, flows, and API routes, use the dedicated front-end guide first:
+
+| You need | Document / code |
+|----------|-----------------|
+| **Flows, wizard screens, all backend endpoints** | **[S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)** |
+| Targeted-teacher wizard (6 screens → `POST`) | [S2-FLOW §6](S2-FLOW-AND-ENDPOINTS.md#6-targeted-teacher-wizard-screen--endpoint-map) · publish body [§7](S2-FLOW-AND-ENDPOINTS.md#7-publish-contract) |
+| Student Flutter app (canonical) | [`apps/Qalam/`](../apps/Qalam/) — open as workspace root; wizard: `lib/features/teachers/presentation/screens/create_subscription/create_subscription_screen.dart` |
+| Teacher inbox / offers (web) | [`apps/teacher/`](../apps/teacher/) · [TEACHER-ROLE-Scenario2.md](TEACHER-ROLE-Scenario2.md) |
+| Acceptance criteria per story | This file — §4 (student), §5 (teacher), §6 (admin) |
 
 ---
 
 ## Table of contents
 
+0. [Frontend developers — start here](#frontend-developers--start-here)
 1. [Overview](#1-overview)
 2. [Glossary](#2-glossary)
 3. [Roles & permissions](#3-roles--permissions)
@@ -17,7 +32,7 @@
 6. [Admin stories (S2-AD-xxx)](#6-admin-stories-s2-ad-xxx)
 7. [Cross-cutting dependencies](#7-cross-cutting-dependencies)
 8. [Code references](#8-code-references)
-9. [Endpoint inventory](#9-endpoint-inventory)
+9. [Flow & endpoints → S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)
 10. [Entity inventory](#10-entity-inventory)
 11. [Event inventory](#11-event-inventory)
 12. [Discrepancies (BRD vs code)](#12-discrepancies-brd-vs-code)
@@ -30,11 +45,13 @@
 
 | Field | Value |
 |-------|-------|
+| **Frontend (student)** | Flutter app [`apps/Qalam/`](../apps/Qalam/) — flows & APIs: [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) |
+| **Frontend (teacher)** | Vite app [`apps/teacher/`](../apps/teacher/) — [TEACHER-ROLE-Scenario2.md](TEACHER-ROLE-Scenario2.md) |
 | **Scenario** | **2** — طلب جلسات مفتوح (Open Session Request) |
-| **Flow** | Student **publishes an open session request** → matching notifies teachers → teachers **submit offers** → student accepts → pay → sessions run |
-| **Maturity** | **Student CRUD + broadcast/targeted matching + teacher inbox + offers + chat all implemented**; **offer-acceptance, S2 payment, admin S2 APIs, and draft wizard still planned** |
-| **Architecture** | ASP.NET Core API (`Qalam.Api`), MediatR (`Qalam.Core/Features`), EF Core (`Qalam.Data/Entity`), SQL Server, RabbitMQ (attachments + notification emails). Chat is HTTP cursor-paginated — **no SignalR hub** in codebase today. |
-| **Matching gate** | Broadcast matching only targets teachers whose `TeacherSubject.VerificationStatus == Approved` **and** `IsActive` (see §3, §12). Since `20260616224014_TeacherSubjectPendingByDefault`, new subjects start `Pending` → admin approval (X-008) is now a hard prerequisite for being matched. |
+| **Flow** | Student **publishes an open session request** â†’ matching notifies teachers â†’ teachers **submit offers** â†’ student accepts â†’ pay â†’ sessions run |
+| **Maturity** | **Student CRUD + broadcast/targeted matching + teacher inbox + offers + chat all implemented**; **offer-acceptance, S2 payment, admin S2 APIs, and draft wizard still planned**. Flow & endpoints: [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md). |
+| **Architecture** | ASP.NET Core API (`Qalam.Api`), MediatR (`Qalam.Core/Features`), EF Core (`Qalam.Data/Entity`), SQL Server, RabbitMQ (attachments + notification emails). Chat is HTTP cursor-paginated â€” **no SignalR hub** in codebase today. |
+| **Matching gate** | Broadcast matching only targets teachers whose `TeacherSubject.VerificationStatus == Approved` **and** `IsActive` (see آ§3, آ§12). Since `20260616224014_TeacherSubjectPendingByDefault`, new subjects start `Pending` â†’ admin approval (X-008) is now a hard prerequisite for being matched. |
 
 ---
 
@@ -42,11 +59,11 @@
 
 | Term (EN) | Arabic | Code / table |
 |-----------|--------|--------------|
-| Open session **request** | طلب جلسات مفتوح | `OpenSessionRequest` → `sr.SessionRequests` |
-| Teacher **offer** | عرض المعلم | `OpenSessionOffer` → `sr.SessionOffers` |
-| Request **target** (matched teacher) | استهداف المعلم | `OpenSessionRequestTarget` |
-| **Enrollment** (post-payment) | التسجيل الفعلي | `Enrollment` (`EnrollmentSource.OpenSessionRequest` — planned) |
-| Mock payment (S1 pattern) | دفع تجريبي | Reuse `PayEnrollmentParticipant` pattern — **no S2 handler yet** |
+| Open session **request** | ط·ظ„ط¨ ط¬ظ„ط³ط§طھ ظ…ظپطھظˆط­ | `OpenSessionRequest` â†’ `sr.SessionRequests` |
+| Teacher **offer** | ط¹ط±ط¶ ط§ظ„ظ…ط¹ظ„ظ… | `OpenSessionOffer` â†’ `sr.SessionOffers` |
+| Request **target** (matched teacher) | ط§ط³طھظ‡ط¯ط§ظپ ط§ظ„ظ…ط¹ظ„ظ… | `OpenSessionRequestTarget` |
+| **Enrollment** (post-payment) | ط§ظ„طھط³ط¬ظٹظ„ ط§ظ„ظپط¹ظ„ظٹ | `Enrollment` (`EnrollmentSource.OpenSessionRequest` â€” planned) |
+| Mock payment (S1 pattern) | ط¯ظپط¹ طھط¬ط±ظٹط¨ظٹ | Reuse `PayEnrollmentParticipant` pattern â€” **no S2 handler yet** |
 
 > **Note:** Legacy `SessionRequest` (`session` schema) is **not** Scenario 2. Use `OpenSessionRequest` only.
 
@@ -56,11 +73,11 @@
 
 | Capability | Student | Guardian | Teacher | Admin | SuperAdmin |
 |------------|---------|----------|---------|-------|------------|
-| Create / manage open session requests | ✓ | ✓ (on behalf) | — | — | — |
-| Teacher available-requests inbox / offers | — | — | ✓ | — | — |
-| Offer conversation (chat) | ✓ | ✓ | ✓ | — | — |
-| Approve `TeacherSubject` (gates matching) | — | — | — | ✓ | ✓ |
-| Admin S2 dashboard / disputes / reports | — | — | — | planned | planned |
+| Create / manage open session requests | âœ“ | âœ“ (on behalf) | â€” | â€” | â€” |
+| Teacher available-requests inbox / offers | â€” | â€” | âœ“ | â€” | â€” |
+| Offer conversation (chat) | âœ“ | âœ“ | âœ“ | â€” | â€” |
+| Approve `TeacherSubject` (gates matching) | â€” | â€” | â€” | âœ“ | âœ“ |
+| Admin S2 dashboard / disputes / reports | â€” | â€” | â€” | planned | planned |
 
 Auth: `[Authorize(Roles = ...)]`. Student/Guardian endpoints carry `[Authorize(Roles = Roles.Student + "," + Roles.Guardian)]`; teacher endpoints `[Authorize(Roles = Roles.Teacher)]`; the shared `Conversations` controller is `[Authorize]` and derives the caller's role from the JWT via the access guard. Guardian uses Student endpoints with `studentId` in body where applicable.
 
@@ -68,7 +85,7 @@ Auth: `[Authorize(Roles = ...)]`. Student/Guardian endpoints carry `[Authorize(R
 
 ## 4. Student stories (S2-ST-xxx)
 
-### S2-ST-001: إنشاء ونشر طلب جلسات مفتوح
+### S2-ST-001: ط¥ظ†ط´ط§ط، ظˆظ†ط´ط± ط·ظ„ط¨ ط¬ظ„ط³ط§طھ ظ…ظپطھظˆط­
 
 **As** a student,
 **I want** to create and publish an open session request in one step,
@@ -78,31 +95,31 @@ Auth: `[Authorize(Roles = ...)]`. Student/Guardian endpoints carry `[Authorize(R
 
 **Acceptance criteria:**
 - [ ] AC1: `POST /Api/V1/Student/OpenSessionRequests` persists `OpenSessionRequest` with sessions and education FKs.
-- [ ] AC2: If group invitations pending → status `PendingInvitations`; else → `Active`.
-- [ ] AC3: When the request lands in `Active` (or transitions to it on the last invitation response), `IOpenSessionRequestTargetingService.RunMatchingAndNotifyAsync` runs — every qualified teacher gets an `OpenSessionRequestTarget` row + email notification. The exception is the targeted-teacher variant (S2-ST-001b) which skips broadcast.
+- [ ] AC2: If group invitations pending â†’ status `PendingInvitations`; else â†’ `Active`.
+- [ ] AC3: When the request lands in `Active` (or transitions to it on the last invitation response), `IOpenSessionRequestTargetingService.RunMatchingAndNotifyAsync` runs â€” every qualified teacher gets an `OpenSessionRequestTarget` row + email notification. The exception is the targeted-teacher variant (S2-ST-001b) which skips broadcast.
 
 **Endpoints:**
-- `POST /Api/V1/Student/OpenSessionRequests` → `CreateOpenSessionRequestCommandHandler`
+- `POST /Api/V1/Student/OpenSessionRequests` â†’ `CreateOpenSessionRequestCommandHandler`
 
 **Entities touched:** `OpenSessionRequest`, `OpenSessionRequestSession`, `OpenSessionRequestSessionUnit`, `OpenSessionRequestInvitation`, `OpenSessionRequestTarget`
 
 **Status:** `implemented`
 
-#### Request body samples — `POST /Api/V1/Student/OpenSessionRequests`
+#### Request body samples â€” `POST /Api/V1/Student/OpenSessionRequests`
 
 The command wraps the DTO under `data`. The four cases below cover every shape the handler accepts.
 
-**`units[]` row shape (any case)** — every row must set EXACTLY ONE of `contentUnitId` / `lessonId`:
+**`units[]` row shape (any case)** â€” every row must set EXACTLY ONE of `contentUnitId` / `lessonId`:
 
 | Row | Meaning |
 |---|---|
 | `{ "contentUnitId": 115, "includesAllLessons": true }` | Cover every lesson inside unit 115 |
-| `{ "contentUnitId": 115, "includesAllLessons": false }` (or flag omitted) | Unit 115 as a topic header — no specific lessons committed |
-| `{ "lessonId": 4501 }` | Only lesson 4501. `includesAllLessons` must be `false`/omitted — single-lesson rows can't expand (400 otherwise) |
+| `{ "contentUnitId": 115, "includesAllLessons": false }` (or flag omitted) | Unit 115 as a topic header â€” no specific lessons committed |
+| `{ "lessonId": 4501 }` | Only lesson 4501. `includesAllLessons` must be `false`/omitted â€” single-lesson rows can't expand (400 otherwise) |
 
-##### Case A — Broadcast (default)
+##### Case A â€” Broadcast (default)
 
-No `targetedTeacherId`. Matching engine runs at publish → every qualified teacher gets a Target row + notification email.
+No `targetedTeacherId`. Matching engine runs at publish â†’ every qualified teacher gets a Target row + notification email.
 
 ```json
 {
@@ -121,7 +138,7 @@ No `targetedTeacherId`. Matching engine runs at publish → every qualified teac
 }
 ```
 
-##### Case B — Targeted teacher (S2-ST-001b)
+##### Case B â€” Targeted teacher (S2-ST-001b)
 
 `targetedTeacherId` set. Broadcast is **skipped**. The server validates that the teacher offers `subjectId` and that every `units[]` entry is in that teacher's `TeacherSubjectUnits`. Only that one teacher gets a Target row + notification.
 
@@ -148,7 +165,7 @@ This single body shows all three `units[]` shapes in different sessions.
 }
 ```
 
-##### Case C — Group with invitations
+##### Case C â€” Group with invitations
 
 `invitedStudentIds` non-empty. Status lands in `PendingInvitations`; dispatch (broadcast OR targeted) waits until every invitee responds. Works with or without `targetedTeacherId`.
 
@@ -170,16 +187,16 @@ This single body shows all three `units[]` shapes in different sessions.
 }
 ```
 
-##### Case D — Quran domain
+##### Case D â€” Quran domain
 
 When the domain's code is `quran`, every session row **must** include `quranContentTypeId` AND `quranLevelId`. Works with broadcast or targeted (`targetedTeacherId` shown below). 400 otherwise.
 
 | `quranContentTypeId` | Meaning | `quranLevelId` | Meaning |
 |:---:|---|:---:|---|
-| 1 | حفظ (Memorization) | 1 | نوراني (Noorani) |
-| 2 | تلاوة (Recitation) | 2 | مبتدئ (Beginner) |
-| 3 | تجويد (Tajweed) | 3 | متوسط (Intermediate) |
-| | | 4 | متقدم (Advanced) |
+| 1 | ط­ظپط¸ (Memorization) | 1 | ظ†ظˆط±ط§ظ†ظٹ (Noorani) |
+| 2 | طھظ„ط§ظˆط© (Recitation) | 2 | ظ…ط¨طھط¯ط¦ (Beginner) |
+| 3 | طھط¬ظˆظٹط¯ (Tajweed) | 3 | ظ…طھظˆط³ط· (Intermediate) |
+| | | 4 | ظ…طھظ‚ط¯ظ… (Advanced) |
 
 ```json
 {
@@ -209,7 +226,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 | `data.studentId` | yes | Learner Student.Id. Caller must be that student OR their guardian. |
 | `data.domainId`, `data.subjectId`, `data.teachingModeId` | yes | Existing FKs; 404 on miss. |
 | `data.curriculumId`, `data.levelId`, `data.gradeId`, `data.termId` | no | Education breadcrumb when applicable. |
-| `data.targetedTeacherId` | no | Optional — switches to targeted dispatch (see Case B / S2-ST-001b). |
+| `data.targetedTeacherId` | no | Optional â€” switches to targeted dispatch (see Case B / S2-ST-001b). |
 | `data.groupType` | yes for Group teaching modes | `OpenGroup` or `InviteOnly`. |
 | `data.totalSessionsCount` | yes | Must match `sessions.length` once published. |
 | `data.invitedStudentIds[]` | no | Max 5. Allowed only for Group modes. |
@@ -223,7 +240,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-001b: إنشاء طلب جلسات موجَّه لمعلم محدد
+### S2-ST-001b: ط¥ظ†ط´ط§ط، ط·ظ„ط¨ ط¬ظ„ط³ط§طھ ظ…ظˆط¬ظژظ‘ظ‡ ظ„ظ…ط¹ظ„ظ… ظ…ط­ط¯ط¯
 
 **As** a student,
 **I want** to send the open session request to one specific teacher I've already chosen,
@@ -231,58 +248,60 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 **Source:** `[code]` `CreateOpenSessionRequestCommandHandler` + `TargetedOpenSessionRequestValidator` + `OpenSessionRequestTargetingService.NotifyTargetedTeacherAsync`
 
-**Request shape** — same `POST /Api/V1/Student/OpenSessionRequests` body as S2-ST-001, plus one new optional top-level field: `data.targetedTeacherId`. See **Case B** in the S2-ST-001 "Request body samples" section above for a complete body covering all three `units[]` row shapes.
+**Request shape** â€” same `POST /Api/V1/Student/OpenSessionRequests` body as S2-ST-001, plus one new optional top-level field: `data.targetedTeacherId`. See **Case B** in the S2-ST-001 "Request body samples" section above for a complete body covering all three `units[]` row shapes.
 
 **Acceptance criteria:**
 - [ ] AC1: When `targetedTeacherId` is set, the broadcast matching algorithm is **skipped**. Only one `OpenSessionRequestTarget` row is written, for that teacher.
-- [ ] AC2: Only the chosen teacher gets the email notification ("طلب جلسات جديد موجَّه إليك").
-- [ ] AC3: Server rejects with **404** `"المعلم المستهدف غير موجود أو غير نشط."` if the teacher doesn't exist or is not `IsActive`.
-- [ ] AC4: Server rejects with **400** `"هذا المعلم لا يُدرّس المادة المطلوبة. اختر معلماً آخر أو غيّر المادة."` if the teacher has no active `TeacherSubject` row matching the requested `subjectId`.
-- [ ] AC5: Per-session `units[]` rows are hard-validated against the chosen teacher's `TeacherSubjectUnits`. `contentUnitId` outside the repertoire → **400** `"Session N: contentUnitId X is outside this teacher's repertoire."`. Same for `lessonId` whose parent `ContentUnit` isn't offered.
-- [ ] AC6: Every `units[]` row must set **exactly one** of `contentUnitId` or `lessonId`; both/neither → **400** `"Session N: each unit row must set exactly one of contentUnitId or lessonId."`.
-- [ ] AC7: When `targetedTeacherId` is omitted (or `null`), behavior is identical to S2-ST-001 — broadcast matching runs.
-- [ ] AC8: If the request lands in `PendingInvitations` first and only flips to `Active` after the last invitee responds, the targeted dispatch fires at that point (`RespondToOpenSessionRequestInvitationCommandHandler`) — the chosen teacher is still the only one notified, not the broadcast pool.
-- [ ] AC9: The chat / offer flow (`OpenSessionOffer`, `OfferConversation`) is unchanged — the teacher must still post an offer before any conversation opens.
-- [ ] AC10: `units[].includesAllLessons` (new) defaults to `false`. When `true`, the row means "every lesson in the unit"; when `false`, the row means "this unit as a topic header." Setting `true` together with `lessonId` → **400** `"Session N: includesAllLessons must be false when lessonId is set — single-lesson rows can't expand."` The flag is persisted on `OpenSessionRequestSessionUnit` and echoed in read responses.
+- [ ] AC2: Only the chosen teacher gets the email notification ("ط·ظ„ط¨ ط¬ظ„ط³ط§طھ ط¬ط¯ظٹط¯ ظ…ظˆط¬ظژظ‘ظ‡ ط¥ظ„ظٹظƒ").
+- [ ] AC3: Server rejects with **404** `"ط§ظ„ظ…ط¹ظ„ظ… ط§ظ„ظ…ط³طھظ‡ط¯ظپ ط؛ظٹط± ظ…ظˆط¬ظˆط¯ ط£ظˆ ط؛ظٹط± ظ†ط´ط·."` if the teacher doesn't exist or is not `IsActive`.
+- [ ] AC4: Server rejects with **400** `"ظ‡ط°ط§ ط§ظ„ظ…ط¹ظ„ظ… ظ„ط§ ظٹظڈط¯ط±ظ‘ط³ ط§ظ„ظ…ط§ط¯ط© ط§ظ„ظ…ط·ظ„ظˆط¨ط©. ط§ط®طھط± ظ…ط¹ظ„ظ…ط§ظ‹ ط¢ط®ط± ط£ظˆ ط؛ظٹظ‘ط± ط§ظ„ظ…ط§ط¯ط©."` if the teacher has no active `TeacherSubject` row matching the requested `subjectId`.
+- [ ] AC5: Per-session `units[]` rows are hard-validated against the chosen teacher's `TeacherSubjectUnits`. `contentUnitId` outside the repertoire â†’ **400** `"Session N: contentUnitId X is outside this teacher's repertoire."`. Same for `lessonId` whose parent `ContentUnit` isn't offered.
+- [ ] AC6: Every `units[]` row must set **exactly one** of `contentUnitId` or `lessonId`; both/neither â†’ **400** `"Session N: each unit row must set exactly one of contentUnitId or lessonId."`.
+- [ ] AC7: When `targetedTeacherId` is omitted (or `null`), behavior is identical to S2-ST-001 â€” broadcast matching runs.
+- [ ] AC8: If the request lands in `PendingInvitations` first and only flips to `Active` after the last invitee responds, the targeted dispatch fires at that point (`RespondToOpenSessionRequestInvitationCommandHandler`) â€” the chosen teacher is still the only one notified, not the broadcast pool.
+- [ ] AC9: The chat / offer flow (`OpenSessionOffer`, `OfferConversation`) is unchanged â€” the teacher must still post an offer before any conversation opens.
+- [ ] AC10: `units[].includesAllLessons` (new) defaults to `false`. When `true`, the row means "every lesson in the unit"; when `false`, the row means "this unit as a topic header." Setting `true` together with `lessonId` â†’ **400** `"Session N: includesAllLessons must be false when lessonId is set â€” single-lesson rows can't expand."` The flag is persisted on `OpenSessionRequestSessionUnit` and echoed in read responses.
 
 **Endpoints:**
-- `POST /Api/V1/Student/OpenSessionRequests` → `CreateOpenSessionRequestCommandHandler` (same endpoint as S2-ST-001 — distinguished by presence of `targetedTeacherId`)
+- `POST /Api/V1/Student/OpenSessionRequests` â†’ `CreateOpenSessionRequestCommandHandler` (same endpoint as S2-ST-001 â€” distinguished by presence of `targetedTeacherId`)
 
 **Entities touched:** `OpenSessionRequest.TargetedTeacherId` (new column), `OpenSessionRequestTarget` (single row instead of N), `TeacherSubject` + `TeacherSubjectUnit` (read-only validation)
 
 **Status:** `implemented`
 
-**Notes:** The teacher sees no difference in their inbox — the row in `OpenSessionRequestTarget` looks identical to a broadcast match. The "targeted" provenance is recorded only on the parent request (`OpenSessionRequest.TargetedTeacherId`). To filter inbox by "directly targeted to me", read `request.TargetedTeacherId == myTeacherId`.
+**Notes:** The teacher sees no difference in their inbox â€” the row in `OpenSessionRequestTarget` looks identical to a broadcast match. The "targeted" provenance is recorded only on the parent request (`OpenSessionRequest.TargetedTeacherId`). To filter inbox by "directly targeted to me", read `request.TargetedTeacherId == myTeacherId`.
+
+**Frontend flow:** [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) Section 6 (6-screen targeted-teacher wizard).
 
 ---
 
-### S2-ST-002: عرض قائمة طلباتي
+### S2-ST-002: ط¹ط±ط¶ ظ‚ط§ط¦ظ…ط© ط·ظ„ط¨ط§طھظٹ
 
 **As** a student,
 **I want** to list my open session requests filtered by status,
 **so that** I track progress.
 
 **Endpoints:**
-- `GET /Api/V1/Student/OpenSessionRequests/my?status=` → `GetMyOpenSessionRequestsQueryHandler`
+- `GET /Api/V1/Student/OpenSessionRequests/my?status=` â†’ `GetMyOpenSessionRequestsQueryHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-ST-003: عرض تفاصيل طلب
+### S2-ST-003: ط¹ط±ط¶ طھظپط§طµظٹظ„ ط·ظ„ط¨
 
 **As** a student,
 **I want** to view one open session request,
 **so that** I see sessions, attachments, and invitations.
 
 **Endpoints:**
-- `GET /Api/V1/Student/OpenSessionRequests/{id}` → `GetOpenSessionRequestByIdQueryHandler`
+- `GET /Api/V1/Student/OpenSessionRequests/{id}` â†’ `GetOpenSessionRequestByIdQueryHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-ST-004: إلغاء طلب
+### S2-ST-004: ط¥ظ„ط؛ط§ط، ط·ظ„ط¨
 
 **As** a student,
 **I want** to cancel my open session request,
@@ -291,7 +310,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `CancelOpenSessionRequestCommandHandler`
 
 **Endpoints:**
-- `POST /Api/V1/Student/OpenSessionRequests/{id}/Cancel` → `CancelOpenSessionRequestCommandHandler`
+- `POST /Api/V1/Student/OpenSessionRequests/{id}/Cancel` â†’ `CancelOpenSessionRequestCommandHandler`
 
 **Entities touched:** `OpenSessionRequest`, `OpenSessionOffer` (withdraw pending if any)
 
@@ -299,7 +318,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-005: رفع مرفق للطلب
+### S2-ST-005: ط±ظپط¹ ظ…ط±ظپظ‚ ظ„ظ„ط·ظ„ط¨
 
 **As** a student,
 **I want** to upload files to my request,
@@ -308,7 +327,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `UploadOpenSessionRequestAttachmentCommandHandler` + RabbitMQ consumer
 
 **Endpoints:**
-- `POST /Api/V1/Student/OpenSessionRequests/{id}/Attachments` → `UploadOpenSessionRequestAttachmentCommandHandler`
+- `POST /Api/V1/Student/OpenSessionRequests/{id}/Attachments` â†’ `UploadOpenSessionRequestAttachmentCommandHandler`
 
 **Entities touched:** `OpenSessionRequestAttachment`
 
@@ -318,27 +337,27 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-006: حذف مرفق
+### S2-ST-006: ط­ط°ظپ ظ…ط±ظپظ‚
 
 **As** a student,
 **I want** to delete an attachment,
 **so that** I remove sensitive or wrong files.
 
 **Endpoints:**
-- `DELETE /Api/V1/Student/OpenSessionRequests/{id}/Attachments/{attachmentId}` → `DeleteOpenSessionRequestAttachmentCommandHandler`
+- `DELETE /Api/V1/Student/OpenSessionRequests/{id}/Attachments/{attachmentId}` â†’ `DeleteOpenSessionRequestAttachmentCommandHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-ST-007: الرد على دعوة مجموعة (S2)
+### S2-ST-007: ط§ظ„ط±ط¯ ط¹ظ„ظ‰ ط¯ط¹ظˆط© ظ…ط¬ظ…ظˆط¹ط© (S2)
 
 **As** an invited student,
 **I want** to accept or reject an open-session group invite,
 **so that** the request can become active.
 
 **Endpoints:**
-- `POST /Api/V1/Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` → `RespondToOpenSessionRequestInvitationCommandHandler`
+- `POST /Api/V1/Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` â†’ `RespondToOpenSessionRequestInvitationCommandHandler`
 
 **Status:** `implemented`
 
@@ -346,7 +365,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-008: حفظ مسودة طلب (Wizard)
+### S2-ST-008: ط­ظپط¸ ظ…ط³ظˆط¯ط© ط·ظ„ط¨ (Wizard)
 
 **As** a student,
 **I want** to save a draft before publishing,
@@ -356,9 +375,11 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 **Status:** `planned`
 
+**Frontend flow:** [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) documents the client-held multi-step wizard that calls this API on submit.
+
 ---
 
-### S2-ST-009: عرض العروض الواردة
+### S2-ST-009: ط¹ط±ط¶ ط§ظ„ط¹ط±ظˆط¶ ط§ظ„ظˆط§ط±ط¯ط©
 
 **As** a student,
 **I want** to list teacher offers on my request,
@@ -367,7 +388,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` offers are projected inside the request detail (`GetOpenSessionRequestByIdQueryHandler`); **no dedicated student "offers list / compare" endpoint yet.**
 
 **Endpoints:**
-- `GET /Api/V1/Student/OpenSessionRequests/{id}` → `GetOpenSessionRequestByIdQueryHandler` (returns sessions, targets **and offers**)
+- `GET /Api/V1/Student/OpenSessionRequests/{id}` â†’ `GetOpenSessionRequestByIdQueryHandler` (returns sessions, targets **and offers**)
 
 **Status:** `partially implemented`
 
@@ -375,7 +396,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-010: قبول عرض
+### S2-ST-010: ظ‚ط¨ظˆظ„ ط¹ط±ط¶
 
 **As** a student,
 **I want** to accept one teacher offer,
@@ -389,7 +410,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-011: الدفع بعد قبول العرض
+### S2-ST-011: ط§ظ„ط¯ظپط¹ ط¨ط¹ط¯ ظ‚ط¨ظˆظ„ ط§ظ„ط¹ط±ط¶
 
 **As** a student,
 **I want** to pay after accepting an offer,
@@ -401,25 +422,25 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-ST-012: محادثة مع المعلم قبل القبول
+### S2-ST-012: ظ…ط­ط§ط¯ط«ط© ظ…ط¹ ط§ظ„ظ…ط¹ظ„ظ… ظ‚ط¨ظ„ ط§ظ„ظ‚ط¨ظˆظ„
 
 **As** a student,
 **I want** to chat with each teacher about my request,
-**so that** I clarify details — even before any offer is submitted.
+**so that** I clarify details â€” even before any offer is submitted.
 
 **Source:** `[code]` `OfferConversationsController` (`Qalam.Api/Controllers/Common`) + `GetOrCreateConversationByRequestQueryHandler`, `PostConversationMessageCommandHandler`, `GetConversationMessagesQueryHandler`, `MarkConversationReadCommandHandler`
 
 **Acceptance criteria:**
-- [ ] AC1: A conversation is keyed by **(request, teacher)** — not by offer — so the preliminary "طلب توضيح" chat can open before any offer exists and survives withdraw/re-offer cycles.
-- [ ] AC2: Either party (student/guardian or teacher) calls `GET …/by-request/{requestId}/teacher/{teacherId}` to find-or-create the thread; the access guard authorizes from the JWT.
+- [ ] AC1: A conversation is keyed by **(request, teacher)** â€” not by offer â€” so the preliminary "ط·ظ„ط¨ طھظˆط¶ظٹط­" chat can open before any offer exists and survives withdraw/re-offer cycles.
+- [ ] AC2: Either party (student/guardian or teacher) calls `GET â€¦/by-request/{requestId}/teacher/{teacherId}` to find-or-create the thread; the access guard authorizes from the JWT.
 - [ ] AC3: Messages are cursor-paginated (`cursor` = ISO-8601 `SentAt`, `direction` = `older`|`newer`, `take` default 50).
-- [ ] AC4: Sender is taken from the JWT on `POST …/messages`; offer updates post a `System`/`OfferUpdate` message automatically.
+- [ ] AC4: Sender is taken from the JWT on `POST â€¦/messages`; offer updates post a `System`/`OfferUpdate` message automatically.
 
 **Endpoints:**
-- `GET /Api/V1/Conversations/by-request/{requestId:int}/teacher/{teacherId:int}` → `GetOrCreateConversationByRequestQueryHandler`
-- `GET /Api/V1/Conversations/{conversationId:int}/messages` → `GetConversationMessagesQueryHandler`
-- `POST /Api/V1/Conversations/{conversationId:int}/messages` → `PostConversationMessageCommandHandler`
-- `POST /Api/V1/Conversations/{conversationId:int}/read` → `MarkConversationReadCommandHandler`
+- `GET /Api/V1/Conversations/by-request/{requestId:int}/teacher/{teacherId:int}` â†’ `GetOrCreateConversationByRequestQueryHandler`
+- `GET /Api/V1/Conversations/{conversationId:int}/messages` â†’ `GetConversationMessagesQueryHandler`
+- `POST /Api/V1/Conversations/{conversationId:int}/messages` â†’ `PostConversationMessageCommandHandler`
+- `POST /Api/V1/Conversations/{conversationId:int}/read` â†’ `MarkConversationReadCommandHandler`
 
 **Entities touched:** `OfferConversation`, `OfferMessage`
 
@@ -433,18 +454,18 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 > **Teacher Scenario 2 is now implemented in code** (controllers `TeacherAvailableRequestsController`, `TeacherSessionOffersController`, and shared `OfferConversationsController`), all under `[Authorize(Roles = Roles.Teacher)]` except chat (`[Authorize]`). Only offer-acceptance follow-ups (S2-TE-010/011) remain planned.
 
-### S2-TE-001: استقبال إشعار بطلب جديد
+### S2-TE-001: ط§ط³طھظ‚ط¨ط§ظ„ ط¥ط´ط¹ط§ط± ط¨ط·ظ„ط¨ ط¬ط¯ظٹط¯
 
 **As** a teacher,
 **I want** to receive a notification when a matched request is published,
 **so that** I can submit an offer quickly.
 
-**Source:** `[code]` `OpenSessionRequestTargetingService.RunMatchingAndNotifyAsync` / `NotifyTargetedTeacherAsync` — queues an email per matched teacher via RabbitMQ. Invoked synchronously from `CreateOpenSessionRequestCommandHandler` when the request becomes `Active`.
+**Source:** `[code]` `OpenSessionRequestTargetingService.RunMatchingAndNotifyAsync` / `NotifyTargetedTeacherAsync` â€” queues an email per matched teacher via RabbitMQ. Invoked synchronously from `CreateOpenSessionRequestCommandHandler` when the request becomes `Active`.
 
 **Acceptance criteria:**
-- [ ] AC1: Broadcast — every teacher returned by `TeacherMatchingService.FindMatchingTeacherIdsAsync` (active, **approved** `TeacherSubject` for the subject) gets an `OpenSessionRequestTarget` row + email.
-- [ ] AC2: Targeted (`targetedTeacherId`) — only that teacher is notified.
-- [ ] AC3: Email only — **no in-app/push channel and no SignalR**; the inbox (S2-TE-002) is the in-app surface.
+- [ ] AC1: Broadcast â€” every teacher returned by `TeacherMatchingService.FindMatchingTeacherIdsAsync` (active, **approved** `TeacherSubject` for the subject) gets an `OpenSessionRequestTarget` row + email.
+- [ ] AC2: Targeted (`targetedTeacherId`) â€” only that teacher is notified.
+- [ ] AC3: Email only â€” **no in-app/push channel and no SignalR**; the inbox (S2-TE-002) is the in-app surface.
 
 **Entities touched:** `OpenSessionRequestTarget`
 
@@ -454,7 +475,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-TE-002: عرض الطلبات المتاحة
+### S2-TE-002: ط¹ط±ط¶ ط§ظ„ط·ظ„ط¨ط§طھ ط§ظ„ظ…طھط§ط­ط©
 
 **As** a teacher,
 **I want** to browse available open session requests with filters,
@@ -463,7 +484,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `GetAvailableRequestsQueryHandler`
 
 **Endpoints:**
-- `GET /Api/V1/Teacher/AvailableRequests` → `GetAvailableRequestsQueryHandler` (paginated; target-status filter, `Notified`/`Viewed`/`OfferSubmitted`/`Skipped`)
+- `GET /Api/V1/Teacher/AvailableRequests` â†’ `GetAvailableRequestsQueryHandler` (paginated; target-status filter, `Notified`/`Viewed`/`OfferSubmitted`/`Skipped`)
 
 **Entities touched:** `OpenSessionRequest`, `OpenSessionRequestTarget`
 
@@ -471,7 +492,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-TE-003: عرض تفاصيل طلب مع تطابق التوفر
+### S2-TE-003: ط¹ط±ط¶ طھظپط§طµظٹظ„ ط·ظ„ط¨ ظ…ط¹ طھط·ط§ط¨ظ‚ ط§ظ„طھظˆظپط±
 
 **As** a teacher,
 **I want** to view request details and a per-session availability match,
@@ -480,18 +501,18 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `GetAvailableRequestByIdQueryHandler` + `GetAvailableRequestAvailabilityMatchQueryHandler`
 
 **Acceptance criteria:**
-- [ ] AC1: Detail view flips the target row `Notified → Viewed` on first call.
+- [ ] AC1: Detail view flips the target row `Notified â†’ Viewed` on first call.
 - [ ] AC2: Availability-match returns, per session, one of `Available` / `Conflict` / `OutsideAvailability`.
 
 **Endpoints:**
-- `GET /Api/V1/Teacher/AvailableRequests/{id:int}` → `GetAvailableRequestByIdQueryHandler`
-- `GET /Api/V1/Teacher/AvailableRequests/{id:int}/availability-match` → `GetAvailableRequestAvailabilityMatchQueryHandler`
+- `GET /Api/V1/Teacher/AvailableRequests/{id:int}` â†’ `GetAvailableRequestByIdQueryHandler`
+- `GET /Api/V1/Teacher/AvailableRequests/{id:int}/availability-match` â†’ `GetAvailableRequestAvailabilityMatchQueryHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-TE-004: تجاهل / إخفاء طلب
+### S2-TE-004: طھط¬ط§ظ‡ظ„ / ط¥ط®ظپط§ط، ط·ظ„ط¨
 
 **As** a teacher,
 **I want** to mark a request viewed or dismiss it,
@@ -500,18 +521,18 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `MarkAvailableRequestViewedCommandHandler` + `DismissAvailableRequestCommandHandler`
 
 **Acceptance criteria:**
-- [ ] AC1: `mark-viewed` is idempotent — acts only when target status is `Notified`.
+- [ ] AC1: `mark-viewed` is idempotent â€” acts only when target status is `Notified`.
 - [ ] AC2: `dismiss` sets the target status to `Skipped` (hidden from inbox, not a formal rejection).
 
 **Endpoints:**
-- `PUT /Api/V1/Teacher/AvailableRequests/{id:int}/mark-viewed` → `MarkAvailableRequestViewedCommandHandler`
-- `POST /Api/V1/Teacher/AvailableRequests/{id:int}/dismiss` → `DismissAvailableRequestCommandHandler`
+- `PUT /Api/V1/Teacher/AvailableRequests/{id:int}/mark-viewed` â†’ `MarkAvailableRequestViewedCommandHandler`
+- `POST /Api/V1/Teacher/AvailableRequests/{id:int}/dismiss` â†’ `DismissAvailableRequestCommandHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-TE-005: تقديم عرض
+### S2-TE-005: طھظ‚ط¯ظٹظ… ط¹ط±ط¶
 
 **As** a teacher,
 **I want** to submit an offer with price and terms,
@@ -521,11 +542,11 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 **Acceptance criteria:**
 - [ ] AC1: `POST` returns `201` with `TeacherOfferDetailDto`; flips the target row to `OfferSubmitted`.
-- [ ] AC2: A second non-`Withdrawn` offer on the same request → **409** with `meta.existingOfferId`.
-- [ ] AC3: The teacher does **not** propose schedule — the student's session timings are implicit (offer carries price/notes/validity only).
+- [ ] AC2: A second non-`Withdrawn` offer on the same request â†’ **409** with `meta.existingOfferId`.
+- [ ] AC3: The teacher does **not** propose schedule â€” the student's session timings are implicit (offer carries price/notes/validity only).
 
 **Endpoints:**
-- `POST /Api/V1/Teacher/Offers` → `CreateSessionOfferCommandHandler`
+- `POST /Api/V1/Teacher/Offers` â†’ `CreateSessionOfferCommandHandler`
 
 **Entities touched:** `OpenSessionOffer`, `OpenSessionRequestTarget`
 
@@ -533,7 +554,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-TE-006: عرض عروضي
+### S2-TE-006: ط¹ط±ط¶ ط¹ط±ظˆط¶ظٹ
 
 **As** a teacher,
 **I want** to list my offers by status and inspect one,
@@ -542,14 +563,14 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `GetMyOffersQueryHandler` + `GetMyOfferByIdQueryHandler`
 
 **Endpoints:**
-- `GET /Api/V1/Teacher/Offers/my` → `GetMyOffersQueryHandler` (status + date-range filters, paginated)
-- `GET /Api/V1/Teacher/Offers/{id:int}` → `GetMyOfferByIdQueryHandler` (with parent request snapshot)
+- `GET /Api/V1/Teacher/Offers/my` â†’ `GetMyOffersQueryHandler` (status + date-range filters, paginated)
+- `GET /Api/V1/Teacher/Offers/{id:int}` â†’ `GetMyOfferByIdQueryHandler` (with parent request snapshot)
 
 **Status:** `implemented`
 
 ---
 
-### S2-TE-007: تحديث عرض
+### S2-TE-007: طھط­ط¯ظٹط« ط¹ط±ط¶
 
 **As** a teacher,
 **I want** to update a pending offer,
@@ -558,17 +579,17 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 **Source:** `[code]` `UpdateSessionOfferCommandHandler`
 
 **Acceptance criteria:**
-- [ ] AC1: Only price / notes / validity are editable — schedule is not.
-- [ ] AC2: Each update bumps `OpenSessionOffer.Version` and posts a "تم تحديث العرض" system message into the conversation.
+- [ ] AC1: Only price / notes / validity are editable â€” schedule is not.
+- [ ] AC2: Each update bumps `OpenSessionOffer.Version` and posts a "طھظ… طھط­ط¯ظٹط« ط§ظ„ط¹ط±ط¶" system message into the conversation.
 
 **Endpoints:**
-- `PUT /Api/V1/Teacher/Offers/{id:int}` → `UpdateSessionOfferCommandHandler`
+- `PUT /Api/V1/Teacher/Offers/{id:int}` â†’ `UpdateSessionOfferCommandHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-TE-008: سحب عرض
+### S2-TE-008: ط³ط­ط¨ ط¹ط±ط¶
 
 **As** a teacher,
 **I want** to withdraw my offer,
@@ -580,23 +601,23 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 - [ ] AC1: Withdrawing a `Pending` offer sets status `Withdrawn`; a new offer can then be submitted on the same request.
 
 **Endpoints:**
-- `POST /Api/V1/Teacher/Offers/{id:int}/withdraw` → `WithdrawSessionOfferCommandHandler`
+- `POST /Api/V1/Teacher/Offers/{id:int}/withdraw` â†’ `WithdrawSessionOfferCommandHandler`
 
 **Status:** `implemented`
 
 ---
 
-### S2-TE-009: التفاوض عبر الشات
+### S2-TE-009: ط§ظ„طھظپط§ظˆط¶ ط¹ط¨ط± ط§ظ„ط´ط§طھ
 
 **As** a teacher,
 **I want** to message the student on the request thread,
-**so that** we align — before or after I submit an offer.
+**so that** we align â€” before or after I submit an offer.
 
 **Source:** `[code]` shared `OfferConversationsController` (see S2-ST-012 for the full endpoint set). Conversation is keyed by **(request, teacher)**, so a teacher can chat even before offering.
 
 **Endpoints:**
-- `GET /Api/V1/Conversations/by-request/{requestId:int}/teacher/{teacherId:int}` → `GetOrCreateConversationByRequestQueryHandler`
-- `POST /Api/V1/Conversations/{conversationId:int}/messages` → `PostConversationMessageCommandHandler`
+- `GET /Api/V1/Conversations/by-request/{requestId:int}/teacher/{teacherId:int}` â†’ `GetOrCreateConversationByRequestQueryHandler`
+- `POST /Api/V1/Conversations/{conversationId:int}/messages` â†’ `PostConversationMessageCommandHandler`
 
 **Entities touched:** `OfferConversation`, `OfferMessage`
 
@@ -606,7 +627,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-TE-010: إشعار بقبول العرض
+### S2-TE-010: ط¥ط´ط¹ط§ط± ط¨ظ‚ط¨ظˆظ„ ط§ظ„ط¹ط±ط¶
 
 **As** a teacher,
 **I want** to be notified when my offer is accepted,
@@ -616,7 +637,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-TE-011: تنفيذ الجلسات المجدولة (S2)
+### S2-TE-011: طھظ†ظپظٹط° ط§ظ„ط¬ظ„ط³ط§طھ ط§ظ„ظ…ط¬ط¯ظˆظ„ط© (S2)
 
 **As** a teacher,
 **I want** to conduct scheduled sessions after payment,
@@ -628,9 +649,9 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ## 6. Admin stories (S2-AD-xxx)
 
-> Sourced from `[BRD]` + `docs/ADMIN-ROLE-Scenario2.md`. **No Admin Scenario 2 dashboard/dispute/report controllers in code.** The only admin code that touches the S2 flow is `TeacherSubject` approval (X-008, `ApproveTeacherSubjectCommandHandler`), which now gates who broadcast matching can reach — see §3 and S2-TE-001.
+> Sourced from `[BRD]` + `docs/ADMIN-ROLE-Scenario2.md`. **No Admin Scenario 2 dashboard/dispute/report controllers in code.** The only admin code that touches the S2 flow is `TeacherSubject` approval (X-008, `ApproveTeacherSubjectCommandHandler`), which now gates who broadcast matching can reach â€” see آ§3 and S2-TE-001.
 
-### S2-AD-001: لوحة مؤشرات Scenario 2
+### S2-AD-001: ظ„ظˆط­ط© ظ…ط¤ط´ط±ط§طھ Scenario 2
 
 **As** an admin,
 **I want** dashboard KPIs for open session requests,
@@ -645,7 +666,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-002: إدارة الطلبات (قائمة وتفاصيل)
+### S2-AD-002: ط¥ط¯ط§ط±ط© ط§ظ„ط·ظ„ط¨ط§طھ (ظ‚ط§ط¦ظ…ط© ظˆطھظپط§طµظٹظ„)
 
 **As** an admin,
 **I want** to list and inspect session requests,
@@ -660,7 +681,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-003: تعليق / إعادة تفعيل / تعديل طلب
+### S2-AD-003: طھط¹ظ„ظٹظ‚ / ط¥ط¹ط§ط¯ط© طھظپط¹ظٹظ„ / طھط¹ط¯ظٹظ„ ط·ظ„ط¨
 
 **As** an admin,
 **I want** to suspend, reactivate, or admin-edit a request,
@@ -675,7 +696,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-004: إدارة العروض
+### S2-AD-004: ط¥ط¯ط§ط±ط© ط§ظ„ط¹ط±ظˆط¶
 
 **As** an admin,
 **I want** to list offers and force-withdraw when needed,
@@ -689,7 +710,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-005: حل النزاعات
+### S2-AD-005: ط­ظ„ ط§ظ„ظ†ط²ط§ط¹ط§طھ
 
 **As** an admin,
 **I want** to manage disputes with optional chat access,
@@ -704,7 +725,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-006: تقارير مالية Scenario 2
+### S2-AD-006: طھظ‚ط§ط±ظٹط± ظ…ط§ظ„ظٹط© Scenario 2
 
 **As** an admin,
 **I want** revenue and teacher performance reports with export,
@@ -718,7 +739,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-007: قواعد المطابقة
+### S2-AD-007: ظ‚ظˆط§ط¹ط¯ ط§ظ„ظ…ط·ط§ط¨ظ‚ط©
 
 **As** an admin,
 **I want** to configure matching rules and teacher exclusions,
@@ -733,7 +754,7 @@ When the domain's code is `quran`, every session row **must** include `quranCont
 
 ---
 
-### S2-AD-008: سجل التدقيق
+### S2-AD-008: ط³ط¬ظ„ ط§ظ„طھط¯ظ‚ظٹظ‚
 
 **As** an admin,
 **I want** to query the audit log,
@@ -762,7 +783,7 @@ Stories below live in the combined doc or other guides but are required for Scen
 | X-007 | OSS attachment upload | `OpenSessionRequestAttachmentConsumer` | partially implemented |
 | X-008 | Teacher KYC review (prerequisite for matching) | `GET/POST /Api/V1/Admin/TeacherManagement/*` | implemented |
 
-See [USER-STORIES-Scenarios-1-and-2.md §6](USER-STORIES-Scenarios-1-and-2.md#6-shared-cross-cutting-stories-x-xxx) for full cross-cutting stories.
+See [USER-STORIES-Scenarios-1-and-2.md آ§6](USER-STORIES-Scenarios-1-and-2.md#6-shared-cross-cutting-stories-x-xxx) for full cross-cutting stories.
 
 ---
 
@@ -777,45 +798,19 @@ See [USER-STORIES-Scenarios-1-and-2.md §6](USER-STORIES-Scenarios-1-and-2.md#6-
 | S2-ST-007 | `Qalam.Core/Features/Student/OpenSessionRequests/Commands/RespondToOpenSessionRequestInvitation/` |
 | S2-ST-012, S2-TE-009 | `Qalam.Api/Controllers/Common/OfferConversationsController.cs` + `Qalam.Core/Features/Teacher/OpenSessionRequests/{Commands/PostConversationMessage,Commands/MarkConversationRead,Queries/GetConversationMessages,Queries/GetOrCreateConversationByRequest}` |
 | S2-TE-001 | `Qalam.Service/Implementations/OpenSessionRequestTargetingService.cs` + `TeacherMatchingService.cs` |
-| S2-TE-002–004 | `Qalam.Api/Controllers/Teacher/TeacherAvailableRequestsController.cs` + `Qalam.Core/Features/Teacher/OpenSessionRequests/{Queries/GetAvailableRequests,Queries/GetAvailableRequestById,Queries/GetAvailableRequestAvailabilityMatch,Commands/MarkAvailableRequestViewed,Commands/DismissAvailableRequest}` |
-| S2-TE-005–008 | `Qalam.Api/Controllers/Teacher/TeacherSessionOffersController.cs` + `Qalam.Core/Features/Teacher/OpenSessionRequests/{Commands/CreateSessionOffer,Commands/UpdateSessionOffer,Commands/WithdrawSessionOffer,Queries/GetMyOffers,Queries/GetMyOfferById}` |
-| S2-AD-* | `docs/ADMIN-ROLE-Scenario2.md` (spec only — not in code) |
-| X-007 | `Qalam.MessagingApi` — `OpenSessionRequestAttachmentConsumer` |
+| S2-TE-002â€“004 | `Qalam.Api/Controllers/Teacher/TeacherAvailableRequestsController.cs` + `Qalam.Core/Features/Teacher/OpenSessionRequests/{Queries/GetAvailableRequests,Queries/GetAvailableRequestById,Queries/GetAvailableRequestAvailabilityMatch,Commands/MarkAvailableRequestViewed,Commands/DismissAvailableRequest}` |
+| S2-TE-005â€“008 | `Qalam.Api/Controllers/Teacher/TeacherSessionOffersController.cs` + `Qalam.Core/Features/Teacher/OpenSessionRequests/{Commands/CreateSessionOffer,Commands/UpdateSessionOffer,Commands/WithdrawSessionOffer,Queries/GetMyOffers,Queries/GetMyOfferById}` |
+| S2-AD-* | `docs/ADMIN-ROLE-Scenario2.md` (spec only â€” not in code) |
+| X-007 | `Qalam.MessagingApi` â€” `OpenSessionRequestAttachmentConsumer` |
 | X-008 | `Qalam.Core/Features/Admin/TeacherSubjects/Commands/ApproveTeacherSubject/` + `Qalam.Infrastructure/Repositories/TeacherSubjectRepository.cs` (`GetActiveTeacherIdsBySubjectAsync`) |
 
 ---
 
-## 9. Endpoint inventory
+## 9. Flow & endpoints
 
-### Implemented
+Full Scenario 2 flows (lifecycle, teacher inbox, chat, targeted-teacher wizard) and **complete backend endpoint catalog** (controllers, handlers, auth roles, supporting APIs, planned gaps) live in a dedicated reference:
 
-| METHOD | PATH | HANDLER | ROLE | STORY ID(S) |
-|--------|------|---------|------|-------------|
-| POST | `/Api/V1/Student/OpenSessionRequests` | `CreateOpenSessionRequestCommandHandler` | Student, Guardian | S2-ST-001, S2-ST-001b |
-| GET | `/Api/V1/Student/OpenSessionRequests/my` | `GetMyOpenSessionRequestsQueryHandler` | Student, Guardian | S2-ST-002 |
-| GET | `/Api/V1/Student/OpenSessionRequests/{id}` | `GetOpenSessionRequestByIdQueryHandler` | Student, Guardian | S2-ST-003 |
-| POST | `/Api/V1/Student/OpenSessionRequests/{id}/Cancel` | `CancelOpenSessionRequestCommandHandler` | Student, Guardian | S2-ST-004 |
-| POST | `/Api/V1/Student/OpenSessionRequests/{id}/Attachments` | `UploadOpenSessionRequestAttachmentCommandHandler` | Student, Guardian | S2-ST-005 |
-| DELETE | `/Api/V1/Student/OpenSessionRequests/{id}/Attachments/{attachmentId}` | `DeleteOpenSessionRequestAttachmentCommandHandler` | Student, Guardian | S2-ST-006 |
-| POST | `/Api/V1/Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` | `RespondToOpenSessionRequestInvitationCommandHandler` | Student, Guardian | S2-ST-007 |
-| GET | `/Api/V1/Teacher/AvailableRequests` | `GetAvailableRequestsQueryHandler` | Teacher | S2-TE-002 |
-| GET | `/Api/V1/Teacher/AvailableRequests/{id:int}` | `GetAvailableRequestByIdQueryHandler` | Teacher | S2-TE-003 |
-| PUT | `/Api/V1/Teacher/AvailableRequests/{id:int}/mark-viewed` | `MarkAvailableRequestViewedCommandHandler` | Teacher | S2-TE-004 |
-| POST | `/Api/V1/Teacher/AvailableRequests/{id:int}/dismiss` | `DismissAvailableRequestCommandHandler` | Teacher | S2-TE-004 |
-| GET | `/Api/V1/Teacher/AvailableRequests/{id:int}/availability-match` | `GetAvailableRequestAvailabilityMatchQueryHandler` | Teacher | S2-TE-003 |
-| POST | `/Api/V1/Teacher/Offers` | `CreateSessionOfferCommandHandler` | Teacher | S2-TE-005 |
-| PUT | `/Api/V1/Teacher/Offers/{id:int}` | `UpdateSessionOfferCommandHandler` | Teacher | S2-TE-007 |
-| POST | `/Api/V1/Teacher/Offers/{id:int}/withdraw` | `WithdrawSessionOfferCommandHandler` | Teacher | S2-TE-008 |
-| GET | `/Api/V1/Teacher/Offers/my` | `GetMyOffersQueryHandler` | Teacher | S2-TE-006 |
-| GET | `/Api/V1/Teacher/Offers/{id:int}` | `GetMyOfferByIdQueryHandler` | Teacher | S2-TE-006 |
-| GET | `/Api/V1/Conversations/by-request/{requestId:int}/teacher/{teacherId:int}` | `GetOrCreateConversationByRequestQueryHandler` | Student, Guardian, Teacher | S2-ST-012, S2-TE-009 |
-| GET | `/Api/V1/Conversations/{conversationId:int}/messages` | `GetConversationMessagesQueryHandler` | Student, Guardian, Teacher | S2-ST-012, S2-TE-009 |
-| POST | `/Api/V1/Conversations/{conversationId:int}/messages` | `PostConversationMessageCommandHandler` | Student, Guardian, Teacher | S2-ST-012, S2-TE-009 |
-| POST | `/Api/V1/Conversations/{conversationId:int}/read` | `MarkConversationReadCommandHandler` | Student, Guardian, Teacher | S2-ST-012, S2-TE-009 |
-
-### Planned
-
-Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers-compare endpoint (S2-ST-009), **S2 payment** (S2-ST-011), **draft wizard** (S2-ST-008), all **Admin S2** APIs (dashboard/requests/offers/disputes/reports/matching-rules/audit — S2-AD-001–008), and a **SignalR** chat hub. See [ADMIN-ROLE-Scenario2.md](ADMIN-ROLE-Scenario2.md).
+→ **[S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)**
 
 ---
 
@@ -823,18 +818,18 @@ Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers
 
 | ENTITY | NAMESPACE | RELATED STORY IDS |
 |--------|-----------|-------------------|
-| `OpenSessionRequest` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001–004 |
+| `OpenSessionRequest` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001â€“004 |
 | `OpenSessionRequestSession` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001 |
 | `OpenSessionRequestSessionUnit` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001, S2-ST-001b |
 | `OpenSessionRequestInvitation` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-007 |
-| `OpenSessionRequestAttachment` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-005–006 |
-| `OpenSessionRequestTarget` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001, S2-ST-001b, S2-TE-001–005 |
-| `OpenSessionOffer` | `Qalam.Data.Entity.OpenSessionRequests` | S2-TE-005–008, S2-ST-009 (read), S2-ST-010 (planned) |
+| `OpenSessionRequestAttachment` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-005â€“006 |
+| `OpenSessionRequestTarget` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-001, S2-ST-001b, S2-TE-001â€“005 |
+| `OpenSessionOffer` | `Qalam.Data.Entity.OpenSessionRequests` | S2-TE-005â€“008, S2-ST-009 (read), S2-ST-010 (planned) |
 | `OfferConversation` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-012, S2-TE-009 |
 | `OfferMessage` | `Qalam.Data.Entity.OpenSessionRequests` | S2-ST-012, S2-TE-009 |
 | `TeacherSubject` (read, approval gate) | `Qalam.Data.Entity.Teacher` | S2-ST-001b, S2-TE-001, X-008 |
 | `Enrollment` | `Qalam.Data.Entity.Course` | S2-ST-011 (planned) |
-| `SessionRequest` (legacy) | `Qalam.Data.Entity.Session` | — **do not use for S2** |
+| `SessionRequest` (legacy) | `Qalam.Data.Entity.Session` | â€” **do not use for S2** |
 
 ---
 
@@ -845,8 +840,8 @@ Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers
 | Email to matched / targeted teacher | Integration (RabbitMQ) | `OpenSessionRequestTargetingService` | Email consumer | S2-ST-001, S2-ST-001b, S2-TE-001 |
 | Attachment upload queued | Integration (RabbitMQ) | `UploadOpenSessionRequestAttachmentCommandHandler` | `OpenSessionRequestAttachmentConsumer` | S2-ST-005, X-007 |
 | Offer-update system message | In-app (DB) | `UpdateSessionOfferCommandHandler` | Conversation participants | S2-TE-007, S2-ST-012 |
-| SignalR `OfferMessageReceived` | SignalR (**planned — not in code**) | Chat hub (planned) | Teacher/Student clients | S2-ST-012, S2-TE-009 |
-| `SessionRequestPublished` domain event | Integration (**planned — not in code**) | — | — | S2-TE-001 |
+| SignalR `OfferMessageReceived` | SignalR (**planned â€” not in code**) | Chat hub (planned) | Teacher/Student clients | S2-ST-012, S2-TE-009 |
+| `SessionRequestPublished` domain event | Integration (**planned â€” not in code**) | â€” | â€” | S2-TE-001 |
 
 ---
 
@@ -857,13 +852,13 @@ Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers
 | Entity naming | `SessionRequest`, `SessionOffer` | `OpenSessionRequest`, `OpenSessionOffer` (`sr` schema) | **Code is source** |
 | Request IDs | GUID + `requestNumber` | `int` identity only | **TBD** |
 | Matching on create | Teachers notified immediately | Both broadcast (`RunMatchingAndNotifyAsync`) and targeted (`NotifyTargetedTeacherAsync`) run **synchronously** on create when status is `Active` | **Code is source** (implemented) |
-| **Approval gate inconsistency** | — | Broadcast matching requires `TeacherSubject.VerificationStatus == Approved` (`GetActiveTeacherIdsBySubjectAsync`), but the **targeted** path's `TargetedOpenSessionRequestValidator` checks only `IsActive` — a `Pending`/`Rejected` subject can still receive a targeted request | **Code bug — align targeted validator to also require `Approved`** |
-| Conversation keying | Chat tied to an offer | `OfferConversation` is keyed by **(request, teacher)** — chat opens before any offer (`SessionOfferId` nullable) | **Code is source** |
+| **Approval gate inconsistency** | â€” | Broadcast matching requires `TeacherSubject.VerificationStatus == Approved` (`GetActiveTeacherIdsBySubjectAsync`), but the **targeted** path's `TargetedOpenSessionRequestValidator` checks only `IsActive` â€” a `Pending`/`Rejected` subject can still receive a targeted request | **Code bug â€” align targeted validator to also require `Approved`** |
+| Conversation keying | Chat tied to an offer | `OfferConversation` is keyed by **(request, teacher)** â€” chat opens before any offer (`SessionOfferId` nullable) | **Code is source** |
 | Draft wizard | Multi-step save draft | Single `POST` publishes; `Draft` enum unused | **Planned** |
 | `ReceivingOffers` status | Active marketplace phase | No handler transitions into this status (stays `Active`) | **Planned** |
 | Teacher offer schedule | Teacher proposes dates in BRD | `OpenSessionOffer`: student times implicit; offer carries price/notes/validity only | **Code is source** |
-| Offer acceptance | Student accepts → enrollment + payment | No accept handler; `Enrollment.SessionOfferId` FK exists but nothing creates it; `OfferAccepted`/`PaymentPending`/`Paid` statuses never reached | **Planned** |
-| Legacy `session.SessionRequest` | — | Separate from S2 | **Do not conflate** |
+| Offer acceptance | Student accepts â†’ enrollment + payment | No accept handler; `Enrollment.SessionOfferId` FK exists but nothing creates it; `OfferAccepted`/`PaymentPending`/`Paid` statuses never reached | **Planned** |
+| Legacy `session.SessionRequest` | â€” | Separate from S2 | **Do not conflate** |
 | SignalR chat | Real-time push | HTTP cursor-paginated only; no hub | **Planned** |
 | S2 payment | Real payments after offer | No S2 payment handler / no gateway | **Planned** |
 
@@ -871,8 +866,8 @@ Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers
 
 ## 13. Open questions
 
-1. **Targeted-path approval gate:** Should `TargetedOpenSessionRequestValidator` also require `VerificationStatus == Approved` (as broadcast matching does)? Today a student can target a teacher whose subject is still `Pending`/`Rejected`. (See §12.)
-2. **Offer acceptance flow:** What creates the `Enrollment` (with `SessionOfferId`) and transitions `OfferAccepted → PaymentPending → Paid`? No handler exists yet.
+1. **Targeted-path approval gate:** Should `TargetedOpenSessionRequestValidator` also require `VerificationStatus == Approved` (as broadcast matching does)? Today a student can target a teacher whose subject is still `Pending`/`Rejected`. (See آ§12.)
+2. **Offer acceptance flow:** What creates the `Enrollment` (with `SessionOfferId`) and transitions `OfferAccepted â†’ PaymentPending â†’ Paid`? No handler exists yet.
 3. **Legacy `SessionRequest` (`session` schema):** Delete, migrate to `sr.OpenSessionRequest`, or keep?
 4. **Unified `Enrollment` for S2:** Same payment flow as Scenario 1 with `EnrollmentSource.OpenSessionRequest`?
 5. **Request display ID:** Human-readable `requestNumber` while keeping `int` PK?
@@ -893,13 +888,18 @@ Still absent in code — Student **accept-offer** (S2-ST-010) + dedicated offers
 | **S2 partially implemented** | **~2 (6%)** |
 | **S2 planned** | **~13 (41%)** |
 
-> Up from ~23% implemented at the 2026-06-03 revision — the whole teacher side (inbox, offers, chat) and broadcast/targeted matching shipped since.
+> Up from ~23% implemented at the 2026-06-03 revision â€” the whole teacher side (inbox, offers, chat) and broadcast/targeted matching shipped since.
 
 ### Top 3 risks (Scenario 2)
 
-1. **No offer-acceptance/payment bridge** — teachers can offer and students can chat, but nothing accepts an offer, creates the `Enrollment`, or takes payment. The marketplace can't close a deal end-to-end.
-2. **Targeted-path approval gap** — broadcast matching enforces `Approved` `TeacherSubject`, but the targeted validator does not (§12). With subjects now `Pending` by default, this lets unverified subjects receive targeted requests.
-3. **No admin S2 surface** — no dashboard, moderation, disputes, or financial reporting for open session requests/offers.
+1. **No offer-acceptance/payment bridge** â€” teachers can offer and students can chat, but nothing accepts an offer, creates the `Enrollment`, or takes payment. The marketplace can't close a deal end-to-end.
+2. **Targeted-path approval gap** â€” broadcast matching enforces `Approved` `TeacherSubject`, but the targeted validator does not (آ§12). With subjects now `Pending` by default, this lets unverified subjects receive targeted requests.
+3. **No admin S2 surface** â€” no dashboard, moderation, disputes, or financial reporting for open session requests/offers.
+
+---
+
+
+Targeted-teacher wizard flows, screen-by-screen endpoint map, and publish contract: **[S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)** (Section 6–7).
 
 ---
 

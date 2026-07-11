@@ -64,6 +64,8 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
             query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.SubjectId == request.SubjectId.Value);
         if (request.TeachingModeId.HasValue)
             query = query.Where(c => c.TeachingModeId == request.TeachingModeId.Value);
+        if (request.TeacherId.HasValue)
+            query = query.Where(c => c.TeacherId == request.TeacherId.Value);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

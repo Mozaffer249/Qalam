@@ -1,14 +1,25 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Education.Commands.CreateAcademicTerm;
 using Qalam.Core.Features.Education.Commands.CreateEducationDomain;
 using Qalam.Core.Features.Education.Commands.CreateEducationLevel;
 using Qalam.Core.Features.Education.Commands.CreateGrade;
+using Qalam.Core.Features.Education.Commands.DeleteAcademicTerm;
 using Qalam.Core.Features.Education.Commands.DeleteEducationDomain;
+using Qalam.Core.Features.Education.Commands.DeleteEducationLevel;
+using Qalam.Core.Features.Education.Commands.DeleteGrade;
+using Qalam.Core.Features.Education.Commands.UpdateAcademicTerm;
 using Qalam.Core.Features.Education.Commands.UpdateEducationDomain;
+using Qalam.Core.Features.Education.Commands.UpdateEducationLevel;
+using Qalam.Core.Features.Education.Commands.UpdateGrade;
+using Qalam.Core.Features.Education.Queries.GetAcademicTermById;
+using Qalam.Core.Features.Education.Queries.GetAcademicTermsList;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainById;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
+using Qalam.Core.Features.Education.Queries.GetEducationLevelById;
 using Qalam.Core.Features.Education.Queries.GetFilterOptions;
+using Qalam.Core.Features.Education.Queries.GetGradeById;
 using Qalam.Core.Features.Education.Queries.GetGradesList;
 using Qalam.Core.Features.Education.Queries.GetLevelsList;
 using Qalam.Data.AppMetaData;
@@ -150,6 +161,15 @@ public class EducationController : AppControllerBase
     }
 
     /// <summary>
+    /// Get education level by ID
+    /// </summary>
+    [HttpGet(Router.EducationLevelById)]
+    public async Task<IActionResult> GetLevelById(int id)
+    {
+        return NewResult(await Mediator.Send(new GetEducationLevelByIdQuery { Id = id }));
+    }
+
+    /// <summary>
     /// Create a new education level (Admin only)
     /// </summary>
     [HttpPost(Router.EducationLevels)]
@@ -157,6 +177,28 @@ public class EducationController : AppControllerBase
     public async Task<IActionResult> CreateLevel([FromBody] CreateEducationLevelCommand command)
     {
         return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Update an existing education level (Admin only)
+    /// </summary>
+    [HttpPut(Router.EducationLevelById)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> UpdateLevel(int id, [FromBody] UpdateEducationLevelCommand command)
+    {
+        if (id != command.Id)
+            return BadRequest("ID mismatch");
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Delete an education level (Admin only)
+    /// </summary>
+    [HttpDelete(Router.EducationLevelById)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> DeleteLevel(int id)
+    {
+        return NewResult(await Mediator.Send(new DeleteEducationLevelCommand { Id = id }));
     }
 
     #endregion
@@ -173,6 +215,15 @@ public class EducationController : AppControllerBase
     }
 
     /// <summary>
+    /// Get grade by ID
+    /// </summary>
+    [HttpGet(Router.EducationGradeById)]
+    public async Task<IActionResult> GetGradeById(int id)
+    {
+        return NewResult(await Mediator.Send(new GetGradeByIdQuery { Id = id }));
+    }
+
+    /// <summary>
     /// Create a new grade (Admin only)
     /// </summary>
     [HttpPost(Router.EducationGrades)]
@@ -180,6 +231,78 @@ public class EducationController : AppControllerBase
     public async Task<IActionResult> CreateGrade([FromBody] CreateGradeCommand command)
     {
         return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Update an existing grade
+    /// </summary>
+    [HttpPut(Router.EducationGradeById)]
+    public async Task<IActionResult> UpdateGrade(int id, [FromBody] UpdateGradeCommand command)
+    {
+        if (id != command.Id)
+            return BadRequest("ID mismatch");
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Delete a grade
+    /// </summary>
+    [HttpDelete(Router.EducationGradeById)]
+    public async Task<IActionResult> DeleteGrade(int id)
+    {
+        return NewResult(await Mediator.Send(new DeleteGradeCommand { Id = id }));
+    }
+
+    #endregion
+
+    #region Terms
+
+    /// <summary>
+    /// Get all academic terms with pagination and filters
+    /// </summary>
+    [HttpGet(Router.EducationTerms)]
+    public async Task<IActionResult> GetTerms([FromQuery] GetAcademicTermsListQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Get academic term by ID
+    /// </summary>
+    [HttpGet(Router.EducationTermById)]
+    public async Task<IActionResult> GetTermById(int id)
+    {
+        return NewResult(await Mediator.Send(new GetAcademicTermByIdQuery { Id = id }));
+    }
+
+    /// <summary>
+    /// Create a new academic term (Admin only)
+    /// </summary>
+    [HttpPost(Router.EducationTerms)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> CreateTerm([FromBody] CreateAcademicTermCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Update an existing academic term
+    /// </summary>
+    [HttpPut(Router.EducationTermById)]
+    public async Task<IActionResult> UpdateTerm(int id, [FromBody] UpdateAcademicTermCommand command)
+    {
+        if (id != command.Id)
+            return BadRequest("ID mismatch");
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Delete an academic term
+    /// </summary>
+    [HttpDelete(Router.EducationTermById)]
+    public async Task<IActionResult> DeleteTerm(int id)
+    {
+        return NewResult(await Mediator.Send(new DeleteAcademicTermCommand { Id = id }));
     }
 
     #endregion

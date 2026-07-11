@@ -51,6 +51,24 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<PaginatedResult<TeacherCardDto>> SearchAsync(
         TeacherSearchFilters filters,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Student-facing profile with enrollment/course/subject stats.</summary>
+    Task<StudentTeacherProfileDto?> GetStudentProfileAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Approved reviews for a teacher (paginated).</summary>
+    Task<PaginatedResult<StudentTeacherReviewDto>> GetStudentReviewsAsync(
+        int teacherId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Approved certificate documents for a teacher.</summary>
+    Task<List<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
+        int teacherId,
+        int take,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Filter + paging + sort inputs for <see cref="ITeacherRepository.SearchAsync"/>.</summary>

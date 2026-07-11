@@ -260,6 +260,15 @@ namespace Qalam.Data.AppMetaData
         public const string StudentTeachers = Rule + "Student/Teachers";
         /// <summary>Top-N recommended teachers based on the student's profile: Api/V1/Student/Teachers/Recommended</summary>
         public const string StudentRecommendedTeachers = StudentTeachers + "/Recommended";
+
+        /// <summary>Student teacher profile: Api/V1/Student/Teachers/{teacherId}</summary>
+        public const string StudentTeacherById = StudentTeachers + "/{teacherId:int}";
+        /// <summary>Approved subjects + units: Api/V1/Student/Teachers/{teacherId}/Subjects</summary>
+        public const string StudentTeacherSubjects = StudentTeacherById + "/Subjects";
+        /// <summary>Approved reviews: Api/V1/Student/Teachers/{teacherId}/Reviews</summary>
+        public const string StudentTeacherReviews = StudentTeacherById + "/Reviews";
+        /// <summary>Approved certificates: Api/V1/Student/Teachers/{teacherId}/Certificates</summary>
+        public const string StudentTeacherCertificates = StudentTeacherById + "/Certificates";
         #endregion
 
         #region Teaching

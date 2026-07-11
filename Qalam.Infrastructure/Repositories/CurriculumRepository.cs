@@ -114,7 +114,8 @@ public class CurriculumRepository : GenericRepositoryAsync<Curriculum>, ICurricu
             {
                 Id = c.Id,
                 NameAr = c.NameAr,
-                NameEn = c.NameEn
+                NameEn = c.NameEn,
+                CanDelete = !c.EducationLevels.Any()
             })
             .ToListAsync();
     }

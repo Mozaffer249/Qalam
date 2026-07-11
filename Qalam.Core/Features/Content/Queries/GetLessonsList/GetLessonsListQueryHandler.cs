@@ -28,7 +28,9 @@ public class GetLessonsListQueryHandler : ResponseHandler,
             request.PageSize,
             request.ContentUnitId,
             request.SubjectId,
-            request.Search);
+            request.Search,
+            request.QuranContentTypeId,
+            request.QuranLevelId);
 
         return Success(
             entity: result.Items,

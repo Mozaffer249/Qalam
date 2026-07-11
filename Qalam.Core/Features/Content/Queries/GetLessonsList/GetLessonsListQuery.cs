@@ -11,4 +11,6 @@ public class GetLessonsListQuery : IRequest<Response<List<Lesson>>>
     public int? ContentUnitId { get; set; }
     public int? SubjectId { get; set; }
     public string? Search { get; set; }
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
 }

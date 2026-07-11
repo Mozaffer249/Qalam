@@ -13,7 +13,7 @@ public interface IGradeRepository : IGenericRepositoryAsync<Grade>
     IQueryable<Grade> GetGradesByCurriculumId(int curriculumId);
     Task<Grade> GetGradeWithSubjectsAsync(int id);
     Task<GradeDto?> GetGradeDtoByIdAsync(int id);
-    Task<bool> IsGradeCodeUniqueAsync(string code, int? excludeId = null);
+    Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null);
 
     // Filter options
     Task<List<FilterOptionDto>> GetGradesAsOptionsAsync(int levelId);

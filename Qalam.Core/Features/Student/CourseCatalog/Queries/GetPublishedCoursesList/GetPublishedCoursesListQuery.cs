@@ -24,4 +24,5 @@ public class GetPublishedCoursesListQuery : IRequest<Response<List<CourseCatalog
     public int? GradeId { get; set; }
     public int? SubjectId { get; set; }
     public int? TeachingModeId { get; set; }
+    public int? TeacherId { get; set; }
 }

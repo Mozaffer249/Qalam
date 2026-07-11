@@ -41,14 +41,14 @@ The education catalog is a **tree** rooted at **Domain**. Each domain has an **`
 | Layer | Entity | Admin CRUD in API |
 |-------|--------|-------------------|
 | Root | `EducationDomain` | **Full CRUD** |
-| Rule | `EducationRule` | **Create/update with domain** (nested `educationRule` on domain APIs) |
+| Rule | `EducationRule` | **Dedicated rules page** (`PUT` with `educationRule`); `rulesConfigured` gates catalog UIs |
 | Branch | `Curriculum` | **Full CRUD** + toggle active |
 | Branch | `EducationLevel` | **Create + list** |
 | Branch | `Grade` | **Create + list** |
-| Branch | `AcademicTerm` | **No REST API** (seeded; exposed via `filter-options`) |
+| Branch | `AcademicTerm` | **Full CRUD** (`/Education/Terms`) |
 | Leaf | `Subject` | **Full CRUD** |
-| Content | `ContentUnit` | **Create + list** |
-| Content | `Lesson` | **Create + list** |
+| Content | `ContentUnit` | **Full CRUD** |
+| Content | `Lesson` | **Full CRUD** |
 | Quran ref | `QuranLevel`, `QuranPart`, `QuranSurah` | **Read-only lists** |
 | Teaching ref | `TeachingMode`, `SessionType`, `TimeSlot`, `DayOfWeek` | **Read-only lists** |
 
@@ -79,7 +79,7 @@ flowchart TD
 
 1. Domain (or use seeded) → 2. Curriculum → 3. Level → 4. Grade → 5. Subject → 6. Content unit → 7. Lesson
 
-**Quran domain:** Subject → units (`QuranSurah` / `QuranPart` unit types); no curriculum/grade/term on units.
+**Quran domain:** Subject (auto-selected) → `QuranContentType` → `QuranLevel` → units (`QuranSurah` / `QuranPart`) → lessons. Seeded Surah/Juz units stay read-only in admin; lessons are scoped per `(contentUnitId, quranContentTypeId, quranLevelId)`.
 
 ---
 
@@ -141,11 +141,12 @@ List endpoints return rows in `data` and pagination in `meta`. Command endpoints
 |----------|----------|-----------|------|-----|--------|-------|
 | **Domains** | `/Education/Domains` | `/Education/Domains/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
 | **Curriculum** | `/Curriculum` | `/Curriculum/{id}` | ✓ | ✓ | ✓ | `PATCH …/toggle-status` |
-| **Levels** | `/Education/Levels` | — | ✓ Admin | — | — | — |
-| **Grades** | `/Education/Grades` | — | ✓ Admin | — | — | — |
+| **Levels** | `/Education/Levels` | `/Education/Levels/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
+| **Grades** | `/Education/Grades` | `/Education/Grades/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | — |
+| **Academic terms** | `/Education/Terms` | `/Education/Terms/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | `?curriculumId=` filter |
 | **Subjects** | `/Subjects` | `/Subjects/{id}` | ✓ Admin | ✓ Admin | ✓ Admin | `/Subjects/Grade/{gradeId}` |
-| **Content units** | `/Content/Units` | — | ✓ Admin/Teacher | — | — | — |
-| **Lessons** | `/Content/Lessons` | — | ✓ Admin/Teacher | — | — | — |
+| **Content units** | `/Content/Units` | `/Content/Units/{id}` | ✓ Admin/Teacher | ✓ Admin/Teacher | ✓ Admin | — |
+| **Lessons** | `/Content/Lessons` | `/Content/Lessons/{id}` | ✓ Admin/Teacher | ✓ Admin/Teacher | ✓ Admin | — |
 | **Filter wizard** | `/Education/filter-options` | — | — | — | — | see §12 |
 | **Teaching modes** | `/Teaching/Modes` | — | — | — | — | read-only |
 | **Session types** | `/Teaching/SessionTypes` | — | — | — | — | read-only |
@@ -235,11 +236,18 @@ Content-Type: application/json
 | `nameAr`, `nameEn` | Required, max 200 |
 | `code` | Required, max 50, pattern `^[a-z0-9_]+$`, unique |
 | `isActive` | Default `true` |
-| `educationRule` | Optional on create; if omitted, defaults are applied from domain `code` (see templates in `EducationRuleDefaults`). Required for `filter-options` wizard to work. |
+| `educationRule` | Optional on create; if omitted, code-based defaults are applied with `rulesConfigured: false`. Admins must save rules on `/domains/{id}/rules` before adding catalog content in hierarchy/tree. |
 
-**`educationRule` fields:** `hasCurriculum`, `hasEducationLevel`, `hasGrade`, `hasAcademicTerm`, `hasContentUnits`, `hasLessons`, `requiresQuranContentType`, `requiresQuranLevel`, `requiresUnitTypeSelection`, `minSessions`, `maxSessions`, `defaultSessionDurationMinutes`, `minGroupSize`, `maxGroupSize`, `allowExtension`, `allowFlexibleCourses`, `notesAr`, `notesEn`.
+**Admin flow (split create vs rules):**
 
-Example create body:
+1. `/domains/new` — domain identity only (`POST` without `educationRule`).
+2. Redirect to `/domains/{id}/rules?setup=1` — configure `EducationRule` (`PUT` with `educationRule`).
+3. `/domains/{id}/edit` — domain metadata only (no `educationRule` in body).
+4. Hierarchy (`/hierarchy`) and domain tree (`/domains/{id}/tree`) block **Add** until `educationRule.rulesConfigured` is `true`.
+
+**`educationRule` fields:** `hasCurriculum`, `hasEducationLevel`, `hasGrade`, `hasAcademicTerm`, `hasContentUnits`, `hasLessons`, `requiresQuranContentType`, `requiresQuranLevel`, `requiresUnitTypeSelection`, `minSessions`, `maxSessions`, `defaultSessionDurationMinutes`, `minGroupSize`, `maxGroupSize`, `allowExtension`, `allowFlexibleCourses`, `notesAr`, `notesEn`, `rulesConfigured` (read-only on GET; set `true` when rules are saved via PUT with `educationRule`).
+
+Example rules save body (`PUT /Api/V1/Education/Domains/{id}`):
 
 ```json
 {
@@ -272,7 +280,7 @@ Example create body:
 }
 ```
 
-Creating a domain **auto-creates** an `EducationRule` (from body or code-based defaults). `GET /Education/Domains/{id}` includes `educationRule`.
+Creating a domain **auto-creates** an `EducationRule` (from body or code-based defaults). `GET /Education/Domains/{id}` includes `educationRule` with `rulesConfigured`.
 
 ### Update domain (Admin)
 
@@ -280,7 +288,7 @@ Creating a domain **auto-creates** an `EducationRule` (from body or code-based d
 PUT /Api/V1/Education/Domains/{id}
 ```
 
-Body: same fields as create + `"id": {id}` (must match route). Include `educationRule` to update settings (upserted 1:1 with domain).
+Body: domain identity fields + `"id": {id}` (must match route). Omit `educationRule` to change name/code/descriptions only. Include `educationRule` to save rules (sets `rulesConfigured: true`).
 
 ### Delete domain (Admin)
 
@@ -522,11 +530,11 @@ Content-Type: application/json
 ### List / create lessons
 
 ```http
-GET  /Api/V1/Content/Lessons?contentUnitId=44&subjectId=12&search=
+GET  /Api/V1/Content/Lessons?contentUnitId=44&subjectId=12&quranContentTypeId=1&quranLevelId=2&search=
 POST /Api/V1/Content/Lessons
 ```
 
-**Create body**
+**Create body (school / language / skills)**
 
 ```json
 {
@@ -537,10 +545,27 @@ POST /Api/V1/Content/Lessons
 }
 ```
 
+**Create body (Quran unit — `QuranSurah` or `QuranPart`)**
+
+Both `quranContentTypeId` and `quranLevelId` are **required**; `orderIndex` is unique per `(unitId, quranContentTypeId, quranLevelId)`.
+
+```json
+{
+  "nameAr": "آية 1-5",
+  "nameEn": "Ayah 1-5",
+  "unitId": 44,
+  "orderIndex": 1,
+  "quranContentTypeId": 1,
+  "quranLevelId": 2
+}
+```
+
 | Query (list) | Description |
 |--------------|-------------|
 | `contentUnitId` | Filter by unit |
 | `subjectId` | Filter by subject |
+| `quranContentTypeId` | Quran lesson scope (with `quranLevelId`) |
+| `quranLevelId` | Quran lesson scope (with `quranContentTypeId`) |
 
 ---
 
@@ -582,7 +607,9 @@ Authorization: Bearer <token>
 
 Returns `nextStep`, `options[]`, `unit[]`, `rule`, and domain-specific fields (`subject`, `contentTypes`, `levels` for Quran).
 
-**Standard path after Unit:** when `rule.hasLessons === true`, send `contentUnitId` → `nextStep: Lesson` with lessons in `options[]`. Finish with `lessonIds` (multi) or `skipLessons=true` → `Done`. Quran domain skips the lesson step (`hasLessons: false`).
+**Standard path after Unit:** when `rule.hasLessons === true`, send `contentUnitId` → `nextStep: Lesson` with lessons in `options[]`. Finish with `lessonIds` (multi) or `skipLessons=true` → `Done`.
+
+**Quran path:** `Subject` (auto) → `QuranContentType` → `QuranLevel` → `Unit` (`unit[]`, paginated; `unitTypeCode=QuranSurah|QuranPart`) → `Lesson` (`options[]` filtered by unit + type + level) → `Done`. Seeded `quran` domain has `hasLessons: true`.
 
 **Full reference:** [Education_Business_Logic.md](../Qalam.Data/AppMetaData/docs/Education_Business_Logic.md)
 
@@ -597,14 +624,16 @@ Visual read-only canvas of enabled `EducationRule` steps (via `@xyflow/react`) p
 | Grade | `nextStep=Grade` | `POST /Education/Grades` |
 | Subject | `nextStep=Subject` | `POST /Subjects` |
 | Term | `nextStep=Term` | Read-only (seeded) |
+| QuranContentType | `nextStep=QuranContentType` | Read-only (seeded) |
+| QuranLevel | `nextStep=QuranLevel` | Read-only (seeded) |
 | Unit | `unit[]` | `POST /Content/Units` |
-| Lesson | `nextStep=Lesson` | `POST /Content/Lessons` |
+| Lesson | `nextStep=Lesson` | `POST /Content/Lessons` (Quran: include `quranContentTypeId` + `quranLevelId` from breadcrumb) |
 
 ### Teacher wizard alignment (subjects survey)
 
 Shared helpers in `apps/teacher/src/lib/education/` drive group creation and unit picking from the same `rule` + `nextStep` contract:
 
-- camelCase query params (`domainId`, `curriculumId`, `termIds`, `contentUnitId`, `skipLessons`)
+- camelCase query params (`domainId`, `curriculumId`, `termIds`, `contentUnitId`, `quranContentTypeId`, `quranLevelId`, `skipLessons`)
 - Term multi-select (or “show all units” = all term IDs) before units load
 - Quran branch when `rule.requiresQuranContentType` (not only `domainCode === 'quran'`)
 
@@ -628,13 +657,24 @@ Resolve `domainId` from `GET /Api/V1/Education/Domains` before posting. **Univer
 
 | Gap | Impact |
 |-----|--------|
-| No **Terms** REST API | Manage terms via seeds/DB; use `filter-options` to list |
-| **Levels / grades** — create only | No update, delete, or get-by-id |
-| **Units / lessons** — create only | No update or delete |
 | **Curriculum** writes not Admin-gated | Any authenticated user can mutate curriculum |
 | **Subject list** — `domainId` / `curriculumId` / `levelId` filters commented out in code | Use `gradeId`, `termId`, or `filter-options` |
 | **Subjects by domain** route commented out | Use list + `domainId` filter when re-enabled |
 | Domain delete | Blocked if levels exist (not if subjects exist directly on domain) |
+| Level delete | Blocked if grades exist |
+| Grade delete | Blocked if subjects reference grade |
+| Term delete | Blocked if subjects reference term |
+| Unit delete | Blocked if lessons exist |
+| Quran seeded units | Read-only in admin hierarchy UI (no create/edit/delete) |
+| Quran content types / levels | Read-only wizard steps; lessons scoped per unit + type + level |
+
+### Admin hierarchy manager (`/hierarchy`)
+
+- ReactFlow canvas with step columns and dynamic catalog nodes
+- Add / edit / delete per node type via `entityCrud.ts` + `EntityCrudDrawer`
+- Step-based create driven by `filter-options` `nextStep`
+- Full CRUD: Domain, Curriculum, Level, Grade, Subject, Term, Unit, Lesson (except Quran units; Quran lessons require content type + level in breadcrumb)
+- `filter-options` returns `canDelete` on each option (and on `unit[]` when `nextStep` is `Unit`); hierarchy UI hides delete when `canDelete` is `false` (child data exists). Domain delete is unchanged.
 
 ---
 
@@ -665,5 +705,6 @@ Resolve `domainId` from `GET /Api/V1/Education/Domains` before posting. **Univer
 - [ ] Subject form with optional curriculum/level/grade/term FKs
 - [ ] Content unit form with `unitTypeCode` branching (school vs Quran vs language)
 - [ ] Lesson list under unit; create lesson with `orderIndex`
-- [ ] Link to `filter-options` doc for picker UX (teacher/student flows)
-- [ ] Handle 400 on delete when children exist (show server `message`)
+- [x] Hierarchy manager canvas with per-step Add and full CRUD per node type
+- [x] Hierarchy UI disables delete when `filter-options` returns `canDelete: false` (children exist)
+- [ ] Handle 400 on delete when children exist (show server `message`) — fallback if client guard bypassed

@@ -48,5 +48,5 @@ public interface IGradeService
 
     // Validation
     Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null);
-    Task<bool> IsGradeCodeUniqueAsync(string code, int? excludeId = null);
+    Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null);
 }

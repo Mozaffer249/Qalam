@@ -10,10 +10,14 @@ namespace Qalam.Service.Implementations;
 public class CurriculumService : ICurriculumService
 {
     private readonly ICurriculumRepository _curriculumRepository;
+    private readonly IEducationDeleteGuardService _deleteGuard;
 
-    public CurriculumService(ICurriculumRepository curriculumRepository)
+    public CurriculumService(
+        ICurriculumRepository curriculumRepository,
+        IEducationDeleteGuardService deleteGuard)
     {
         _curriculumRepository = curriculumRepository;
+        _deleteGuard = deleteGuard;
     }
 
     #region Query Operations
@@ -124,8 +128,7 @@ public class CurriculumService : ICurriculumService
         if (curriculum == null)
             return false;
 
-        if (curriculum.EducationLevels?.Any() == true)
-            throw new InvalidOperationException("Cannot delete curriculum with existing education levels");
+        await _deleteGuard.AssertCanDeleteCurriculumAsync(id);
 
         await _curriculumRepository.DeleteAsync(curriculum);
         return true;

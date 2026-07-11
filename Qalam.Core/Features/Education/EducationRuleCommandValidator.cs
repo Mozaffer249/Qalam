@@ -29,5 +29,18 @@ public class EducationRuleDtoValidator : AbstractValidator<EducationRuleDto>
 
         RuleFor(x => x.NotesEn)
             .MaximumLength(500).When(x => x.NotesEn != null);
+
+        RuleFor(x => x.HasContentUnits)
+            .Equal(true)
+            .When(x => x.HasLessons)
+            .WithMessage("Content units must be enabled when lessons are enabled");
+
+        RuleFor(x => x)
+            .Must(x => !x.RequiresQuranLevel || x.RequiresQuranContentType)
+            .WithMessage("Quran level requires Quran content type");
+
+        RuleFor(x => x)
+            .Must(x => !x.RequiresUnitTypeSelection || x.HasContentUnits)
+            .WithMessage("Unit type selection requires content units");
     }
 }
