@@ -39,6 +39,7 @@ public static class CourseDtoMapper
             Price = c.Price,
             MaxStudents = c.MaxStudents,
             CanIncludeInPackages = c.CanIncludeInPackages,
+            ImageUrl = c.ImageUrl,
             Status = c.Status
         };
 

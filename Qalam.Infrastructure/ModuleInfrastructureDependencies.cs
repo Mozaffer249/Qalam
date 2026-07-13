@@ -74,6 +74,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<IOpenSessionRequestRepository, OpenSessionRequestRepository>();
             services.AddTransient<IOpenSessionRequestTargetRepository, OpenSessionRequestTargetRepository>();
             services.AddTransient<IOpenSessionOfferRepository, OpenSessionOfferRepository>();
+            services.AddTransient<ITeacherDashboardReadRepository, TeacherDashboardReadRepository>();
             services.AddTransient<IOfferConversationRepository, OfferConversationRepository>();
 
             // Database Seeder

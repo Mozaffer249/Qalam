@@ -1,10 +1,10 @@
 using MediatR;
 using Qalam.Core.Bases;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs.Content;
 
 namespace Qalam.Core.Features.Content.Queries.GetContentUnitsList;
 
-public class GetContentUnitsListQuery : IRequest<Response<List<ContentUnit>>>
+public class GetContentUnitsListQuery : IRequest<Response<List<ContentUnitListDto>>>
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;

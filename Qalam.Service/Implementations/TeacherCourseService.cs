@@ -17,6 +17,7 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly ITeachingModeRepository _teachingModeRepository;
     private readonly ISessionTypeRepository _sessionTypeRepository;
     private readonly ICourseSessionUnitRepository _courseSessionUnitRepository;
+    private readonly ITeacherSubjectRepertoireService _repertoireService;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
@@ -24,7 +25,8 @@ public class TeacherCourseService : ITeacherCourseService
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeachingModeRepository teachingModeRepository,
         ISessionTypeRepository sessionTypeRepository,
-        ICourseSessionUnitRepository courseSessionUnitRepository)
+        ICourseSessionUnitRepository courseSessionUnitRepository,
+        ITeacherSubjectRepertoireService repertoireService)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
@@ -32,6 +34,7 @@ public class TeacherCourseService : ITeacherCourseService
         _teachingModeRepository = teachingModeRepository;
         _sessionTypeRepository = sessionTypeRepository;
         _courseSessionUnitRepository = courseSessionUnitRepository;
+        _repertoireService = repertoireService;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -103,9 +106,9 @@ public class TeacherCourseService : ITeacherCourseService
                 throw new InvalidOperationException("Flexible courses must not have sessions.");
         }
 
-        var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
+        var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
+            teacher.Id, dto.TeacherSubjectId, cancellationToken);
         if (teacherSubject == null
-            || teacherSubject.TeacherId != teacher.Id
             || !teacherSubject.IsActive
             || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
@@ -132,6 +135,11 @@ public class TeacherCourseService : ITeacherCourseService
         // turn into N+1 lookups.
         await ValidateSessionUnitsBelongToSubjectAsync(dto.Sessions, teacherSubject.SubjectId, cancellationToken);
 
+        var repertoireError = await _repertoireService.ValidateSessionUnitsInRepertoireAsync(
+            teacherSubject, dto.Sessions, cancellationToken);
+        if (repertoireError != null)
+            throw new InvalidOperationException(repertoireError);
+
         var course = new Course
         {
             Title = dto.Title,
@@ -146,6 +154,7 @@ public class TeacherCourseService : ITeacherCourseService
             Price = dto.Price,
             MaxStudents = dto.MaxStudents,
             CanIncludeInPackages = dto.CanIncludeInPackages,
+            ImageUrl = dto.ImageUrl,
             Status = CourseStatus.Published,
             CreatedAt = DateTime.UtcNow
         };
@@ -243,6 +252,8 @@ public class TeacherCourseService : ITeacherCourseService
         course.Price = dto.Price;
         course.MaxStudents = dto.MaxStudents;
         course.CanIncludeInPackages = dto.CanIncludeInPackages;
+        if (dto.ImageUrl != null)
+            course.ImageUrl = dto.ImageUrl;
         course.UpdatedAt = DateTime.UtcNow;
 
         await _courseRepository.UpdateAsync(course);
@@ -269,10 +280,26 @@ public class TeacherCourseService : ITeacherCourseService
         if (subjectId == null)
             return null;
 
+        var course = await _courseRepository.GetByIdAsync(courseId);
+        if (course == null || course.TeacherId != teacher.Id)
+            return null;
+
+        var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
+            teacher.Id, course.TeacherSubjectId, cancellationToken);
+        if (teacherSubject == null
+            || !teacherSubject.IsActive
+            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
+            throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
+
         // Subject-consistency check is delegated to the repo (single batched read per FK kind).
         var contentUnitIds = units.Where(u => u.ContentUnitId.HasValue).Select(u => u.ContentUnitId!.Value).Distinct().ToList();
         var lessonIds = units.Where(u => u.LessonId.HasValue).Select(u => u.LessonId!.Value).Distinct().ToList();
         await _courseSessionUnitRepository.ValidateUnitsBelongToSubjectAsync(contentUnitIds, lessonIds, subjectId.Value, cancellationToken);
+
+        var repertoireError = await _repertoireService.ValidateUnitRowsInRepertoireAsync(
+            teacherSubject, units, cancellationToken);
+        if (repertoireError != null)
+            throw new InvalidOperationException(repertoireError);
 
         var now = DateTime.UtcNow;
         var newRows = units.Select(u => new CourseSessionUnit

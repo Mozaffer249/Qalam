@@ -18,6 +18,7 @@ public class CreateCourseDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
+    public string? ImageUrl { get; set; }
     public List<CreateCourseSessionDto>? Sessions { get; set; }
 }
 
@@ -81,6 +82,15 @@ public class UpdateCourseDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
+    public string? ImageUrl { get; set; }
+}
+
+/// <summary>
+/// Response from POST /Teacher/TeacherCourse/upload-image.
+/// </summary>
+public class CourseImageUploadResultDto
+{
+    public string ImageUrl { get; set; } = default!;
 }
 
 /// <summary>
@@ -136,6 +146,7 @@ public class CourseDetailDto
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
+    public string? ImageUrl { get; set; }
     public CourseStatus Status { get; set; }
     /// <summary>
     /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.

@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Data.Results;
@@ -31,6 +32,10 @@ public interface IOpenSessionRequestTargetRepository : IGenericRepositoryAsync<O
     Task<PaginatedResult<TeacherAvailableRequestListItemDto>> GetTeacherInboxAsync(
         int teacherId,
         TeacherInboxFilters filters,
+        CancellationToken cancellationToken = default);
+
+    Task<TeacherInboxCountsDto> GetTeacherInboxCountsAsync(
+        int teacherId,
         CancellationToken cancellationToken = default);
 }
 

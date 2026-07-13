@@ -48,6 +48,7 @@ builder.Services.AddHostedService<PushConsumerService>();
 builder.Services.AddHostedService<TeacherDocUploadConsumer>();
 builder.Services.AddHostedService<ProfilePicUploadConsumer>();
 builder.Services.AddHostedService<OpenSessionRequestAttachmentConsumer>();
+builder.Services.AddHostedService<TeacherContentFileUploadConsumer>();
 
 // Controllers + Swagger 
 builder.Services.AddControllers()

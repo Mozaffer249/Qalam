@@ -9,6 +9,7 @@ public class ContentUnit : AuditableEntity
     public int Id { get; set; }
 
     public int SubjectId { get; set; }
+    [JsonIgnore]
     public Subject Subject { get; set; } = default!;
 
     // Academic term this unit belongs to (optional - for curriculum planning)

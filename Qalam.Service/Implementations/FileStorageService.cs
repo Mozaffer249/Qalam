@@ -57,6 +57,31 @@ public class FileStorageService : IFileStorageService
         return Path.Combine("uploads", "teachers", teacherId.ToString(), documentType, fileName);
     }
 
+    public async Task<string> SaveCourseImageAsync(IFormFile file, int teacherId)
+    {
+        var coursePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "courses", teacherId.ToString());
+        if (!Directory.Exists(coursePath))
+        {
+            Directory.CreateDirectory(coursePath);
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{Guid.NewGuid()}{extension}";
+        var filePath = Path.Combine(coursePath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        _logger.LogInformation(
+            "Course image saved for teacher {TeacherId}: {Path}",
+            teacherId,
+            filePath);
+
+        return Path.Combine("uploads", "courses", teacherId.ToString(), fileName);
+    }
+
     public Task<bool> ValidateFileAsync(
         IFormFile file,
         string[] allowedExtensions,
@@ -186,5 +211,53 @@ public class FileStorageService : IFileStorageService
         _logger.LogInformation(
             "Open session request attachment queued: RequestId={RequestId}, AttachmentId={AttachmentId}, Key={Key}",
             openSessionRequestId, attachmentId, storageKey);
+    }
+
+    public async Task QueueTeacherContentFileUploadAsync(
+        IFormFile file,
+        int teacherId,
+        int contentItemId,
+        string storageKey)
+    {
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        var message = new TeacherContentFileUploadMessage
+        {
+            TeacherId = teacherId,
+            ContentItemId = contentItemId,
+            FileName = file.FileName,
+            ContentType = file.ContentType ?? "application/octet-stream",
+            StorageKey = storageKey,
+            FileData = base64Data,
+        };
+
+        await _rabbitMQService.QueueTeacherContentFileUploadAsync(message);
+
+        _logger.LogInformation(
+            "Teacher content file upload queued: TeacherId={TeacherId}, ItemId={ItemId}, Key={Key}",
+            teacherId, contentItemId, storageKey);
+    }
+
+    public async Task<string> SaveTeacherContentFileAsync(IFormFile file, int teacherId, int itemId)
+    {
+        var contentPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teacher-content", teacherId.ToString());
+        if (!Directory.Exists(contentPath))
+            Directory.CreateDirectory(contentPath);
+
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{itemId}{extension}";
+        var filePath = Path.Combine(contentPath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var relative = Path.Combine("uploads", "teacher-content", teacherId.ToString(), fileName);
+        _logger.LogInformation("Teacher content file saved: TeacherId={TeacherId}, ItemId={ItemId}, Path={Path}",
+            teacherId, itemId, relative);
+        return relative;
     }
 }

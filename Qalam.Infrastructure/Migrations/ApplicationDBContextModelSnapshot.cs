@@ -3443,6 +3443,93 @@ namespace Qalam.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionContentLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContentItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentItemId");
+
+                    b.HasIndex("CourseScheduleId", "ContentItemId")
+                        .IsUnique();
+
+                    b.ToTable("SessionContentLinks", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionHomeworkAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseScheduleId");
+
+                    b.ToTable("SessionHomeworkAssignments", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionHomeworkFileLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContentItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SessionHomeworkAssignmentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentItemId");
+
+                    b.HasIndex("SessionHomeworkAssignmentId", "ContentItemId")
+                        .IsUnique();
+
+                    b.ToTable("SessionHomeworkFileLinks", "teacher");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.Teacher", b =>
                 {
                     b.Property<int>("Id")
@@ -3665,6 +3752,119 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("TimeSlotId");
 
                     b.ToTable("TeacherAvailabilityExceptions");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentFolder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("ParentFolderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentFolderId");
+
+                    b.HasIndex("TeacherId", "ParentFolderId", "Name")
+                        .IsUnique()
+                        .HasFilter("[ParentFolderId] IS NOT NULL");
+
+                    b.ToTable("TeacherContentFolders", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int?>("FileType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FolderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PublicUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<string>("TagsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasDefaultValue("[]");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UploadStatus")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FolderId");
+
+                    b.HasIndex("TeacherId", "FolderId");
+
+                    b.ToTable("TeacherContentItems", "teacher");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDocument", b =>
@@ -5558,6 +5758,55 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionContentLink", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherContentItem", "ContentItem")
+                        .WithMany("SessionLinks")
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany()
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ContentItem");
+
+                    b.Navigation("CourseSchedule");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionHomeworkAssignment", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany()
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CourseSchedule");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionHomeworkFileLink", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherContentItem", "ContentItem")
+                        .WithMany()
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.SessionHomeworkAssignment", "Assignment")
+                        .WithMany("FileLinks")
+                        .HasForeignKey("SessionHomeworkAssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Assignment");
+
+                    b.Navigation("ContentItem");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.Teacher", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Identity.User", "User")
@@ -5641,6 +5890,42 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Teacher");
 
                     b.Navigation("TimeSlot");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentFolder", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherContentFolder", "ParentFolder")
+                        .WithMany("ChildFolders")
+                        .HasForeignKey("ParentFolderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentFolder");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentItem", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherContentFolder", "Folder")
+                        .WithMany("Items")
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Folder");
+
+                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDocument", b =>
@@ -6000,6 +6285,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Students");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.SessionHomeworkAssignment", b =>
+                {
+                    b.Navigation("FileLinks");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.Teacher", b =>
                 {
                     b.Navigation("Courses");
@@ -6017,6 +6307,18 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("TeacherReviews");
 
                     b.Navigation("TeacherSubjects");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentFolder", b =>
+                {
+                    b.Navigation("ChildFolders");
+
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherContentItem", b =>
+                {
+                    b.Navigation("SessionLinks");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherDomainQuestion", b =>

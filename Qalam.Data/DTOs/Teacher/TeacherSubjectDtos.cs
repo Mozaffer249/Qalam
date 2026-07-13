@@ -75,6 +75,20 @@ public class TeacherSubjectResponseDto
     public string SubjectNameAr { get; set; } = default!;
     public string SubjectNameEn { get; set; } = default!;
     public string? DomainCode { get; set; }
+    public string? DomainNameAr { get; set; }
+    public string? DomainNameEn { get; set; }
+
+    public int? CurriculumId { get; set; }
+    public string? CurriculumNameAr { get; set; }
+    public string? CurriculumNameEn { get; set; }
+
+    public int? LevelId { get; set; }
+    public string? LevelNameAr { get; set; }
+    public string? LevelNameEn { get; set; }
+
+    public int? GradeId { get; set; }
+    public string? GradeNameAr { get; set; }
+    public string? GradeNameEn { get; set; }
 
     public bool CanTeachFullSubject { get; set; }
     public bool IsActive { get; set; }
@@ -103,6 +117,18 @@ public class TeacherSubjectUnitResponseDto
     public int? QuranLevelId { get; set; }
     public string? QuranLevelNameAr { get; set; }
     public string? QuranLevelNameEn { get; set; }
+}
+
+/// <summary>
+/// Slim unit option for teacher course-create picker (scoped to teacher subject repertoire).
+/// </summary>
+public class TeacherSubjectUnitOptionDto
+{
+    public int Id { get; set; }
+    public string NameAr { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
 }
 
 #endregion

@@ -2,13 +2,13 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.Entity.Education;
+using Qalam.Data.DTOs.Content;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Content.Queries.GetContentUnitsList;
 
 public class GetContentUnitsListQueryHandler : ResponseHandler,
-    IRequestHandler<GetContentUnitsListQuery, Response<List<ContentUnit>>>
+    IRequestHandler<GetContentUnitsListQuery, Response<List<ContentUnitListDto>>>
 {
     private readonly IContentManagementService _contentService;
 
@@ -19,7 +19,7 @@ public class GetContentUnitsListQueryHandler : ResponseHandler,
         _contentService = contentService;
     }
 
-    public async Task<Response<List<ContentUnit>>> Handle(
+    public async Task<Response<List<ContentUnitListDto>>> Handle(
         GetContentUnitsListQuery request,
         CancellationToken cancellationToken)
     {

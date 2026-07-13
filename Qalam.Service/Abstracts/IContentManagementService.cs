@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Content;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 
@@ -30,7 +31,7 @@ public interface IContentManagementService
     Task<bool> ReorderLessonsAsync(int contentUnitId, List<int> orderedIds);
 
     // Pagination
-    Task<PaginatedResult<ContentUnit>> GetPaginatedContentUnitsAsync(
+    Task<PaginatedResult<ContentUnitListDto>> GetPaginatedContentUnitsAsync(
         int pageNumber, int pageSize, int? subjectId = null, List<int>? termIds = null, string? unitTypeCode = null, string? search = null);
     Task<PaginatedResult<Lesson>> GetPaginatedLessonsAsync(
         int pageNumber, int pageSize, int? contentUnitId = null, int? subjectId = null, string? search = null,

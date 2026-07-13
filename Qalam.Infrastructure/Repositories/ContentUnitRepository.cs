@@ -20,7 +20,6 @@ public class ContentUnitRepository : GenericRepositoryAsync<ContentUnit>, IConte
     {
         return _context.ContentUnits
             .AsNoTracking()
-            .Include(cu => cu.Subject)
             .OrderBy(cu => cu.OrderIndex);
     }
 

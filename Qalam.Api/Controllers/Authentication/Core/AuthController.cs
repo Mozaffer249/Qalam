@@ -7,6 +7,8 @@ using Qalam.Core.Features.Authentication.Commands.Login;
 using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
 using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
+using Qalam.Core.Features.Authentication.Commands.UpdateProfile;
+using Qalam.Core.Features.Authentication.Queries.GetProfile;
 using Qalam.Core.Features.Authentication.Queries.GetTeacherRegistrationRequirements;
 using Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
 using Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
@@ -237,6 +239,22 @@ namespace Qalam.Api.Controllers.Authentication.Core
                 StatusCode = HttpStatusCode.OK
             });
         }
+
+        #endregion
+
+        #region Account profile
+
+        [Authorize]
+        [HttpGet(Router.AccountGetProfile)]
+        [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetProfile()
+            => NewResult(await Mediator.Send(new GetProfileQuery()));
+
+        [Authorize]
+        [HttpPost(Router.AccountUpdateProfile)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileCommand command)
+            => NewResult(await Mediator.Send(command));
 
         #endregion
 

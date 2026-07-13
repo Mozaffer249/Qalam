@@ -64,7 +64,11 @@ namespace Qalam.Service.Implementations
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
                 await _channel.QueueDeclareAsync(
-                    queue: _settings.ProfilePicUploadQueueName,
+                    queue: _settings.OpenSessionRequestAttachmentUploadQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.TeacherContentFileUploadQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
                 _initialized = true;
@@ -228,6 +232,34 @@ namespace Qalam.Service.Implementations
                 _logger.LogError(ex,
                     "Failed to queue open session request attachment upload: RequestId={RequestId}, AttachmentId={AttachmentId}",
                     message.OpenSessionRequestId, message.AttachmentId);
+                throw;
+            }
+        }
+
+        public async Task QueueTeacherContentFileUploadAsync(TeacherContentFileUploadMessage message)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                message.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(message);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.TeacherContentFileUploadQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation(
+                    "Teacher content file upload queued: TeacherId={TeacherId}, ItemId={ItemId}",
+                    message.TeacherId, message.ContentItemId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to queue teacher content file upload: TeacherId={TeacherId}, ItemId={ItemId}",
+                    message.TeacherId, message.ContentItemId);
                 throw;
             }
         }

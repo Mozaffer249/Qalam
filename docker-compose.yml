@@ -52,6 +52,7 @@ services:
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
+      - RabbitMQSettings__TeacherContentFileUploadQueueName=teacher-content-file-upload-queue
       - EmailSettings__Host=${EMAIL_HOST}
       - EmailSettings__Port=${EMAIL_PORT:-465}
       - EmailSettings__FromName=${EMAIL_FROM_NAME}
@@ -129,6 +130,8 @@ services:
       - RabbitMQSettings__TeacherDocUploadQueueName=teacher-doc-upload-queue
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
+      - RabbitMQSettings__TeacherContentFileUploadQueueName=teacher-content-file-upload-queue
+      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com}
     ports:
       - "8080:80"
     volumes:

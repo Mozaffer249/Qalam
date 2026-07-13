@@ -169,11 +169,42 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherCourseEnrollments = Rule + "Teacher/Courses/{courseId}/Enrollments";
         /// <summary>Enrollment detail (unified — individual or group): Api/V1/Teacher/Enrollments/{id}</summary>
         public const string TeacherEnrollmentById = Rule + "Teacher/Enrollments/{id}";
+
+        /// <summary>Teacher profile: Api/V1/Teacher/Profile/me</summary>
+        public const string TeacherProfileMe = Rule + "Teacher/Profile/me";
+
+        /// <summary>Teacher scheduled sessions: Api/V1/Teacher/MySessions</summary>
+        public const string TeacherMySessions = Rule + "Teacher/MySessions";
+        public const string TeacherMySessionById = TeacherMySessions + "/{id:int}";
+        public const string TeacherMySessionContent = TeacherMySessionById + "/Content";
+        public const string TeacherMySessionContentByLinkId = TeacherMySessionContent + "/{linkId:int}";
+        public const string TeacherMySessionHomework = TeacherMySessionById + "/Homework";
+        public const string TeacherMySessionHomeworkById = TeacherMySessionHomework + "/{assignmentId:int}";
+
+        /// <summary>Teacher content library folders: Api/V1/Teacher/Content/Folders</summary>
+        public const string TeacherContentFolders = Rule + "Teacher/Content/Folders";
+        public const string TeacherContentFolderById = TeacherContentFolders + "/{id:int}";
+        /// <summary>Teacher content library items: Api/V1/Teacher/Content/Items</summary>
+        public const string TeacherContentItems = Rule + "Teacher/Content/Items";
+        public const string TeacherContentItemById = TeacherContentItems + "/{id:int}";
+        public const string TeacherContentItemUpload = TeacherContentItems + "/Upload";
+        public const string TeacherContentItemHomework = TeacherContentItems + "/Homework";
+
+        /// <summary>Teacher finance: Api/V1/Teacher/Finance/Summary</summary>
+        public const string TeacherFinanceSummary = Rule + "Teacher/Finance/Summary";
+        public const string TeacherFinanceTransactions = Rule + "Teacher/Finance/Transactions";
+
+        /// <summary>Teacher in-app notifications</summary>
+        public const string TeacherNotifications = Rule + "Teacher/Notifications";
+        public const string TeacherNotificationRead = TeacherNotifications + "/{id:int}/read";
+        public const string TeacherNotificationsReadAll = TeacherNotifications + "/read-all";
         #endregion
 
         #region Teacher Open Session Requests (Scenario 2)
         /// <summary>Inbox of matched requests: Api/V1/Teacher/AvailableRequests</summary>
         public const string TeacherAvailableRequests = Rule + "Teacher/AvailableRequests";
+        /// <summary>Inbox tab counts: Api/V1/Teacher/AvailableRequests/summary</summary>
+        public const string TeacherAvailableRequestsSummary = TeacherAvailableRequests + "/summary";
         /// <summary>Available request detail (side-effect: marks Viewed): Api/V1/Teacher/AvailableRequests/{id}</summary>
         public const string TeacherAvailableRequestById = TeacherAvailableRequests + "/{id:int}";
         /// <summary>Mark as viewed without fetching detail: Api/V1/Teacher/AvailableRequests/{id}/mark-viewed</summary>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.Commands.SaveTeacherSubjects;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjects;
+using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjectUnits;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
 
@@ -28,6 +29,21 @@ public class TeacherSubjectController : AppControllerBase
     {
         // UserId is auto-populated by UserIdentityBehavior from JWT token
         return NewResult(await Mediator.Send(new GetTeacherSubjectsQuery()));
+    }
+
+    /// <summary>
+    /// Get content units allowed for a specific teacher subject (course-create picker).
+    /// </summary>
+    [HttpGet("{teacherSubjectId:int}/units")]
+    [ProducesResponseType(typeof(List<TeacherSubjectUnitOptionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTeacherSubjectUnits(int teacherSubjectId)
+    {
+        return NewResult(await Mediator.Send(new GetTeacherSubjectUnitsQuery
+        {
+            TeacherSubjectId = teacherSubjectId,
+        }));
     }
 
     /// <summary>

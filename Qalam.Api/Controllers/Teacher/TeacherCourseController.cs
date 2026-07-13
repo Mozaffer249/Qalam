@@ -5,6 +5,7 @@ using Qalam.Core.Features.Teacher.CourseManagement.Commands.CreateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourseSessionUnits;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.UploadCourseImage;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCoursesList;
 using Qalam.Data.AppMetaData;
@@ -184,6 +185,23 @@ public class TeacherCourseController : AppControllerBase
     public async Task<IActionResult> CreateCourse([FromBody] CreateCourseDto dto)
     {
         var command = new CreateCourseCommand { Data = dto };
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Upload a course cover image (jpg, jpeg, png, webp; max 5 MB).
+    /// </summary>
+    /// <remarks>
+    /// POST Api/V1/Teacher/TeacherCourse/upload-image (multipart/form-data, field name: file)
+    ///
+    /// Returns `{ "imageUrl": "uploads/courses/{teacherId}/{guid}.jpg" }` to include in create/update payload.
+    /// </remarks>
+    [HttpPost("upload-image")]
+    [ProducesResponseType(typeof(CourseImageUploadResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadCourseImage(IFormFile file)
+    {
+        var command = new UploadCourseImageCommand { File = file };
         return NewResult(await Mediator.Send(command));
     }
 

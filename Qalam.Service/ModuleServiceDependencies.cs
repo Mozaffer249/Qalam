@@ -62,6 +62,8 @@ namespace Qalam.Service
             services.AddTransient<IEducationFilterService, EducationFilterService>();
             services.AddTransient<IEducationDeleteGuardService, EducationDeleteGuardService>();
             services.AddTransient<ITeacherCourseService, TeacherCourseService>();
+            services.AddTransient<ITeacherSubjectRepertoireService, TeacherSubjectRepertoireService>();
+            services.AddTransient<ITeacherContentService, TeacherContentService>();
 
             // Course / Schedule Services
             services.AddTransient<IScheduleGenerationService, ScheduleGenerationService>();

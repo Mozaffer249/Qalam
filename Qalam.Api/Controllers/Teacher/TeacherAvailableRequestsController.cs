@@ -6,8 +6,10 @@ using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.MarkAvailableRequ
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestAvailabilityMatch;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestById;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequests;
+using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestsSummary;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Results;
 
 namespace Qalam.Api.Controllers.Teacher;
@@ -27,6 +29,11 @@ public class TeacherAvailableRequestsController : AppControllerBase
     [ProducesResponseType(typeof(PaginatedResult<TeacherAvailableRequestListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List([FromQuery] GetAvailableRequestsQuery query)
         => NewResult(await Mediator.Send(query));
+
+    [HttpGet("summary")]
+    [ProducesResponseType(typeof(TeacherInboxSummaryDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Summary()
+        => NewResult(await Mediator.Send(new GetAvailableRequestsSummaryQuery()));
 
     /// <summary>Detail view — also flips the target row to Viewed on first call.</summary>
     [HttpGet("{id:int}")]

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Qalam.Data.Commons;
 
 namespace Qalam.Data.Entity.Education;
@@ -41,7 +42,9 @@ public class Subject : AuditableEntity
     public bool IsActive { get; set; } = true;
 
     // Navigation Properties
+    [JsonIgnore]
     public ICollection<ContentUnit> ContentUnits { get; set; } = new List<ContentUnit>();
+    [JsonIgnore]
     public ICollection<Teacher.TeacherSubject> TeacherSubjects { get; set; } = new List<Teacher.TeacherSubject>();
 }
 

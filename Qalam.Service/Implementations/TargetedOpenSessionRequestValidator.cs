@@ -9,15 +9,18 @@ public class TargetedOpenSessionRequestValidator : ITargetedOpenSessionRequestVa
     private readonly ITeacherRepository _teacherRepo;
     private readonly ITeacherSubjectRepository _teacherSubjectRepo;
     private readonly ILessonRepository _lessonRepo;
+    private readonly ITeacherSubjectRepertoireService _repertoireService;
 
     public TargetedOpenSessionRequestValidator(
         ITeacherRepository teacherRepo,
         ITeacherSubjectRepository teacherSubjectRepo,
-        ILessonRepository lessonRepo)
+        ILessonRepository lessonRepo,
+        ITeacherSubjectRepertoireService repertoireService)
     {
         _teacherRepo = teacherRepo;
         _teacherSubjectRepo = teacherSubjectRepo;
         _lessonRepo = lessonRepo;
+        _repertoireService = repertoireService;
     }
 
     public async Task<string?> ValidateAsync(
@@ -37,7 +40,7 @@ public class TargetedOpenSessionRequestValidator : ITargetedOpenSessionRequestVa
         if (match is null)
             return "هذا المعلم لا يُدرّس المادة المطلوبة. اختر معلماً آخر أو غيّر المادة.";
 
-        var allowedUnitIds = match.TeacherSubjectUnits.Select(u => u.UnitId).ToHashSet();
+        var allowedUnitIds = await _repertoireService.GetAllowedUnitIdsAsync(match, cancellationToken);
 
         // 3. Per-session, per-row validation
         for (var i = 0; i < sessions.Count; i++)

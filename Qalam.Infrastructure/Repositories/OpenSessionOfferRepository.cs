@@ -70,53 +70,55 @@ public class OpenSessionOfferRepository : GenericRepositoryAsync<OpenSessionOffe
         TeacherMyOffersFilters filters,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.OpenSessionOffers
-            .AsNoTracking()
-            .Where(o => o.TeacherId == teacherId);
+        var query =
+            from o in _context.OpenSessionOffers.AsNoTracking()
+            where o.TeacherId == teacherId
+            join r in _context.OpenSessionRequests.AsNoTracking() on o.SessionRequestId equals r.Id
+            join u in _context.Users.AsNoTracking() on r.RequestedByUserId equals u.Id
+            join st in _context.Students.AsNoTracking() on u.Id equals st.UserId into studentJoin
+            from student in studentJoin.DefaultIfEmpty()
+            select new { Offer = o, Request = r, User = u, Student = student };
 
         if (filters.Status.HasValue)
-            query = query.Where(o => o.Status == filters.Status.Value);
+            query = query.Where(x => x.Offer.Status == filters.Status.Value);
 
         if (filters.DateFrom.HasValue)
         {
             var fromUtc = filters.DateFrom.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-            query = query.Where(o => o.CreatedAt >= fromUtc);
+            query = query.Where(x => x.Offer.CreatedAt >= fromUtc);
         }
 
         if (filters.DateTo.HasValue)
         {
             var toUtc = filters.DateTo.Value.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
-            query = query.Where(o => o.CreatedAt <= toUtc);
+            query = query.Where(x => x.Offer.CreatedAt <= toUtc);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(o => o.CreatedAt)
+            .OrderByDescending(x => x.Offer.CreatedAt)
             .Skip((filters.PageNumber - 1) * filters.PageSize)
             .Take(filters.PageSize)
-            .Select(o => new TeacherOfferListItemDto
+            .Select(x => new TeacherOfferListItemDto
             {
-                Id = o.Id,
-                SessionRequestId = o.SessionRequestId,
-                SubjectId = o.OpenSessionRequest.SubjectId,
-                SubjectNameEn = o.OpenSessionRequest.Subject != null ? o.OpenSessionRequest.Subject.NameEn : null,
-                SubjectNameAr = o.OpenSessionRequest.Subject != null ? o.OpenSessionRequest.Subject.NameAr : null,
-                StudentId = o.OpenSessionRequest.StudentId,
-                StudentDisplayName =
-                    o.OpenSessionRequest.Student != null && o.OpenSessionRequest.Student.User != null
-                        ? (o.OpenSessionRequest.Student.User.FirstName ?? "") + " " + (o.OpenSessionRequest.Student.User.LastName ?? "")
-                        : null,
-                Price = o.Price,
-                SessionsCount = o.OpenSessionRequest.TotalSessionsCount,
-                Status = o.Status,
-                Version = o.Version,
-                CreatedAt = o.CreatedAt,
-                ExpiresAt = o.ExpiresAt,
-                UnreadMessagesCount = o.Conversation != null
-                    ? o.Conversation.Messages.Count(m =>
+                Id = x.Offer.Id,
+                SessionRequestId = x.Offer.SessionRequestId,
+                SubjectId = x.Request.SubjectId,
+                SubjectNameEn = x.Request.Subject != null ? x.Request.Subject.NameEn : null,
+                SubjectNameAr = x.Request.Subject != null ? x.Request.Subject.NameAr : null,
+                StudentId = x.Student != null ? x.Student.Id : 0,
+                StudentDisplayName = ((x.User.FirstName ?? "") + " " + (x.User.LastName ?? "")).Trim(),
+                Price = x.Offer.Price,
+                SessionsCount = x.Request.TotalSessionsCount,
+                Status = x.Offer.Status,
+                Version = x.Offer.Version,
+                CreatedAt = x.Offer.CreatedAt,
+                ExpiresAt = x.Offer.ExpiresAt,
+                UnreadMessagesCount = x.Offer.Conversation != null
+                    ? x.Offer.Conversation.Messages.Count(m =>
                         m.SenderUserId != null
-                        && (o.Conversation.TeacherLastReadAt == null || m.SentAt > o.Conversation.TeacherLastReadAt))
+                        && (x.Offer.Conversation.TeacherLastReadAt == null || m.SentAt > x.Offer.Conversation.TeacherLastReadAt))
                     : 0,
             })
             .ToListAsync(cancellationToken);

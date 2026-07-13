@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs.Content;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -239,7 +240,7 @@ public class ContentManagementService : IContentManagementService
 
     #region Pagination
 
-    public async Task<PaginatedResult<ContentUnit>> GetPaginatedContentUnitsAsync(
+    public async Task<PaginatedResult<ContentUnitListDto>> GetPaginatedContentUnitsAsync(
         int pageNumber, int pageSize, int? subjectId = null, List<int>? termIds = null, string? unitTypeCode = null, string? search = null)
     {
         var query = _contentUnitRepository.GetContentUnitsQueryable();
@@ -247,11 +248,9 @@ public class ContentManagementService : IContentManagementService
         if (subjectId.HasValue)
             query = query.Where(cu => cu.SubjectId == subjectId.Value);
 
-        // Add term filtering for multiple terms (for regular curriculum units)
         if (termIds != null && termIds.Any())
             query = query.Where(cu => cu.TermId.HasValue && termIds.Contains(cu.TermId.Value));
 
-        // Add unit type filtering (for Quran units: QuranSurah, QuranPart)
         if (!string.IsNullOrEmpty(unitTypeCode))
             query = query.Where(cu => cu.UnitTypeCode == unitTypeCode);
 
@@ -268,9 +267,24 @@ public class ContentManagementService : IContentManagementService
             .OrderBy(cu => cu.OrderIndex)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .Select(cu => new ContentUnitListDto
+            {
+                Id = cu.Id,
+                SubjectId = cu.SubjectId,
+                TermId = cu.TermId,
+                NameAr = cu.NameAr,
+                NameEn = cu.NameEn,
+                OrderIndex = cu.OrderIndex,
+                UnitTypeCode = cu.UnitTypeCode,
+                QuranSurahId = cu.QuranSurahId,
+                QuranPartId = cu.QuranPartId,
+                IsActive = cu.IsActive,
+                CreatedAt = cu.CreatedAt,
+                UpdatedAt = cu.UpdatedAt,
+            })
             .ToListAsync();
 
-        return new PaginatedResult<ContentUnit>(items, totalCount, pageNumber, pageSize);
+        return new PaginatedResult<ContentUnitListDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public async Task<PaginatedResult<Lesson>> GetPaginatedLessonsAsync(

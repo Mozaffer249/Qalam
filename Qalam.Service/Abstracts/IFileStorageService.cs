@@ -9,6 +9,10 @@ public interface IFileStorageService
         int teacherId,
         string documentType);
 
+    Task<string> SaveCourseImageAsync(
+        IFormFile file,
+        int teacherId);
+
     Task<bool> ValidateFileAsync(
         IFormFile file,
         string[] allowedExtensions,
@@ -37,4 +41,13 @@ public interface IFileStorageService
         int openSessionRequestId,
         int attachmentId,
         string storageKey);
+
+    Task QueueTeacherContentFileUploadAsync(
+        IFormFile file,
+        int teacherId,
+        int contentItemId,
+        string storageKey);
+
+    /// <summary>Saves a teacher content library file locally and returns a relative storage path.</summary>
+    Task<string> SaveTeacherContentFileAsync(IFormFile file, int teacherId, int itemId);
 }

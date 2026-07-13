@@ -83,9 +83,9 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                     }).ToList(),
                 Student = new RequestStudentSummaryDto
                 {
-                    Id = r.StudentId,
-                    DisplayName = r.Student != null && r.Student.User != null
-                        ? (r.Student.User.FirstName ?? "") + " " + (r.Student.User.LastName ?? "")
+                    Id = 0,
+                    DisplayName = r.RequestedByUser != null
+                        ? ((r.RequestedByUser.FirstName ?? "") + " " + (r.RequestedByUser.LastName ?? "")).Trim()
                         : null,
                 },
                 CurrentOffersCount = r.Offers.Count(o => o.Status != OpenSessionOfferStatus.Withdrawn),
@@ -124,14 +124,16 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
 
     public async Task<RequestStatusSummary?> GetStatusSummaryAsync(int requestId, CancellationToken cancellationToken = default)
     {
-        return await _context.OpenSessionRequests
-            .AsNoTracking()
-            .Where(r => r.Id == requestId)
-            .Select(r => new RequestStatusSummary(
+        return await (
+            from r in _context.OpenSessionRequests.AsNoTracking()
+            where r.Id == requestId
+            join st in _context.Students.AsNoTracking() on r.RequestedByUserId equals st.UserId into studentJoin
+            from student in studentJoin.DefaultIfEmpty()
+            select new RequestStatusSummary(
                 r.Id,
-                r.StudentId,
+                student != null ? student.Id : 0,
                 r.RequestedByUserId,
-                r.CreatedByGuardianId,
+                null,
                 r.Status))
             .FirstOrDefaultAsync(cancellationToken);
     }
