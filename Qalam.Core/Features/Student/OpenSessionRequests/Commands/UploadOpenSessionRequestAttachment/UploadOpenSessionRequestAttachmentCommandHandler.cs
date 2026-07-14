@@ -96,7 +96,9 @@ public class UploadOpenSessionRequestAttachmentCommandHandler
         //    The consumer uploads to exactly this key; no cross-DB write needed afterward.
         var ext = Path.GetExtension(request.File.FileName).ToLowerInvariant();
         var storageKey = $"open-session-requests/{entity.Id}/{attachment.Id}{ext}";
-        var ossPublicBase = _configuration["OssSettings:PublicBaseUrl"]
+        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
+                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
+                          ?? _configuration["OssSettings:PublicBaseUrl"]
                           ?? _configuration["OSS_PUBLIC_BASE_URL"]
                           ?? string.Empty;
         var publicUrl = string.IsNullOrEmpty(ossPublicBase)

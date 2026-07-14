@@ -218,8 +218,10 @@ public class TeacherContentService : ITeacherContentService
         await _db.SaveChangesAsync(ct);
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var storageKey = $"teacher-content/{teacherId}/{item.Id}{ext}";
-        var ossPublicBase = _configuration["OssSettings:PublicBaseUrl"]
+        var storageKey = $"teachers/{teacherId}/content/{item.Id}{ext}";
+        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
+                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
+                          ?? _configuration["OssSettings:PublicBaseUrl"]
                           ?? _configuration["OSS_PUBLIC_BASE_URL"]
                           ?? string.Empty;
         item.StorageKey = storageKey;

@@ -69,11 +69,13 @@ services:
       - PushNotificationSettings__ProjectId=${FIREBASE_PROJECT_ID:-}
       - OssSettings__AccessKeyId=${OSS_ACCESS_KEY_ID:-}
       - OssSettings__AccessKeySecret=${OSS_ACCESS_KEY_SECRET:-}
-      - OssSettings__BucketName=${OSS_BUCKET:-auth-and-identities-certificates}
+      - OssSettings__BucketName=${OSS_BUCKET:-auth-and-identities-certificates-staging}
       - OssSettings__Region=${OSS_REGION:-me-central-1}
-      - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1-internal.aliyuncs.com}
-      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com}
-      - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-true}
+      - OssSettings__Endpoint=${OSS_ENDPOINT:-https://oss-me-central-1.aliyuncs.com}
+      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
+      - OssSettings__LearningBucketName=${OSS_LEARNING_BUCKET:-qalam-content-dev}
+      - OssSettings__LearningPublicBaseUrl=${OSS_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.oss-me-central-1.aliyuncs.com}
+      - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-false}
       - OssSettings__EcsRoleName=${OSS_ECS_ROLE_NAME:-}
     depends_on:
       rabbitmq:
@@ -131,6 +133,8 @@ services:
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
       - RabbitMQSettings__TeacherContentFileUploadQueueName=teacher-content-file-upload-queue
+      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
+      - OssSettings__LearningPublicBaseUrl=${OSS_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.oss-me-central-1.aliyuncs.com}
     ports:
       - "8080:80"
     volumes:

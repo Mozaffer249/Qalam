@@ -85,7 +85,7 @@ public class OpenSessionRequestAttachmentConsumer : BackgroundService
                         _logger.LogInformation("Decoded base64 → {ByteCount} bytes", fileBytes.Length);
 
                         var fileUrl = await storageService.UploadFileAsync(
-                            message.StorageKey, stream, message.ContentType);
+                            message.StorageKey, stream, message.ContentType, OssBucketKeys.Learning);
 
                         _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
                         _logger.LogInformation("========== OPEN SESSION REQUEST ATTACHMENT COMPLETE ==========");

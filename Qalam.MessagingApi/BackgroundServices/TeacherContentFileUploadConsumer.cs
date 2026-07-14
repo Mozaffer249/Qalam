@@ -87,7 +87,7 @@ public class TeacherContentFileUploadConsumer : BackgroundService
                         using var stream = new MemoryStream(fileBytes);
 
                         var fileUrl = await storageService.UploadFileAsync(
-                            message.StorageKey, stream, message.ContentType);
+                            message.StorageKey, stream, message.ContentType, OssBucketKeys.Learning);
                         _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
 
                         await dbContext.Database.ExecuteSqlRawAsync(
