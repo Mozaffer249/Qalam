@@ -131,7 +131,6 @@ services:
       - RabbitMQSettings__ProfilePicUploadQueueName=profile-pic-upload-queue
       - RabbitMQSettings__OpenSessionRequestAttachmentUploadQueueName=open-session-request-attachment-upload-queue
       - RabbitMQSettings__TeacherContentFileUploadQueueName=teacher-content-file-upload-queue
-      - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com}
     ports:
       - "8080:80"
     volumes:
