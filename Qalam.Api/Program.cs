@@ -15,6 +15,7 @@ using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Seeder;
 using Qalam.Infrastructure.Seeding;
 using Qalam.Service;
+using Microsoft.Extensions.FileProviders;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Globalization;
@@ -279,6 +280,18 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ErrorHandlerMiddleware>(); // Error Handling Middleware
 
 app.UseHttpsRedirection();
+
+// Serve legacy local uploads (e.g. /uploads/teacher-content/..., /uploads/courses/...).
+var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadsRoot))
+{
+    Directory.CreateDirectory(uploadsRoot);
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/uploads",
+});
 
 app.UseRouting();
 

@@ -42,5 +42,12 @@ public class CourseScheduleConfiguration : IEntityTypeConfiguration<CourseSchedu
                .WithMany()
                .HasForeignKey(e => e.LocationId)
                .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(e => e.CourseSessionId);
+
+        builder.HasOne(e => e.CourseSession)
+               .WithMany()
+               .HasForeignKey(e => e.CourseSessionId)
+               .OnDelete(DeleteBehavior.SetNull);
     }
 }

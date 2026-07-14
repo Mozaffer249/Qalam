@@ -247,14 +247,31 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
                         $"Schedule no longer fits before {enrollmentRequest.PreferredEndDate:yyyy-MM-dd}. Please re-submit with a longer window.");
                 }
 
+                // Map SessionNumber → CourseSession.Id for fixed courses (content resolved via that FK).
+                Dictionary<int, int>? courseSessionIdByNumber = null;
+                if (!enrollment.Course!.IsFlexible && enrollment.Course.Sessions != null)
+                {
+                    courseSessionIdByNumber = enrollment.Course.Sessions
+                        .GroupBy(cs => cs.SessionNumber)
+                        .ToDictionary(g => g.Key, g => g.First().Id);
+                }
+
                 foreach (var s in preview.Slots)
                 {
+                    int? courseSessionId = null;
+                    if (courseSessionIdByNumber != null
+                        && courseSessionIdByNumber.TryGetValue(s.SessionNumber, out var sid))
+                    {
+                        courseSessionId = sid;
+                    }
+
                     enrollment.CourseSchedules.Add(new CourseSchedule
                     {
                         Date = s.Date,
                         TeacherAvailabilityId = s.TeacherAvailabilityId,
                         DurationMinutes = s.DurationMinutes,
                         TeachingModeId = enrollment.Course!.TeachingModeId,
+                        CourseSessionId = courseSessionId,
                         LocationId = null,
                         Status = ScheduleStatus.Scheduled
                     });

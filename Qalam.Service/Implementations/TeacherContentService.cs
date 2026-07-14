@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
@@ -27,6 +28,12 @@ public interface ITeacherContentService
     Task<List<TeacherSessionContentLinkDto>> LinkSessionContentBulkAsync(int teacherId, int scheduleId, LinkSessionContentBulkDto dto, CancellationToken ct);
     Task<bool> UnlinkSessionContentAsync(int teacherId, int scheduleId, int linkId, CancellationToken ct);
     Task<List<TeacherSessionContentLinkDto>> GetContentLinksForSessionAsync(int scheduleId, CancellationToken ct);
+
+    Task<List<TeacherSessionContentLinkDto>> ListCourseSessionContentAsync(int teacherId, int courseId, int courseSessionId, CancellationToken ct);
+    Task<TeacherSessionContentLinkDto?> LinkCourseSessionContentAsync(int teacherId, int courseId, int courseSessionId, int contentItemId, CancellationToken ct);
+    Task<List<TeacherSessionContentLinkDto>> LinkCourseSessionContentBulkAsync(int teacherId, int courseId, int courseSessionId, LinkSessionContentBulkDto dto, CancellationToken ct);
+    Task<bool> UnlinkCourseSessionContentAsync(int teacherId, int courseId, int courseSessionId, int linkId, CancellationToken ct);
+
     Task<List<TeacherSessionHomeworkDto>> ListSessionHomeworkAsync(int teacherId, int scheduleId, CancellationToken ct);
     Task<TeacherSessionHomeworkDto?> CreateSessionHomeworkAsync(int teacherId, int scheduleId, CreateSessionHomeworkDto dto, CancellationToken ct);
     Task<TeacherSessionHomeworkDto?> UpdateSessionHomeworkAsync(int teacherId, int scheduleId, int assignmentId, UpdateSessionHomeworkDto dto, CancellationToken ct);
@@ -302,11 +309,12 @@ public class TeacherContentService : ITeacherContentService
     {
         var item = await _db.TeacherContentItems
             .Include(i => i.SessionLinks)
+            .Include(i => i.CourseSessionLinks)
             .FirstOrDefaultAsync(i => i.Id == itemId && i.TeacherId == teacherId, ct);
 
         if (item == null) return false;
         if (item.UploadStatus == TeacherContentUploadStatus.Pending) return false;
-        if (item.SessionLinks.Count > 0) return false;
+        if (item.SessionLinks.Count > 0 || item.CourseSessionLinks.Count > 0) return false;
 
         if (!string.IsNullOrEmpty(item.StorageKey))
             await _fileStorage.DeleteFileAsync(item.StorageKey);
@@ -326,11 +334,12 @@ public class TeacherContentService : ITeacherContentService
     {
         if (!await OwnsScheduleAsync(teacherId, scheduleId, ct)) return null;
 
-        var item = await _db.TeacherContentItems.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == contentItemId && i.TeacherId == teacherId, ct);
+        var courseSessionId = await GetScheduleCourseSessionIdAsync(scheduleId, ct);
+        if (courseSessionId.HasValue)
+            return await LinkToCourseSessionAsync(teacherId, courseSessionId.Value, contentItemId, ct);
+
+        var item = await GetReadyFileItemAsync(teacherId, contentItemId, ct);
         if (item == null) return null;
-        if (item.Kind != TeacherContentItemKind.File) return null;
-        if (item.UploadStatus != TeacherContentUploadStatus.Ready) return null;
 
         var exists = await _db.SessionContentLinks.AnyAsync(
             l => l.CourseScheduleId == scheduleId && l.ContentItemId == contentItemId, ct);
@@ -353,6 +362,10 @@ public class TeacherContentService : ITeacherContentService
     {
         if (!await OwnsScheduleAsync(teacherId, scheduleId, ct)) return new List<TeacherSessionContentLinkDto>();
         if (dto.ContentItemIds == null || dto.ContentItemIds.Count == 0) return new List<TeacherSessionContentLinkDto>();
+
+        var courseSessionId = await GetScheduleCourseSessionIdAsync(scheduleId, ct);
+        if (courseSessionId.HasValue)
+            return await LinkToCourseSessionBulkAsync(teacherId, courseSessionId.Value, dto.ContentItemIds, ct);
 
         var distinctIds = dto.ContentItemIds.Distinct().ToList();
         var items = await _db.TeacherContentItems.AsNoTracking()
@@ -393,6 +406,17 @@ public class TeacherContentService : ITeacherContentService
     {
         if (!await OwnsScheduleAsync(teacherId, scheduleId, ct)) return false;
 
+        var courseSessionId = await GetScheduleCourseSessionIdAsync(scheduleId, ct);
+        if (courseSessionId.HasValue)
+        {
+            var templateLink = await _db.CourseSessionContentLinks.FirstOrDefaultAsync(
+                l => l.Id == linkId && l.CourseSessionId == courseSessionId.Value, ct);
+            if (templateLink == null) return false;
+            _db.CourseSessionContentLinks.Remove(templateLink);
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+
         var link = await _db.SessionContentLinks.FirstOrDefaultAsync(
             l => l.Id == linkId && l.CourseScheduleId == scheduleId, ct);
         if (link == null) return false;
@@ -404,6 +428,10 @@ public class TeacherContentService : ITeacherContentService
 
     public async Task<List<TeacherSessionContentLinkDto>> GetContentLinksForSessionAsync(int scheduleId, CancellationToken ct)
     {
+        var courseSessionId = await GetScheduleCourseSessionIdAsync(scheduleId, ct);
+        if (courseSessionId.HasValue)
+            return await GetCourseSessionContentLinksAsync(courseSessionId.Value, ct);
+
         return await _db.SessionContentLinks.AsNoTracking()
             .Where(l => l.CourseScheduleId == scheduleId)
             .Include(l => l.ContentItem)
@@ -419,6 +447,45 @@ public class TeacherContentService : ITeacherContentService
                 PublicUrl = l.ContentItem.PublicUrl,
             })
             .ToListAsync(ct);
+    }
+
+    public async Task<List<TeacherSessionContentLinkDto>> ListCourseSessionContentAsync(
+        int teacherId, int courseId, int courseSessionId, CancellationToken ct)
+    {
+        if (!await OwnsCourseSessionAsync(teacherId, courseId, courseSessionId, ct))
+            return new List<TeacherSessionContentLinkDto>();
+        return await GetCourseSessionContentLinksAsync(courseSessionId, ct);
+    }
+
+    public async Task<TeacherSessionContentLinkDto?> LinkCourseSessionContentAsync(
+        int teacherId, int courseId, int courseSessionId, int contentItemId, CancellationToken ct)
+    {
+        if (!await OwnsCourseSessionAsync(teacherId, courseId, courseSessionId, ct)) return null;
+        return await LinkToCourseSessionAsync(teacherId, courseSessionId, contentItemId, ct);
+    }
+
+    public async Task<List<TeacherSessionContentLinkDto>> LinkCourseSessionContentBulkAsync(
+        int teacherId, int courseId, int courseSessionId, LinkSessionContentBulkDto dto, CancellationToken ct)
+    {
+        if (!await OwnsCourseSessionAsync(teacherId, courseId, courseSessionId, ct))
+            return new List<TeacherSessionContentLinkDto>();
+        if (dto.ContentItemIds == null || dto.ContentItemIds.Count == 0)
+            return new List<TeacherSessionContentLinkDto>();
+        return await LinkToCourseSessionBulkAsync(teacherId, courseSessionId, dto.ContentItemIds, ct);
+    }
+
+    public async Task<bool> UnlinkCourseSessionContentAsync(
+        int teacherId, int courseId, int courseSessionId, int linkId, CancellationToken ct)
+    {
+        if (!await OwnsCourseSessionAsync(teacherId, courseId, courseSessionId, ct)) return false;
+
+        var link = await _db.CourseSessionContentLinks.FirstOrDefaultAsync(
+            l => l.Id == linkId && l.CourseSessionId == courseSessionId, ct);
+        if (link == null) return false;
+
+        _db.CourseSessionContentLinks.Remove(link);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<List<TeacherSessionHomeworkDto>> ListSessionHomeworkAsync(int teacherId, int scheduleId, CancellationToken ct)
@@ -563,6 +630,109 @@ public class TeacherContentService : ITeacherContentService
                  (s.Enrollment.Course != null && s.Enrollment.Course.TeacherId == teacherId)), ct);
     }
 
+    private async Task<int?> GetScheduleCourseSessionIdAsync(int scheduleId, CancellationToken ct)
+    {
+        return await _db.CourseSchedules.AsNoTracking()
+            .Where(s => s.Id == scheduleId)
+            .Select(s => s.CourseSessionId)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<bool> OwnsCourseSessionAsync(int teacherId, int courseId, int courseSessionId, CancellationToken ct)
+    {
+        return await _db.CourseSessions.AsNoTracking()
+            .AnyAsync(s => s.Id == courseSessionId && s.CourseId == courseId && s.Course.TeacherId == teacherId, ct);
+    }
+
+    private async Task<List<TeacherSessionContentLinkDto>> GetCourseSessionContentLinksAsync(
+        int courseSessionId, CancellationToken ct)
+    {
+        return await _db.CourseSessionContentLinks.AsNoTracking()
+            .Where(l => l.CourseSessionId == courseSessionId)
+            .Include(l => l.ContentItem)
+            .OrderBy(l => l.LinkedAt)
+            .Select(l => new TeacherSessionContentLinkDto
+            {
+                Id = l.Id,
+                ContentItemId = l.ContentItemId,
+                Kind = l.ContentItem.Kind,
+                Title = l.ContentItem.Title,
+                Description = l.ContentItem.Description,
+                FileType = l.ContentItem.FileType,
+                PublicUrl = l.ContentItem.PublicUrl,
+            })
+            .ToListAsync(ct);
+    }
+
+    private async Task<TeacherContentItem?> GetReadyFileItemAsync(int teacherId, int contentItemId, CancellationToken ct)
+    {
+        var item = await _db.TeacherContentItems.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == contentItemId && i.TeacherId == teacherId, ct);
+        if (item == null) return null;
+        if (item.Kind != TeacherContentItemKind.File) return null;
+        if (item.UploadStatus != TeacherContentUploadStatus.Ready) return null;
+        return item;
+    }
+
+    private async Task<TeacherSessionContentLinkDto?> LinkToCourseSessionAsync(
+        int teacherId, int courseSessionId, int contentItemId, CancellationToken ct)
+    {
+        var item = await GetReadyFileItemAsync(teacherId, contentItemId, ct);
+        if (item == null) return null;
+
+        var exists = await _db.CourseSessionContentLinks.AnyAsync(
+            l => l.CourseSessionId == courseSessionId && l.ContentItemId == contentItemId, ct);
+        if (exists) return null;
+
+        var link = new CourseSessionContentLink
+        {
+            CourseSessionId = courseSessionId,
+            ContentItemId = contentItemId,
+            LinkedAt = DateTime.UtcNow,
+        };
+        _db.CourseSessionContentLinks.Add(link);
+        await _db.SaveChangesAsync(ct);
+        return MapLink(link.Id, item);
+    }
+
+    private async Task<List<TeacherSessionContentLinkDto>> LinkToCourseSessionBulkAsync(
+        int teacherId, int courseSessionId, IReadOnlyList<int> contentItemIds, CancellationToken ct)
+    {
+        var distinctIds = contentItemIds.Distinct().ToList();
+        var items = await _db.TeacherContentItems.AsNoTracking()
+            .Where(i => distinctIds.Contains(i.Id) && i.TeacherId == teacherId)
+            .ToListAsync(ct);
+
+        if (items.Count != distinctIds.Count) return new List<TeacherSessionContentLinkDto>();
+
+        var existingIds = await _db.CourseSessionContentLinks.AsNoTracking()
+            .Where(l => l.CourseSessionId == courseSessionId)
+            .Select(l => l.ContentItemId)
+            .ToListAsync(ct);
+        var existingSet = existingIds.ToHashSet();
+
+        var created = new List<TeacherSessionContentLinkDto>();
+        foreach (var item in items)
+        {
+            if (item.Kind != TeacherContentItemKind.File) continue;
+            if (item.UploadStatus != TeacherContentUploadStatus.Ready) continue;
+            if (existingSet.Contains(item.Id)) continue;
+
+            var link = new CourseSessionContentLink
+            {
+                CourseSessionId = courseSessionId,
+                ContentItemId = item.Id,
+                LinkedAt = DateTime.UtcNow,
+            };
+            _db.CourseSessionContentLinks.Add(link);
+            await _db.SaveChangesAsync(ct);
+            existingSet.Add(item.Id);
+            created.Add(MapLink(link.Id, item));
+        }
+
+        return created;
+    }
+
     private async Task<TeacherContentFolderDto?> MapFolderAsync(int folderId, CancellationToken ct)
     {
         return await _db.TeacherContentFolders.AsNoTracking()
@@ -587,11 +757,11 @@ public class TeacherContentService : ITeacherContentService
         Description = item.Description,
         FileType = item.FileType,
         SizeBytes = item.SizeBytes,
-        PublicUrl = item.PublicUrl,
+        PublicUrl = NormalizePublicUrl(item.PublicUrl),
         Tags = DeserializeTags(item.TagsJson),
         UsedInSessionsCount = linkCount,
         UploadedAt = item.CreatedAt,
-        UploadStatus = item.UploadStatus,
+        UploadStatus = NormalizeUploadStatus(item.UploadStatus, item.PublicUrl),
     };
 
     private static TeacherSessionContentLinkDto MapLink(int linkId, TeacherContentItem item) => new()
@@ -602,8 +772,31 @@ public class TeacherContentService : ITeacherContentService
         Title = item.Title,
         Description = item.Description,
         FileType = item.FileType,
-        PublicUrl = item.PublicUrl,
+        PublicUrl = NormalizePublicUrl(item.PublicUrl),
     };
+
+    /// <summary>
+    /// Legacy rows may store UploadStatus=0 (unset before enum values were defined).
+    /// </summary>
+    private static TeacherContentUploadStatus NormalizeUploadStatus(
+        TeacherContentUploadStatus status, string? publicUrl)
+    {
+        if ((int)status == 0)
+        {
+            return string.IsNullOrWhiteSpace(publicUrl)
+                ? TeacherContentUploadStatus.Pending
+                : TeacherContentUploadStatus.Ready;
+        }
+
+        return status;
+    }
+
+    /// <summary>Normalize Windows path separators in legacy relative upload URLs.</summary>
+    private static string? NormalizePublicUrl(string? publicUrl)
+    {
+        if (string.IsNullOrWhiteSpace(publicUrl)) return publicUrl;
+        return publicUrl.Replace('\\', '/');
+    }
 
     private static TeacherSessionHomeworkDto MapHomework(SessionHomeworkAssignment assignment, int totalStudents) => new()
     {
@@ -620,7 +813,7 @@ public class TeacherContentService : ITeacherContentService
                 ContentItemId = f.ContentItemId,
                 Title = f.ContentItem.Title,
                 FileType = f.ContentItem.FileType,
-                PublicUrl = f.ContentItem.PublicUrl,
+                PublicUrl = NormalizePublicUrl(f.ContentItem.PublicUrl),
             })
             .ToList(),
     };

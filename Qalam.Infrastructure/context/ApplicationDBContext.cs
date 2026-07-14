@@ -101,6 +101,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherContentFolder> TeacherContentFolders { get; set; }
         public DbSet<TeacherContentItem> TeacherContentItems { get; set; }
         public DbSet<SessionContentLink> SessionContentLinks { get; set; }
+        public DbSet<CourseSessionContentLink> CourseSessionContentLinks { get; set; }
         public DbSet<SessionHomeworkAssignment> SessionHomeworkAssignments { get; set; }
         public DbSet<SessionHomeworkFileLink> SessionHomeworkFileLinks { get; set; }
 

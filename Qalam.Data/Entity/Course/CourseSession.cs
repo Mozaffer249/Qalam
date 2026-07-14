@@ -18,4 +18,5 @@ public class CourseSession : AuditableEntity
 
     public Course Course { get; set; } = null!;
     public ICollection<CourseSessionUnit> Units { get; set; } = new List<CourseSessionUnit>();
+    public ICollection<CourseSessionContentLink> ContentLinks { get; set; } = new List<CourseSessionContentLink>();
 }

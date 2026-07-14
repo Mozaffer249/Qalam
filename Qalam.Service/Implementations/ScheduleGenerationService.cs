@@ -255,15 +255,26 @@ public class ScheduleGenerationService : IScheduleGenerationService
         }
 
         return result.Slots
-            .Select(s => new CourseSchedule
+            .Select(s =>
             {
-                EnrollmentId = enrollmentId,
-                Date = s.Date,
-                TeacherAvailabilityId = s.TeacherAvailabilityId,
-                DurationMinutes = s.DurationMinutes,
-                TeachingModeId = course.TeachingModeId,
-                LocationId = null, // TODO: resolve for in-person teaching mode
-                Status = ScheduleStatus.Scheduled
+                int? courseSessionId = null;
+                if (!course.IsFlexible)
+                {
+                    courseSessionId = course.Sessions?
+                        .FirstOrDefault(cs => cs.SessionNumber == s.SessionNumber)?.Id;
+                }
+
+                return new CourseSchedule
+                {
+                    EnrollmentId = enrollmentId,
+                    Date = s.Date,
+                    TeacherAvailabilityId = s.TeacherAvailabilityId,
+                    DurationMinutes = s.DurationMinutes,
+                    TeachingModeId = course.TeachingModeId,
+                    CourseSessionId = courseSessionId,
+                    LocationId = null, // TODO: resolve for in-person teaching mode
+                    Status = ScheduleStatus.Scheduled
+                };
             })
             .ToList();
     }

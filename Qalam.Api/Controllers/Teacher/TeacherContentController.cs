@@ -1,13 +1,26 @@
-using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
-using Qalam.Core.Bases;
+using Qalam.Core.Features.Teacher.Content.Commands.CreateContentFolder;
+using Qalam.Core.Features.Teacher.Content.Commands.CreateHomeworkTemplate;
+using Qalam.Core.Features.Teacher.Content.Commands.DeleteContentFolder;
+using Qalam.Core.Features.Teacher.Content.Commands.DeleteContentItem;
+using Qalam.Core.Features.Teacher.Content.Commands.LinkCourseSessionContent;
+using Qalam.Core.Features.Teacher.Content.Commands.LinkCourseSessionContentBulk;
+using Qalam.Core.Features.Teacher.Content.Commands.LinkSessionContent;
+using Qalam.Core.Features.Teacher.Content.Commands.LinkSessionContentBulk;
+using Qalam.Core.Features.Teacher.Content.Commands.UnlinkCourseSessionContent;
+using Qalam.Core.Features.Teacher.Content.Commands.UnlinkSessionContent;
+using Qalam.Core.Features.Teacher.Content.Commands.UpdateContentFolder;
+using Qalam.Core.Features.Teacher.Content.Commands.UpdateContentItem;
+using Qalam.Core.Features.Teacher.Content.Commands.UploadContentItem;
+using Qalam.Core.Features.Teacher.Content.Queries.GetContentItem;
+using Qalam.Core.Features.Teacher.Content.Queries.ListContentFolders;
+using Qalam.Core.Features.Teacher.Content.Queries.ListContentItems;
+using Qalam.Core.Features.Teacher.Content.Queries.ListCourseSessionContent;
+using Qalam.Core.Features.Teacher.Content.Queries.ListSessionContent;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
-using Qalam.Infrastructure.Abstracts;
-using Qalam.Service.Implementations;
 
 namespace Qalam.Api.Controllers.Teacher;
 
@@ -15,85 +28,35 @@ namespace Qalam.Api.Controllers.Teacher;
 [ApiController]
 public class TeacherContentController : AppControllerBase
 {
-    private readonly ITeacherContentService _contentService;
-    private readonly ITeacherRepository _teacherRepository;
-
-    public TeacherContentController(ITeacherContentService contentService, ITeacherRepository teacherRepository)
-    {
-        _contentService = contentService;
-        _teacherRepository = teacherRepository;
-    }
-
     [HttpGet(Router.TeacherContentFolders)]
     [ProducesResponseType(typeof(List<TeacherContentFolderDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListFolders([FromQuery] int? parentId, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var folders = await _contentService.ListFoldersAsync(teacherId.Value, parentId, ct);
-        return NewResult(Success(folders));
-    }
+    public async Task<IActionResult> ListFolders([FromQuery] ListContentFoldersQuery query)
+        => NewResult(await Mediator.Send(query));
 
     [HttpPost(Router.TeacherContentFolders)]
     [ProducesResponseType(typeof(TeacherContentFolderDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> CreateFolder([FromBody] CreateTeacherContentFolderDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var folder = await _contentService.CreateFolderAsync(teacherId.Value, dto, ct);
-        if (folder == null)
-            return NewResult(BadRequest<TeacherContentFolderDto>("Invalid folder data or duplicate name."));
-        return NewResult(Success(folder));
-    }
+    public async Task<IActionResult> CreateFolder([FromBody] CreateTeacherContentFolderDto dto)
+        => NewResult(await Mediator.Send(new CreateContentFolderCommand { Data = dto }));
 
     [HttpPut(Router.TeacherContentFolderById)]
     [ProducesResponseType(typeof(TeacherContentFolderDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateFolder(int id, [FromBody] UpdateTeacherContentFolderDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var folder = await _contentService.UpdateFolderAsync(teacherId.Value, id, dto, ct);
-        if (folder == null) return NewResult(NotFound<TeacherContentFolderDto>("Folder not found."));
-        return NewResult(Success(folder));
-    }
+    public async Task<IActionResult> UpdateFolder(int id, [FromBody] UpdateTeacherContentFolderDto dto)
+        => NewResult(await Mediator.Send(new UpdateContentFolderCommand { Id = id, Data = dto }));
 
     [HttpDelete(Router.TeacherContentFolderById)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> DeleteFolder(int id, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var ok = await _contentService.DeleteFolderAsync(teacherId.Value, id, ct);
-        if (!ok) return NewResult(BadRequest<string>("Folder not found or not empty."));
-        return NewResult(Success("Deleted"));
-    }
+    public async Task<IActionResult> DeleteFolder(int id)
+        => NewResult(await Mediator.Send(new DeleteContentFolderCommand { Id = id }));
 
     [HttpGet(Router.TeacherContentItems)]
     [ProducesResponseType(typeof(List<TeacherContentItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListItems(
-        [FromQuery] int? folderId,
-        [FromQuery] TeacherContentItemKind? kind,
-        [FromQuery] string? search,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 50,
-        CancellationToken ct = default)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var items = await _contentService.ListItemsAsync(teacherId.Value, folderId, kind, search, pageNumber, pageSize, ct);
-        return NewResult(Success(items));
-    }
+    public async Task<IActionResult> ListItems([FromQuery] ListContentItemsQuery query)
+        => NewResult(await Mediator.Send(query));
 
     [HttpGet(Router.TeacherContentItemById)]
     [ProducesResponseType(typeof(TeacherContentItemDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetItem(int id, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var item = await _contentService.GetItemAsync(teacherId.Value, id, ct);
-        if (item == null) return NewResult(NotFound<TeacherContentItemDto>("Item not found."));
-        return NewResult(Success(item));
-    }
+    public async Task<IActionResult> GetItem(int id)
+        => NewResult(await Mediator.Send(new GetContentItemQuery { Id = id }));
 
     [HttpPost(Router.TeacherContentItemUpload)]
     [ProducesResponseType(typeof(TeacherContentItemDto), StatusCodes.Status200OK)]
@@ -102,115 +65,101 @@ public class TeacherContentController : AppControllerBase
         [FromForm] int? folderId,
         [FromForm] string? title,
         [FromForm] string? description,
-        [FromForm] string? tags,
-        CancellationToken ct = default)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var tagList = ParseTags(tags);
-        var item = await _contentService.UploadFileAsync(teacherId.Value, file, folderId, title, description, tagList, ct);
-        if (item == null) return NewResult(BadRequest<TeacherContentItemDto>("Invalid file or folder."));
-        return NewResult(Success(item));
-    }
+        [FromForm] string? tags)
+        => NewResult(await Mediator.Send(new UploadContentItemCommand
+        {
+            File = file,
+            FolderId = folderId,
+            Title = title,
+            Description = description,
+            Tags = tags,
+        }));
 
     [HttpPost(Router.TeacherContentItemHomework)]
     [ProducesResponseType(typeof(TeacherContentItemDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> CreateHomework([FromBody] CreateHomeworkTemplateDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var item = await _contentService.CreateHomeworkAsync(teacherId.Value, dto, ct);
-        if (item == null) return NewResult(BadRequest<TeacherContentItemDto>("Invalid homework data."));
-        return NewResult(Success(item));
-    }
+    public async Task<IActionResult> CreateHomework([FromBody] CreateHomeworkTemplateDto dto)
+        => NewResult(await Mediator.Send(new CreateHomeworkTemplateCommand { Data = dto }));
 
     [HttpPut(Router.TeacherContentItemById)]
     [ProducesResponseType(typeof(TeacherContentItemDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> UpdateItem(int id, [FromBody] UpdateTeacherContentItemDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var item = await _contentService.UpdateItemAsync(teacherId.Value, id, dto, ct);
-        if (item == null) return NewResult(NotFound<TeacherContentItemDto>("Item not found."));
-        return NewResult(Success(item));
-    }
+    public async Task<IActionResult> UpdateItem(int id, [FromBody] UpdateTeacherContentItemDto dto)
+        => NewResult(await Mediator.Send(new UpdateContentItemCommand { Id = id, Data = dto }));
 
     [HttpDelete(Router.TeacherContentItemById)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> DeleteItem(int id, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var ok = await _contentService.DeleteItemAsync(teacherId.Value, id, ct);
-        if (!ok) return NewResult(BadRequest<string>("Item not found or linked to sessions."));
-        return NewResult(Success("Deleted"));
-    }
+    public async Task<IActionResult> DeleteItem(int id)
+        => NewResult(await Mediator.Send(new DeleteContentItemCommand { Id = id }));
 
     [HttpGet(Router.TeacherMySessionContent)]
     [ProducesResponseType(typeof(List<TeacherSessionContentLinkDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListSessionContent(int id, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var links = await _contentService.ListSessionContentAsync(teacherId.Value, id, ct);
-        return NewResult(Success(links));
-    }
+    public async Task<IActionResult> ListSessionContent(int id)
+        => NewResult(await Mediator.Send(new ListSessionContentQuery { ScheduleId = id }));
 
     [HttpPost(Router.TeacherMySessionContent)]
     [ProducesResponseType(typeof(TeacherSessionContentLinkDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> LinkSessionContent(int id, [FromBody] LinkSessionContentDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var link = await _contentService.LinkSessionContentAsync(teacherId.Value, id, dto.ContentItemId, ct);
-        if (link == null) return NewResult(BadRequest<TeacherSessionContentLinkDto>("Cannot link content."));
-        return NewResult(Success(link));
-    }
+    public async Task<IActionResult> LinkSessionContent(int id, [FromBody] LinkSessionContentDto dto)
+        => NewResult(await Mediator.Send(new LinkSessionContentCommand
+        {
+            ScheduleId = id,
+            ContentItemId = dto.ContentItemId,
+        }));
 
     [HttpPost($"{Router.TeacherMySessionContent}/bulk")]
     [ProducesResponseType(typeof(List<TeacherSessionContentLinkDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> LinkSessionContentBulk(int id, [FromBody] LinkSessionContentBulkDto dto, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var links = await _contentService.LinkSessionContentBulkAsync(teacherId.Value, id, dto, ct);
-        return NewResult(Success(links));
-    }
+    public async Task<IActionResult> LinkSessionContentBulk(int id, [FromBody] LinkSessionContentBulkDto dto)
+        => NewResult(await Mediator.Send(new LinkSessionContentBulkCommand
+        {
+            ScheduleId = id,
+            Data = dto,
+        }));
 
     [HttpDelete(Router.TeacherMySessionContentByLinkId)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> UnlinkSessionContent(int id, int linkId, CancellationToken ct)
-    {
-        var teacherId = await ResolveTeacherIdAsync();
-        if (teacherId == null) return NotFoundTeacher();
-        var ok = await _contentService.UnlinkSessionContentAsync(teacherId.Value, id, linkId, ct);
-        if (!ok) return NewResult(NotFound<string>("Link not found."));
-        return NewResult(Success("Unlinked"));
-    }
+    public async Task<IActionResult> UnlinkSessionContent(int id, int linkId)
+        => NewResult(await Mediator.Send(new UnlinkSessionContentCommand
+        {
+            ScheduleId = id,
+            LinkId = linkId,
+        }));
 
-    private async Task<int?> ResolveTeacherIdAsync()
-    {
-        var userId = GetUserId();
-        var teacher = await _teacherRepository.GetByUserIdAsync(userId);
-        return teacher?.Id;
-    }
+    [HttpGet(Router.TeacherCourseSessionContent)]
+    [ProducesResponseType(typeof(List<TeacherSessionContentLinkDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListCourseSessionContent(int courseId, int sessionId)
+        => NewResult(await Mediator.Send(new ListCourseSessionContentQuery
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+        }));
 
-    private IActionResult NotFoundTeacher() =>
-        NewResult(new Response<string>("Teacher profile not found") { StatusCode = HttpStatusCode.NotFound });
+    [HttpPost(Router.TeacherCourseSessionContent)]
+    [ProducesResponseType(typeof(TeacherSessionContentLinkDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> LinkCourseSessionContent(
+        int courseId, int sessionId, [FromBody] LinkSessionContentDto dto)
+        => NewResult(await Mediator.Send(new LinkCourseSessionContentCommand
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+            ContentItemId = dto.ContentItemId,
+        }));
 
-    private int GetUserId()
-    {
-        var userIdClaim = User.FindFirst("uid") ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        return int.Parse(userIdClaim?.Value ?? "0");
-    }
+    [HttpPost($"{Router.TeacherCourseSessionContent}/bulk")]
+    [ProducesResponseType(typeof(List<TeacherSessionContentLinkDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> LinkCourseSessionContentBulk(
+        int courseId, int sessionId, [FromBody] LinkSessionContentBulkDto dto)
+        => NewResult(await Mediator.Send(new LinkCourseSessionContentBulkCommand
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+            Data = dto,
+        }));
 
-    private static List<string>? ParseTags(string? tags)
-    {
-        if (string.IsNullOrWhiteSpace(tags)) return null;
-        return tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-    }
-
-    private static Response<T> Success<T>(T entity) => new(entity) { StatusCode = HttpStatusCode.OK };
-    private static Response<T> BadRequest<T>(string message) => new(message) { StatusCode = HttpStatusCode.BadRequest };
-    private static Response<T> NotFound<T>(string message) => new(message) { StatusCode = HttpStatusCode.NotFound };
+    [HttpDelete(Router.TeacherCourseSessionContentByLinkId)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> UnlinkCourseSessionContent(int courseId, int sessionId, int linkId)
+        => NewResult(await Mediator.Send(new UnlinkCourseSessionContentCommand
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+            LinkId = linkId,
+        }));
 }

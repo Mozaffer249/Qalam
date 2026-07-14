@@ -16,6 +16,12 @@ public class CourseSchedule : AuditableEntity
     public int EnrollmentId { get; set; }
 
     /// <summary>
+    /// Fixed-course curriculum session this schedule was generated from. Null for flexible enrollments.
+    /// Content for fixed sessions is resolved via <see cref="CourseSessionContentLink"/> on this id.
+    /// </summary>
+    public int? CourseSessionId { get; set; }
+
+    /// <summary>
     /// تاريخ الجلسة
     /// </summary>
     public DateOnly Date { get; set; }
@@ -37,6 +43,7 @@ public class CourseSchedule : AuditableEntity
 
     // Navigation Properties
     public Enrollment Enrollment { get; set; } = null!;
+    public CourseSession? CourseSession { get; set; }
     public TeacherAvailability TeacherAvailability { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
     public Location? Location { get; set; }
