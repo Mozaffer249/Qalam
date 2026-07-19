@@ -125,10 +125,28 @@ public class CourseProfile : Profile
         CreateMap<CourseEnrollmentRequest, EnrollmentRequestListItemDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
+            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom(src =>
+                src.Course != null ? src.Course.ImageUrl : null))
+            .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.Teacher != null && src.Course.Teacher.User != null
+                    ? (src.Course.Teacher.User.FirstName + " " + src.Course.Teacher.User.LastName).Trim()
+                    : null))
+            .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
+                src.Course != null
+                && src.Course.TeacherSubject != null
+                && src.Course.TeacherSubject.Subject != null
+                    ? src.Course.TeacherSubject.Subject.NameAr
+                    : null))
             .ForMember(dest => dest.TeachingModeNameEn, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.TeachingMode != null
                     ? src.Course.TeachingMode.NameEn
                     : null))
+            .ForMember(dest => dest.SessionsCount, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.Sessions != null && src.Course.Sessions.Count > 0
+                    ? src.Course.Sessions.Count
+                    : (int?)null))
+            .ForMember(dest => dest.EstimatedTotalPrice, opt => opt.MapFrom(src => src.EstimatedTotalPrice))
+            .ForMember(dest => dest.Kind, opt => opt.Ignore())
             .ForMember(dest => dest.HasPendingInvites, opt => opt.Ignore())
             .ForMember(dest => dest.EnrollmentId, opt => opt.Ignore())
             .ForMember(dest => dest.EnrollmentStatus, opt => opt.Ignore());
@@ -206,6 +224,14 @@ public class CourseProfile : Profile
         CreateMap<Enrollment, EnrollmentListItemDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
+            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom(src =>
+                src.Course != null ? src.Course.ImageUrl : null))
+            .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
+                src.Course != null
+                && src.Course.TeacherSubject != null
+                && src.Course.TeacherSubject.Subject != null
+                    ? src.Course.TeacherSubject.Subject.NameAr
+                    : null))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.ApprovedByTeacher != null && src.ApprovedByTeacher.User != null
                     ? (src.ApprovedByTeacher.User.FirstName + " " + src.ApprovedByTeacher.User.LastName).Trim()
@@ -214,7 +240,11 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.LeaderStudentName, opt => opt.MapFrom(src =>
                 src.LeaderStudent != null && src.LeaderStudent.User != null
                     ? ((src.LeaderStudent.User.FirstName ?? "") + " " + (src.LeaderStudent.User.LastName ?? "")).Trim()
-                    : null));
+                    : null))
+            .ForMember(dest => dest.SessionsCount, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.Sessions != null && src.Course.Sessions.Count > 0
+                    ? src.Course.Sessions.Count
+                    : (int?)null));
 
         // EnrollmentParticipant -> EnrollmentParticipantDto
         CreateMap<EnrollmentParticipant, EnrollmentParticipantDto>()

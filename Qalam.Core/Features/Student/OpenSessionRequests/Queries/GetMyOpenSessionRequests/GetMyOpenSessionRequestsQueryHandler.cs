@@ -34,6 +34,9 @@ public class GetMyOpenSessionRequestsQueryHandler
         // because the guardian's UserId IS the RequestedByUserId in that case.
         // We DON'T include requests where the user is only an "invited co-student" — those
         // appear in /Student/Invitations (separate endpoint, future).
+        var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize < 1 ? 20 : request.PageSize;
+
         var query = _db.OpenSessionRequests
             .AsNoTracking()
             .Where(r => r.RequestedByUserId == request.UserId);
@@ -41,14 +44,21 @@ public class GetMyOpenSessionRequestsQueryHandler
         if (request.Status.HasValue)
             query = query.Where(r => r.Status == request.Status.Value);
 
+        var totalCount = await query.CountAsync(cancellationToken);
+
         var items = await query
             .OrderByDescending(r => r.CreatedAt)
             .Include(r => r.Student).ThenInclude(s => s!.User)
             .Include(r => r.Subject)
+            .Include(r => r.TeachingMode)
+            .Include(r => r.TargetedTeacher).ThenInclude(t => t!.User)
             .Include(r => r.Offers)
-            .Take(200)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return Success(entity: _mapper.Map<List<OpenSessionRequestListItemDto>>(items));
+        return Success(
+            entity: _mapper.Map<List<OpenSessionRequestListItemDto>>(items),
+            Meta: BuildPaginationMeta(pageNumber, pageSize, totalCount));
     }
 }

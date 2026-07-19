@@ -15,4 +15,7 @@ public class GetMyOpenSessionRequestsQuery
 
     /// <summary>Optional status filter.</summary>
     public OpenSessionRequestStatus? Status { get; set; }
+
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
 }

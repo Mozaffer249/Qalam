@@ -59,6 +59,8 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                 .ThenInclude(s => s.User)
             .Include(gm => gm.CourseEnrollmentRequest)
                 .ThenInclude(r => r.Course)
+                    .ThenInclude(c => c.Teacher)
+                        .ThenInclude(t => t.User)
             .Include(gm => gm.CourseEnrollmentRequest)
                 .ThenInclude(r => r.RequestedByUser)
             .OrderByDescending(gm => gm.CreatedAt);

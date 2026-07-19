@@ -23,6 +23,10 @@ public class OpenSessionRequestProfile : Profile
             .ForMember(d => d.DomainName, opt => opt.MapFrom(s => s.Domain != null ? s.Domain.NameAr : null))
             .ForMember(d => d.SubjectName, opt => opt.MapFrom(s => s.Subject != null ? s.Subject.NameAr : null))
             .ForMember(d => d.TeachingModeName, opt => opt.MapFrom(s => s.TeachingMode != null ? s.TeachingMode.NameAr : null))
+            .ForMember(d => d.TargetedTeacherName, opt => opt.MapFrom(s =>
+                s.TargetedTeacher != null && s.TargetedTeacher.User != null
+                    ? (s.TargetedTeacher.User.FirstName + " " + s.TargetedTeacher.User.LastName).Trim()
+                    : null))
             .ForMember(d => d.Sessions, opt => opt.MapFrom(s => s.Sessions.OrderBy(x => x.SequenceNumber)))
             .ForMember(d => d.Invitations, opt => opt.MapFrom(s => s.Invitations))
             .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Attachments))
@@ -45,6 +49,12 @@ public class OpenSessionRequestProfile : Profile
                     ? (s.Student.User.FirstName + " " + s.Student.User.LastName).Trim()
                     : null))
             .ForMember(d => d.SubjectName, opt => opt.MapFrom(s => s.Subject != null ? s.Subject.NameAr : null))
+            .ForMember(d => d.TeachingModeName, opt => opt.MapFrom(s =>
+                s.TeachingMode != null ? s.TeachingMode.NameAr : null))
+            .ForMember(d => d.TargetedTeacherName, opt => opt.MapFrom(s =>
+                s.TargetedTeacher != null && s.TargetedTeacher.User != null
+                    ? (s.TargetedTeacher.User.FirstName + " " + s.TargetedTeacher.User.LastName).Trim()
+                    : null))
             .ForMember(d => d.OffersCount, opt => opt.MapFrom(s => s.Offers.Count));
     }
 }

@@ -35,6 +35,9 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
         var query = _requestRepository.GetTableNoTracking()
             .Include(r => r.Course).ThenInclude(c => c.TeachingMode)
             .Include(r => r.Course).ThenInclude(c => c.SessionType)
+            .Include(r => r.Course).ThenInclude(c => c.Teacher).ThenInclude(t => t.User)
+            .Include(r => r.Course).ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
+            .Include(r => r.Course).ThenInclude(c => c.Sessions)
             .Include(r => r.GroupMembers)
             .Where(r => r.RequestedByUserId == request.UserId)
             .OrderByDescending(r => r.CreatedAt);
@@ -75,6 +78,12 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
             item.HasPendingInvites = entity.GroupMembers.Any(gm =>
                 gm.MemberType == GroupMemberType.Invited
                 && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending);
+
+            var isGroup = string.Equals(
+                entity.Course?.SessionType?.Code,
+                "group",
+                StringComparison.OrdinalIgnoreCase);
+            item.Kind = isGroup ? EnrollmentKind.Group : EnrollmentKind.Individual;
 
             if (enrollmentByRequestId.TryGetValue(entity.Id, out var enrollment))
             {

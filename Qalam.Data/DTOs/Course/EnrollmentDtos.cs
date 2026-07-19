@@ -144,8 +144,14 @@ public class EnrollmentRequestListItemDto
     public int Id { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
+    public string? CourseImageUrl { get; set; }
+    public string? TeacherDisplayName { get; set; }
+    public string? SubjectName { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
+    public EnrollmentKind Kind { get; set; }
+    public int? SessionsCount { get; set; }
+    public decimal? EstimatedTotalPrice { get; set; }
     public RequestStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? Notes { get; set; }
@@ -227,12 +233,19 @@ public class EnrollmentListItemDto
     public int Id { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
+    public string? CourseImageUrl { get; set; }
+    public string? SubjectName { get; set; }
     public EnrollmentKind Kind { get; set; }
     public EnrollmentStatus EnrollmentStatus { get; set; }
     public DateTime ApprovedAt { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int ParticipantCount { get; set; }
     public string? LeaderStudentName { get; set; }
+    public int? SessionsCount { get; set; }
+    public decimal AmountDue { get; set; }
+
+    /// <summary>Linked enrollment request id when this enrollment came from a request (for list dedup).</summary>
+    public int? EnrollmentRequestId { get; set; }
 }
 
 /// <summary>
@@ -363,6 +376,8 @@ public class StudentInvitationListItemDto
     public int EnrollmentRequestId { get; set; }
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
+    public string? CourseImageUrl { get; set; }
+    public string? TeacherDisplayName { get; set; }
     public int InvitedStudentId { get; set; }
     public string? InvitedStudentName { get; set; }
     public string? RequestedByUserName { get; set; }

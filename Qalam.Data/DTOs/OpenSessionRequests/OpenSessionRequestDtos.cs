@@ -130,6 +130,9 @@ public class OpenSessionRequestDetailDto
     public OfferGroupType? GroupType { get; set; }
     public int TotalSessionsCount { get; set; }
 
+    public int? TargetedTeacherId { get; set; }
+    public string? TargetedTeacherName { get; set; }
+
     public OpenSessionRequestStatus Status { get; set; }
     public DateTime? PublishedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
@@ -196,9 +199,13 @@ public class OpenSessionRequestListItemDto
     public int SubjectId { get; set; }
     public string? SubjectName { get; set; }
     public int TeachingModeId { get; set; }
+    public string? TeachingModeName { get; set; }
+    public OfferGroupType? GroupType { get; set; }
     public OpenSessionRequestStatus Status { get; set; }
     public int TotalSessionsCount { get; set; }
     public int OffersCount { get; set; }
+    public int? TargetedTeacherId { get; set; }
+    public string? TargetedTeacherName { get; set; }
     public DateTime? PublishedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }

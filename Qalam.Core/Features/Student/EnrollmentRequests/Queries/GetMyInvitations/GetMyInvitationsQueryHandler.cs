@@ -63,6 +63,11 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
             EnrollmentRequestId = gm.CourseEnrollmentRequestId,
             CourseId = gm.CourseEnrollmentRequest.CourseId,
             CourseTitle = gm.CourseEnrollmentRequest.Course?.Title ?? "",
+            CourseImageUrl = gm.CourseEnrollmentRequest.Course?.ImageUrl,
+            TeacherDisplayName = gm.CourseEnrollmentRequest.Course?.Teacher?.User != null
+                ? (gm.CourseEnrollmentRequest.Course.Teacher.User.FirstName + " "
+                   + gm.CourseEnrollmentRequest.Course.Teacher.User.LastName).Trim()
+                : null,
             InvitedStudentId = gm.StudentId,
             InvitedStudentName = gm.Student?.User != null
                 ? (gm.Student.User.FirstName + " " + gm.Student.User.LastName).Trim()

@@ -39,6 +39,7 @@ public class GetOpenSessionRequestByIdQueryHandler
             .Include(r => r.Domain)
             .Include(r => r.Subject)
             .Include(r => r.TeachingMode)
+            .Include(r => r.TargetedTeacher).ThenInclude(t => t!.User)
             .Include(r => r.Sessions).ThenInclude(s => s.Units)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
             .Include(r => r.Attachments)

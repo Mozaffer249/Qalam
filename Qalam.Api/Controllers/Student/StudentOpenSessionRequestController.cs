@@ -177,9 +177,17 @@ public class StudentOpenSessionRequestController : AppControllerBase
     /// </summary>
     [HttpGet(Router.StudentOpenSessionRequestsMy)]
     [ProducesResponseType(typeof(List<OpenSessionRequestListItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMy([FromQuery] OpenSessionRequestStatus? status)
+    public async Task<IActionResult> GetMy(
+        [FromQuery] OpenSessionRequestStatus? status,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
     {
-        return NewResult(await Mediator.Send(new GetMyOpenSessionRequestsQuery { Status = status }));
+        return NewResult(await Mediator.Send(new GetMyOpenSessionRequestsQuery
+        {
+            Status = status,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        }));
     }
 
     /// <summary>
