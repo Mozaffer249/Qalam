@@ -37,6 +37,12 @@ public class EnrollmentParticipantRepository : GenericRepositoryAsync<Enrollment
             .Include(p => p.Enrollment).ThenInclude(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
                 .ThenInclude(ss => ss.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
+            .Include(p => p.Enrollment).ThenInclude(e => e.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
+            .Include(p => p.Enrollment).ThenInclude(e => e.SelectedSessionSlots)
+                .ThenInclude(ss => ss.TeacherAvailability)
+                    .ThenInclude(ta => ta.DayOfWeek)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
     }
 }

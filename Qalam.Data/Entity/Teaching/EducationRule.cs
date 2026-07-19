@@ -34,7 +34,7 @@ public class EducationRule : AuditableEntity
 
     // المرونة
     public bool AllowExtension { get; set; } = true;
-    public bool AllowFlexibleCourses { get; set; } = true;
+    public bool AllowFlexibleCourses { get; set; } = false;
 
     // الجلسات الجماعية
     public int? MaxGroupSize { get; set; }

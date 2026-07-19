@@ -18,7 +18,7 @@ public class EducationRuleConfiguration : IEntityTypeConfiguration<EducationRule
         builder.Property(e => e.MaxSessions).HasDefaultValue(100);
         builder.Property(e => e.DefaultSessionDurationMinutes).HasDefaultValue(60);
         builder.Property(e => e.AllowExtension).HasDefaultValue(true);
-        builder.Property(e => e.AllowFlexibleCourses).HasDefaultValue(true);
+        builder.Property(e => e.AllowFlexibleCourses).HasDefaultValue(false);
 
         builder.Property(e => e.NotesAr).HasMaxLength(500);
         builder.Property(e => e.NotesEn).HasMaxLength(500);

@@ -91,20 +91,13 @@ public class TeacherCourseService : ITeacherCourseService
         if (teacher.Status != TeacherStatus.Active)
             throw new InvalidOperationException("Teacher account is not active.");
 
-        if (!dto.IsFlexible)
-        {
-            if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
-                throw new InvalidOperationException("SessionDurationMinutes must be greater than zero when provided.");
-            if (dto.Sessions == null || dto.Sessions.Count == 0)
-                throw new InvalidOperationException("Sessions are required when course is not flexible.");
-        }
-        else
-        {
-            if (dto.SessionDurationMinutes.HasValue)
-                throw new InvalidOperationException("Flexible courses must have null SessionDurationMinutes.");
-            if (dto.Sessions != null && dto.Sessions.Count > 0)
-                throw new InvalidOperationException("Flexible courses must not have sessions.");
-        }
+        if (dto.IsFlexible)
+            throw new InvalidOperationException("Flexible courses are not supported. Create a fixed course with a session plan.");
+
+        if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
+            throw new InvalidOperationException("SessionDurationMinutes must be greater than zero when provided.");
+        if (dto.Sessions == null || dto.Sessions.Count == 0)
+            throw new InvalidOperationException("Sessions are required for fixed courses.");
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
             teacher.Id, dto.TeacherSubjectId, cancellationToken);
@@ -149,7 +142,7 @@ public class TeacherCourseService : ITeacherCourseService
             TeacherSubjectId = dto.TeacherSubjectId,
             TeachingModeId = dto.TeachingModeId,
             SessionTypeId = dto.SessionTypeId,
-            IsFlexible = dto.IsFlexible,
+            IsFlexible = false,
             SessionDurationMinutes = dto.SessionDurationMinutes,
             Price = dto.Price,
             MaxStudents = dto.MaxStudents,
@@ -213,9 +206,9 @@ public class TeacherCourseService : ITeacherCourseService
             if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
                 throw new InvalidOperationException("SessionDurationMinutes must be greater than zero when provided.");
         }
-        else if (dto.SessionDurationMinutes.HasValue)
+        else
         {
-            throw new InvalidOperationException("Flexible courses must have null SessionDurationMinutes.");
+            throw new InvalidOperationException("Flexible courses are not supported. Keep the course fixed with a session plan.");
         }
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
@@ -247,7 +240,7 @@ public class TeacherCourseService : ITeacherCourseService
         course.TeacherSubjectId = dto.TeacherSubjectId;
         course.TeachingModeId = dto.TeachingModeId;
         course.SessionTypeId = dto.SessionTypeId;
-        course.IsFlexible = dto.IsFlexible;
+        course.IsFlexible = false;
         course.SessionDurationMinutes = dto.SessionDurationMinutes;
         course.Price = dto.Price;
         course.MaxStudents = dto.MaxStudents;

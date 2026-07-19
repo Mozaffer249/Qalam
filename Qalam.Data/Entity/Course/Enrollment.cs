@@ -1,5 +1,6 @@
 using Qalam.Data.Commons;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.OpenSessionRequests;
 
 namespace Qalam.Data.Entity.Course;
@@ -59,6 +60,32 @@ public class Enrollment : AuditableEntity
 
     public EnrollmentStatus EnrollmentStatus { get; set; } = EnrollmentStatus.PendingPayment;
 
+    /// <summary>
+    /// Full amount due for the enrollment (single payer). Locked at create from request estimate.
+    /// </summary>
+    public decimal AmountDue { get; set; }
+
+    /// <summary>
+    /// User who paid the full AmountDue. Null until payment succeeds.
+    /// </summary>
+    public int? PaidByUserId { get; set; }
+
+    /// <summary>
+    /// Submitting user (single payer). Required for Individual enrollments without a request;
+    /// also set for request-backed enrollments (OwnerUserId = RequestedByUserId).
+    /// </summary>
+    public int? OwnerUserId { get; set; }
+
+    /// <summary>
+    /// Preferred first session date window (Individual direct enrollment; also copied from request when present).
+    /// </summary>
+    public DateOnly? PreferredStartDate { get; set; }
+
+    /// <summary>
+    /// Preferred last session date window.
+    /// </summary>
+    public DateOnly? PreferredEndDate { get; set; }
+
     // Navigation Properties
     public Course? Course { get; set; }
     public CourseEnrollmentRequest? EnrollmentRequest { get; set; }
@@ -66,7 +93,11 @@ public class Enrollment : AuditableEntity
     public OpenSessionOffer? OpenSessionOffer { get; set; }
     public Teacher.Teacher ApprovedByTeacher { get; set; } = null!;
     public Student.Student? LeaderStudent { get; set; }
+    public User? PaidByUser { get; set; }
+    public User? OwnerUser { get; set; }
 
     public ICollection<EnrollmentParticipant> Participants { get; set; } = new List<EnrollmentParticipant>();
     public ICollection<CourseSchedule> CourseSchedules { get; set; } = new List<CourseSchedule>();
+    public ICollection<EnrollmentSelectedSessionSlot> SelectedSessionSlots { get; set; } =
+        new List<EnrollmentSelectedSessionSlot>();
 }

@@ -3,19 +3,34 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.Enrollments.Queries.GetCourseEnrollmentsList;
 using Qalam.Core.Features.Teacher.Enrollments.Queries.GetTeacherEnrollmentById;
+using Qalam.Core.Features.Teacher.Enrollments.Queries.GetTeacherEnrollmentsList;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Api.Controllers.Teacher;
 
 /// <summary>
-/// Teacher views of post-approval enrollments — unified list per course, plus per-enrollment
-/// detail (individual or group) including the generated CourseSchedule sessions.
+/// Teacher views of post-approval enrollments — global list, per-course list, and detail
+/// (individual or group) including generated CourseSchedule sessions.
 /// </summary>
 [Authorize(Roles = Roles.Teacher)]
 [ApiController]
 public class TeacherEnrollmentController : AppControllerBase
 {
+    /// <summary>
+    /// Get all enrollments for the signed-in teacher (across courses and session requests).
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Teacher/Enrollments?Status=Active&amp;Source=CourseRequest&amp;Kind=Individual&amp;Search=ahmed&amp;PageNumber=1&amp;PageSize=20
+    /// </remarks>
+    [HttpGet(Router.TeacherEnrollments)]
+    [ProducesResponseType(typeof(List<TeacherEnrollmentListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyEnrollments([FromQuery] GetTeacherEnrollmentsListQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
     /// <summary>
     /// Get all enrollments for a course (unified — kind tells individual vs group apart).
     /// </summary>

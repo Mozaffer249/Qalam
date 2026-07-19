@@ -41,14 +41,7 @@ public class RejectEnrollmentRequestCommandHandler : ResponseHandler,
         if (enrollmentRequest.Course.TeacherId != teacher.Id)
             return BadRequest<string>("This request does not belong to your course.");
 
-        if (enrollmentRequest.Status != RequestStatus.Pending)
-            return BadRequest<string>("Only pending requests can be rejected.");
-
-        enrollmentRequest.Status = RequestStatus.Rejected;
-        enrollmentRequest.RejectionReason = request.Data?.RejectionReason;
-
-        await _requestRepository.SaveChangesAsync();
-
-        return Success<string>(entity: "Enrollment request rejected.");
+        // Business: teachers track flow but cannot reject enrollment requests.
+        return BadRequest<string>("Rejecting enrollment requests is not supported.");
     }
 }

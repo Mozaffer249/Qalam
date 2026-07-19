@@ -1,10 +1,11 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Enrollments.Queries.GetCourseEnrollmentsList;
@@ -15,16 +16,19 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseRepository _courseRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
+    private readonly PaymentSettings _paymentSettings;
 
     public GetCourseEnrollmentsListQueryHandler(
         ITeacherRepository teacherRepository,
         ICourseRepository courseRepository,
         IEnrollmentRepository enrollmentRepository,
+        IOptions<PaymentSettings> paymentSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
+        _paymentSettings = paymentSettings.Value;
     }
 
     public async Task<Response<List<TeacherEnrollmentListItemDto>>> Handle(
@@ -40,9 +44,15 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
             return NotFound<List<TeacherEnrollmentListItemDto>>("Course not found or does not belong to you.");
 
         var query = _enrollmentRepository.GetTableNoTracking()
+            .Include(e => e.Course!).ThenInclude(c => c.TeachingMode)
+            .Include(e => e.Course!).ThenInclude(c => c.SessionType)
+            .Include(e => e.Course!).ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
             .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
             .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.CourseSchedules)
+            .Include(e => e.EnrollmentRequest)
+            .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.Subject)
+            .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.TeachingMode)
             .Where(e => e.CourseId == request.CourseId);
 
         if (request.Status.HasValue)
@@ -53,45 +63,12 @@ public class GetCourseEnrollmentsListQueryHandler : ResponseHandler,
             .ToListAsync(cancellationToken);
 
         var totalCount = enrollments.Count;
+        var currency = _paymentSettings.DefaultCurrency;
 
         var page = enrollments
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(e =>
-            {
-                string displayName;
-                if (e.Kind == EnrollmentKind.Individual)
-                {
-                    var only = e.Participants.FirstOrDefault();
-                    var student = only?.Student;
-                    displayName = student?.User != null
-                        ? (student.User.FirstName + " " + student.User.LastName).Trim()
-                        : $"Student #{only?.StudentId ?? 0}";
-                }
-                else
-                {
-                    var leaderName = e.LeaderStudent?.User != null
-                        ? (e.LeaderStudent.User.FirstName + " " + e.LeaderStudent.User.LastName).Trim()
-                        : $"Student #{e.LeaderStudentId}";
-                    displayName = $"Group of {e.Participants.Count} — Leader: {leaderName}";
-                }
-
-                return new TeacherEnrollmentListItemDto
-                {
-                    Id = e.Id,
-                    Kind = e.Kind,
-                    CourseId = e.CourseId ?? 0,
-                    CourseTitle = course.Title,
-                    DisplayName = displayName,
-                    EnrollmentStatus = e.EnrollmentStatus,
-                    ApprovedAt = e.ApprovedAt,
-                    ActivatedAt = e.ActivatedAt,
-                    PaymentDeadline = e.PaymentDeadline,
-                    ParticipantCount = e.Participants.Count,
-                    PaidParticipantCount = e.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded),
-                    SessionsCount = e.CourseSchedules.Count
-                };
-            })
+            .Select(e => TeacherEnrollmentMapping.ToListItem(e, currency))
             .ToList();
 
         var totalPages = request.PageSize > 0

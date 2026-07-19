@@ -169,25 +169,21 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             return BadRequest<EnrollmentRequestDetailDto>("ProposedSessions are not allowed for non-flexible courses.");
         }
 
-        // 8. Group vs individual validation
+        // 8. Group vs individual validation — Individual must use POST /Student/Enrollments
         var isGroupCourse = string.Equals(course.SessionType?.Code, "group", StringComparison.OrdinalIgnoreCase);
         var totalMembers = studentIds.Count + invitedIds.Count;
 
-        if (isGroupCourse)
+        if (!isGroupCourse)
         {
-            if (!course.MaxStudents.HasValue || course.MaxStudents.Value < 2)
-                return BadRequest<EnrollmentRequestDetailDto>("Group courses must define MaxStudents >= 2.");
+            return BadRequest<EnrollmentRequestDetailDto>(
+                "Individual courses must use POST /Student/Enrollments (direct enrollment, no request).");
+        }
 
-            if (totalMembers > course.MaxStudents.Value)
-                return BadRequest<EnrollmentRequestDetailDto>("Group size exceeds MaxStudents.");
-        }
-        else
-        {
-            if (studentIds.Count != 1)
-                return BadRequest<EnrollmentRequestDetailDto>("Individual courses require exactly one student.");
-            if (invitedIds.Count > 0)
-                return BadRequest<EnrollmentRequestDetailDto>("Invited students are only allowed for group courses.");
-        }
+        if (!course.MaxStudents.HasValue || course.MaxStudents.Value < 2)
+            return BadRequest<EnrollmentRequestDetailDto>("Group courses must define MaxStudents >= 2.");
+
+        if (totalMembers > course.MaxStudents.Value)
+            return BadRequest<EnrollmentRequestDetailDto>("Group size exceeds MaxStudents.");
 
         for (var i = 0; i < selectedSlots.Count; i++)
         {

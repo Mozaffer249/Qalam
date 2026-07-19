@@ -33,7 +33,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 20,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRuleDto School() => new()
@@ -50,7 +50,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 30,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRuleDto Quran() => new()
@@ -65,7 +65,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 10,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRuleDto Language() => new()
@@ -79,7 +79,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 15,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRuleDto Skills() => new()
@@ -92,7 +92,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 20,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRuleDto University() => new()
@@ -108,7 +108,7 @@ public static class EducationRuleDefaults
         MinGroupSize = 1,
         MaxGroupSize = 40,
         AllowExtension = true,
-        AllowFlexibleCourses = true,
+        AllowFlexibleCourses = false,
     };
 
     public static EducationRule MapToEntity(EducationRuleDto dto, int domainId, EducationRule? existing = null)

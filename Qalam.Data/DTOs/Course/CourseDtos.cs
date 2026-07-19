@@ -207,6 +207,8 @@ public class CourseCatalogDetailDto
     public string? TeachingModeNameEn { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+    /// <summary>Lookup code (e.g. <c>group</c>, <c>individual</c>) for client branching.</summary>
+    public string? SessionTypeCode { get; set; }
     public bool IsFlexible { get; set; }
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }

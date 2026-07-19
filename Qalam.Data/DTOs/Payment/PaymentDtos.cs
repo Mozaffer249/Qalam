@@ -3,14 +3,14 @@ using Qalam.Data.Entity.Common.Enums;
 namespace Qalam.Data.DTOs.Payment;
 
 /// <summary>
-/// Body for paying for a single enrollment participant. Individual enrollments have
-/// exactly one participant; group enrollments have one per member.
+/// Body for paying an enrollment. Single payer (request owner) pays full AmountDue;
+/// [ParticipantId] may be any participant on that enrollment.
 /// </summary>
 public class PayEnrollmentParticipantRequestDto
 {
     /// <summary>
-    /// Primary key of <c>EnrollmentParticipant</c> — found on
-    /// GET Student/Enrollments (per-row participant id) or in the enrollment detail view.
+    /// Primary key of <c>EnrollmentParticipant</c> — found on request detail
+    /// <c>payParticipantId</c> or GET Student/Enrollments.
     /// </summary>
     public int ParticipantId { get; set; }
 }
@@ -26,7 +26,7 @@ public class PaymentResultDto
     public string Currency { get; set; } = "SAR";
     public DateTime PaidAt { get; set; }
 
-    /// <summary>True when the parent enrollment is now Active (group: all members paid).</summary>
+    /// <summary>True when the parent enrollment is now Active (single full payment).</summary>
     public bool EnrollmentActivated { get; set; }
 
     /// <summary>Number of CourseSchedule rows generated as part of this payment (0 unless activation happened).</summary>

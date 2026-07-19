@@ -7,10 +7,13 @@ using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 using Qalam.Core.Features.Student.CourseCatalog.Queries.GetRecommendedCourses;
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
+using Qalam.Core.Features.Student.EnrollmentRequests.Commands.CancelEnrollmentRequest;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
+using Qalam.Core.Features.Student.Enrollments.Commands.CancelEnrollment;
+using Qalam.Core.Features.Student.Enrollments.Commands.CreateIndividualEnrollment;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 using Qalam.Core.Features.Student.Queries.SearchStudents;
@@ -199,6 +202,19 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
+    /// Create an Individual Fixed enrollment directly (no CourseEnrollmentRequest).
+    /// Group courses must use <see cref="RequestEnrollment"/>.
+    /// </summary>
+    [HttpPost(Router.StudentEnrollments)]
+    [ProducesResponseType(typeof(CreateIndividualEnrollmentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateIndividualEnrollment(
+        [FromBody] CreateIndividualEnrollmentCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
     /// Get my enrollment requests (paginated).
     /// </summary>
     /// <remarks>
@@ -225,6 +241,19 @@ public class StudentCourseController : AppControllerBase
     {
         var query = new GetMyEnrollmentRequestByIdQuery { Id = id };
         return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Owner cancels an enrollment request before payment (and any linked PendingPayment enrollment).
+    /// </summary>
+    [HttpPost(Router.StudentEnrollmentRequestCancel)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelEnrollmentRequest(int id)
+    {
+        var command = new CancelEnrollmentRequestCommand { EnrollmentRequestId = id };
+        return NewResult(await Mediator.Send(command));
     }
 
     /// <summary>
@@ -273,6 +302,19 @@ public class StudentCourseController : AppControllerBase
     {
         var query = new GetMyEnrollmentByIdQuery { Id = id };
         return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Owner cancels a PendingPayment enrollment (Individual or Group) before pay.
+    /// </summary>
+    [HttpPost(Router.StudentEnrollmentCancel)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelEnrollment(int id)
+    {
+        var command = new CancelEnrollmentCommand { EnrollmentId = id };
+        return NewResult(await Mediator.Send(command));
     }
 
     /// <summary>

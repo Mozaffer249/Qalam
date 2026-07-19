@@ -23,11 +23,16 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.HasIndex(e => new { e.Source, e.EnrollmentStatus });
         builder.HasIndex(e => new { e.CourseId, e.EnrollmentStatus });
         builder.HasIndex(e => new { e.EnrollmentStatus, e.PaymentDeadline });
+        builder.HasIndex(e => e.PaidByUserId);
+        builder.HasIndex(e => e.OwnerUserId);
 
         // Properties
         builder.Property(e => e.Source).IsRequired().HasDefaultValue(EnrollmentSource.CourseRequest);
         builder.Property(e => e.Kind).IsRequired();
         builder.Property(e => e.EnrollmentStatus).IsRequired();
+        builder.Property(e => e.AmountDue).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
+        builder.Property(e => e.PreferredStartDate).HasColumnType("date");
+        builder.Property(e => e.PreferredEndDate).HasColumnType("date");
 
         // Relationships — Course optional (Scenario 2 has no Course).
         // Cascade demoted to Restrict because Course is no longer the sole parent.
@@ -61,6 +66,16 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
                .HasForeignKey(e => e.LeaderStudentId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.PaidByUser)
+               .WithMany()
+               .HasForeignKey(e => e.PaidByUserId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.OwnerUser)
+               .WithMany()
+               .HasForeignKey(e => e.OwnerUserId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(e => e.Participants)
                .WithOne(p => p.Enrollment)
                .HasForeignKey(p => p.EnrollmentId)
@@ -69,6 +84,11 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.HasMany(e => e.CourseSchedules)
                .WithOne(cs => cs.Enrollment)
                .HasForeignKey(cs => cs.EnrollmentId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(e => e.SelectedSessionSlots)
+               .WithOne(s => s.Enrollment)
+               .HasForeignKey(s => s.EnrollmentId)
                .OnDelete(DeleteBehavior.Cascade);
     }
 }

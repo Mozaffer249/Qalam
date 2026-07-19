@@ -16,16 +16,19 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     IRequestHandler<GetMyEnrollmentByIdQuery, Response<EnrollmentDetailDto>>
 {
     private readonly IStudentRepository _studentRepository;
+    private readonly IGuardianRepository _guardianRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
 
     public GetMyEnrollmentByIdQueryHandler(
         IStudentRepository studentRepository,
+        IGuardianRepository guardianRepository,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
+        _guardianRepository = guardianRepository;
         _enrollmentRepository = enrollmentRepository;
         _mapper = mapper;
     }
@@ -34,37 +37,75 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         GetMyEnrollmentByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
-        if (student == null)
-            return NotFound<EnrollmentDetailDto>("Student not found.");
+        var ownedStudentIds = new HashSet<int>();
+        var ownStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
+        if (ownStudent != null)
+            ownedStudentIds.Add(ownStudent.Id);
+
+        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+        if (guardian != null)
+        {
+            var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
+            foreach (var child in children)
+                ownedStudentIds.Add(child.Id);
+        }
 
         var enrollment = await _enrollmentRepository.GetTableNoTracking()
             .Include(e => e.Course)
-                .ThenInclude(c => c.TeachingMode)
+                .ThenInclude(c => c!.TeachingMode)
             .Include(e => e.Course)
-                .ThenInclude(c => c.SessionType)
+                .ThenInclude(c => c!.SessionType)
             .Include(e => e.Course)
-                .ThenInclude(c => c.Sessions)
+                .ThenInclude(c => c!.Sessions)
             .Include(e => e.EnrollmentRequest!)
                 .ThenInclude(r => r.ProposedSessions)
             .Include(e => e.EnrollmentRequest!)
                 .ThenInclude(r => r.SelectedSessionSlots)
+            .Include(e => e.SelectedSessionSlots)
             .Include(e => e.ApprovedByTeacher)
                 .ThenInclude(t => t.User)
             .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
             .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
-                    .ThenInclude(ta => ta.TimeSlot)
+                    .ThenInclude(ta => ta!.TimeSlot)
             .FirstOrDefaultAsync(e => e.Id == request.Id, cancellationToken);
 
-        if (enrollment == null || enrollment.Participants.All(p => p.StudentId != student.Id))
+        if (enrollment == null)
+            return NotFound<EnrollmentDetailDto>("Enrollment not found.");
+
+        var isOwner = enrollment.OwnerUserId == request.UserId
+                      || enrollment.EnrollmentRequest?.RequestedByUserId == request.UserId;
+        var isParticipant = enrollment.Participants.Any(p => ownedStudentIds.Contains(p.StudentId));
+        if (!isOwner && !isParticipant)
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();
+
+        dto.IsOwner = isOwner;
+        dto.AmountDue = enrollment.AmountDue;
+        dto.PaymentDeadline = enrollment.PaymentDeadline;
+
+        var now = DateTime.UtcNow;
+        var deadlineOk = !enrollment.PaymentDeadline.HasValue
+                         || enrollment.PaymentDeadline.Value >= now;
+        var alreadyPaid = enrollment.PaidByUserId.HasValue
+                          || enrollment.Participants.Any(p => p.PaymentStatus == PaymentStatus.Succeeded);
+        var pendingParticipant = enrollment.Participants
+            .FirstOrDefault(p => p.PaymentStatus == PaymentStatus.Pending);
+
+        dto.CanPay = isOwner
+                     && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
+                     && deadlineOk
+                     && !alreadyPaid
+                     && enrollment.AmountDue > 0
+                     && pendingParticipant != null;
+        dto.PayParticipantId = dto.CanPay ? pendingParticipant!.Id : null;
+        dto.CanCancel = isOwner
+                        && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment;
 
         var utcNow = DateTime.UtcNow;
         var schedules = enrollment.CourseSchedules != null
@@ -89,7 +130,8 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             {
                 ScheduleId = cs.Id,
                 Date = cs.Date,
-                Title = ResolveSessionTitle(cs, i + 1, enrollment.EnrollmentRequest, enrollment.Course)
+                Title = ResolveSessionTitle(
+                        cs, i + 1, enrollment.EnrollmentRequest, enrollment.SelectedSessionSlots, enrollment.Course)
                     ?? slot?.LabelEn ?? slot?.LabelAr,
                 StartTime = slot != null ? slot.StartTime : null,
                 EndTime = slot != null ? slot.EndTime : null,
@@ -102,9 +144,6 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         return Success(entity: dto);
     }
 
-    /// <summary>
-    /// Session window uses calendar <paramref name="sessionDate"/> + time slot bounds as UTC instants (same convention as availability calendar).
-    /// </summary>
     private static bool CanStartSessionUtc(
         EnrollmentStatus enrollmentStatus,
         ScheduleStatus scheduleStatus,
@@ -130,14 +169,11 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         return utcNow >= startUtc && utcNow <= endUtc;
     }
 
-    /// <summary>
-    /// Prefer matching <see cref="CourseRequestSelectedSessionSlot"/> by date + availability to get <see cref="CourseRequestSelectedSessionSlot.SessionNumber"/>,
-    /// then title from proposed session or course template; fallback to ordinal session number in schedule order.
-    /// </summary>
     private static string? ResolveSessionTitle(
         CourseSchedule schedule,
         int ordinalSessionNumber,
         CourseEnrollmentRequest? request,
+        ICollection<EnrollmentSelectedSessionSlot>? enrollmentSlots,
         Course? course)
     {
         var sessionNumber = ordinalSessionNumber;
@@ -146,6 +182,14 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                 ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
         if (slotMatch != null)
             sessionNumber = slotMatch.SessionNumber;
+        else
+        {
+            var enrollmentSlot = enrollmentSlots?
+                .FirstOrDefault(ss =>
+                    ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
+            if (enrollmentSlot != null)
+                sessionNumber = enrollmentSlot.SessionNumber;
+        }
 
         var proposedTitle = request?.ProposedSessions?
             .FirstOrDefault(p => p.SessionNumber == sessionNumber)?.Title;

@@ -151,6 +151,14 @@ public class EnrollmentRequestListItemDto
     public string? Notes { get; set; }
     public DateOnly PreferredStartDate { get; set; }
     public DateOnly PreferredEndDate { get; set; }
+
+    /// <summary>True when any Invited member is still Pending.</summary>
+    public bool HasPendingInvites { get; set; }
+
+    /// <summary>Linked enrollment id when artifacts exist.</summary>
+    public int? EnrollmentId { get; set; }
+
+    public EnrollmentStatus? EnrollmentStatus { get; set; }
 }
 
 /// <summary>
@@ -179,6 +187,33 @@ public class EnrollmentRequestDetailDto
     public DateOnly PreferredEndDate { get; set; }
     /// <summary>Concrete schedule dates for this request (computed on read).</summary>
     public List<ProposedScheduleSlotDto> ProposedScheduleDates { get; set; } = new();
+
+    /// <summary>True when the caller is the request owner (RequestedByUserId).</summary>
+    public bool IsOwner { get; set; }
+
+    /// <summary>Individual or Group from course session type / enrollment.</summary>
+    public EnrollmentKind Kind { get; set; }
+
+    /// <summary>Owner may pay full AmountDue when enrollment is PendingPayment.</summary>
+    public bool CanPay { get; set; }
+
+    /// <summary>Owner may cancel pending Invited members while enrollment does not exist yet.</summary>
+    public bool CanCancelInvite { get; set; }
+
+    /// <summary>Owner may cancel the whole request before pay (and linked PendingPayment enrollment).</summary>
+    public bool CanCancel { get; set; }
+
+    /// <summary>Student ids the viewer may Accept/Reject (self and/or guardian children).</summary>
+    public List<int> ActionableMemberStudentIds { get; set; } = new();
+
+    public List<int> ViewerStudentIds { get; set; } = new();
+
+    public int? EnrollmentId { get; set; }
+    public EnrollmentStatus? EnrollmentStatus { get; set; }
+    public decimal? AmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+    /// <summary>Any participant id — use with single-payer pay endpoint.</summary>
+    public int? PayParticipantId { get; set; }
 }
 
 /// <summary>
@@ -279,6 +314,35 @@ public class EnrollmentDetailDto
     /// Scheduled sessions after payment (from <see cref="CourseSchedule"/>). Empty if none generated yet.
     /// </summary>
     public List<EnrollmentSessionItemDto> Sessions { get; set; } = new();
+
+    /// <summary>True when the caller is the enrollment owner (OwnerUserId or legacy request owner).</summary>
+    public bool IsOwner { get; set; }
+
+    /// <summary>Owner may pay full AmountDue when enrollment is PendingPayment.</summary>
+    public bool CanPay { get; set; }
+
+    /// <summary>Owner may cancel while enrollment is PendingPayment.</summary>
+    public bool CanCancel { get; set; }
+
+    public decimal AmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+
+    /// <summary>Any pending participant id — use with single-payer pay endpoint.</summary>
+    public int? PayParticipantId { get; set; }
+}
+
+/// <summary>
+/// Result of POST Individual enrollment (no CourseEnrollmentRequest).
+/// </summary>
+public class CreateIndividualEnrollmentResultDto
+{
+    public int Id { get; set; }
+    public EnrollmentStatus EnrollmentStatus { get; set; }
+    public decimal AmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+    public int? PayParticipantId { get; set; }
+    public bool CanPay { get; set; }
+    public string CourseTitle { get; set; } = default!;
 }
 
 /// <summary>

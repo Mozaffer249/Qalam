@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -14,6 +15,9 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
     IRequestHandler<GetMyEnrollmentRequestByIdQuery, Response<EnrollmentRequestDetailDto>>
 {
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
+    private readonly IEnrollmentRepository _enrollmentRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IGuardianRepository _guardianRepository;
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
@@ -21,6 +25,9 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
 
     public GetMyEnrollmentRequestByIdQueryHandler(
         ICourseEnrollmentRequestRepository requestRepository,
+        IEnrollmentRepository enrollmentRepository,
+        IStudentRepository studentRepository,
+        IGuardianRepository guardianRepository,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
@@ -28,6 +35,9 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _requestRepository = requestRepository;
+        _enrollmentRepository = enrollmentRepository;
+        _studentRepository = studentRepository;
+        _guardianRepository = guardianRepository;
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
@@ -61,13 +71,95 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 .ThenInclude(gm => gm.Student)
                     .ThenInclude(s => s.User)
             .Include(r => r.ProposedSessions)
-            .FirstOrDefaultAsync(r => r.Id == request.Id && r.RequestedByUserId == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (enrollmentRequest == null)
             return NotFound<EnrollmentRequestDetailDto>("Enrollment request not found.");
 
+        var isOwner = enrollmentRequest.RequestedByUserId == request.UserId;
+
+        var viewerStudentIds = await _studentRepository.GetTableNoTracking()
+            .Where(s => s.IsActive && s.UserId == request.UserId)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken);
+
+        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+        if (guardian != null)
+        {
+            var childIds = await _studentRepository.GetTableNoTracking()
+                .Where(s => s.IsActive && s.GuardianId == guardian.Id)
+                .Select(s => s.Id)
+                .ToListAsync(cancellationToken);
+            viewerStudentIds = viewerStudentIds.Union(childIds).Distinct().ToList();
+        }
+
+        var isInviteeOrGuardian = enrollmentRequest.GroupMembers.Any(gm =>
+            gm.MemberType == GroupMemberType.Invited
+            && viewerStudentIds.Contains(gm.StudentId));
+
+        if (!isOwner && !isInviteeOrGuardian)
+            return NotFound<EnrollmentRequestDetailDto>("Enrollment request not found.");
+
+        var enrollment = await _enrollmentRepository.GetTableNoTracking()
+            .Include(e => e.Participants)
+            .FirstOrDefaultAsync(e => e.EnrollmentRequestId == enrollmentRequest.Id, cancellationToken);
+
+        var isGroup = string.Equals(
+            enrollmentRequest.Course.SessionType?.Code,
+            "group",
+            StringComparison.OrdinalIgnoreCase);
+
+        var hasPendingInvites = enrollmentRequest.GroupMembers.Any(gm =>
+            gm.MemberType == GroupMemberType.Invited
+            && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending);
+
+        var canRespondStage = enrollmentRequest.Status == RequestStatus.Pending
+            || (enrollmentRequest.Status == RequestStatus.Approved
+                && !enrollmentRequest.Course.IsFlexible
+                && enrollment == null);
+
+        var actionable = enrollmentRequest.GroupMembers
+            .Where(gm => gm.MemberType == GroupMemberType.Invited
+                      && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending
+                      && viewerStudentIds.Contains(gm.StudentId)
+                      && canRespondStage)
+            .Select(gm => gm.StudentId)
+            .Distinct()
+            .ToList();
+
         var dto = _mapper.Map<EnrollmentRequestDetailDto>(enrollmentRequest);
         dto.ProposedScheduleDates = await ComputeProposedDatesAsync(enrollmentRequest, cancellationToken);
+        dto.IsOwner = isOwner;
+        dto.Kind = enrollment?.Kind
+                   ?? (isGroup ? EnrollmentKind.Group : EnrollmentKind.Individual);
+        dto.ViewerStudentIds = viewerStudentIds;
+        dto.ActionableMemberStudentIds = actionable;
+        dto.CanCancelInvite = isOwner
+            && enrollment == null
+            && hasPendingInvites
+            && (enrollmentRequest.Status == RequestStatus.Pending
+                || enrollmentRequest.Status == RequestStatus.Approved);
+        dto.CanCancel = isOwner
+            && (enrollmentRequest.Status == RequestStatus.Pending
+                || enrollmentRequest.Status == RequestStatus.Approved)
+            && (enrollment == null
+                || enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment);
+        dto.EnrollmentId = enrollment?.Id;
+        dto.EnrollmentStatus = enrollment?.EnrollmentStatus;
+        dto.AmountDue = enrollment?.AmountDue > 0
+            ? enrollment.AmountDue
+            : enrollmentRequest.EstimatedTotalPrice;
+        dto.PaymentDeadline = enrollment?.PaymentDeadline;
+        dto.PayParticipantId = enrollment?.Participants
+            .OrderBy(p => p.Id)
+            .Select(p => (int?)p.Id)
+            .FirstOrDefault();
+        dto.CanPay = isOwner
+            && enrollment != null
+            && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
+            && !enrollment.PaidByUserId.HasValue
+            && (!enrollment.PaymentDeadline.HasValue
+                || enrollment.PaymentDeadline.Value >= DateTime.UtcNow);
 
         return Success(entity: dto);
     }

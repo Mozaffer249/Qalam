@@ -111,6 +111,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<CourseRequestSelectedAvailability> CourseRequestSelectedAvailabilities { get; set; }
         public DbSet<CourseRequestSelectedSessionSlot> CourseRequestSelectedSessionSlots { get; set; }
         public DbSet<CourseRequestSelectedSessionSlotUnit> CourseRequestSelectedSessionSlotUnits { get; set; }
+        public DbSet<EnrollmentSelectedSessionSlot> EnrollmentSelectedSessionSlots { get; set; }
+        public DbSet<EnrollmentSelectedSessionSlotUnit> EnrollmentSelectedSessionSlotUnits { get; set; }
         public DbSet<CourseRequestGroupMember> CourseRequestGroupMembers { get; set; }
         public DbSet<CourseRequestProposedSession> CourseRequestProposedSessions { get; set; }
         public DbSet<CourseRequestProposedSessionUnit> CourseRequestProposedSessionUnits { get; set; }

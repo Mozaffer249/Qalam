@@ -53,7 +53,8 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
             .Where(gm => studentIds.Contains(gm.StudentId)
                       && gm.MemberType == GroupMemberType.Invited
                       && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending
-                      && gm.CourseEnrollmentRequest.Status == RequestStatus.Pending)
+                      && (gm.CourseEnrollmentRequest.Status == RequestStatus.Pending
+                          || gm.CourseEnrollmentRequest.Status == RequestStatus.Approved))
             .Include(gm => gm.Student)
                 .ThenInclude(s => s.User)
             .Include(gm => gm.CourseEnrollmentRequest)

@@ -170,8 +170,10 @@ namespace Qalam.Data.AppMetaData
 
         /// <summary>Enrollments per course (unified — kind tells individual vs group): Api/V1/Teacher/Courses/{courseId}/Enrollments</summary>
         public const string TeacherCourseEnrollments = Rule + "Teacher/Courses/{courseId}/Enrollments";
+        /// <summary>All enrollments for the signed-in teacher: Api/V1/Teacher/Enrollments</summary>
+        public const string TeacherEnrollments = Rule + "Teacher/Enrollments";
         /// <summary>Enrollment detail (unified — individual or group): Api/V1/Teacher/Enrollments/{id}</summary>
-        public const string TeacherEnrollmentById = Rule + "Teacher/Enrollments/{id}";
+        public const string TeacherEnrollmentById = TeacherEnrollments + "/{id}";
 
         /// <summary>Teacher profile: Api/V1/Teacher/Profile/me</summary>
         public const string TeacherProfileMe = Rule + "Teacher/Profile/me";
@@ -254,6 +256,10 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentRequestById = StudentEnrollmentRequests + "/{id}";
         /// <summary>Respond to group enrollment invite: Api/V1/Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response</summary>
         public const string StudentEnrollmentRequestMemberResponse = StudentEnrollmentRequests + "/{enrollmentRequestId}/Members/Response";
+        /// <summary>Owner cancel pending invite: Api/V1/Student/EnrollmentRequests/{enrollmentRequestId}/Members/{studentId}/Cancel</summary>
+        public const string StudentEnrollmentRequestCancelInvite = StudentEnrollmentRequests + "/{enrollmentRequestId}/Members/{studentId}/Cancel";
+        /// <summary>Owner cancel whole request before pay: Api/V1/Student/EnrollmentRequests/{id}/Cancel</summary>
+        public const string StudentEnrollmentRequestCancel = StudentEnrollmentRequests + "/{id}/Cancel";
 
         // ---- Scenario 2: Open Session Requests (student posts, multiple teachers offer) ----
         /// <summary>Student open-session requests root: Api/V1/Student/OpenSessionRequests</summary>
@@ -275,6 +281,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollments = Rule + "Student/Enrollments";
         /// <summary>Student enrollment by id: Api/V1/Student/Enrollments/{id}</summary>
         public const string StudentEnrollmentById = StudentEnrollments + "/{id}";
+        /// <summary>Owner cancel PendingPayment enrollment: Api/V1/Student/Enrollments/{id}/Cancel</summary>
+        public const string StudentEnrollmentCancel = StudentEnrollments + "/{id}/Cancel";
         /// <summary>Search students for group enrollment: Api/V1/Student/Students/Search</summary>
         public const string StudentSearchForGroup = Rule + "Student/Students/Search";
         /// <summary>Search students by name or email: Api/V1/Student/Search</summary>

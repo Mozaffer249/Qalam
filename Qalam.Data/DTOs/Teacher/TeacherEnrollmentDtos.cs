@@ -4,7 +4,18 @@ using Qalam.Data.Entity.Common.Enums;
 namespace Qalam.Data.DTOs.Teacher;
 
 /// <summary>
-/// One row in the teacher's "enrollments for this course" list.
+/// Stable badge key for teacher enrollment list/detail UI.
+/// </summary>
+public enum TeacherEnrollmentSourceBadge
+{
+    FixedCourse = 1,
+    FlexibleCourse = 2,
+    PublishedRequest = 3,
+    DirectedRequest = 4,
+}
+
+/// <summary>
+/// One row in the teacher's enrollments list (per-course or global).
 /// Backed by unified <c>Enrollment</c> table; <see cref="Kind"/> tells individual / group apart.
 /// </summary>
 public class TeacherEnrollmentListItemDto
@@ -32,6 +43,29 @@ public class TeacherEnrollmentListItemDto
 
     /// <summary>Total CourseSchedule rows attached. 0 until enrollment is Active.</summary>
     public int SessionsCount { get; set; }
+
+    public EnrollmentSource Source { get; set; }
+
+    /// <summary>From course when Source is CourseRequest; false for session-request enrollments.</summary>
+    public bool IsFlexible { get; set; }
+
+    /// <summary>True when Source is SessionRequest and open request targeted this teacher.</summary>
+    public bool IsDirected { get; set; }
+
+    public TeacherEnrollmentSourceBadge SourceBadge { get; set; }
+
+    public string? SubjectNameEn { get; set; }
+    public string? SubjectNameAr { get; set; }
+    public string? TeachingModeNameEn { get; set; }
+    public string? SessionTypeNameEn { get; set; }
+
+    public int SessionsCompleted { get; set; }
+    public int SessionsTotal { get; set; }
+
+    public decimal AmountDue { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal AmountRemaining { get; set; }
+    public string Currency { get; set; } = "SAR";
 }
 
 /// <summary>One participant inside a teacher's enrollment detail view.</summary>
@@ -56,6 +90,8 @@ public class TeacherEnrollmentDetailDto
     public string CourseTitle { get; set; } = default!;
     public string? TeachingModeNameEn { get; set; }
     public string? SessionTypeNameEn { get; set; }
+    public string? SubjectNameEn { get; set; }
+    public string? SubjectNameAr { get; set; }
 
     public EnrollmentKind Kind { get; set; }
     public int? LeaderStudentId { get; set; }
@@ -65,6 +101,11 @@ public class TeacherEnrollmentDetailDto
     public DateTime ApprovedAt { get; set; }
     public DateTime? ActivatedAt { get; set; }
     public DateTime? PaymentDeadline { get; set; }
+
+    public EnrollmentSource Source { get; set; }
+    public bool IsFlexible { get; set; }
+    public bool IsDirected { get; set; }
+    public TeacherEnrollmentSourceBadge SourceBadge { get; set; }
 
     public decimal TotalAmount { get; set; }
     public decimal AmountPaid { get; set; }

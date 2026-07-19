@@ -41,13 +41,16 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
             return NotFound<TeacherEnrollmentDetailDto>("Teacher profile not found.");
 
         var enrollment = await _enrollmentRepository.GetTableNoTracking()
-            .Include(e => e.Course).ThenInclude(c => c.TeachingMode)
-            .Include(e => e.Course).ThenInclude(c => c.SessionType)
-            .Include(e => e.Course).ThenInclude(c => c.Sessions)
+            .Include(e => e.Course!).ThenInclude(c => c.TeachingMode)
+            .Include(e => e.Course!).ThenInclude(c => c.SessionType)
+            .Include(e => e.Course!).ThenInclude(c => c.Sessions)
+            .Include(e => e.Course!).ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
             .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
             .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.ProposedSessions)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
+            .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.Subject)
+            .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.TeachingMode)
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
                     .ThenInclude(ta => ta.TimeSlot)
@@ -56,19 +59,20 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
         if (enrollment == null)
             return NotFound<TeacherEnrollmentDetailDto>("Enrollment not found.");
 
-        if (enrollment.Course.TeacherId != teacher.Id)
+        var ownsCourse = enrollment.Course != null && enrollment.Course.TeacherId == teacher.Id;
+        var isApprover = enrollment.ApprovedByTeacherId == teacher.Id;
+        if (!ownsCourse && !isApprover)
             return NotFound<TeacherEnrollmentDetailDto>("Enrollment does not belong to your course.");
 
-        var totalAmount = enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        var totalAmount = enrollment.AmountDue > 0
+            ? enrollment.AmountDue
+            : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
         var participantCount = enrollment.Participants.Count;
         var baseShare = participantCount > 0
             ? Math.Round(totalAmount / participantCount, 2, MidpointRounding.AwayFromZero)
             : 0m;
         var succeededCount = enrollment.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
-
-        var amountPaid = succeededCount == participantCount && participantCount > 0
-            ? totalAmount
-            : baseShare * succeededCount;
+        var amountPaid = TeacherEnrollmentMapping.ResolveAmountPaid(enrollment, totalAmount, succeededCount);
 
         var participants = enrollment.Participants
             .OrderBy(p => p.Id)
@@ -96,13 +100,25 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
             })
             .ToList();
 
+        var isFlexible = enrollment.Course?.IsFlexible ?? false;
+        var isDirected = enrollment.Source == EnrollmentSource.SessionRequest
+                         && enrollment.OpenSessionRequest?.TargetedTeacherId != null;
+
         var dto = new TeacherEnrollmentDetailDto
         {
             Id = enrollment.Id,
             CourseId = enrollment.CourseId ?? 0,
-            CourseTitle = enrollment.Course?.Title ?? string.Empty,
-            TeachingModeNameEn = enrollment.Course?.TeachingMode?.NameEn,
+            CourseTitle = enrollment.Course?.Title
+                          ?? enrollment.OpenSessionRequest?.Subject?.NameEn
+                          ?? enrollment.OpenSessionRequest?.Subject?.NameAr
+                          ?? string.Empty,
+            TeachingModeNameEn = enrollment.Course?.TeachingMode?.NameEn
+                                 ?? enrollment.OpenSessionRequest?.TeachingMode?.NameEn,
             SessionTypeNameEn = enrollment.Course?.SessionType?.NameEn,
+            SubjectNameEn = enrollment.Course?.TeacherSubject?.Subject?.NameEn
+                            ?? enrollment.OpenSessionRequest?.Subject?.NameEn,
+            SubjectNameAr = enrollment.Course?.TeacherSubject?.Subject?.NameAr
+                            ?? enrollment.OpenSessionRequest?.Subject?.NameAr,
             Kind = enrollment.Kind,
             LeaderStudentId = enrollment.LeaderStudentId,
             LeaderStudentName = enrollment.LeaderStudent?.User != null
@@ -112,9 +128,14 @@ public class GetTeacherEnrollmentByIdQueryHandler : ResponseHandler,
             ApprovedAt = enrollment.ApprovedAt,
             ActivatedAt = enrollment.ActivatedAt,
             PaymentDeadline = enrollment.PaymentDeadline,
+            Source = enrollment.Source,
+            IsFlexible = isFlexible,
+            IsDirected = isDirected,
+            SourceBadge = TeacherEnrollmentMapping.ResolveSourceBadge(
+                enrollment.Source, isFlexible, isDirected),
             TotalAmount = totalAmount,
             AmountPaid = amountPaid,
-            AmountRemaining = totalAmount - amountPaid,
+            AmountRemaining = Math.Max(0, totalAmount - amountPaid),
             Currency = _paymentSettings.DefaultCurrency,
             Participants = participants
         };

@@ -51,6 +51,10 @@ public class EnrollmentApprovalService : IEnrollmentApprovalService
             ApprovedAt = DateTime.UtcNow,
             PaymentDeadline = paymentDeadline,
             EnrollmentStatus = EnrollmentStatus.PendingPayment,
+            AmountDue = request.EstimatedTotalPrice,
+            OwnerUserId = request.RequestedByUserId,
+            PreferredStartDate = request.PreferredStartDate,
+            PreferredEndDate = request.PreferredEndDate,
             Participants = confirmedMembers.Select(gm => new EnrollmentParticipant
             {
                 StudentId = gm.StudentId,

@@ -92,6 +92,8 @@ public class CourseProfile : Profile
                 src.TeachingMode != null ? src.TeachingMode.NameEn : null))
             .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
                 src.SessionType != null ? src.SessionType.NameEn : null))
+            .ForMember(dest => dest.SessionTypeCode, opt => opt.MapFrom(src =>
+                src.SessionType != null ? src.SessionType.Code : null))
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
                 src.MaxStudents.HasValue
                     ? src.MaxStudents.Value - src.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
@@ -126,7 +128,10 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.TeachingModeNameEn, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.TeachingMode != null
                     ? src.Course.TeachingMode.NameEn
-                    : null));
+                    : null))
+            .ForMember(dest => dest.HasPendingInvites, opt => opt.Ignore())
+            .ForMember(dest => dest.EnrollmentId, opt => opt.Ignore())
+            .ForMember(dest => dest.EnrollmentStatus, opt => opt.Ignore());
 
         // CourseEnrollmentRequest -> EnrollmentRequestDetailDto
         CreateMap<CourseEnrollmentRequest, EnrollmentRequestDetailDto>()
@@ -182,8 +187,20 @@ public class CourseProfile : Profile
                         Title = p.Title,
                         Notes = p.Notes
                     }).ToList()))
-            // ProposedScheduleDates are computed at read-time by the query handler, not mapped from entity.
-            .ForMember(dest => dest.ProposedScheduleDates, opt => opt.Ignore());
+            // ProposedScheduleDates and viewer flags are set by the query handler.
+            .ForMember(dest => dest.ProposedScheduleDates, opt => opt.Ignore())
+            .ForMember(dest => dest.IsOwner, opt => opt.Ignore())
+            .ForMember(dest => dest.Kind, opt => opt.Ignore())
+            .ForMember(dest => dest.CanPay, opt => opt.Ignore())
+            .ForMember(dest => dest.CanCancelInvite, opt => opt.Ignore())
+            .ForMember(dest => dest.CanCancel, opt => opt.Ignore())
+            .ForMember(dest => dest.ActionableMemberStudentIds, opt => opt.Ignore())
+            .ForMember(dest => dest.ViewerStudentIds, opt => opt.Ignore())
+            .ForMember(dest => dest.EnrollmentId, opt => opt.Ignore())
+            .ForMember(dest => dest.EnrollmentStatus, opt => opt.Ignore())
+            .ForMember(dest => dest.AmountDue, opt => opt.Ignore())
+            .ForMember(dest => dest.PaymentDeadline, opt => opt.Ignore())
+            .ForMember(dest => dest.PayParticipantId, opt => opt.Ignore());
 
         // Enrollment -> EnrollmentListItemDto
         CreateMap<Enrollment, EnrollmentListItemDto>()
@@ -230,6 +247,10 @@ public class CourseProfile : Profile
                 src.Course != null && src.Course.SessionType != null
                     ? src.Course.SessionType.NameEn
                     : null))
-            .ForMember(dest => dest.Sessions, opt => opt.Ignore());
+            .ForMember(dest => dest.Sessions, opt => opt.Ignore())
+            .ForMember(dest => dest.IsOwner, opt => opt.Ignore())
+            .ForMember(dest => dest.CanPay, opt => opt.Ignore())
+            .ForMember(dest => dest.CanCancel, opt => opt.Ignore())
+            .ForMember(dest => dest.PayParticipantId, opt => opt.Ignore());
     }
 }

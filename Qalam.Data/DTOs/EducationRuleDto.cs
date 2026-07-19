@@ -21,7 +21,7 @@ public class EducationRuleDto
     public int DefaultSessionDurationMinutes { get; set; } = 60;
 
     public bool AllowExtension { get; set; } = true;
-    public bool AllowFlexibleCourses { get; set; } = true;
+    public bool AllowFlexibleCourses { get; set; } = false;
 
     public int? MaxGroupSize { get; set; }
     public int? MinGroupSize { get; set; }
