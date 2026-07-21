@@ -31,10 +31,12 @@ namespace Qalam.Service
             services.AddTransient<IAuthLoginOtpHelper, AuthLoginOtpHelper>();
             services.AddScoped<IAuthSettingsProvider, AuthSettingsProvider>();
             services.AddTransient<IFileStorageService, FileStorageService>();
+            services.AddSingleton<IMediaUrlResolver, MediaUrlResolver>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
             services.AddTransient<ITeacherRegistrationSubmitService, TeacherRegistrationSubmitService>();
             services.AddTransient<ITeacherManagementService, TeacherManagementService>();
             services.AddTransient<ITeacherSubjectAdminService, TeacherSubjectAdminService>();
+            services.AddTransient<INationalityProvider, NationalityProvider>();
             services.AddTransient<ITeacherRegistrationRequirementProvider, TeacherRegistrationRequirementProvider>();
             services.AddTransient<ITeacherRegistrationCompletionService, TeacherRegistrationCompletionService>();
             services.AddTransient<ITeacherRegistrationStatusService, TeacherRegistrationStatusService>();

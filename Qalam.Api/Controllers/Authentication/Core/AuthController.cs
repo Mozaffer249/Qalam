@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Bases;
+using Qalam.Core.Features.Authentication.Commands.AcceptTeacherTerms;
 using Qalam.Core.Features.Authentication.Commands.Register;
 using Qalam.Core.Features.Authentication.Commands.Login;
 using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
@@ -146,9 +147,9 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// Requires **Teacher** JWT. Content-Type: `multipart/form-data`.
         ///
         /// **Standard fields** (when corresponding requirement is active):
-        /// - `isInSaudiArabia` — boolean requirement `location`
+        /// - `nationalityCode` — ISO2 nationality (drives identity-type options and Teacher.Location)
         /// - `bio` — text requirement `bio`
-        /// - `identityType`, `documentNumber`, `issuingCountryCode`, `identityDocumentFile` — `identity_document`
+        /// - `identityType`, `documentNumber`, `identityDocumentFile` — `identity_document`
         /// - `certificates[i].file`, title, issuer, dates — `certificate` (min/max count enforced)
         ///
         /// **Custom file requirements:** form field `file_{code}` (e.g. `file_custom_cv`).
@@ -171,9 +172,8 @@ namespace Qalam.Api.Controllers.Authentication.Core
             command.SelectionsByCode = TeacherRegistrationFormHelper.ParseSelectionsByCode(Request);
 
             // Normalize the system-coded fixed fields into the generic dicts so the validator
-            // and service can dispatch off `code` uniformly without special-casing bio/location.
+            // and service can dispatch off `code` uniformly without special-casing bio.
             command.TextValuesByCode.TryAdd(TeacherRegistrationRequirementCodes.Bio, command.Bio);
-            command.BoolValuesByCode.TryAdd(TeacherRegistrationRequirementCodes.Location, command.IsInSaudiArabia);
 
             return NewResult(await Mediator.Send(command));
         }
@@ -240,6 +240,19 @@ namespace Qalam.Api.Controllers.Authentication.Core
             });
         }
 
+        /// <summary>
+        /// Record that the authenticated teacher accepted Terms &amp; Privacy.
+        /// Idempotent — safe to call if already accepted.
+        /// </summary>
+        [Tags("Teacher Authentication")]
+        [HttpPost(Router.TeacherAcceptTerms)]
+        [Authorize(Roles = Roles.Teacher)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        public async Task<IActionResult> AcceptTeacherTerms()
+        {
+            return NewResult(await Mediator.Send(new AcceptTeacherTermsCommand()));
+        }
+
         #endregion
 
         #region Account profile
@@ -261,14 +274,14 @@ namespace Qalam.Api.Controllers.Authentication.Core
         #region Enum Helpers
 
         /// <summary>
-        /// Get available identity types (optionally filtered by location)
+        /// Get available identity types (optionally filtered by nationality)
         /// </summary>
-        /// <param name="isInSaudiArabia">Filter by location: true for Saudi Arabia, false for outside, null for all</param>
+        /// <param name="nationalityCode">ISO2 nationality: SA → National ID/Iqama; other → Passport/License/Government ID; null → all</param>
         /// <returns>List of identity types with translations</returns>
         [HttpGet(Router.GetIdentityTypes)]
-        public IActionResult GetIdentityTypes([FromQuery] bool? isInSaudiArabia = null)
+        public IActionResult GetIdentityTypes([FromQuery] string? nationalityCode = null)
         {
-            var identityTypes = _enumService.GetIdentityTypes(isInSaudiArabia);
+            var identityTypes = _enumService.GetIdentityTypes(nationalityCode);
             return Ok(new Response<List<EnumItemDto>>
             {
                 Data = identityTypes,

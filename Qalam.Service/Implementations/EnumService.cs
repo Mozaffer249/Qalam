@@ -15,15 +15,18 @@ public class EnumService : IEnumService
         _localizer = localizer;
     }
 
-    public List<EnumItemDto> GetIdentityTypes(bool? isInSaudiArabia = null)
+    public List<EnumItemDto> GetIdentityTypes(string? nationalityCode = null)
     {
         var allTypes = Enum.GetValues<IdentityType>();
 
-        // Filter based on location if specified
-        var filteredTypes = isInSaudiArabia.HasValue
-            ? allTypes.Where(t => isInSaudiArabia.Value
+        var isSaudi = string.Equals(nationalityCode?.Trim(), "SA", StringComparison.OrdinalIgnoreCase);
+
+        var filteredTypes = !string.IsNullOrWhiteSpace(nationalityCode)
+            ? allTypes.Where(t => isSaudi
                 ? (t == IdentityType.NationalId || t == IdentityType.Iqama)
-                : t == IdentityType.Passport || t == IdentityType.DrivingLicense)
+                : t == IdentityType.Passport
+                    || t == IdentityType.DrivingLicense
+                    || t == IdentityType.GovernmentId)
             : allTypes;
 
         return filteredTypes.Select(type => new EnumItemDto
@@ -53,6 +56,7 @@ public class EnumService : IEnumService
             IdentityType.Iqama => EnumResourcesKeys.IdentityType_Iqama,
             IdentityType.Passport => EnumResourcesKeys.IdentityType_Passport,
             IdentityType.DrivingLicense => EnumResourcesKeys.IdentityType_DrivingLicense,
+            IdentityType.GovernmentId => EnumResourcesKeys.IdentityType_GovernmentId,
             _ => identityType.ToString()
         };
         return _localizer[key];

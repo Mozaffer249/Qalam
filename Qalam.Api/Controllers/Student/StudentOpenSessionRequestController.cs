@@ -20,7 +20,6 @@ namespace Qalam.Api.Controllers.Student;
 /// </summary>
 [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
 [ApiController]
-[Route("Api/V1/Student")]
 public class StudentOpenSessionRequestController : AppControllerBase
 {
     /// <summary>
@@ -159,22 +158,12 @@ public class StudentOpenSessionRequestController : AppControllerBase
     }
 
     /// <summary>
-    /// Get full detail of one open session request. Visible to the request owner (or their
-    /// guardian) and to any student who was invited as a co-learner.
-    /// </summary>
-    [HttpGet(Router.StudentOpenSessionRequestById)]
-    [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(int id)
-    {
-        return NewResult(await Mediator.Send(new GetOpenSessionRequestByIdQuery { Id = id }));
-    }
-
-    /// <summary>
     /// List the caller's open session requests (created by self OR by self as a guardian on
     /// behalf of a child). Optional status filter.
     /// </summary>
+    /// <remarks>
+    /// Literal <c>/my</c> must be registered before <c>/{id}</c> so it is not captured as an id.
+    /// </remarks>
     [HttpGet(Router.StudentOpenSessionRequestsMy)]
     [ProducesResponseType(typeof(List<OpenSessionRequestListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMy(
@@ -188,6 +177,19 @@ public class StudentOpenSessionRequestController : AppControllerBase
             PageNumber = pageNumber,
             PageSize = pageSize
         }));
+    }
+
+    /// <summary>
+    /// Get full detail of one open session request. Visible to the request owner (or their
+    /// guardian) and to any student who was invited as a co-learner.
+    /// </summary>
+    [HttpGet(Router.StudentOpenSessionRequestById)]
+    [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        return NewResult(await Mediator.Send(new GetOpenSessionRequestByIdQuery { Id = id }));
     }
 
     /// <summary>

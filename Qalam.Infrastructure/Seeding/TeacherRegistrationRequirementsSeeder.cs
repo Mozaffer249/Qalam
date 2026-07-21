@@ -24,6 +24,17 @@ public static class TeacherRegistrationRequirementsSeeder
                 await context.TeacherRegistrationRequirements.AddAsync(seed);
         }
 
+        // Deactivate legacy "موقع التدريس" — nationality now drives identity options + Teacher.Location.
+        var locationRows = await context.TeacherRegistrationRequirements
+            .Where(r => r.Code == TeacherRegistrationRequirementCodes.Location && r.IsActive)
+            .ToListAsync();
+        foreach (var row in locationRows)
+        {
+            row.IsActive = false;
+            row.IsRequired = false;
+            row.UpdatedAt = now;
+        }
+
         await context.SaveChangesAsync();
         await BackfillSubmissionsFromDocumentsAsync(context);
     }

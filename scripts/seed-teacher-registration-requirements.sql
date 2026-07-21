@@ -12,8 +12,8 @@ INSERT INTO teacher.TeacherRegistrationRequirements
      MapsToDocumentType, IsSystem, CreatedAt)
 VALUES
     (N'identity_document', N'وثيقة الهوية', N'Identity document',
-     N'هوية وطنية أو إقامة أو جواز سفر حسب موقعك',
-     N'National ID, Iqama, or passport depending on location',
+     N'هوية وطنية أو إقامة أو جواز سفر حسب جنسيتك',
+     N'National ID, Iqama, or passport depending on nationality',
      1, 1, 1, 10, 1, 1, 10485760, N'[".pdf",".jpg",".jpeg",".png"]', NULL, 1, 1, @Now);
 
 IF NOT EXISTS (SELECT 1 FROM teacher.TeacherRegistrationRequirements WHERE Code = N'certificate')
@@ -38,16 +38,10 @@ VALUES
      N'Short profile shown to students',
      2, 1, 0, 30, 0, 1, 10485760, N'[".pdf",".jpg",".jpeg",".png"]', 500, NULL, 1, @Now);
 
-IF NOT EXISTS (SELECT 1 FROM teacher.TeacherRegistrationRequirements WHERE Code = N'location')
-INSERT INTO teacher.TeacherRegistrationRequirements
-    (Code, NameAr, NameEn, DescriptionAr, DescriptionEn, RequirementType, IsActive, IsRequired,
-     SortOrder, MinCount, MaxCount, MaxFileSizeBytes, AllowedExtensionsJson, MaxLength,
-     MapsToDocumentType, IsSystem, CreatedAt)
-VALUES
-    (N'location', N'موقع التدريس', N'Teaching location',
-     N'هل تدرّس داخل المملكة؟',
-     N'Are you teaching inside Saudi Arabia?',
-     3, 1, 1, 40, 1, 1, 10485760, N'[".pdf",".jpg",".jpeg",".png"]', NULL, NULL, 1, @Now);
+-- Legacy location requirement deactivated (nationality replaces it)
+UPDATE teacher.TeacherRegistrationRequirements
+SET IsActive = 0, IsRequired = 0, UpdatedAt = @Now
+WHERE Code = N'location' AND IsActive = 1;
 
 SELECT Code, NameEn, RequirementType, IsActive, IsRequired, SortOrder, MinCount, MaxCount
 FROM teacher.TeacherRegistrationRequirements

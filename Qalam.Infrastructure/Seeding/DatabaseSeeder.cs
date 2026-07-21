@@ -10,6 +10,7 @@ public class DatabaseSeeder
 
         // Basic infrastructure
         await AuthSettingsSeeder.SeedAsync(context);
+        await NationalitiesSeeder.SeedAsync(context);
         await TeacherRegistrationRequirementsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);
         await TeacherDomainQuestionsSeeder.SeedAsync(context);

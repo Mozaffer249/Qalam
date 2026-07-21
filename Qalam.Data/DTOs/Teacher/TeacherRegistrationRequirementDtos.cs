@@ -140,5 +140,6 @@ public class TeacherAccountStatusResponseDto
     public bool CanBeActivated { get; set; }
     public bool AwaitingFinalApproval { get; set; }
     public bool RequiresAvailabilitySetup { get; set; }
+    public bool HasAcceptedTerms { get; set; }
     public RegistrationStepDto NextStep { get; set; } = null!;
 }

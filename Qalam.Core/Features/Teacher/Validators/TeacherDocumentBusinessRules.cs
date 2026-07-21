@@ -11,28 +11,45 @@ namespace Qalam.Core.Features.Teacher.Validators;
 /// </summary>
 public static class TeacherDocumentBusinessRules
 {
+    public const string SaudiArabiaCode = "SA";
+
+    public static bool IsSaudiNationality(string? nationalityCode) =>
+        string.Equals(nationalityCode?.Trim(), SaudiArabiaCode, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
-    /// Validates Saudi Arabia identity rules based on location
+    /// Validates identity rules based on nationality (SA vs non-SA).
+    /// For foreign IDs, <paramref name="countryCode"/> should equal the nationality code.
     /// </summary>
     public static void ValidateSaudiIdentityRules(
-        bool isInSaudiArabia,
+        string? nationalityCode,
         IdentityType type,
         string? countryCode,
         IStringLocalizer<AuthenticationResources> localizer)
     {
-        if (isInSaudiArabia && (type == IdentityType.Passport || type == IdentityType.DrivingLicense))
+        var isSaudi = IsSaudiNationality(nationalityCode);
+
+        if (isSaudi &&
+            (type == IdentityType.Passport
+             || type == IdentityType.DrivingLicense
+             || type == IdentityType.GovernmentId))
         {
             throw new ValidationException(
                 localizer[AuthenticationResourcesKeys.PassportNotAllowedInsideSaudi]);
         }
 
-        if (!isInSaudiArabia && type != IdentityType.Passport && type != IdentityType.DrivingLicense)
+        if (!isSaudi
+            && type != IdentityType.Passport
+            && type != IdentityType.DrivingLicense
+            && type != IdentityType.GovernmentId)
         {
             throw new ValidationException(
                 localizer[AuthenticationResourcesKeys.MustUsePassportOutsideSaudi]);
         }
 
-        if (type == IdentityType.Passport && string.IsNullOrEmpty(countryCode))
+        if ((type == IdentityType.Passport
+             || type == IdentityType.DrivingLicense
+             || type == IdentityType.GovernmentId)
+            && string.IsNullOrEmpty(countryCode))
         {
             throw new ValidationException(
                 localizer[AuthenticationResourcesKeys.IssuingCountryRequiredForPassport]);

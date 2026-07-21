@@ -121,6 +121,7 @@ services:
       - MessagingApi__BaseUrl=http://messaging-api
       - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:8090,http://localhost:8091,http://localhost:3005,http://localhost:3000,http://localhost:3001,http://localhost:4200}
       - PlatformSettings__WebAppBaseUrl=${PLATFORM_WEB_APP_BASE_URL:-https://qalam.net.sa/}
+      - PlatformSettings__ApiPublicBaseUrl=${PLATFORM_API_PUBLIC_BASE_URL:-http://localhost:8080}
       - RabbitMQSettings__HostName=rabbitmq
       - RabbitMQSettings__Port=5672
       - RabbitMQSettings__UserName=${RABBITMQ_USER:-qalam}

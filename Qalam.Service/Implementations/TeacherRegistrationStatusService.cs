@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Identity;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
@@ -18,6 +20,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
     private readonly ITeacherAvailabilityRepository _availabilityRepository;
     private readonly ITeacherSubjectRepository _subjectRepository;
     private readonly ITeacherRegistrationService _registrationService;
+    private readonly UserManager<User> _userManager;
 
     public TeacherRegistrationStatusService(
         ITeacherRegistrationRequirementRepository requirementRepository,
@@ -27,7 +30,8 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
         ITeacherRegistrationCompletionService completionService,
         ITeacherAvailabilityRepository availabilityRepository,
         ITeacherSubjectRepository subjectRepository,
-        ITeacherRegistrationService registrationService)
+        ITeacherRegistrationService registrationService,
+        UserManager<User> userManager)
     {
         _requirementRepository = requirementRepository;
         _submissionRepository = submissionRepository;
@@ -37,6 +41,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
         _availabilityRepository = availabilityRepository;
         _subjectRepository = subjectRepository;
         _registrationService = registrationService;
+        _userManager = userManager;
     }
 
     public async Task<TeacherRegistrationStatusResponseDto> GetStatusForTeacherAsync(
@@ -68,6 +73,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
     {
         var flags = await BuildAccountFlagsAsync(teacherId, cancellationToken);
         var nextStep = await _registrationService.GetNextRegistrationStepAsync(userId);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
 
         return new TeacherAccountStatusResponseDto
         {
@@ -76,6 +82,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
             CanBeActivated = flags.CanBeActivated,
             AwaitingFinalApproval = flags.AwaitingFinalApproval,
             RequiresAvailabilitySetup = flags.RequiresAvailabilitySetup,
+            HasAcceptedTerms = user?.TermsAcceptedAt != null,
             NextStep = nextStep
         };
     }

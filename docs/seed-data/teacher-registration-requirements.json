@@ -9,8 +9,8 @@
       "code": "identity_document",
       "nameAr": "وثيقة الهوية",
       "nameEn": "Identity document",
-      "descriptionAr": "هوية وطنية أو إقامة أو جواز سفر حسب موقعك",
-      "descriptionEn": "National ID, Iqama, or passport depending on location",
+      "descriptionAr": "هوية وطنية أو إقامة أو جواز سفر حسب جنسيتك",
+      "descriptionEn": "National ID, Iqama, or passport depending on nationality",
       "requirementType": "File",
       "isActive": true,
       "isRequired": true,
@@ -66,21 +66,6 @@
       "maxLength": 500,
       "isSystem": true,
       "submitFormFields": ["bio"]
-    },
-    {
-      "code": "location",
-      "nameAr": "موقع التدريس",
-      "nameEn": "Teaching location",
-      "descriptionAr": "هل تدرّس داخل المملكة؟",
-      "descriptionEn": "Are you teaching inside Saudi Arabia?",
-      "requirementType": "Boolean",
-      "isActive": true,
-      "isRequired": true,
-      "sortOrder": 40,
-      "minCount": 1,
-      "maxCount": 1,
-      "isSystem": true,
-      "submitFormFields": ["isInSaudiArabia"]
     }
   ],
   "customFileExample": {

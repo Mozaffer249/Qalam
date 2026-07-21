@@ -84,6 +84,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 Email = t.User != null ? t.User.Email : null,
                 Status = t.Status,
                 Location = t.Location,
+                Nationality = t.User != null ? t.User.Nationality : null,
                 CreatedAt = t.CreatedAt,
                 TotalDocuments = t.TeacherDocuments.Count,
                 PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
@@ -165,6 +166,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 Bio = t.Bio,
                 Status = t.Status,
                 Location = t.Location,
+                Nationality = t.User != null ? t.User.Nationality : null,
                 CreatedAt = t.CreatedAt,
                 TotalDocuments = t.TeacherDocuments.Count,
                 PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
@@ -450,6 +452,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         public string? Email { get; init; }
         public TeacherStatus Status { get; init; }
         public TeacherLocation? Location { get; init; }
+        public string? Nationality { get; init; }
         public DateTime CreatedAt { get; init; }
         public int TotalDocuments { get; init; }
         public int PendingDocuments { get; init; }
@@ -469,6 +472,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             Email = t.User != null ? t.User.Email : null,
             Status = t.Status,
             Location = t.Location,
+            Nationality = t.User != null ? t.User.Nationality : null,
             CreatedAt = t.CreatedAt,
             TotalDocuments = t.TeacherDocuments.Count,
             PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
@@ -486,6 +490,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             Email = row.Email,
             Status = row.Status.ToString(),
             Location = row.Location,
+            Nationality = row.Nationality,
             CreatedAt = row.CreatedAt,
             TotalDocuments = row.TotalDocuments,
             PendingDocuments = row.PendingDocuments,

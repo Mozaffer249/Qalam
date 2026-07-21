@@ -87,11 +87,6 @@ public class TeacherRegistrationSubmitService : ITeacherRegistrationSubmitServic
                     case RegistrationRequirementType.Boolean:
                         if (input.BoolValuesByCode.TryGetValue(req.Code, out var boolValue) && boolValue.HasValue)
                         {
-                            // Location has a dedicated enum column on Teacher consumed by matching/admin — mirror it.
-                            if (req.Code == TeacherRegistrationRequirementCodes.Location)
-                                teacher.Location = boolValue.Value
-                                    ? TeacherLocation.InsideSaudiArabia
-                                    : TeacherLocation.OutsideSaudiArabia;
                             await SaveSubmissionAsync(teacher.Id, req.Id, boolValue: boolValue,
                                 status: DocumentVerificationStatus.Approved);
                         }
@@ -108,6 +103,14 @@ public class TeacherRegistrationSubmitService : ITeacherRegistrationSubmitServic
                         }
                         break;
                 }
+            }
+
+            // Derive Teacher.Location from nationality (SA → Inside, else Outside).
+            if (!string.IsNullOrWhiteSpace(input.NationalityCode))
+            {
+                teacher.Location = string.Equals(input.NationalityCode.Trim(), "SA", StringComparison.OrdinalIgnoreCase)
+                    ? TeacherLocation.InsideSaudiArabia
+                    : TeacherLocation.OutsideSaudiArabia;
             }
 
             await _teacherRepository.UpdateAsync(teacher);

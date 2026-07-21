@@ -11,7 +11,7 @@ namespace Qalam.Data.DTOs.Teacher;
 /// </summary>
 public class TeacherRegistrationSubmissionInput
 {
-    public bool? IsInSaudiArabia { get; set; }
+    public string? NationalityCode { get; set; }
     public string? Bio { get; set; }
     public IdentityType IdentityType { get; set; }
     public string DocumentNumber { get; set; } = null!;

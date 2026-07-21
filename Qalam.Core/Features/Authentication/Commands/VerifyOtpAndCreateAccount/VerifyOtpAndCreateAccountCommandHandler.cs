@@ -93,6 +93,12 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             if (teacher != null && teacher.Status != TeacherStatus.Active)
                 await _completionService.RefreshTeacherStatusAfterReviewAsync(teacher.Id, cancellationToken);
 
+            if (request.AcceptedTerms && existingUser.TermsAcceptedAt == null)
+            {
+                existingUser.TermsAcceptedAt = DateTime.UtcNow;
+                await _userManager.UpdateAsync(existingUser);
+            }
+
             var jwtResult = await _authService.GetJWTToken(existingUser);
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(existingUser.Id);
 
@@ -106,12 +112,16 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             {
                 Token = jwtResult.AccessToken,
                 IsNewUser = false,
-                NextStep = nextStep
+                NextStep = nextStep,
+                HasAcceptedTerms = existingUser.TermsAcceptedAt != null
             });
         }
 
         var pendingEmail = _authLoginOtpHelper.ResolveRegistrationEmail(loginOtp);
-        var result = await _teacherRegistrationService.CreateBasicAccountAsync(fullPhoneNumber, pendingEmail);
+        var result = await _teacherRegistrationService.CreateBasicAccountAsync(
+            fullPhoneNumber,
+            pendingEmail,
+            termsAcceptedAt: request.AcceptedTerms ? DateTime.UtcNow : null);
         var registerNextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(result.UserId);
 
         if (loginOtp != null)
@@ -124,7 +134,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         {
             Token = result.Token,
             IsNewUser = true,
-            NextStep = registerNextStep
+            NextStep = registerNextStep,
+            HasAcceptedTerms = request.AcceptedTerms
         });
     }
 }

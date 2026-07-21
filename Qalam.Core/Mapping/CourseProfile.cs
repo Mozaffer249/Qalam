@@ -1,4 +1,6 @@
 using AutoMapper;
+using Qalam.Core.Mapping.Resolvers;
+using Qalam.Data.Commons;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
@@ -12,6 +14,8 @@ public class CourseProfile : Profile
     {
         // Course -> CourseCatalogItemDto
         CreateMap<Course, CourseCatalogItemDto>()
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom<StoredMediaUrlMemberResolver, string?>(
+                src => src.ImageUrl))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.Teacher != null && src.Teacher.User != null
                     ? (src.Teacher.User.FirstName + " " + src.Teacher.User.LastName).Trim()
@@ -24,20 +28,32 @@ public class CourseProfile : Profile
                 src.TeacherSubject != null && src.TeacherSubject.Subject != null
                     ? src.TeacherSubject.Subject.DomainId
                     : 0))
-            .ForMember(dest => dest.DomainNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
-                    ? src.TeacherSubject.Subject.Domain.NameEn
-                    : null))
+            .ForMember(dest => dest.DomainName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
+                        ? src.TeacherSubject.Subject.Domain.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
+                        ? src.TeacherSubject.Subject.Domain.NameEn
+                        : null)))
             .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src =>
                 src.TeacherSubject != null ? src.TeacherSubject.SubjectId : 0))
-            .ForMember(dest => dest.SubjectNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null
-                    ? src.TeacherSubject.Subject.NameEn
-                    : null))
-            .ForMember(dest => dest.TeachingModeNameEn, opt => opt.MapFrom(src =>
-                src.TeachingMode != null ? src.TeachingMode.NameEn : null))
-            .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
-                src.SessionType != null ? src.SessionType.NameEn : null))
+            .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                        ? src.TeacherSubject.Subject.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                        ? src.TeacherSubject.Subject.NameEn
+                        : null)))
+            .ForMember(dest => dest.TeachingModeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeachingMode != null ? src.TeachingMode.NameAr : null,
+                    src.TeachingMode != null ? src.TeachingMode.NameEn : null)))
+            .ForMember(dest => dest.SessionTypeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.SessionType != null ? src.SessionType.NameAr : null,
+                    src.SessionType != null ? src.SessionType.NameEn : null)))
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
                 src.MaxStudents.HasValue
                     ? src.MaxStudents.Value - src.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
@@ -45,6 +61,8 @@ public class CourseProfile : Profile
 
         // Course -> CourseCatalogDetailDto
         CreateMap<Course, CourseCatalogDetailDto>()
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom<StoredMediaUrlMemberResolver, string?>(
+                src => src.ImageUrl))
             .ForMember(dest => dest.TeacherId, opt => opt.MapFrom(src => src.TeacherId))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.Teacher != null && src.Teacher.User != null
@@ -54,44 +72,68 @@ public class CourseProfile : Profile
                 src.TeacherSubject != null && src.TeacherSubject.Subject != null
                     ? src.TeacherSubject.Subject.DomainId
                     : 0))
-            .ForMember(dest => dest.DomainNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
-                    ? src.TeacherSubject.Subject.Domain.NameEn
-                    : null))
+            .ForMember(dest => dest.DomainName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
+                        ? src.TeacherSubject.Subject.Domain.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Domain != null
+                        ? src.TeacherSubject.Subject.Domain.NameEn
+                        : null)))
             .ForMember(dest => dest.SubjectId, opt => opt.MapFrom(src =>
                 src.TeacherSubject != null ? src.TeacherSubject.SubjectId : 0))
-            .ForMember(dest => dest.SubjectNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null
-                    ? src.TeacherSubject.Subject.NameEn
-                    : null))
+            .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                        ? src.TeacherSubject.Subject.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null
+                        ? src.TeacherSubject.Subject.NameEn
+                        : null)))
             .ForMember(dest => dest.CurriculumId, opt => opt.MapFrom(src =>
                 src.TeacherSubject != null && src.TeacherSubject.Subject != null
                     ? src.TeacherSubject.Subject.CurriculumId
                     : null))
-            .ForMember(dest => dest.CurriculumNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Curriculum != null
-                    ? src.TeacherSubject.Subject.Curriculum.NameEn
-                    : null))
+            .ForMember(dest => dest.CurriculumName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Curriculum != null
+                        ? src.TeacherSubject.Subject.Curriculum.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Curriculum != null
+                        ? src.TeacherSubject.Subject.Curriculum.NameEn
+                        : null)))
             .ForMember(dest => dest.LevelId, opt => opt.MapFrom(src =>
                 src.TeacherSubject != null && src.TeacherSubject.Subject != null
                     ? src.TeacherSubject.Subject.LevelId
                     : null))
-            .ForMember(dest => dest.LevelNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Level != null
-                    ? src.TeacherSubject.Subject.Level.NameEn
-                    : null))
+            .ForMember(dest => dest.LevelName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Level != null
+                        ? src.TeacherSubject.Subject.Level.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Level != null
+                        ? src.TeacherSubject.Subject.Level.NameEn
+                        : null)))
             .ForMember(dest => dest.GradeId, opt => opt.MapFrom(src =>
                 src.TeacherSubject != null && src.TeacherSubject.Subject != null
                     ? src.TeacherSubject.Subject.GradeId
                     : null))
-            .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src =>
-                src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Grade != null
-                    ? src.TeacherSubject.Subject.Grade.NameEn
-                    : null))
-            .ForMember(dest => dest.TeachingModeNameEn, opt => opt.MapFrom(src =>
-                src.TeachingMode != null ? src.TeachingMode.NameEn : null))
-            .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
-                src.SessionType != null ? src.SessionType.NameEn : null))
+            .ForMember(dest => dest.GradeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Grade != null
+                        ? src.TeacherSubject.Subject.Grade.NameAr
+                        : null,
+                    src.TeacherSubject != null && src.TeacherSubject.Subject != null && src.TeacherSubject.Subject.Grade != null
+                        ? src.TeacherSubject.Subject.Grade.NameEn
+                        : null)))
+            .ForMember(dest => dest.TeachingModeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.TeachingMode != null ? src.TeachingMode.NameAr : null,
+                    src.TeachingMode != null ? src.TeachingMode.NameEn : null)))
+            .ForMember(dest => dest.SessionTypeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.SessionType != null ? src.SessionType.NameAr : null,
+                    src.SessionType != null ? src.SessionType.NameEn : null)))
             .ForMember(dest => dest.SessionTypeCode, opt => opt.MapFrom(src =>
                 src.SessionType != null ? src.SessionType.Code : null))
             .ForMember(dest => dest.AvailableSeats, opt => opt.MapFrom(src =>
@@ -112,11 +154,13 @@ public class CourseProfile : Profile
                         {
                             Id = u.Id,
                             ContentUnitId = u.ContentUnitId,
-                            ContentUnitNameEn = u.ContentUnit != null ? u.ContentUnit.NameEn : null,
-                            ContentUnitNameAr = u.ContentUnit != null ? u.ContentUnit.NameAr : null,
+                            ContentUnitName = LocalizableEntity.GetLocalizedValue(
+                                u.ContentUnit != null ? u.ContentUnit.NameAr : null,
+                                u.ContentUnit != null ? u.ContentUnit.NameEn : null),
                             LessonId = u.LessonId,
-                            LessonNameEn = u.Lesson != null ? u.Lesson.NameEn : null,
-                            LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null
+                            LessonName = LocalizableEntity.GetLocalizedValue(
+                                u.Lesson != null ? u.Lesson.NameAr : null,
+                                u.Lesson != null ? u.Lesson.NameEn : null)
                         }).ToList()
                     })
                     .ToList()));
@@ -125,8 +169,8 @@ public class CourseProfile : Profile
         CreateMap<CourseEnrollmentRequest, EnrollmentRequestListItemDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
-            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom(src =>
-                src.Course != null ? src.Course.ImageUrl : null))
+            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom<StoredMediaUrlMemberResolver, string?>(
+                src => src.Course != null ? src.Course.ImageUrl : null))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.Teacher != null && src.Course.Teacher.User != null
                     ? (src.Course.Teacher.User.FirstName + " " + src.Course.Teacher.User.LastName).Trim()
@@ -224,14 +268,20 @@ public class CourseProfile : Profile
         CreateMap<Enrollment, EnrollmentListItemDto>()
             .ForMember(dest => dest.CourseTitle, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.Title : ""))
-            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom(src =>
-                src.Course != null ? src.Course.ImageUrl : null))
+            .ForMember(dest => dest.CourseImageUrl, opt => opt.MapFrom<StoredMediaUrlMemberResolver, string?>(
+                src => src.Course != null ? src.Course.ImageUrl : null))
             .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
-                src.Course != null
-                && src.Course.TeacherSubject != null
-                && src.Course.TeacherSubject.Subject != null
-                    ? src.Course.TeacherSubject.Subject.NameAr
-                    : null))
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null
+                    && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                        ? src.Course.TeacherSubject.Subject.NameAr
+                        : null,
+                    src.Course != null
+                    && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                        ? src.Course.TeacherSubject.Subject.NameEn
+                        : null)))
             .ForMember(dest => dest.TeacherDisplayName, opt => opt.MapFrom(src =>
                 src.ApprovedByTeacher != null && src.ApprovedByTeacher.User != null
                     ? (src.ApprovedByTeacher.User.FirstName + " " + src.ApprovedByTeacher.User.LastName).Trim()
@@ -271,12 +321,96 @@ public class CourseProfile : Profile
                 src.Course != null && src.Course.TeachingMode != null
                     ? src.Course.TeachingMode.NameEn
                     : null))
+            .ForMember(dest => dest.TeachingModeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeachingMode != null
+                        ? src.Course.TeachingMode.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeachingMode != null
+                        ? src.Course.TeachingMode.NameEn
+                        : null)))
             .ForMember(dest => dest.SessionTypeId, opt => opt.MapFrom(src =>
                 src.Course != null ? src.Course.SessionTypeId : 0))
             .ForMember(dest => dest.SessionTypeNameEn, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.SessionType != null
                     ? src.Course.SessionType.NameEn
                     : null))
+            .ForMember(dest => dest.SessionTypeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.SessionType != null
+                        ? src.Course.SessionType.NameAr
+                        : null,
+                    src.Course != null && src.Course.SessionType != null
+                        ? src.Course.SessionType.NameEn
+                        : null)))
+            .ForMember(dest => dest.SessionTypeCode, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.SessionType != null
+                    ? src.Course.SessionType.Code
+                    : null))
+            .ForMember(dest => dest.DomainName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Domain != null
+                        ? src.Course.TeacherSubject.Subject.Domain.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Domain != null
+                        ? src.Course.TeacherSubject.Subject.Domain.NameEn
+                        : null)))
+            .ForMember(dest => dest.SubjectName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                        ? src.Course.TeacherSubject.Subject.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                        ? src.Course.TeacherSubject.Subject.NameEn
+                        : null)))
+            .ForMember(dest => dest.CurriculumName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Curriculum != null
+                        ? src.Course.TeacherSubject.Subject.Curriculum.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Curriculum != null
+                        ? src.Course.TeacherSubject.Subject.Curriculum.NameEn
+                        : null)))
+            .ForMember(dest => dest.LevelName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Level != null
+                        ? src.Course.TeacherSubject.Subject.Level.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Level != null
+                        ? src.Course.TeacherSubject.Subject.Level.NameEn
+                        : null)))
+            .ForMember(dest => dest.GradeName, opt => opt.MapFrom(src =>
+                LocalizableEntity.GetLocalizedValue(
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Grade != null
+                        ? src.Course.TeacherSubject.Subject.Grade.NameAr
+                        : null,
+                    src.Course != null && src.Course.TeacherSubject != null
+                    && src.Course.TeacherSubject.Subject != null
+                    && src.Course.TeacherSubject.Subject.Grade != null
+                        ? src.Course.TeacherSubject.Subject.Grade.NameEn
+                        : null)))
+            .ForMember(dest => dest.IsFlexible, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.IsFlexible))
+            .ForMember(dest => dest.SessionsCount, opt => opt.MapFrom(src =>
+                src.Course != null && src.Course.Sessions != null && src.Course.Sessions.Count > 0
+                    ? src.Course.Sessions.Count
+                    : (int?)null))
             .ForMember(dest => dest.Sessions, opt => opt.Ignore())
             .ForMember(dest => dest.IsOwner, opt => opt.Ignore())
             .ForMember(dest => dest.CanPay, opt => opt.Ignore())

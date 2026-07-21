@@ -74,12 +74,13 @@ public class FileStorageService : IFileStorageService
             await file.CopyToAsync(stream);
         }
 
+        var relative = string.Join('/', "uploads", "courses", teacherId.ToString(), fileName);
         _logger.LogInformation(
             "Course image saved for teacher {TeacherId}: {Path}",
             teacherId,
-            filePath);
+            relative);
 
-        return Path.Combine("uploads", "courses", teacherId.ToString(), fileName);
+        return relative;
     }
 
     public Task<bool> ValidateFileAsync(

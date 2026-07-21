@@ -36,11 +36,16 @@ public class CourseSessionUnitDto
 {
     public int Id { get; set; }
     public int? ContentUnitId { get; set; }
+    /// <summary>Teacher/edit responses: keep bilingual fields.</summary>
     public string? ContentUnitNameEn { get; set; }
     public string? ContentUnitNameAr { get; set; }
+    /// <summary>Student catalog: single culture-selected name.</summary>
+    public string? ContentUnitName { get; set; }
     public int? LessonId { get; set; }
     public string? LessonNameEn { get; set; }
     public string? LessonNameAr { get; set; }
+    /// <summary>Student catalog: single culture-selected name.</summary>
+    public string? LessonName { get; set; }
 }
 
 public class CreateCourseSessionDto
@@ -163,18 +168,19 @@ public class CourseCatalogItemDto
     public int Id { get; set; }
     public string Title { get; set; } = default!;
     public string? DescriptionShort { get; set; }
+    public string? ImageUrl { get; set; }
     public string? TeacherDisplayName { get; set; }
     public string? TeacherBio { get; set; }
     public decimal TeacherAverageReview { get; set; }
     public int EnrollmentsCount { get; set; }
     public int DomainId { get; set; }
-    public string? DomainNameEn { get; set; }
+    public string? DomainName { get; set; }
     public int SubjectId { get; set; }
-    public string? SubjectNameEn { get; set; }
+    public string? SubjectName { get; set; }
     public int TeachingModeId { get; set; }
-    public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeName { get; set; }
     public int SessionTypeId { get; set; }
-    public string? SessionTypeNameEn { get; set; }
+    public string? SessionTypeName { get; set; }
     public decimal Price { get; set; }
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
@@ -185,28 +191,30 @@ public class CourseCatalogItemDto
 
 /// <summary>
 /// Student catalog course detail (single published course page).
+/// Lookup names are culture-selected (Accept-Language / lang query).
 /// </summary>
 public class CourseCatalogDetailDto
 {
     public int Id { get; set; }
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
     public int TeacherId { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int DomainId { get; set; }
-    public string? DomainNameEn { get; set; }
+    public string? DomainName { get; set; }
     public int SubjectId { get; set; }
-    public string? SubjectNameEn { get; set; }
+    public string? SubjectName { get; set; }
     public int? CurriculumId { get; set; }
-    public string? CurriculumNameEn { get; set; }
+    public string? CurriculumName { get; set; }
     public int? LevelId { get; set; }
-    public string? LevelNameEn { get; set; }
+    public string? LevelName { get; set; }
     public int? GradeId { get; set; }
-    public string? GradeNameEn { get; set; }
+    public string? GradeName { get; set; }
     public int TeachingModeId { get; set; }
-    public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeName { get; set; }
     public int SessionTypeId { get; set; }
-    public string? SessionTypeNameEn { get; set; }
+    public string? SessionTypeName { get; set; }
     /// <summary>Lookup code (e.g. <c>group</c>, <c>individual</c>) for client branching.</summary>
     public string? SessionTypeCode { get; set; }
     public bool IsFlexible { get; set; }
@@ -220,6 +228,7 @@ public class CourseCatalogDetailDto
 
 /// <summary>
 /// Student catalog index item (slim UI model).
+/// Lookup names are culture-selected (Accept-Language / lang query).
 /// </summary>
 public class CourseCatalogIndexItemDto
 {
@@ -231,26 +240,13 @@ public class CourseCatalogIndexItemDto
     public string? TeacherDisplayName { get; set; }
     public decimal TeacherAverageReview { get; set; }
 
-    public string? DomainNameEn { get; set; }
-    public string? DomainNameAr { get; set; }
-
-    public string? CurriculumNameEn { get; set; }
-    public string? CurriculumNameAr { get; set; }
-
-    public string? LevelNameEn { get; set; }
-    public string? LevelNameAr { get; set; }
-
-    public string? GradeNameEn { get; set; }
-    public string? GradeNameAr { get; set; }
-
-    public string? SubjectNameEn { get; set; }
-    public string? SubjectNameAr { get; set; }
-
-    public string? TeachingModeNameEn { get; set; }
-    public string? TeachingModeNameAr { get; set; }
-
-    public string? SessionTypeNameEn { get; set; }
-    public string? SessionTypeNameAr { get; set; }
+    public string? DomainName { get; set; }
+    public string? CurriculumName { get; set; }
+    public string? LevelName { get; set; }
+    public string? GradeName { get; set; }
+    public string? SubjectName { get; set; }
+    public string? TeachingModeName { get; set; }
+    public string? SessionTypeName { get; set; }
 
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }

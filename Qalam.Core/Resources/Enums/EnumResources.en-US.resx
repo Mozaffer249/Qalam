@@ -73,6 +73,9 @@
   <data name="IdentityType_DrivingLicense" xml:space="preserve">
     <value>Driving License</value>
   </data>
+  <data name="IdentityType_GovernmentId" xml:space="preserve">
+    <value>Government ID</value>
+  </data>
   <data name="TeacherDocumentType_IdentityDocument" xml:space="preserve">
     <value>Identity Document</value>
   </data>

@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 
@@ -14,16 +15,19 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
+    private readonly IMediaUrlResolver _mediaUrlResolver;
 
     public GetMyInvitationsQueryHandler(
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         ICourseEnrollmentRequestRepository requestRepository,
+        IMediaUrlResolver mediaUrlResolver,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _requestRepository = requestRepository;
+        _mediaUrlResolver = mediaUrlResolver;
     }
 
     public async Task<Response<List<StudentInvitationListItemDto>>> Handle(
@@ -63,7 +67,7 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
             EnrollmentRequestId = gm.CourseEnrollmentRequestId,
             CourseId = gm.CourseEnrollmentRequest.CourseId,
             CourseTitle = gm.CourseEnrollmentRequest.Course?.Title ?? "",
-            CourseImageUrl = gm.CourseEnrollmentRequest.Course?.ImageUrl,
+            CourseImageUrl = _mediaUrlResolver.ToPublicUrl(gm.CourseEnrollmentRequest.Course?.ImageUrl),
             TeacherDisplayName = gm.CourseEnrollmentRequest.Course?.Teacher?.User != null
                 ? (gm.CourseEnrollmentRequest.Course.Teacher.User.FirstName + " "
                    + gm.CourseEnrollmentRequest.Course.Teacher.User.LastName).Trim()

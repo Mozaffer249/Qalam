@@ -7,6 +7,7 @@ public static class EnumResourcesKeys
     public const string IdentityType_Iqama = "IdentityType_Iqama";
     public const string IdentityType_Passport = "IdentityType_Passport";
     public const string IdentityType_DrivingLicense = "IdentityType_DrivingLicense";
+    public const string IdentityType_GovernmentId = "IdentityType_GovernmentId";
 
     // Teacher Document Types
     public const string TeacherDocumentType_IdentityDocument = "TeacherDocumentType_IdentityDocument";

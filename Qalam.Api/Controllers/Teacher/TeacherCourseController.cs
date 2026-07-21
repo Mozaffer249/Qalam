@@ -194,7 +194,8 @@ public class TeacherCourseController : AppControllerBase
     /// <remarks>
     /// POST Api/V1/Teacher/TeacherCourse/upload-image (multipart/form-data, field name: file)
     ///
-    /// Returns `{ "imageUrl": "uploads/courses/{teacherId}/{guid}.jpg" }` to include in create/update payload.
+    /// Returns `{ "imageUrl": "uploads/courses/{teacherId}/{guid}.jpg" }` (relative path for create/update payload storage).
+    /// Read endpoints absolute-ize this via <c>PlatformSettings.ApiPublicBaseUrl</c> / request host.
     /// </remarks>
     [HttpPost("upload-image")]
     [ProducesResponseType(typeof(CourseImageUploadResultDto), StatusCodes.Status200OK)]

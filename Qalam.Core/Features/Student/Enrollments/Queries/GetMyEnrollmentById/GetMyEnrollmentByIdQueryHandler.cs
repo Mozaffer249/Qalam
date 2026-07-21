@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.Commons;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
@@ -37,40 +38,9 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         GetMyEnrollmentByIdQuery request,
         CancellationToken cancellationToken)
     {
-        var ownedStudentIds = new HashSet<int>();
-        var ownStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
-        if (ownStudent != null)
-            ownedStudentIds.Add(ownStudent.Id);
+        var ownedStudentIds = await ResolveOwnedStudentIdsAsync(request.UserId);
 
-        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
-        if (guardian != null)
-        {
-            var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
-            foreach (var child in children)
-                ownedStudentIds.Add(child.Id);
-        }
-
-        var enrollment = await _enrollmentRepository.GetTableNoTracking()
-            .Include(e => e.Course)
-                .ThenInclude(c => c!.TeachingMode)
-            .Include(e => e.Course)
-                .ThenInclude(c => c!.SessionType)
-            .Include(e => e.Course)
-                .ThenInclude(c => c!.Sessions)
-            .Include(e => e.EnrollmentRequest!)
-                .ThenInclude(r => r.ProposedSessions)
-            .Include(e => e.EnrollmentRequest!)
-                .ThenInclude(r => r.SelectedSessionSlots)
-            .Include(e => e.SelectedSessionSlots)
-            .Include(e => e.ApprovedByTeacher)
-                .ThenInclude(t => t.User)
-            .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
-            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
-            .Include(e => e.CourseSchedules)
-                .ThenInclude(cs => cs.TeacherAvailability)
-                    .ThenInclude(ta => ta!.TimeSlot)
-            .FirstOrDefaultAsync(e => e.Id == request.Id, cancellationToken);
-
+        var enrollment = await LoadEnrollmentAsync(request.Id, cancellationToken);
         if (enrollment == null)
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
@@ -84,8 +54,77 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();
-
         dto.IsOwner = isOwner;
+        ApplyPaymentFlags(dto, enrollment, isOwner);
+        dto.Sessions = BuildSessions(enrollment);
+
+        return Success(entity: dto);
+    }
+
+    private async Task<HashSet<int>> ResolveOwnedStudentIdsAsync(int userId)
+    {
+        var ownedStudentIds = new HashSet<int>();
+        var ownStudent = await _studentRepository.GetByUserIdAsync(userId);
+        if (ownStudent != null)
+            ownedStudentIds.Add(ownStudent.Id);
+
+        var guardian = await _guardianRepository.GetByUserIdAsync(userId);
+        if (guardian == null)
+            return ownedStudentIds;
+
+        var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
+        foreach (var child in children)
+            ownedStudentIds.Add(child.Id);
+
+        return ownedStudentIds;
+    }
+
+    private Task<Enrollment?> LoadEnrollmentAsync(int id, CancellationToken cancellationToken)
+    {
+        return _enrollmentRepository.GetTableNoTracking()
+            .AsSplitQuery()
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeachingMode)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.SessionType)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeacherSubject)
+                    .ThenInclude(ts => ts.Subject)
+                        .ThenInclude(s => s.Domain)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeacherSubject.Subject.Curriculum)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeacherSubject.Subject.Level)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeacherSubject.Subject.Grade)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.Sessions)
+                    .ThenInclude(s => s.Units)
+                        .ThenInclude(u => u.ContentUnit)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.Sessions)
+                    .ThenInclude(s => s.Units)
+                        .ThenInclude(u => u.Lesson)
+            .Include(e => e.EnrollmentRequest!)
+                .ThenInclude(r => r.ProposedSessions)
+            .Include(e => e.EnrollmentRequest!)
+                .ThenInclude(r => r.SelectedSessionSlots)
+            .Include(e => e.SelectedSessionSlots)
+            .Include(e => e.ApprovedByTeacher)
+                .ThenInclude(t => t.User)
+            .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
+            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
+            .Include(e => e.CourseSchedules)
+                .ThenInclude(cs => cs.TeacherAvailability)
+                    .ThenInclude(ta => ta!.TimeSlot)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+    }
+
+    private static void ApplyPaymentFlags(
+        EnrollmentDetailDto dto,
+        Enrollment enrollment,
+        bool isOwner)
+    {
         dto.AmountDue = enrollment.AmountDue;
         dto.PaymentDeadline = enrollment.PaymentDeadline;
 
@@ -106,42 +145,112 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         dto.PayParticipantId = dto.CanPay ? pendingParticipant!.Id : null;
         dto.CanCancel = isOwner
                         && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment;
+    }
 
+    private static List<EnrollmentSessionItemDto> BuildSessions(Enrollment enrollment)
+    {
         var utcNow = DateTime.UtcNow;
-        var schedules = enrollment.CourseSchedules != null
-            ? enrollment.CourseSchedules
-                .OrderBy(cs => cs.Date)
-                .ThenBy(cs => cs.TeacherAvailability != null && cs.TeacherAvailability.TimeSlot != null
-                    ? cs.TeacherAvailability.TimeSlot.StartTime
-                    : TimeSpan.Zero)
-                .ToList()
-            : [];
+        var courseSessionsByNumber = (enrollment.Course?.Sessions ?? [])
+            .ToDictionary(s => s.SessionNumber, s => s);
 
-        dto.Sessions = [];
+        var schedules = (enrollment.CourseSchedules ?? [])
+            .OrderBy(cs => cs.Date)
+            .ThenBy(cs => cs.TeacherAvailability?.TimeSlot?.StartTime ?? TimeSpan.Zero)
+            .ToList();
+
+        if (schedules.Count == 0)
+        {
+            return courseSessionsByNumber.Values
+                .OrderBy(s => s.SessionNumber)
+                .Select(s => new EnrollmentSessionItemDto
+                {
+                    ScheduleId = 0,
+                    SessionNumber = s.SessionNumber,
+                    Title = s.Title,
+                    Notes = s.Notes,
+                    DurationMinutes = s.DurationMinutes,
+                    Units = MapUnits(s.Units)
+                })
+                .ToList();
+        }
+
+        var sessions = new List<EnrollmentSessionItemDto>(schedules.Count);
         for (var i = 0; i < schedules.Count; i++)
         {
-            var cs = schedules[i];
-            var slot = cs.TeacherAvailability?.TimeSlot;
-            var duration = cs.DurationMinutes > 0
-                ? cs.DurationMinutes
-                : slot?.ResolveDurationMinutes() ?? 0;
+            var schedule = schedules[i];
+            var sessionNumber = ResolveSessionNumber(
+                schedule, i + 1, enrollment.EnrollmentRequest, enrollment.SelectedSessionSlots);
+            courseSessionsByNumber.TryGetValue(sessionNumber, out var courseSession);
+            var proposed = enrollment.EnrollmentRequest?.ProposedSessions?
+                .FirstOrDefault(p => p.SessionNumber == sessionNumber);
 
-            dto.Sessions.Add(new EnrollmentSessionItemDto
+            var slot = schedule.TeacherAvailability?.TimeSlot;
+            var duration = schedule.DurationMinutes > 0
+                ? schedule.DurationMinutes
+                : slot?.ResolveDurationMinutes() ?? courseSession?.DurationMinutes ?? 0;
+
+            var title = proposed?.Title;
+            if (string.IsNullOrWhiteSpace(title))
+                title = courseSession?.Title;
+            if (string.IsNullOrWhiteSpace(title))
+                title = slot?.LabelEn ?? slot?.LabelAr;
+
+            sessions.Add(new EnrollmentSessionItemDto
             {
-                ScheduleId = cs.Id,
-                Date = cs.Date,
-                Title = ResolveSessionTitle(
-                        cs, i + 1, enrollment.EnrollmentRequest, enrollment.SelectedSessionSlots, enrollment.Course)
-                    ?? slot?.LabelEn ?? slot?.LabelAr,
-                StartTime = slot != null ? slot.StartTime : null,
-                EndTime = slot != null ? slot.EndTime : null,
+                ScheduleId = schedule.Id,
+                SessionNumber = sessionNumber,
+                Date = schedule.Date,
+                Title = title,
+                Notes = proposed?.Notes ?? courseSession?.Notes,
+                StartTime = slot?.StartTime,
+                EndTime = slot?.EndTime,
                 DurationMinutes = duration,
-                Status = cs.Status,
-                CanStart = CanStartSessionUtc(enrollment.EnrollmentStatus, cs.Status, slot, cs.Date, utcNow)
+                Status = schedule.Status,
+                CanStart = CanStartSessionUtc(
+                    enrollment.EnrollmentStatus, schedule.Status, slot, schedule.Date, utcNow),
+                Units = MapUnits(courseSession?.Units)
             });
         }
 
-        return Success(entity: dto);
+        return sessions;
+    }
+
+    private static List<EnrollmentSessionContentUnitDto> MapUnits(
+        ICollection<CourseSessionUnit>? units)
+    {
+        if (units == null || units.Count == 0)
+            return [];
+
+        return units.Select(u => new EnrollmentSessionContentUnitDto
+        {
+            Id = u.Id,
+            ContentUnitId = u.ContentUnitId,
+            ContentUnitName = LocalizableEntity.GetLocalizedValue(
+                u.ContentUnit?.NameAr,
+                u.ContentUnit?.NameEn),
+            LessonId = u.LessonId,
+            LessonName = LocalizableEntity.GetLocalizedValue(
+                u.Lesson?.NameAr,
+                u.Lesson?.NameEn)
+        }).ToList();
+    }
+
+    private static int ResolveSessionNumber(
+        CourseSchedule schedule,
+        int ordinalSessionNumber,
+        CourseEnrollmentRequest? request,
+        ICollection<EnrollmentSelectedSessionSlot>? enrollmentSlots)
+    {
+        var slotMatch = request?.SelectedSessionSlots?
+            .FirstOrDefault(ss =>
+                ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
+        if (slotMatch != null)
+            return slotMatch.SessionNumber;
+
+        var enrollmentSlot = enrollmentSlots?
+            .FirstOrDefault(ss =>
+                ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
+        return enrollmentSlot?.SessionNumber ?? ordinalSessionNumber;
     }
 
     private static bool CanStartSessionUtc(
@@ -167,37 +276,5 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         var endUtc = sessionDate.ToDateTime(end, DateTimeKind.Utc);
 
         return utcNow >= startUtc && utcNow <= endUtc;
-    }
-
-    private static string? ResolveSessionTitle(
-        CourseSchedule schedule,
-        int ordinalSessionNumber,
-        CourseEnrollmentRequest? request,
-        ICollection<EnrollmentSelectedSessionSlot>? enrollmentSlots,
-        Course? course)
-    {
-        var sessionNumber = ordinalSessionNumber;
-        var slotMatch = request?.SelectedSessionSlots?
-            .FirstOrDefault(ss =>
-                ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
-        if (slotMatch != null)
-            sessionNumber = slotMatch.SessionNumber;
-        else
-        {
-            var enrollmentSlot = enrollmentSlots?
-                .FirstOrDefault(ss =>
-                    ss.SessionDate == schedule.Date && ss.TeacherAvailabilityId == schedule.TeacherAvailabilityId);
-            if (enrollmentSlot != null)
-                sessionNumber = enrollmentSlot.SessionNumber;
-        }
-
-        var proposedTitle = request?.ProposedSessions?
-            .FirstOrDefault(p => p.SessionNumber == sessionNumber)?.Title;
-        if (!string.IsNullOrWhiteSpace(proposedTitle))
-            return proposedTitle;
-
-        var courseTitle = course?.Sessions?
-            .FirstOrDefault(s => s.SessionNumber == sessionNumber)?.Title;
-        return string.IsNullOrWhiteSpace(courseTitle) ? null : courseTitle;
     }
 }

@@ -84,6 +84,7 @@ builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExp
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionOfferExpirationService>();
 
 // Service Registration
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddInfrastructureDependencies()
                 .AddServiceDependencies(builder.Configuration)
                 .AddCoreDependencies()
@@ -115,6 +116,9 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.DefaultRequestCulture = new RequestCulture("en-US");
     options.SupportedCultures = supportedCultures;
     options.SupportedUICultures = supportedCultures;
+
+    // Prefer ?lang=ar|en (Flutter) over default culture/ui-culture query keys.
+    options.RequestCultureProviders.Insert(0, new LangQueryStringRequestCultureProvider());
 });
 
 #endregion

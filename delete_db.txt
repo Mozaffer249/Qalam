@@ -1,0 +1,91 @@
+BEGIN TRANSACTION;
+
+------------------------------------------------------------
+-- 1) Payments linked to enrollments
+------------------------------------------------------------
+DELETE FROM dbo.EnrollmentPayments;
+
+-- Payments that were only used for those enrollment links
+DELETE pi
+FROM dbo.PaymentItems pi
+WHERE pi.PaymentId IN (
+    SELECT p.Id
+    FROM dbo.Payments p
+    WHERE NOT EXISTS (
+        SELECT 1 FROM dbo.EnrollmentPayments ep WHERE ep.PaymentId = p.Id
+    )
+    -- optional safety: only wipe if you want ALL orphaned payments gone
+);
+
+-- If you want every payment row removed (dev wipe), use instead:
+-- DELETE FROM dbo.PaymentItems;
+-- DELETE FROM dbo.Payments;
+
+DELETE p
+FROM dbo.Payments p
+WHERE NOT EXISTS (
+    SELECT 1 FROM dbo.EnrollmentPayments ep WHERE ep.PaymentId = p.Id
+)
+AND NOT EXISTS (
+    SELECT 1 FROM dbo.PaymentItems pi WHERE pi.PaymentId = p.Id
+);
+
+------------------------------------------------------------
+-- 2) Enrollment graph (children first; some already Cascade)
+------------------------------------------------------------
+DELETE FROM course.EnrollmentSelectedSessionSlotUnits;
+DELETE FROM course.EnrollmentSelectedSessionSlots;
+DELETE FROM course.CourseSchedules;              -- enrollment schedules only
+DELETE FROM course.EnrollmentParticipants;
+DELETE FROM course.Enrollments;                 -- must go before requests/offers (Restrict FKs)
+
+------------------------------------------------------------
+-- 3) Open session requests (schema sr) — offers Restrict on request
+------------------------------------------------------------
+DELETE FROM sr.OfferMessages;
+UPDATE sr.OfferConversations SET SessionOfferId = NULL;  -- break 1:1 before offers
+DELETE FROM sr.SessionOffers;
+DELETE FROM sr.OfferConversations;
+
+DELETE FROM sr.SessionRequestSessionUnits;
+DELETE FROM sr.SessionRequestSessions;
+DELETE FROM sr.SessionRequestAttachments;
+DELETE FROM sr.SessionRequestInvitations;
+DELETE FROM sr.SessionRequestTargets;
+DELETE FROM sr.SessionRequests;
+
+------------------------------------------------------------
+-- 4) Course enrollment requests (schema course)
+------------------------------------------------------------
+DELETE FROM course.CourseRequestSelectedSessionSlotUnits;
+DELETE FROM course.CourseRequestSelectedSessionSlots;
+DELETE FROM course.CourseRequestProposedSessionUnits;
+DELETE FROM course.CourseRequestProposedSessions;
+DELETE FROM course.CourseRequestSelectedAvailabilities;
+DELETE FROM course.CourseRequestGroupMembers;
+DELETE FROM course.CourseEnrollmentRequests;
+
+-- Verify
+SELECT 'Enrollments' AS T, COUNT(*) AS C FROM course.Enrollments
+UNION ALL SELECT 'CourseEnrollmentRequests', COUNT(*) FROM course.CourseEnrollmentRequests
+UNION ALL SELECT 'SessionRequests(sr)', COUNT(*) FROM sr.SessionRequests
+UNION ALL SELECT 'EnrollmentPayments', COUNT(*) FROM dbo.EnrollmentPayments;
+
+-- COMMIT;
+-- ROLLBACK;
+
+
+
+
+//
+DELETE FROM session.ScheduledSessions;
+DELETE FROM session.Sessions;
+DELETE FROM session.SessionRequestOffers;
+DELETE FROM session.SessionRequests;
+
+
+///
+SELECT s.name AS [schema], t.name AS [table]
+FROM sys.tables t
+JOIN sys.schemas s ON s.schema_id = t.schema_id
+WHERE t.name LIKE '%Enrollment%' OR t.name LIKE '%SessionRequest%' OR t.name LIKE '%Offer%';

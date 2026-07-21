@@ -13,14 +13,15 @@ public class SubmitTeacherRegistrationRequirementsCommand : IRequest<Response<Te
     [BindNever]
     public int UserId { get; set; }
 
-    // Nullable so the handler can tell "field absent" from "explicitly false" when the
-    // `location` Boolean requirement is required. Value types don't trigger ASP.NET's
-    // implicit-required check — the handler enforces it in ValidateAgainstRequirements.
-    public bool? IsInSaudiArabia { get; set; }
+    // Nullable so the handler can tell "field absent" when nationality is required.
+    public string? NationalityCode { get; set; }
     public string? Bio { get; set; }
 
     public IdentityType IdentityType { get; set; }
     public string DocumentNumber { get; set; } = null!;
+    /// <summary>
+    /// Optional on the wire — when omitted for foreign IDs, the handler sets this to <see cref="NationalityCode"/>.
+    /// </summary>
     public string? IssuingCountryCode { get; set; }
     public IFormFile? IdentityDocumentFile { get; set; }
     public List<CertificateUploadDto> Certificates { get; set; } = new();

@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
@@ -9,6 +10,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
@@ -22,8 +24,10 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationRequirementRepository _requirementRepository;
+    private readonly INationalityRepository _nationalityRepository;
     private readonly ITeacherRegistrationSubmitService _submitService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
+    private readonly UserManager<User> _userManager;
     private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
     private readonly ILogger<SubmitTeacherRegistrationRequirementsCommandHandler> _logger;
 
@@ -31,8 +35,10 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         ITeacherRepository teacherRepository,
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationRequirementRepository requirementRepository,
+        INationalityRepository nationalityRepository,
         ITeacherRegistrationSubmitService submitService,
         ITeacherRegistrationService teacherRegistrationService,
+        UserManager<User> userManager,
         IStringLocalizer<SharedResources> sharedLocalizer,
         IStringLocalizer<AuthenticationResources> authLocalizer,
         ILogger<SubmitTeacherRegistrationRequirementsCommandHandler> logger) : base(sharedLocalizer)
@@ -40,8 +46,10 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
         _requirementRepository = requirementRepository;
+        _nationalityRepository = nationalityRepository;
         _submitService = submitService;
         _teacherRegistrationService = teacherRegistrationService;
+        _userManager = userManager;
         _authLocalizer = authLocalizer;
         _logger = logger;
     }
@@ -64,6 +72,25 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         if (teacher.Status == TeacherStatus.Active)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
 
+        var nationalityCode = request.NationalityCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(nationalityCode))
+            return BadRequest<TeacherRegistrationSubmitResponseDto>("Nationality is required.");
+
+        var nationality = await _nationalityRepository.GetByCodeAsync(nationalityCode, cancellationToken);
+        if (nationality == null || !nationality.IsActive)
+            return BadRequest<TeacherRegistrationSubmitResponseDto>("Invalid or inactive nationality.");
+
+        request.NationalityCode = nationalityCode;
+
+        var isSaudi = TeacherDocumentBusinessRules.IsSaudiNationality(nationalityCode);
+        // Issuing country for foreign IDs is the nationality; Saudi IDs must not send a country.
+        if (isSaudi)
+            request.IssuingCountryCode = null;
+        else if (string.IsNullOrWhiteSpace(request.IssuingCountryCode))
+            request.IssuingCountryCode = nationalityCode;
+        else
+            request.IssuingCountryCode = request.IssuingCountryCode.Trim().ToUpperInvariant();
+
         var activeRequirements = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
         if (activeRequirements.Count == 0)
             return BadRequest<TeacherRegistrationSubmitResponseDto>("No active registration requirements configured.");
@@ -72,8 +99,6 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         if (validationError != null)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(validationError);
 
-        // Identity business rules — run BEFORE delegating so we reject with a localized message.
-        // Exclude this teacher's own rows so a previous partial attempt doesn't flag the retry as a duplicate.
         var identityRequired = activeRequirements.Any(r =>
             r.Code == TeacherRegistrationRequirementCodes.IdentityDocument && r.IsRequired);
         if (identityRequired && request.IdentityDocumentFile != null)
@@ -81,7 +106,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
             try
             {
                 TeacherDocumentBusinessRules.ValidateSaudiIdentityRules(
-                    request.IsInSaudiArabia ?? false, request.IdentityType, request.IssuingCountryCode, _authLocalizer);
+                    nationalityCode, request.IdentityType, request.IssuingCountryCode, _authLocalizer);
 
                 await TeacherDocumentBusinessRules.ValidateIdentityUnique(
                     _documentRepository, request.IdentityType, request.DocumentNumber,
@@ -95,8 +120,15 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
 
         try
         {
+            var user = await _userManager.FindByIdAsync(request.UserId.ToString());
+            if (user != null)
+            {
+                user.Nationality = nationalityCode;
+                await _userManager.UpdateAsync(user);
+            }
+
             await _submitService.SubmitAsync(teacher, MapToInput(request), activeRequirements, cancellationToken);
-            await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, request.IsInSaudiArabia ?? false);
+            await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, isSaudi);
 
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
             return Success(
@@ -118,7 +150,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
     private static TeacherRegistrationSubmissionInput MapToInput(SubmitTeacherRegistrationRequirementsCommand request) =>
         new()
         {
-            IsInSaudiArabia = request.IsInSaudiArabia,
+            NationalityCode = request.NationalityCode,
             Bio = request.Bio,
             IdentityType = request.IdentityType,
             DocumentNumber = request.DocumentNumber,
@@ -158,6 +190,10 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
                     return "Certificate file is required.";
                 continue;
             }
+
+            // Legacy location requirement — ignore if still present in DB; nationality replaced it.
+            if (req.Code == TeacherRegistrationRequirementCodes.Location)
+                continue;
 
             switch (req.RequirementType)
             {

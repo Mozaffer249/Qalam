@@ -24,8 +24,8 @@ public static class TeacherRegistrationRequirementsDefaults
                 Code = TeacherRegistrationRequirementCodes.IdentityDocument,
                 NameAr = "وثيقة الهوية",
                 NameEn = "Identity document",
-                DescriptionAr = "هوية وطنية أو إقامة أو جواز سفر حسب موقعك",
-                DescriptionEn = "National ID, Iqama, or passport depending on location",
+                DescriptionAr = "هوية وطنية أو إقامة أو جواز سفر حسب جنسيتك",
+                DescriptionEn = "National ID, Iqama, or passport depending on nationality",
                 RequirementType = RegistrationRequirementType.File,
                 IsActive = true,
                 IsRequired = true,
@@ -71,22 +71,6 @@ public static class TeacherRegistrationRequirementsDefaults
                 MinCount = 0,
                 MaxCount = 1,
                 MaxLength = 500,
-                IsSystem = true,
-                CreatedAt = now
-            },
-            new()
-            {
-                Code = TeacherRegistrationRequirementCodes.Location,
-                NameAr = "موقع التدريس",
-                NameEn = "Teaching location",
-                DescriptionAr = "هل تدرّس داخل المملكة؟",
-                DescriptionEn = "Are you teaching inside Saudi Arabia?",
-                RequirementType = RegistrationRequirementType.Boolean,
-                IsActive = true,
-                IsRequired = true,
-                SortOrder = 40,
-                MinCount = 1,
-                MaxCount = 1,
                 IsSystem = true,
                 CreatedAt = now
             }

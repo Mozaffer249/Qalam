@@ -53,7 +53,10 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _domainQuestionStatusService = domainQuestionStatusService;
     }
 
-    public async Task<PhoneVerificationDto> CreateBasicAccountAsync(string fullPhoneNumber, string? email = null)
+    public async Task<PhoneVerificationDto> CreateBasicAccountAsync(
+        string fullPhoneNumber,
+        string? email = null,
+        DateTime? termsAcceptedAt = null)
     {
         var accountEmail = _authLoginOtpHelper.ResolveAccountEmail(email, fullPhoneNumber);
 
@@ -65,7 +68,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             Email = accountEmail,
             NormalizedEmail = accountEmail.ToUpperInvariant(),
             IsActive = false,
-            EmailConfirmed = false
+            EmailConfirmed = false,
+            TermsAcceptedAt = termsAcceptedAt
         };
 
         var result = await _userManager.CreateAsync(user);

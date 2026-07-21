@@ -22,17 +22,18 @@ public class UploadTeacherDocumentsCommandValidator : AbstractValidator<UploadTe
             })
             .When(x => x.Certificates != null && x.Certificates.Count > 0);
 
+        RuleFor(x => x.NationalityCode)
+            .NotEmpty()
+            .When(x => x.IdentityDocumentFile != null)
+            .WithMessage("Nationality is required.");
+
         RuleFor(x => x.DocumentNumber)
             .NotEmpty()
             .When(x => x.IdentityDocumentFile != null)
             .WithMessage(localizer[AuthenticationResourcesKeys.DocumentNumberRequired]);
 
-        RuleFor(x => x.IssuingCountryCode)
-            .NotEmpty()
-            .When(x => x.IdentityDocumentFile != null &&
-                      (x.IdentityType == IdentityType.Passport || x.IdentityType == IdentityType.DrivingLicense))
-            .WithMessage(localizer[AuthenticationResourcesKeys.IssuingCountryRequiredForPassport]);
-
+        // Issuing country is auto-filled from nationality for foreign IDs in the submit handler.
+        // Keep soft rules when the client still sends IssuingCountryCode explicitly.
         RuleFor(x => x.IssuingCountryCode)
             .Empty()
             .When(x => x.IdentityDocumentFile != null &&

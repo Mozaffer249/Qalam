@@ -4,10 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
-using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using System.Globalization;
 using StudentProfile = Qalam.Data.Entity.Student.Student;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetRecommendedCourses;
@@ -74,6 +74,9 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                 c.TeacherSubject.Subject.DomainId == domainId);
         }
 
+        var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
+            .Equals("ar", StringComparison.OrdinalIgnoreCase);
+
         var items = await query
             .Take(4)
             .Select(c => new CourseCatalogItemDto
@@ -99,19 +102,27 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                 DomainId = c.TeacherSubject != null && c.TeacherSubject.Subject != null
                     ? c.TeacherSubject.Subject.DomainId
                     : 0,
-                DomainNameEn = c.TeacherSubject != null &&
-                               c.TeacherSubject.Subject != null &&
-                               c.TeacherSubject.Subject.Domain != null
-                    ? c.TeacherSubject.Subject.Domain.NameEn
+                DomainName = c.TeacherSubject != null &&
+                             c.TeacherSubject.Subject != null &&
+                             c.TeacherSubject.Subject.Domain != null
+                    ? (isAr
+                        ? c.TeacherSubject.Subject.Domain.NameAr
+                        : c.TeacherSubject.Subject.Domain.NameEn)
                     : null,
                 SubjectId = c.TeacherSubject != null ? c.TeacherSubject.SubjectId : 0,
-                SubjectNameEn = c.TeacherSubject != null && c.TeacherSubject.Subject != null
-                    ? c.TeacherSubject.Subject.NameEn
+                SubjectName = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                    ? (isAr
+                        ? c.TeacherSubject.Subject.NameAr
+                        : c.TeacherSubject.Subject.NameEn)
                     : null,
                 TeachingModeId = c.TeachingModeId,
-                TeachingModeNameEn = c.TeachingMode != null ? c.TeachingMode.NameEn : null,
+                TeachingModeName = c.TeachingMode != null
+                    ? (isAr ? c.TeachingMode.NameAr : c.TeachingMode.NameEn)
+                    : null,
                 SessionTypeId = c.SessionTypeId,
-                SessionTypeNameEn = c.SessionType != null ? c.SessionType.NameEn : null,
+                SessionTypeName = c.SessionType != null
+                    ? (isAr ? c.SessionType.NameAr : c.SessionType.NameEn)
+                    : null,
                 Price = c.Price,
                 MaxStudents = c.MaxStudents,
                 AvailableSeats = c.MaxStudents.HasValue
@@ -125,4 +136,3 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
         return Success(entity: items);
     }
 }
-

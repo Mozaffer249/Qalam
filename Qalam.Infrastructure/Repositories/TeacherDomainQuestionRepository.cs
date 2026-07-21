@@ -58,7 +58,7 @@ public class TeacherDomainQuestionRepository
 
     public Task<List<int>> GetDomainIdsWithActiveRequiredQuestionsAsync(CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
-            .Where(q => q.IsActive && q.IsRequired)
+            .Where(q => q.IsActive && q.IsRequired && q.Domain.IsActive)
             .Select(q => q.DomainId)
             .Distinct()
             .OrderBy(id => id)

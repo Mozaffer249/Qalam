@@ -17,7 +17,7 @@ public class UploadTeacherDocumentsCommand : IRequest<Response<TeacherRegistrati
     [BindNever]
     public int UserId { get; set; }
 
-    public bool IsInSaudiArabia { get; set; }
+    public string? NationalityCode { get; set; }
 
     // Identity document properties (flattened)
     public IdentityType IdentityType { get; set; }

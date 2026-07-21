@@ -76,6 +76,7 @@ namespace Qalam.Infrastructure.context
 
         // Common Schema DbSets
         public DbSet<Location> Locations { get; set; }
+        public DbSet<Nationality> Nationalities { get; set; }
         public DbSet<TimeSlot> TimeSlots { get; set; }
         public DbSet<SystemSetting> SystemSettings { get; set; }
         public DbSet<DayOfWeekMaster> DaysOfWeek { get; set; }

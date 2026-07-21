@@ -13,7 +13,6 @@ namespace Qalam.Api.Controllers.Student;
 /// </summary>
 [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
 [ApiController]
-[Route("Api/V1/Student")]
 public class EnrollmentRequestMembershipController : AppControllerBase
 {
     /// <summary>

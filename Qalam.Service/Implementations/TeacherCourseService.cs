@@ -18,6 +18,7 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly ISessionTypeRepository _sessionTypeRepository;
     private readonly ICourseSessionUnitRepository _courseSessionUnitRepository;
     private readonly ITeacherSubjectRepertoireService _repertoireService;
+    private readonly IMediaUrlResolver _mediaUrlResolver;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
@@ -26,7 +27,8 @@ public class TeacherCourseService : ITeacherCourseService
         ITeachingModeRepository teachingModeRepository,
         ISessionTypeRepository sessionTypeRepository,
         ICourseSessionUnitRepository courseSessionUnitRepository,
-        ITeacherSubjectRepertoireService repertoireService)
+        ITeacherSubjectRepertoireService repertoireService,
+        IMediaUrlResolver mediaUrlResolver)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
@@ -35,6 +37,7 @@ public class TeacherCourseService : ITeacherCourseService
         _sessionTypeRepository = sessionTypeRepository;
         _courseSessionUnitRepository = courseSessionUnitRepository;
         _repertoireService = repertoireService;
+        _mediaUrlResolver = mediaUrlResolver;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -47,7 +50,7 @@ public class TeacherCourseService : ITeacherCourseService
         if (course == null || course.TeacherId != teacher.Id)
             return null;
 
-        return CourseDtoMapper.MapToDetailDto(course);
+        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(course));
     }
 
     public async Task<PaginatedResult<CourseListItemDto>> GetCoursesForTeacherAsync(
@@ -186,7 +189,7 @@ public class TeacherCourseService : ITeacherCourseService
         await _courseRepository.SaveChangesAsync();
 
         var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
-        return CourseDtoMapper.MapToDetailDto(withDetails ?? course);
+        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course));
     }
 
     public async Task<CourseDetailDto?> UpdateCourseAsync(int userId, int courseId, UpdateCourseDto dto, CancellationToken cancellationToken = default)
@@ -253,7 +256,7 @@ public class TeacherCourseService : ITeacherCourseService
         await _courseRepository.SaveChangesAsync();
 
         var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
-        return CourseDtoMapper.MapToDetailDto(withDetails ?? course);
+        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course));
     }
 
     public async Task<List<CourseSessionUnitDto>?> ReplaceSessionUnitsAsync(
@@ -367,5 +370,11 @@ public class TeacherCourseService : ITeacherCourseService
             .ToList();
 
         await _courseSessionUnitRepository.ValidateUnitsBelongToSubjectAsync(contentUnitIds, lessonIds, subjectId, cancellationToken);
+    }
+
+    private CourseDetailDto WithPublicImageUrl(CourseDetailDto dto)
+    {
+        dto.ImageUrl = _mediaUrlResolver.ToPublicUrl(dto.ImageUrl);
+        return dto;
     }
 }

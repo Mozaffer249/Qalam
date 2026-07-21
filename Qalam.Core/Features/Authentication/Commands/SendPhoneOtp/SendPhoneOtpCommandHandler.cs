@@ -118,7 +118,8 @@ public class SendPhoneOtpCommandHandler : ResponseHandler,
             MaskedDestination = sendResult.MaskedDestination,
             Message = isNewUser
                 ? "OTP sent successfully. Complete registration after verification."
-                : "OTP sent successfully. Welcome back!"
+                : "OTP sent successfully. Welcome back!",
+            HasAcceptedTerms = !isNewUser && existingUser?.TermsAcceptedAt != null
         });
     }
 }

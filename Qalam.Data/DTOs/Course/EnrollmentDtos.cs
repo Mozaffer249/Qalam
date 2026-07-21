@@ -261,21 +261,27 @@ public class EnrollmentParticipantDto
 }
 
 /// <summary>
-/// One persisted schedule row for GET enrollment detail (student view).
+/// One persisted schedule row for GET enrollment detail (student view),
+/// including curriculum outline (units/lessons) for that session.
 /// </summary>
 public class EnrollmentSessionItemDto
 {
     /// <summary>
-    /// <see cref="CourseSchedule"/> id.
+    /// <see cref="CourseSchedule"/> id. Zero when the row is a course template
+    /// session before schedules have been generated.
     /// </summary>
     public int ScheduleId { get; set; }
 
-    public DateOnly Date { get; set; }
+    public int SessionNumber { get; set; }
+
+    public DateOnly? Date { get; set; }
 
     /// <summary>
     /// Session outline title from the enrollment request (<c>CourseRequestProposedSession</c>) or course template (<c>CourseSession</c>), when available.
     /// </summary>
     public string? Title { get; set; }
+
+    public string? Notes { get; set; }
 
     /// <summary>
     /// Weekly slot start time on <see cref="Date"/> (from teacher time slot). Null if availability/time slot was not loaded.
@@ -289,16 +295,31 @@ public class EnrollmentSessionItemDto
 
     public int DurationMinutes { get; set; }
 
-    public ScheduleStatus Status { get; set; }
+    public ScheduleStatus? Status { get; set; }
 
     /// <summary>
     /// True when enrollment is Active, status is Scheduled, and current UTC lies within the session window on that date.
     /// </summary>
     public bool CanStart { get; set; }
+
+    /// <summary>Content units / lessons covered in this session (culture-selected names).</summary>
+    public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();
 }
 
 /// <summary>
-/// My enrollment detail (full enrollment + course + teacher + participants).
+/// Content unit or lesson on an enrollment session (student response).
+/// </summary>
+public class EnrollmentSessionContentUnitDto
+{
+    public int Id { get; set; }
+    public int? ContentUnitId { get; set; }
+    public string? ContentUnitName { get; set; }
+    public int? LessonId { get; set; }
+    public string? LessonName { get; set; }
+}
+
+/// <summary>
+/// My enrollment detail (enrollment + localized course meta + sessions).
 /// </summary>
 public class EnrollmentDetailDto
 {
@@ -314,9 +335,24 @@ public class EnrollmentDetailDto
     public DateTime? ActivatedAt { get; set; }
     public string? TeacherDisplayName { get; set; }
     public int TeachingModeId { get; set; }
+    /// <summary>Legacy English name; prefer <see cref="TeachingModeName"/>.</summary>
     public string? TeachingModeNameEn { get; set; }
+    /// <summary>Culture-selected teaching mode name.</summary>
+    public string? TeachingModeName { get; set; }
     public int SessionTypeId { get; set; }
+    /// <summary>Legacy English name; prefer <see cref="SessionTypeName"/>.</summary>
     public string? SessionTypeNameEn { get; set; }
+    /// <summary>Culture-selected session type name.</summary>
+    public string? SessionTypeName { get; set; }
+    public string? SessionTypeCode { get; set; }
+
+    public string? DomainName { get; set; }
+    public string? SubjectName { get; set; }
+    public string? CurriculumName { get; set; }
+    public string? LevelName { get; set; }
+    public string? GradeName { get; set; }
+    public bool IsFlexible { get; set; }
+    public int? SessionsCount { get; set; }
 
     /// <summary>
     /// Participants in this enrollment. One row for Individual; N rows for Group.
@@ -324,7 +360,8 @@ public class EnrollmentDetailDto
     public List<EnrollmentParticipantDto> Participants { get; set; } = new();
 
     /// <summary>
-    /// Scheduled sessions after payment (from <see cref="CourseSchedule"/>). Empty if none generated yet.
+    /// Scheduled sessions (calendar + curriculum units). Falls back to course
+    /// template sessions when schedules are not generated yet.
     /// </summary>
     public List<EnrollmentSessionItemDto> Sessions { get; set; } = new();
 

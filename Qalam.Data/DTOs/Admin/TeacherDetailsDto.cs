@@ -13,6 +13,7 @@ public class TeacherDetailsDto
     public string? Bio { get; set; }
     public TeacherStatus Status { get; set; }
     public TeacherLocation? Location { get; set; }
+    public string? Nationality { get; set; }
     public DateTime CreatedAt { get; set; }
     
     public List<TeacherDocumentReviewDto> Documents { get; set; } = new();

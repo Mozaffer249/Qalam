@@ -29,4 +29,10 @@ public class SendOtpResponseDto
     /// Masked email or phone where the OTP was delivered
     /// </summary>
     public string MaskedDestination { get; set; } = default!;
+
+    /// <summary>
+    /// True when the existing user has already accepted Terms &amp; Privacy.
+    /// Always false for new users until they accept during registration.
+    /// </summary>
+    public bool HasAcceptedTerms { get; set; }
 }

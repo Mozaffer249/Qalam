@@ -73,6 +73,9 @@
   <data name="IdentityType_DrivingLicense" xml:space="preserve">
     <value>رخصة القيادة</value>
   </data>
+  <data name="IdentityType_GovernmentId" xml:space="preserve">
+    <value>هوية حكومية</value>
+  </data>
   <data name="TeacherDocumentType_IdentityDocument" xml:space="preserve">
     <value>وثيقة الهوية</value>
   </data>

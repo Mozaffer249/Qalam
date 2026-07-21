@@ -21,6 +21,7 @@
       DI resolution of IHostEnvironment in Qalam.Core handlers (host registers 8.x,
       consumer saw 10.x — different type identity, container failed to validate at build time).
     -->
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
     <PackageReference Include="MimeKit" Version="4.14.0" />
     <PackageReference Include="Otp.NET" Version="1.4.1" />

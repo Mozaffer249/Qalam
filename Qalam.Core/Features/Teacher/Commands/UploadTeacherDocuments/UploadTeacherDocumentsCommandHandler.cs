@@ -29,7 +29,7 @@ public class UploadTeacherDocumentsCommandHandler : ResponseHandler,
         var submit = new SubmitTeacherRegistrationRequirementsCommand
         {
             UserId = request.UserId,
-            IsInSaudiArabia = request.IsInSaudiArabia,
+            NationalityCode = request.NationalityCode,
             IdentityType = request.IdentityType,
             DocumentNumber = request.DocumentNumber,
             IssuingCountryCode = request.IssuingCountryCode,

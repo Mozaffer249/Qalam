@@ -8,7 +8,9 @@ public enum IdentityType
     NationalId = 1,
     Iqama = 2,
     Passport = 3,
-    DrivingLicense = 4
+    DrivingLicense = 4,
+    /// <summary>Government-issued national/resident ID outside Saudi Arabia.</summary>
+    GovernmentId = 5
 }
 
 /// <summary>

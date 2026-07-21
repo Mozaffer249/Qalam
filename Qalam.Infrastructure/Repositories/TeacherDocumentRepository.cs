@@ -86,9 +86,17 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
 
     public async Task<List<RejectedDocumentInfo>> GetRejectedDocumentsAsync(int teacherId)
     {
+        // Domain-question file answers also create TeacherDocument rows. Those must not be
+        // treated as registration rejects (that misroutes teachers to /teacher/reupload).
+        var domainLinkedDocIds = _dbContext.Set<TeacherDomainQuestionSubmission>()
+            .AsNoTracking()
+            .Where(s => s.TeacherId == teacherId && s.TeacherDocumentId != null)
+            .Select(s => s.TeacherDocumentId!.Value);
+
         return await _teacherDocuments
             .Where(d => d.TeacherId == teacherId
-                     && d.VerificationStatus == DocumentVerificationStatus.Rejected)
+                     && d.VerificationStatus == DocumentVerificationStatus.Rejected
+                     && !domainLinkedDocIds.Contains(d.Id))
             .Select(d => new RejectedDocumentInfo
             {
                 DocumentId = d.Id,

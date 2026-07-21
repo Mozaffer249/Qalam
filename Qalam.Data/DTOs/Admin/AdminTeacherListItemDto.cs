@@ -14,6 +14,7 @@ public class AdminTeacherListItemDto
     public string? Email { get; set; }
     public string Status { get; set; } = null!;
     public TeacherLocation? Location { get; set; }
+    public string? Nationality { get; set; }
     public DateTime CreatedAt { get; set; }
     public int TotalDocuments { get; set; }
     public int PendingDocuments { get; set; }

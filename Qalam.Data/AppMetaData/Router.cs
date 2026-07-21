@@ -35,9 +35,12 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherRegistrationRequirements = Authentication + "/Teacher/RegistrationRequirements";
         public const string TeacherSubmitRegistrationRequirements = Authentication + "/Teacher/SubmitRegistrationRequirements";
         public const string TeacherAccountStatus = Authentication + "/Teacher/AccountStatus";
+        public const string TeacherAcceptTerms = Authentication + "/Teacher/AcceptTerms";
 
         public const string AdminTeacherRegistrationRequirements = Rule + "Admin/TeacherRegistrationRequirements";
         public const string AdminTeacherDomainQuestions = Rule + "Admin/TeacherDomainQuestions";
+        public const string AdminNationalities = Rule + "Admin/Nationalities";
+        public const string Nationalities = Rule + "Nationalities";
         public const string TeacherDomainQuestionsSubmit = Rule + "Teacher/DomainQuestions/submit";
 
         // Student / Parent Authentication & Registration

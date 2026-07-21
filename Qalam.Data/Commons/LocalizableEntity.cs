@@ -18,14 +18,15 @@ namespace Qalam.Data.Commons
         }
 
         /// <summary>
-        /// Gets the localized value based on current culture
+        /// Gets the localized value based on current culture.
+        /// Falls back to the other language when the preferred value is null/empty.
         /// </summary>
-        public static string GetLocalizedValue(string arabicValue, string englishValue)
+        public static string? GetLocalizedValue(string? arabicValue, string? englishValue)
         {
             CultureInfo culture = Thread.CurrentThread.CurrentCulture;
-            if (culture.TwoLetterISOLanguageName.ToLower().Equals("ar"))
-                return arabicValue;
-            return englishValue;
+            if (culture.TwoLetterISOLanguageName.Equals("ar", StringComparison.OrdinalIgnoreCase))
+                return !string.IsNullOrWhiteSpace(arabicValue) ? arabicValue : englishValue;
+            return !string.IsNullOrWhiteSpace(englishValue) ? englishValue : arabicValue;
         }
     }
 }

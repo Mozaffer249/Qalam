@@ -42,6 +42,11 @@ namespace Qalam.Data.Entity.Identity
         public string? AppleId { get; set; }
         public string? ProfilePictureUrl { get; set; }
 
+        /// <summary>
+        /// When the user accepted platform Terms &amp; Privacy. Null = not yet accepted.
+        /// </summary>
+        public DateTime? TermsAcceptedAt { get; set; }
+
         [InverseProperty(nameof(UserRefreshToken.User))]
         public ICollection<UserRefreshToken> UserRefreshTokens { get; set; }
 
