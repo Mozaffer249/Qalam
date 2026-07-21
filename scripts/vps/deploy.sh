@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Qalam VPS deploy — incremental, space-safe update
+# Qalam VPS deploy - incremental, space-safe update
 # ==============================================================================
 # Pulls the latest code + submodules, then rebuilds ONLY the services whose
-# source actually changed since the last deploy, and prunes dangling images +
-# build cache afterwards so the disk cannot slowly fill up from rebuilds.
+# source actually changed since the LAST SUCCESSFUL DEPLOY (not merely since
+# the start of this pull), and prunes dangling images + build cache afterwards
+# so the disk cannot slowly fill up from rebuilds.
+#
+# Why "last deploy" matters:
+#   If you already ran `git pull` (or pull.sh) before this script, HEAD does not
+#   move during Phase 1. Diffing only this-pull would then skip every rebuild,
+#   leaving stale containers forever. We persist the last deployed commit in
+#   .deploy-state and diff that..HEAD instead.
 #
 # Why this exists:
 #   `docker compose up -d --build qalam-api messaging-api qalam-teacher qalam-admin`
-#   rebuilds ALL four images every time — even when only one submodule moved.
+#   rebuilds ALL four images every time - even when only one submodule moved.
 #   Each rebuild leaves behind a dangling old image + build cache, which is how
 #   the 59G root disk hit 100%. This script rebuilds the minimum and cleans up.
 #
@@ -16,11 +23,13 @@
 #   cd /opt/qalam-backend/Qalam
 #   sudo bash scripts/vps/deploy.sh                 # incremental (default)
 #   sudo bash scripts/vps/deploy.sh --all           # force rebuild everything
+#   sudo bash scripts/vps/deploy.sh --service qalam-teacher  # force one service
 #   sudo bash scripts/vps/deploy.sh --no-prune      # skip the cleanup step
 #   sudo bash scripts/vps/deploy.sh --env-file .env.staging --project qalam-staging
 #
 # Flags:
 #   --all               Rebuild every service regardless of what changed.
+#   --service <name>    Force-rebuild only this compose service (repeatable).
 #   --no-prune          Do not prune dangling images / build cache afterwards.
 #   --no-pull           Skip `git pull` (rebuild from the working tree as-is).
 #   --env-file <path>   Compose env file (default: .env).
@@ -41,6 +50,7 @@ BRANCH="main"
 FORCE_ALL=0
 DO_PRUNE=1
 DO_PULL=1
+declare -a FORCE_SERVICES=()
 
 # ------------------------------- helpers -------------------------------------
 banner() { printf '\n\033[1;36m== %s ==\033[0m\n' "$*"; }
@@ -53,6 +63,7 @@ fail()   { printf '\033[1;31m   ✗ %s\033[0m\n' "$*" >&2; exit 1; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)       FORCE_ALL=1; shift ;;
+    --service)   FORCE_SERVICES+=("$2"); shift 2 ;;
     --no-prune)  DO_PRUNE=0; shift ;;
     --no-pull)   DO_PULL=0; shift ;;
     --env-file)  ENV_FILE="$2"; shift 2 ;;
@@ -68,13 +79,14 @@ cd "$REPO_PATH" || fail "Repo not found at $REPO_PATH (set REPO_PATH=...)"
 [[ -f "$COMPOSE_FILE" ]] || fail "Compose file not found: $COMPOSE_FILE"
 [[ -f "$ENV_FILE" ]]     || fail "Env file not found: $ENV_FILE"
 
+STATE_FILE="$REPO_PATH/.deploy-state"
+
 # Build the shared compose invocation (project flag only if provided).
 COMPOSE=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
 [[ -n "$PROJECT" ]] && COMPOSE=(docker compose -f "$COMPOSE_FILE" -p "$PROJECT" --env-file "$ENV_FILE")
 
 # ------------------------- phase 1: pull -------------------------------------
 banner "Phase 1 — sync source"
-BEFORE="$(git rev-parse HEAD)"
 if [[ "$DO_PULL" -eq 1 ]]; then
   note "git pull --ff-only --recurse-submodules origin $BRANCH"
   git pull --ff-only --recurse-submodules origin "$BRANCH"
@@ -83,21 +95,18 @@ else
   warn "skipping git pull (--no-pull)"
 fi
 AFTER="$(git rev-parse HEAD)"
+ok "source at $AFTER"
 
-if [[ "$BEFORE" == "$AFTER" && "$FORCE_ALL" -eq 0 && "$DO_PULL" -eq 1 ]]; then
-  ok "already up to date ($AFTER) — nothing new to build"
-else
-  note "was $BEFORE"
-  note "now $AFTER"
+# Diff baseline = last successful deploy (not "before this pull"). If the state
+# file is missing, treat this as a first run and rebuild everything once.
+LAST_DEPLOYED=""
+if [[ -f "$STATE_FILE" ]]; then
+  LAST_DEPLOYED="$(tr -d '[:space:]' < "$STATE_FILE" || true)"
 fi
 
 # ------------------------- phase 2: decide what to rebuild -------------------
 banner "Phase 2 — detect changed services"
 
-# Map changed paths -> compose service names.
-#   backend (.NET) sources -> qalam-api + messaging-api (they share Core/Data/Infra)
-#   apps/admin submodule    -> qalam-admin
-#   apps/teacher submodule  -> qalam-teacher
 declare -a SERVICES=()
 
 add_service() {
@@ -106,31 +115,56 @@ add_service() {
   SERVICES+=("$svc")
 }
 
-if [[ "$FORCE_ALL" -eq 1 ]]; then
-  note "--all: rebuilding every service"
+add_all_services() {
   add_service messaging-api
   add_service qalam-api
   add_service qalam-admin
   add_service qalam-teacher
+}
+
+map_changed_paths() {
+  local changed="$1"
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    case "$path" in
+      Qalam.*|*.sln)  add_service qalam-api; add_service messaging-api ;;
+      apps/admin*)    add_service qalam-admin ;;
+      apps/teacher*)  add_service qalam-teacher ;;
+      docker-compose.yml|scripts/vps/deploy.sh)
+        # Compose / deploy script change can affect any service.
+        add_all_services ;;
+    esac
+  done <<< "$changed"
+}
+
+if [[ "$FORCE_ALL" -eq 1 ]]; then
+  note "--all: rebuilding every service"
+  add_all_services
+elif [[ "${#FORCE_SERVICES[@]}" -gt 0 ]]; then
+  note "--service: forcing ${FORCE_SERVICES[*]}"
+  for svc in "${FORCE_SERVICES[@]}"; do
+    add_service "$svc"
+  done
+elif [[ -z "$LAST_DEPLOYED" ]]; then
+  warn "no .deploy-state yet — first run after this fix; rebuilding all services once"
+  add_all_services
+elif ! git cat-file -e "${LAST_DEPLOYED}^{commit}" 2>/dev/null; then
+  warn "stored deploy SHA $LAST_DEPLOYED is unknown locally — rebuilding all"
+  add_all_services
+elif [[ "$LAST_DEPLOYED" == "$AFTER" ]]; then
+  note "already deployed at $AFTER — nothing to rebuild"
 else
-  CHANGED="$(git diff --name-only "$BEFORE" "$AFTER" || true)"
+  note "last deployed: $LAST_DEPLOYED"
+  note "current HEAD:  $AFTER"
+  CHANGED="$(git diff --name-only "$LAST_DEPLOYED" "$AFTER" || true)"
+  # Submodule pointer bumps show up as path changes on apps/admin|teacher.
+  # Also include recursive submodule file lists when the pointer moved.
   if [[ -z "$CHANGED" ]]; then
-    note "no changed files detected between deploys"
+    note "no changed paths between last deploy and HEAD"
   else
-    note "changed paths:"
+    note "changed paths since last deploy:"
     echo "$CHANGED" | sed 's/^/       /'
-    while IFS= read -r path; do
-      [[ -z "$path" ]] && continue
-      case "$path" in
-        Qalam.*|*.sln)  add_service qalam-api; add_service messaging-api ;;
-        apps/admin*)    add_service qalam-admin ;;
-        apps/teacher*)  add_service qalam-teacher ;;
-        docker-compose.yml)
-          # Compose change can affect any service; safest to rebuild all.
-          add_service qalam-api; add_service messaging-api
-          add_service qalam-admin; add_service qalam-teacher ;;
-      esac
-    done <<< "$CHANGED"
+    map_changed_paths "$CHANGED"
   fi
 fi
 
@@ -148,6 +182,10 @@ else
   "${COMPOSE[@]}" up -d
   ok "rebuilt and recreated: ${SERVICES[*]}"
 fi
+
+# Record successful deploy so the next run diffs against this HEAD.
+printf '%s\n' "$AFTER" > "$STATE_FILE"
+ok "recorded deploy state -> $STATE_FILE ($AFTER)"
 
 # ------------------------- phase 4: reclaim space ----------------------------
 if [[ "$DO_PRUNE" -eq 1 ]]; then
