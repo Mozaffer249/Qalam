@@ -1,5 +1,5 @@
 # =============================================================================
-# push-submodules.ps1 — commit + push the admin/teacher submodules, then bump
+# push-submodules.ps1 - commit + push the admin/teacher submodules, then bump
 # the pointer in the main Qalam repo. One command for the whole flow.
 #
 # Why: editing apps/admin or apps/teacher creates commits that live ONLY inside
@@ -57,7 +57,7 @@ function Has-Changes($path) {
 foreach ($sub in $submodules) {
     $path = Join-Path $root $sub
     if (-not (Test-Path (Join-Path $path ".git"))) {
-        Warn "$sub not initialized (run: git submodule update --init --recursive) — skipping"
+        Warn "$sub not initialized (run: git submodule update --init --recursive) - skipping"
         continue
     }
 
@@ -99,7 +99,7 @@ else {
     Ok "no new pointer changes to stage (already committed?)"
 }
 
-# Always push — covers the case where you committed via the Source Control UI
+# Always push - covers the case where you committed via the Source Control UI
 # and only want the script to push. No-op ("Everything up-to-date") if nothing
 # is pending.
 Git-In $root @("push", "origin", "HEAD:$Branch")
