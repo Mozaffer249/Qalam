@@ -13,4 +13,8 @@ public interface ITeacherDomainQuestionRepository : IGenericRepositoryAsync<Teac
     Task<bool> HasSubmissionsAsync(int questionId, CancellationToken cancellationToken = default);
 
     Task<List<int>> GetDomainIdsWithActiveRequiredQuestionsAsync(CancellationToken cancellationToken = default);
+
+    // Display scope: every active domain that has at least one active question
+    // (required OR optional). Used for the teacher-facing domain questions list.
+    Task<List<int>> GetDomainIdsWithActiveQuestionsAsync(CancellationToken cancellationToken = default);
 }

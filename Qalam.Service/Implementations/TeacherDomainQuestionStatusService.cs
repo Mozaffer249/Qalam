@@ -310,8 +310,11 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
     public async Task<bool> HasAnyDomainRequiringAnswerAsync(int teacherId, CancellationToken cancellationToken = default) =>
         await HasIncompleteCatalogDomainAnswersAsync(teacherId, cancellationToken);
 
+    // Teacher-facing display list: show every domain that has any active
+    // question (required OR optional). Registration gating still keys off
+    // GetCatalogDomainIdsWithRequiredQuestionsAsync, so this is display-only.
     private async Task<List<int>> GetRelevantDomainIdsAsync(int teacherId, CancellationToken cancellationToken) =>
-        await GetCatalogDomainIdsWithRequiredQuestionsAsync(cancellationToken);
+        await _questionRepository.GetDomainIdsWithActiveQuestionsAsync(cancellationToken);
 
     private async Task<Dictionary<int, (string Code, string NameAr, string NameEn)>> BuildDomainMetaAsync(
         List<int> domainIds,
