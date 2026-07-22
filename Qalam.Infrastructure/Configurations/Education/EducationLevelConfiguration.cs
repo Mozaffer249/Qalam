@@ -18,7 +18,13 @@ public class EducationLevelConfiguration : IEntityTypeConfiguration<EducationLev
 
         builder.HasIndex(e => e.DomainId);
         builder.HasIndex(e => e.CurriculumId);
-        builder.HasIndex(e => new { e.DomainId, e.CurriculumId, e.NameEn }).IsUnique();
+        builder.HasIndex(e => e.AcademicProgramId);
+        builder.HasIndex(e => new { e.DomainId, e.CurriculumId, e.NameEn })
+               .IsUnique()
+               .HasFilter("[CurriculumId] IS NOT NULL");
+        builder.HasIndex(e => new { e.AcademicProgramId, e.NameEn })
+               .IsUnique()
+               .HasFilter("[AcademicProgramId] IS NOT NULL");
 
         builder.HasOne(e => e.Domain)
                .WithMany(d => d.EducationLevels)
@@ -28,6 +34,11 @@ public class EducationLevelConfiguration : IEntityTypeConfiguration<EducationLev
         builder.HasOne(e => e.Curriculum)
                .WithMany(c => c.EducationLevels)
                .HasForeignKey(e => e.CurriculumId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.AcademicProgram)
+               .WithMany(p => p.EducationLevels)
+               .HasForeignKey(e => e.AcademicProgramId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(e => e.Grades)
@@ -41,4 +52,3 @@ public class EducationLevelConfiguration : IEntityTypeConfiguration<EducationLev
                .OnDelete(DeleteBehavior.Restrict);
     }
 }
-

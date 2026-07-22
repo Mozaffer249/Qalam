@@ -80,6 +80,7 @@ public class GradeService : IGradeService
         existing.NameEn = level.NameEn;
         existing.DomainId = level.DomainId;
         existing.CurriculumId = level.CurriculumId;
+        existing.AcademicProgramId = level.AcademicProgramId;
         existing.OrderIndex = level.OrderIndex;
         existing.IsActive = level.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
@@ -219,6 +220,7 @@ public class GradeService : IGradeService
         existing.NameAr = term.NameAr;
         existing.NameEn = term.NameEn;
         existing.CurriculumId = term.CurriculumId;
+        existing.AcademicProgramId = term.AcademicProgramId;
         existing.OrderIndex = term.OrderIndex;
         existing.IsMandatory = term.IsMandatory;
         existing.IsActive = term.IsActive;

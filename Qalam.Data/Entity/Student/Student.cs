@@ -39,6 +39,12 @@ public class Student : AuditableEntity
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
 
+    // University institutional path
+    public int? UniversityId { get; set; }
+    public int? CollegeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? AcademicProgramId { get; set; }
+
     // Personal information
     public DateOnly? DateOfBirth { get; set; }
     public Gender? Gender { get; set; }
@@ -54,6 +60,10 @@ public class Student : AuditableEntity
     public Curriculum? Curriculum { get; set; }
     public EducationLevel? Level { get; set; }
     public Grade? Grade { get; set; }
+    public University? University { get; set; }
+    public College? College { get; set; }
+    public Department? Department { get; set; }
+    public AcademicProgram? AcademicProgram { get; set; }
 
     /// <summary>
     /// Guardian of the student (One-to-Many)

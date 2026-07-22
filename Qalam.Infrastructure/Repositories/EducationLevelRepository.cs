@@ -91,7 +91,7 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
         return !await query.AnyAsync();
     }
 
-    public async Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId)
+    public async Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId, int? academicProgramId = null)
     {
         var query = _context.EducationLevels
             .AsNoTracking()
@@ -99,6 +99,9 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
 
         if (curriculumId.HasValue)
             query = query.Where(el => el.CurriculumId == curriculumId);
+
+        if (academicProgramId.HasValue)
+            query = query.Where(el => el.AcademicProgramId == academicProgramId);
 
         return await query
             .OrderBy(el => el.OrderIndex)

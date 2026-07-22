@@ -78,7 +78,7 @@ public class SetAccountTypeAndUsageDto
 #region Academic Profile
 
 /// <summary>
-/// DTO for academic profile wizard (Domain, Curriculum, Level, Grade)
+/// DTO for academic profile wizard (Domain, Curriculum, Level, Grade — or university path)
 /// </summary>
 public class StudentAcademicProfileDto
 {
@@ -86,6 +86,12 @@ public class StudentAcademicProfileDto
     public int? CurriculumId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
+
+    // University institutional path
+    public int? UniversityId { get; set; }
+    public int? CollegeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? AcademicProgramId { get; set; }
 }
 
 #endregion
@@ -109,6 +115,10 @@ public class AddChildDto
     public int? CurriculumId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
+    public int? UniversityId { get; set; }
+    public int? CollegeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? AcademicProgramId { get; set; }
 }
 
 #endregion

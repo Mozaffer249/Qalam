@@ -27,6 +27,18 @@ public class FilterStateDto
     /// </summary>
     public int? GradeId { get; set; }
 
+    /// <summary>University institution ID.</summary>
+    public int? UniversityId { get; set; }
+
+    /// <summary>College / faculty ID under university.</summary>
+    public int? CollegeId { get; set; }
+
+    /// <summary>Department ID under college.</summary>
+    public int? DepartmentId { get; set; }
+
+    /// <summary>Academic program ID under department.</summary>
+    public int? AcademicProgramId { get; set; }
+
     /// <summary>
     /// Subject ID (wizard step 5 — before term selection).
     /// </summary>
@@ -36,6 +48,11 @@ public class FilterStateDto
     /// Academic term/semester IDs (wizard step 6 — after subjectId).
     /// </summary>
     public List<int>? TermIds { get; set; }
+
+    /// <summary>
+    /// When true with AcademicTermOptional rule, skip the optional Term step.
+    /// </summary>
+    public bool SkipTerm { get; set; }
 
     /// <summary>
     /// Selected content unit ID (wizard step 7 — after Unit).

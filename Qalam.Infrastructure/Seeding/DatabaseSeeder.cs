@@ -42,6 +42,9 @@ public class DatabaseSeeder
 
         // Language & skills catalog (units + lessons)
         await LanguageSkillsCatalogSeeder.SeedAsync(context);
+
+        // University institution catalog (KSU, KAU, KFUPM)
+        await UniversityCatalogSeeder.SeedAsync(context);
     }
 }
 

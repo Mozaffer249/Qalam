@@ -245,8 +245,8 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("FlagEmoji")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1210,6 +1210,65 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("EnrollmentSelectedSessionSlotUnits", "course");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DegreeType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("DepartmentId", "Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.ToTable("AcademicPrograms", "education");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicTerm", b =>
                 {
                     b.Property<int>("Id")
@@ -1218,13 +1277,16 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AcademicProgramId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
-                    b.Property<int>("CurriculumId")
+                    b.Property<int?>("CurriculumId")
                         .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
@@ -1258,12 +1320,74 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AcademicProgramId");
+
                     b.HasIndex("CurriculumId");
 
+                    b.HasIndex("AcademicProgramId", "NameEn")
+                        .IsUnique()
+                        .HasFilter("[AcademicProgramId] IS NOT NULL");
+
                     b.HasIndex("CurriculumId", "NameEn")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[CurriculumId] IS NOT NULL");
 
                     b.ToTable("AcademicTerms", "education");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.College", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("UniversityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("UniversityId");
+
+                    b.HasIndex("UniversityId", "Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.ToTable("Colleges", "education");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.ContentUnit", b =>
@@ -1404,6 +1528,61 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("Curriculums", "education");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Education.Department", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("CollegeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollegeId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("CollegeId", "Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.ToTable("Departments", "education");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Education.EducationDomain", b =>
                 {
                     b.Property<int>("Id")
@@ -1470,6 +1649,9 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AcademicProgramId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1508,9 +1690,15 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AcademicProgramId");
+
                     b.HasIndex("CurriculumId");
 
                     b.HasIndex("DomainId");
+
+                    b.HasIndex("AcademicProgramId", "NameEn")
+                        .IsUnique()
+                        .HasFilter("[AcademicProgramId] IS NOT NULL");
 
                     b.HasIndex("DomainId", "CurriculumId", "NameEn")
                         .IsUnique()
@@ -1644,6 +1832,9 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AcademicProgramId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Code")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
@@ -1692,6 +1883,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int?>("TermId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("UniversityId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1699,6 +1893,8 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AcademicProgramId");
 
                     b.HasIndex("DomainId");
 
@@ -1710,6 +1906,8 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasIndex("TermId");
 
+                    b.HasIndex("UniversityId");
+
                     b.HasIndex("DomainId", "Code")
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
@@ -1717,6 +1915,66 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("CurriculumId", "LevelId", "GradeId", "TermId");
 
                     b.ToTable("Subjects", "education");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.University", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("NameEn");
+
+                    b.ToTable("Universities", "education");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Identity.AuditLog", b =>
@@ -3563,9 +3821,15 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AcademicProgramId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Bio")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("CollegeId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -3578,6 +3842,9 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.Property<DateOnly?>("DateOfBirth")
                         .HasColumnType("date");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("DomainId")
                         .HasColumnType("int");
@@ -3605,6 +3872,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int?>("LevelId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("UniversityId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -3616,7 +3886,13 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AcademicProgramId");
+
+                    b.HasIndex("CollegeId");
+
                     b.HasIndex("CurriculumId");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("GradeId");
 
@@ -3632,6 +3908,8 @@ namespace Qalam.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("DomainId", "CurriculumId", "LevelId", "GradeId");
+
+                    b.HasIndex("UniversityId", "CollegeId", "DepartmentId", "AcademicProgramId");
 
                     b.ToTable("Students", "student", t =>
                         {
@@ -4648,6 +4926,9 @@ namespace Qalam.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AcademicTermOptional")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("AllowExtension")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -4672,13 +4953,22 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("DomainId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("HasAcademicProgram")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("HasAcademicTerm")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("HasCollege")
                         .HasColumnType("bit");
 
                     b.Property<bool>("HasContentUnits")
                         .HasColumnType("bit");
 
                     b.Property<bool>("HasCurriculum")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("HasDepartment")
                         .HasColumnType("bit");
 
                     b.Property<bool>("HasEducationLevel")
@@ -4688,6 +4978,9 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("HasLessons")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("HasUniversity")
                         .HasColumnType("bit");
 
                     b.Property<int?>("MaxGroupSize")
@@ -5282,15 +5575,43 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("SessionSlot");
                 });
 
-            modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicTerm", b =>
+            modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
                 {
-                    b.HasOne("Qalam.Data.Entity.Education.Curriculum", "Curriculum")
-                        .WithMany("AcademicTerms")
-                        .HasForeignKey("CurriculumId")
+                    b.HasOne("Qalam.Data.Entity.Education.Department", "Department")
+                        .WithMany("AcademicPrograms")
+                        .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicTerm", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Education.AcademicProgram", "AcademicProgram")
+                        .WithMany("AcademicTerms")
+                        .HasForeignKey("AcademicProgramId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Qalam.Data.Entity.Education.Curriculum", "Curriculum")
+                        .WithMany("AcademicTerms")
+                        .HasForeignKey("CurriculumId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicProgram");
+
                     b.Navigation("Curriculum");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.College", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Education.University", "University")
+                        .WithMany("Colleges")
+                        .HasForeignKey("UniversityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("University");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.ContentUnit", b =>
@@ -5335,8 +5656,24 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Domain");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Education.Department", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Education.College", "College")
+                        .WithMany("Departments")
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("College");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Education.EducationLevel", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Education.AcademicProgram", "AcademicProgram")
+                        .WithMany("EducationLevels")
+                        .HasForeignKey("AcademicProgramId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Education.Curriculum", "Curriculum")
                         .WithMany("EducationLevels")
                         .HasForeignKey("CurriculumId")
@@ -5347,6 +5684,8 @@ namespace Qalam.Infrastructure.Migrations
                         .HasForeignKey("DomainId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("AcademicProgram");
 
                     b.Navigation("Curriculum");
 
@@ -5391,6 +5730,11 @@ namespace Qalam.Infrastructure.Migrations
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.Subject", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Education.AcademicProgram", "AcademicProgram")
+                        .WithMany("Subjects")
+                        .HasForeignKey("AcademicProgramId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Education.Curriculum", "Curriculum")
                         .WithMany("Subjects")
                         .HasForeignKey("CurriculumId")
@@ -5417,6 +5761,13 @@ namespace Qalam.Infrastructure.Migrations
                         .HasForeignKey("TermId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Qalam.Data.Entity.Education.University", "University")
+                        .WithMany()
+                        .HasForeignKey("UniversityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcademicProgram");
+
                     b.Navigation("Curriculum");
 
                     b.Navigation("Domain");
@@ -5426,6 +5777,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Level");
 
                     b.Navigation("Term");
+
+                    b.Navigation("University");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Identity.AuditLog", b =>
@@ -5994,9 +6347,24 @@ namespace Qalam.Infrastructure.Migrations
 
             modelBuilder.Entity("Qalam.Data.Entity.Student.Student", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Education.AcademicProgram", "AcademicProgram")
+                        .WithMany()
+                        .HasForeignKey("AcademicProgramId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Qalam.Data.Entity.Education.College", "College")
+                        .WithMany()
+                        .HasForeignKey("CollegeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Education.Curriculum", "Curriculum")
                         .WithMany()
                         .HasForeignKey("CurriculumId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Qalam.Data.Entity.Education.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Qalam.Data.Entity.Education.EducationDomain", "Domain")
@@ -6019,13 +6387,24 @@ namespace Qalam.Infrastructure.Migrations
                         .HasForeignKey("LevelId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Qalam.Data.Entity.Education.University", "University")
+                        .WithMany()
+                        .HasForeignKey("UniversityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Identity.User", "User")
                         .WithOne("StudentProfile")
                         .HasForeignKey("Qalam.Data.Entity.Student.Student", "UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("AcademicProgram");
+
+                    b.Navigation("College");
+
                     b.Navigation("Curriculum");
+
+                    b.Navigation("Department");
 
                     b.Navigation("Domain");
 
@@ -6034,6 +6413,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Guardian");
 
                     b.Navigation("Level");
+
+                    b.Navigation("University");
 
                     b.Navigation("User");
                 });
@@ -6448,9 +6829,23 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Units");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
+                {
+                    b.Navigation("AcademicTerms");
+
+                    b.Navigation("EducationLevels");
+
+                    b.Navigation("Subjects");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicTerm", b =>
                 {
                     b.Navigation("Subjects");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.College", b =>
+                {
+                    b.Navigation("Departments");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.ContentUnit", b =>
@@ -6465,6 +6860,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("EducationLevels");
 
                     b.Navigation("Subjects");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.Department", b =>
+                {
+                    b.Navigation("AcademicPrograms");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.EducationDomain", b =>
@@ -6497,6 +6897,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("ContentUnits");
 
                     b.Navigation("TeacherSubjects");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Education.University", b =>
+                {
+                    b.Navigation("Colleges");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Identity.User", b =>

@@ -23,9 +23,16 @@ public class Subject : AuditableEntity
     public int? TermId { get; set; }
     public AcademicTerm? Term { get; set; }
 
-    // Optional stable code for integrations/filters
+    /// <summary>University path: subject under an academic program.</summary>
+    public int? AcademicProgramId { get; set; }
+    public AcademicProgram? AcademicProgram { get; set; }
+
+    /// <summary>Denormalized for university filters.</summary>
+    public int? UniversityId { get; set; }
+    public University? University { get; set; }
+
     [MaxLength(80)]
-    public string? Code { get; set; } // math, physics, quran, english...
+    public string? Code { get; set; }
 
     [Required, MaxLength(100)]
     public string NameAr { get; set; } = default!;
@@ -41,10 +48,8 @@ public class Subject : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    // Navigation Properties
     [JsonIgnore]
     public ICollection<ContentUnit> ContentUnits { get; set; } = new List<ContentUnit>();
     [JsonIgnore]
     public ICollection<Teacher.TeacherSubject> TeacherSubjects { get; set; } = new List<Teacher.TeacherSubject>();
 }
-

@@ -31,8 +31,11 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
             {
                 Id = at.Id,
                 CurriculumId = at.CurriculumId,
-                CurriculumNameAr = at.Curriculum.NameAr,
-                CurriculumNameEn = at.Curriculum.NameEn,
+                CurriculumNameAr = at.Curriculum != null ? at.Curriculum.NameAr : null,
+                CurriculumNameEn = at.Curriculum != null ? at.Curriculum.NameEn : null,
+                AcademicProgramId = at.AcademicProgramId,
+                AcademicProgramNameAr = at.AcademicProgram != null ? at.AcademicProgram.NameAr : null,
+                AcademicProgramNameEn = at.AcademicProgram != null ? at.AcademicProgram.NameEn : null,
                 NameAr = at.NameAr,
                 NameEn = at.NameEn,
                 OrderIndex = at.OrderIndex,
@@ -52,8 +55,11 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
             {
                 Id = at.Id,
                 CurriculumId = at.CurriculumId,
-                CurriculumNameAr = at.Curriculum.NameAr,
-                CurriculumNameEn = at.Curriculum.NameEn,
+                CurriculumNameAr = at.Curriculum != null ? at.Curriculum.NameAr : null,
+                CurriculumNameEn = at.Curriculum != null ? at.Curriculum.NameEn : null,
+                AcademicProgramId = at.AcademicProgramId,
+                AcademicProgramNameAr = at.AcademicProgram != null ? at.AcademicProgram.NameAr : null,
+                AcademicProgramNameEn = at.AcademicProgram != null ? at.AcademicProgram.NameEn : null,
                 NameAr = at.NameAr,
                 NameEn = at.NameEn,
                 OrderIndex = at.OrderIndex,
@@ -72,6 +78,14 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
             .OrderBy(at => at.OrderIndex);
     }
 
+    public IQueryable<AcademicTerm> GetTermsByAcademicProgramId(int academicProgramId)
+    {
+        return _context.AcademicTerms
+            .AsNoTracking()
+            .Where(at => at.AcademicProgramId == academicProgramId)
+            .OrderBy(at => at.OrderIndex);
+    }
+
     public async Task<AcademicTerm> GetCurrentTermAsync(int curriculumId)
     {
         return await _context.AcademicTerms
@@ -86,6 +100,22 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
         return await _context.AcademicTerms
             .AsNoTracking()
             .Where(at => at.CurriculumId == curriculumId && at.IsActive)
+            .OrderBy(at => at.OrderIndex)
+            .Select(at => new FilterOptionDto
+            {
+                Id = at.Id,
+                NameAr = at.NameAr,
+                NameEn = at.NameEn,
+                CanDelete = !at.Subjects.Any()
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<FilterOptionDto>> GetAcademicTermsByProgramAsOptionsAsync(int academicProgramId)
+    {
+        return await _context.AcademicTerms
+            .AsNoTracking()
+            .Where(at => at.AcademicProgramId == academicProgramId && at.IsActive)
             .OrderBy(at => at.OrderIndex)
             .Select(at => new FilterOptionDto
             {

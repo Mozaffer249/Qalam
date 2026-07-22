@@ -36,6 +36,8 @@ public class CreateSubjectCommandHandler : ResponseHandler,
                 LevelId = request.LevelId,
                 GradeId = request.GradeId,
                 TermId = request.TermId,
+                AcademicProgramId = request.AcademicProgramId,
+                UniversityId = request.UniversityId,
                 IsActive = request.IsActive
             };
 

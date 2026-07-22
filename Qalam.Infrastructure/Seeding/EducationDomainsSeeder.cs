@@ -150,12 +150,17 @@ public class EducationDomainsSeeder
                     CreatedAt = DateTime.UtcNow,
                     EducationRule = new EducationRule
                     {
-                        HasCurriculum = true,
+                        HasCurriculum = false,
                         HasEducationLevel = true,
                         HasGrade = false,
                         HasAcademicTerm = true,
+                        AcademicTermOptional = true,
                         HasContentUnits = true,
                         HasLessons = true,
+                        HasUniversity = true,
+                        HasCollege = true,
+                        HasDepartment = true,
+                        HasAcademicProgram = true,
                         RequiresQuranContentType = false,
                         RequiresQuranLevel = false,
                         RequiresUnitTypeSelection = false,
@@ -165,7 +170,7 @@ public class EducationDomainsSeeder
                         MinGroupSize = 1,
                         MaxGroupSize = 40,
                         AllowExtension = true,
-                        AllowFlexibleCourses = true,
+                        AllowFlexibleCourses = false,
                         CreatedAt = DateTime.UtcNow
                     }
                 }
@@ -173,6 +178,27 @@ public class EducationDomainsSeeder
 
             await context.EducationDomains.AddRangeAsync(domains);
             await context.SaveChangesAsync();
+        }
+
+        // Backfill university institutional rule flags on existing DBs
+        var universityDomain = await context.EducationDomains
+            .Include(d => d.EducationRule)
+            .FirstOrDefaultAsync(d => d.Code == "university");
+        if (universityDomain?.EducationRule is { } uniRule)
+        {
+            var dirty = false;
+            if (!uniRule.HasUniversity) { uniRule.HasUniversity = true; dirty = true; }
+            if (!uniRule.HasCollege) { uniRule.HasCollege = true; dirty = true; }
+            if (!uniRule.HasDepartment) { uniRule.HasDepartment = true; dirty = true; }
+            if (!uniRule.HasAcademicProgram) { uniRule.HasAcademicProgram = true; dirty = true; }
+            if (!uniRule.AcademicTermOptional) { uniRule.AcademicTermOptional = true; dirty = true; }
+            if (uniRule.HasCurriculum) { uniRule.HasCurriculum = false; dirty = true; }
+            if (uniRule.HasGrade) { uniRule.HasGrade = false; dirty = true; }
+            if (dirty)
+            {
+                uniRule.UpdatedAt = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+            }
         }
     }
 }

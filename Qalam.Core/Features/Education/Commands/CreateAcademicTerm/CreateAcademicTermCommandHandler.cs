@@ -28,6 +28,7 @@ public class CreateAcademicTermCommandHandler : ResponseHandler,
             var term = new AcademicTerm
             {
                 CurriculumId = request.CurriculumId,
+                AcademicProgramId = request.AcademicProgramId,
                 NameAr = request.NameAr,
                 NameEn = request.NameEn,
                 OrderIndex = request.OrderIndex,

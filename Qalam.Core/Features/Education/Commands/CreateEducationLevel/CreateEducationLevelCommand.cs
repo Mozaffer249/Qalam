@@ -10,6 +10,7 @@ public class CreateEducationLevelCommand : IRequest<Response<EducationLevel>>
     public string NameEn { get; set; } = string.Empty;
     public int DomainId { get; set; }
     public int? CurriculumId { get; set; }
+    public int? AcademicProgramId { get; set; }
     public int OrderIndex { get; set; }
     public bool IsActive { get; set; } = true;
 }

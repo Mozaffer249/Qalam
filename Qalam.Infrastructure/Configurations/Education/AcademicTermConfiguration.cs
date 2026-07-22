@@ -18,11 +18,23 @@ public class AcademicTermConfiguration : IEntityTypeConfiguration<AcademicTerm>
         builder.Property(e => e.IsActive).HasDefaultValue(true);
 
         builder.HasIndex(e => e.CurriculumId);
-        builder.HasIndex(e => new { e.CurriculumId, e.NameEn }).IsUnique();
+        builder.HasIndex(e => e.AcademicProgramId);
+        builder.HasIndex(e => new { e.CurriculumId, e.NameEn })
+               .IsUnique()
+               .HasFilter("[CurriculumId] IS NOT NULL");
+        builder.HasIndex(e => new { e.AcademicProgramId, e.NameEn })
+               .IsUnique()
+               .HasFilter("[AcademicProgramId] IS NOT NULL");
 
         builder.HasOne(e => e.Curriculum)
                .WithMany(c => c.AcademicTerms)
                .HasForeignKey(e => e.CurriculumId)
+               .IsRequired(false)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.AcademicProgram)
+               .WithMany(p => p.AcademicTerms)
+               .HasForeignKey(e => e.AcademicProgramId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(e => e.Subjects)
@@ -31,4 +43,3 @@ public class AcademicTermConfiguration : IEntityTypeConfiguration<AcademicTerm>
                .OnDelete(DeleteBehavior.Restrict);
     }
 }
-

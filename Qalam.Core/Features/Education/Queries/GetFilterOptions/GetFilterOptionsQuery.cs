@@ -30,6 +30,18 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     /// </summary>
     public int? GradeId { get; set; }
 
+    /// <summary>University institution ID (university domain).</summary>
+    public int? UniversityId { get; set; }
+
+    /// <summary>College / faculty ID.</summary>
+    public int? CollegeId { get; set; }
+
+    /// <summary>Department ID.</summary>
+    public int? DepartmentId { get; set; }
+
+    /// <summary>Academic program ID.</summary>
+    public int? AcademicProgramId { get; set; }
+
     /// <summary>
     /// Subject ID (wizard step 5 — send after gradeId, before termIds).
     /// </summary>
@@ -39,6 +51,9 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     /// Academic term IDs (wizard step 6 — send after subjectId; repeat param for multi-select).
     /// </summary>
     public List<int>? TermIds { get; set; }
+
+    /// <summary>Skip optional term step when AcademicTermOptional is true.</summary>
+    public bool SkipTerm { get; set; }
 
     /// <summary>
     /// Content unit ID (wizard step 7 — send after picking from unit[]).

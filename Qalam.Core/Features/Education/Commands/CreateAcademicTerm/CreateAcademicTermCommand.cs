@@ -6,7 +6,8 @@ namespace Qalam.Core.Features.Education.Commands.CreateAcademicTerm;
 
 public class CreateAcademicTermCommand : IRequest<Response<AcademicTerm>>
 {
-    public int CurriculumId { get; set; }
+    public int? CurriculumId { get; set; }
+    public int? AcademicProgramId { get; set; }
     public string NameAr { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
     public int OrderIndex { get; set; }

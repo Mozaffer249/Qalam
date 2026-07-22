@@ -31,6 +31,7 @@ public class CreateEducationLevelCommandHandler : ResponseHandler,
                 NameEn = request.NameEn,
                 DomainId = request.DomainId,
                 CurriculumId = request.CurriculumId,
+                AcademicProgramId = request.AcademicProgramId,
                 OrderIndex = request.OrderIndex,
                 IsActive = request.IsActive
             };

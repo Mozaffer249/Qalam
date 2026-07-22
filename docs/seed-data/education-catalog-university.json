@@ -1,0 +1,101 @@
+{
+  "description": "Top 3 Saudi universities seeded via UniversityCatalogSeeder. Hierarchy: University → College → Department → AcademicProgram → EducationLevel (Year 1–4) → AcademicTerm (optional) → Subject.",
+  "universities": [
+    {
+      "code": "ksu",
+      "nameEn": "King Saud University",
+      "nameAr": "جامعة الملك سعود",
+      "city": "Riyadh",
+      "colleges": [
+        {
+          "code": "ksu-eng",
+          "nameEn": "College of Engineering",
+          "departments": [
+            {
+              "code": "ksu-eng-cpe",
+              "nameEn": "Department of Computer Engineering",
+              "programs": [{ "code": "ksu-eng-cpe-bsc", "nameEn": "Bachelor of Computer Engineering", "degreeType": "Bachelor" }]
+            }
+          ]
+        },
+        {
+          "code": "ksu-sci",
+          "nameEn": "College of Science",
+          "departments": [
+            {
+              "code": "ksu-sci-math",
+              "nameEn": "Department of Mathematics",
+              "programs": [{ "code": "ksu-sci-math-bsc", "nameEn": "Bachelor of Mathematics", "degreeType": "Bachelor" }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "kau",
+      "nameEn": "King Abdulaziz University",
+      "nameAr": "جامعة الملك عبدالعزيز",
+      "city": "Jeddah",
+      "colleges": [
+        {
+          "code": "kau-cit",
+          "nameEn": "College of Computing & IT",
+          "departments": [
+            {
+              "code": "kau-cit-cs",
+              "nameEn": "Department of Computer Science",
+              "programs": [{ "code": "kau-cit-cs-bsc", "nameEn": "Bachelor of Computer Science", "degreeType": "Bachelor" }]
+            }
+          ]
+        },
+        {
+          "code": "kau-med",
+          "nameEn": "College of Medicine",
+          "departments": [
+            {
+              "code": "kau-med-med",
+              "nameEn": "Department of Medicine",
+              "programs": [{ "code": "kau-med-mbbs", "nameEn": "MBBS", "degreeType": "MBBS" }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "kfupm",
+      "nameEn": "King Fahd University of Petroleum & Minerals",
+      "nameAr": "جامعة الملك فهد للبترول والمعادن",
+      "city": "Dhahran",
+      "colleges": [
+        {
+          "code": "kfupm-eng",
+          "nameEn": "College of Engineering",
+          "departments": [
+            {
+              "code": "kfupm-eng-ee",
+              "nameEn": "Department of Electrical Engineering",
+              "programs": [{ "code": "kfupm-eng-ee-bsc", "nameEn": "Bachelor of Electrical Engineering", "degreeType": "Bachelor" }]
+            }
+          ]
+        },
+        {
+          "code": "kfupm-comp",
+          "nameEn": "College of Computing",
+          "departments": [
+            {
+              "code": "kfupm-comp-se",
+              "nameEn": "Department of Software Engineering",
+              "programs": [{ "code": "kfupm-comp-se-bsc", "nameEn": "Bachelor of Software Engineering", "degreeType": "Bachelor" }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "perProgram": {
+    "levels": ["Year 1", "Year 2", "Year 3", "Year 4"],
+    "terms": ["Semester 1", "Semester 2"],
+    "subjectsPerProgram": 3
+  },
+  "filterOptionsPath": "University → College → Department → AcademicProgram → Level → Subject → Term (optional) → Unit → Lesson"
+}

@@ -14,6 +14,8 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
 
         builder.HasIndex(e => e.DomainId);
         builder.HasIndex(e => new { e.CurriculumId, e.LevelId, e.GradeId, e.TermId });
+        builder.HasIndex(e => e.AcademicProgramId);
+        builder.HasIndex(e => e.UniversityId);
         builder.HasIndex(e => e.IsActive);
 
         builder.Property(e => e.Code).HasMaxLength(80);
@@ -23,7 +25,6 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
         builder.Property(e => e.DescriptionEn).HasMaxLength(500);
         builder.Property(e => e.IsActive).HasDefaultValue(true);
 
-        // Unique index on Code per domain (with NULL filter for SQL Server)
         builder.HasIndex(e => new { e.DomainId, e.Code })
                .IsUnique()
                .HasFilter("[Code] IS NOT NULL");
@@ -53,6 +54,16 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
                .HasForeignKey(e => e.TermId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.AcademicProgram)
+               .WithMany(p => p.Subjects)
+               .HasForeignKey(e => e.AcademicProgramId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.University)
+               .WithMany()
+               .HasForeignKey(e => e.UniversityId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(e => e.ContentUnits)
                .WithOne(cu => cu.Subject)
                .HasForeignKey(cu => cu.SubjectId)
@@ -64,4 +75,3 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
                .OnDelete(DeleteBehavior.Cascade);
     }
 }
-

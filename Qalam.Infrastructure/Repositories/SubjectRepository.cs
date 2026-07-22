@@ -150,7 +150,7 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .ToListAsync();
     }
 
-    public async Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId)
+    public async Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId, int? academicProgramId = null)
     {
         var query = _dbContext.Subjects
             .AsNoTracking()
@@ -167,6 +167,9 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
 
         if (termId.HasValue)
             query = query.Where(s => s.TermId == termId);
+
+        if (academicProgramId.HasValue)
+            query = query.Where(s => s.AcademicProgramId == academicProgramId);
 
         return await query
             .OrderBy(s => s.NameEn)

@@ -61,6 +61,10 @@ namespace Qalam.Infrastructure.context
         public DbSet<Subject> Subjects { get; set; }
         public DbSet<ContentUnit> ContentUnits { get; set; }
         public DbSet<Lesson> Lessons { get; set; }
+        public DbSet<University> Universities { get; set; }
+        public DbSet<College> Colleges { get; set; }
+        public DbSet<Department> Departments { get; set; }
+        public DbSet<AcademicProgram> AcademicPrograms { get; set; }
 
         // Quran Schema DbSets
         public DbSet<QuranLevel> QuranLevels { get; set; }

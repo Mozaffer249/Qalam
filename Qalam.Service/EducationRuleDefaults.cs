@@ -97,11 +97,17 @@ public static class EducationRuleDefaults
 
     public static EducationRuleDto University() => new()
     {
-        HasCurriculum = true,
+        HasCurriculum = false,
         HasEducationLevel = true,
+        HasGrade = false,
         HasAcademicTerm = true,
+        AcademicTermOptional = true,
         HasContentUnits = true,
         HasLessons = true,
+        HasUniversity = true,
+        HasCollege = true,
+        HasDepartment = true,
+        HasAcademicProgram = true,
         MinSessions = 1,
         MaxSessions = 250,
         DefaultSessionDurationMinutes = 90,
@@ -120,6 +126,11 @@ public static class EducationRuleDefaults
         rule.HasAcademicTerm = dto.HasAcademicTerm;
         rule.HasContentUnits = dto.HasContentUnits;
         rule.HasLessons = dto.HasLessons;
+        rule.HasUniversity = dto.HasUniversity;
+        rule.HasCollege = dto.HasCollege;
+        rule.HasDepartment = dto.HasDepartment;
+        rule.HasAcademicProgram = dto.HasAcademicProgram;
+        rule.AcademicTermOptional = dto.AcademicTermOptional;
         rule.RequiresQuranContentType = dto.RequiresQuranContentType;
         rule.RequiresQuranLevel = dto.RequiresQuranLevel;
         rule.RequiresUnitTypeSelection = dto.RequiresUnitTypeSelection;
@@ -146,6 +157,11 @@ public static class EducationRuleDefaults
         HasAcademicTerm = rule.HasAcademicTerm,
         HasContentUnits = rule.HasContentUnits,
         HasLessons = rule.HasLessons,
+        HasUniversity = rule.HasUniversity,
+        HasCollege = rule.HasCollege,
+        HasDepartment = rule.HasDepartment,
+        HasAcademicProgram = rule.HasAcademicProgram,
+        AcademicTermOptional = rule.AcademicTermOptional,
         RequiresQuranContentType = rule.RequiresQuranContentType,
         RequiresQuranLevel = rule.RequiresQuranLevel,
         RequiresUnitTypeSelection = rule.RequiresUnitTypeSelection,

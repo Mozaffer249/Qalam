@@ -15,5 +15,5 @@ public interface IEducationLevelRepository : IGenericRepositoryAsync<EducationLe
     Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null);
 
     // Filter options
-    Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId);
+    Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId, int? academicProgramId = null);
 }

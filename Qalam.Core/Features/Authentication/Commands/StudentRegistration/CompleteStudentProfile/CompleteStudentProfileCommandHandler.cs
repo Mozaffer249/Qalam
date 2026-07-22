@@ -35,6 +35,10 @@ public class CompleteStudentProfileCommandHandler : ResponseHandler,
         student.CurriculumId = p.CurriculumId;
         student.LevelId = p.LevelId;
         student.GradeId = p.GradeId;
+        student.UniversityId = p.UniversityId;
+        student.CollegeId = p.CollegeId;
+        student.DepartmentId = p.DepartmentId;
+        student.AcademicProgramId = p.AcademicProgramId;
         student.UpdatedAt = DateTime.UtcNow;
         await _studentRepository.UpdateAsync(student);
         await _studentRepository.SaveChangesAsync();

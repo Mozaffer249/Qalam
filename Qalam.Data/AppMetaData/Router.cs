@@ -93,6 +93,16 @@ namespace Qalam.Data.AppMetaData
         // Terms
         public const string EducationTerms = Education + "/Terms";
         public const string EducationTermById = EducationTerms + SingleRoute;
+
+        // University institution hierarchy
+        public const string EducationUniversities = Education + "/Universities";
+        public const string EducationUniversityById = EducationUniversities + SingleRoute;
+        public const string EducationColleges = Education + "/Colleges";
+        public const string EducationCollegeById = EducationColleges + SingleRoute;
+        public const string EducationDepartments = Education + "/Departments";
+        public const string EducationDepartmentById = EducationDepartments + SingleRoute;
+        public const string EducationAcademicPrograms = Education + "/AcademicPrograms";
+        public const string EducationAcademicProgramById = EducationAcademicPrograms + SingleRoute;
         #endregion
 
         #region Curriculum

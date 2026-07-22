@@ -22,5 +22,5 @@ public interface ISubjectRepository : IGenericRepositoryAsync<Subject>
     Task<List<Subject>> GetSubjectsWithContentUnitsAsync(int gradeId);
 
     // Filter options
-    Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId);
+    Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId, int? academicProgramId = null);
 }

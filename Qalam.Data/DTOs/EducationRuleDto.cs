@@ -12,6 +12,12 @@ public class EducationRuleDto
     public bool HasContentUnits { get; set; }
     public bool HasLessons { get; set; }
 
+    public bool HasUniversity { get; set; }
+    public bool HasCollege { get; set; }
+    public bool HasDepartment { get; set; }
+    public bool HasAcademicProgram { get; set; }
+    public bool AcademicTermOptional { get; set; }
+
     public bool RequiresQuranContentType { get; set; }
     public bool RequiresQuranLevel { get; set; }
     public bool RequiresUnitTypeSelection { get; set; }

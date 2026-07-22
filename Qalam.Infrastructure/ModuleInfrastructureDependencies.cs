@@ -39,6 +39,10 @@ namespace Qalam.Infrastructure
             services.AddTransient<ISubjectRepository, SubjectRepository>();
             services.AddTransient<IContentUnitRepository, ContentUnitRepository>();
             services.AddTransient<ILessonRepository, LessonRepository>();
+            services.AddTransient<IUniversityRepository, UniversityRepository>();
+            services.AddTransient<ICollegeRepository, CollegeRepository>();
+            services.AddTransient<IDepartmentRepository, DepartmentRepository>();
+            services.AddTransient<IAcademicProgramRepository, AcademicProgramRepository>();
 
             // Quran Repositories
             services.AddTransient<IQuranLevelRepository, QuranLevelRepository>();

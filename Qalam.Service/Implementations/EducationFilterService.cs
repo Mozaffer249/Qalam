@@ -18,6 +18,10 @@ public class EducationFilterService : IEducationFilterService
     private readonly ILessonRepository _lessonRepository;
     private readonly IQuranContentTypeRepository _quranContentTypeRepository;
     private readonly IQuranLevelRepository _quranLevelRepository;
+    private readonly IUniversityRepository _universityRepository;
+    private readonly ICollegeRepository _collegeRepository;
+    private readonly IDepartmentRepository _departmentRepository;
+    private readonly IAcademicProgramRepository _academicProgramRepository;
 
     public EducationFilterService(
         IEducationDomainRepository domainRepository,
@@ -29,7 +33,11 @@ public class EducationFilterService : IEducationFilterService
         IContentUnitRepository contentUnitRepository,
         ILessonRepository lessonRepository,
         IQuranContentTypeRepository quranContentTypeRepository,
-        IQuranLevelRepository quranLevelRepository)
+        IQuranLevelRepository quranLevelRepository,
+        IUniversityRepository universityRepository,
+        ICollegeRepository collegeRepository,
+        IDepartmentRepository departmentRepository,
+        IAcademicProgramRepository academicProgramRepository)
     {
         _domainRepository = domainRepository;
         _curriculumRepository = curriculumRepository;
@@ -41,6 +49,10 @@ public class EducationFilterService : IEducationFilterService
         _lessonRepository = lessonRepository;
         _quranContentTypeRepository = quranContentTypeRepository;
         _quranLevelRepository = quranLevelRepository;
+        _universityRepository = universityRepository;
+        _collegeRepository = collegeRepository;
+        _departmentRepository = departmentRepository;
+        _academicProgramRepository = academicProgramRepository;
     }
 
     public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state, int pageNumber = 1, int pageSize = 20)
@@ -252,28 +264,67 @@ public class EducationFilterService : IEducationFilterService
     }
 
     /// <summary>
-    /// Standard domain flow: Curriculum → Level → Grade → Subject → Term → Unit → Lesson → Done
+    /// Standard domain flow:
+    /// School: Curriculum → Level → Grade → Subject → Term → Unit → Lesson → Done
+    /// University: University → College → Department → AcademicProgram → Level → Subject → [Term?] → Unit → Lesson → Done
     /// </summary>
     private async Task<FilterStepResult> DetermineStandardNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
         int domainId)
     {
-        // Step 1: Curriculum
+        // University institutional prefix
+        if (rule.HasUniversity && !state.UniversityId.HasValue)
+        {
+            var universities = await _universityRepository.GetUniversitiesAsOptionsAsync();
+            return new FilterStepResult { NextStep = "University", Options = universities };
+        }
+
+        if (rule.HasCollege && !state.CollegeId.HasValue)
+        {
+            if (!state.UniversityId.HasValue)
+                throw new InvalidOperationException("UniversityId is required before selecting College");
+
+            var colleges = await _collegeRepository.GetCollegesAsOptionsAsync(state.UniversityId.Value);
+            return new FilterStepResult { NextStep = "College", Options = colleges };
+        }
+
+        if (rule.HasDepartment && !state.DepartmentId.HasValue)
+        {
+            if (!state.CollegeId.HasValue)
+                throw new InvalidOperationException("CollegeId is required before selecting Department");
+
+            var departments = await _departmentRepository.GetDepartmentsAsOptionsAsync(state.CollegeId.Value);
+            return new FilterStepResult { NextStep = "Department", Options = departments };
+        }
+
+        if (rule.HasAcademicProgram && !state.AcademicProgramId.HasValue)
+        {
+            if (!state.DepartmentId.HasValue)
+                throw new InvalidOperationException("DepartmentId is required before selecting AcademicProgram");
+
+            var programs = await _academicProgramRepository.GetProgramsAsOptionsAsync(state.DepartmentId.Value);
+            return new FilterStepResult { NextStep = "AcademicProgram", Options = programs };
+        }
+
+        // Curriculum (school path)
         if (rule.HasCurriculum && !state.CurriculumId.HasValue)
         {
             var curricula = await _curriculumRepository.GetCurriculumsAsOptionsAsync(domainId);
             return new FilterStepResult { NextStep = "Curriculum", Options = curricula };
         }
 
-        // Step 2: EducationLevel
+        // EducationLevel
         if (rule.HasEducationLevel && !state.LevelId.HasValue)
         {
-            var levels = await _levelRepository.GetLevelsAsOptionsAsync(domainId, state.CurriculumId);
+            var levels = await _levelRepository.GetLevelsAsOptionsAsync(
+                domainId,
+                state.CurriculumId,
+                state.AcademicProgramId);
             return new FilterStepResult { NextStep = "Level", Options = levels };
         }
 
-        // Step 3: Grade
+        // Grade
         if (rule.HasGrade && !state.GradeId.HasValue)
         {
             if (!state.LevelId.HasValue)
@@ -283,7 +334,7 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Grade", Options = grades };
         }
 
-        // Step 4: Subject (MOVED UP - now before Term)
+        // Subject
         if (!state.SubjectId.HasValue)
         {
             var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
@@ -291,22 +342,39 @@ public class EducationFilterService : IEducationFilterService
                 state.CurriculumId,
                 state.LevelId,
                 state.GradeId,
-                termId: null); // Don't filter by term - subjects are year-long
+                termId: null,
+                academicProgramId: state.AcademicProgramId);
             return new FilterStepResult { NextStep = "Subject", Options = subjects };
         }
 
-        // Step 5: AcademicTerm (MOVED DOWN - now OPTIONAL after Subject)
-        // Note: This step is now OPTIONAL - user can skip directly to units to see all terms
-        if (rule.HasAcademicTerm && (state.TermIds == null || !state.TermIds.Any()))
+        // AcademicTerm (optional for university)
+        if (rule.HasAcademicTerm
+            && !state.SkipTerm
+            && (state.TermIds == null || !state.TermIds.Any()))
         {
-            if (!state.CurriculumId.HasValue)
-                throw new InvalidOperationException("CurriculumId is required before selecting Term");
-
-            var terms = await _termRepository.GetAcademicTermsAsOptionsAsync(state.CurriculumId.Value);
-            return new FilterStepResult { NextStep = "Term", Options = terms };
+            if (rule.AcademicTermOptional && rule.HasAcademicProgram)
+            {
+                // University: optional term under program
+                if (state.AcademicProgramId.HasValue)
+                {
+                    var programTerms = await _termRepository.GetAcademicTermsByProgramAsOptionsAsync(state.AcademicProgramId.Value);
+                    if (programTerms.Count > 0)
+                        return new FilterStepResult { NextStep = "Term", Options = programTerms };
+                    // No terms seeded — skip to units
+                }
+            }
+            else if (state.CurriculumId.HasValue)
+            {
+                var terms = await _termRepository.GetAcademicTermsAsOptionsAsync(state.CurriculumId.Value);
+                return new FilterStepResult { NextStep = "Term", Options = terms };
+            }
+            else if (!rule.AcademicTermOptional)
+            {
+                throw new InvalidOperationException("CurriculumId or AcademicProgramId is required before selecting Term");
+            }
         }
 
-        // Step 6: ContentUnits (when unit not yet selected)
+        // ContentUnits
         if (rule.HasContentUnits && !state.ContentUnitId.HasValue)
         {
             var units = await _contentUnitRepository.GetContentUnitsAsOptionsAsync(
@@ -328,7 +396,7 @@ public class EducationFilterService : IEducationFilterService
         if (state.ContentUnitId.HasValue)
             await ValidateContentUnitForSubjectAsync(state);
 
-        // Step 7: Lessons (optional — when domain supports lessons)
+        // Lessons
         if (rule.HasLessons
             && state.ContentUnitId.HasValue
             && !state.SkipLessons
@@ -338,7 +406,6 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Lesson", Options = lessons };
         }
 
-        // All done (unit selected and lessons skipped, picked, or not applicable)
         return new FilterStepResult { NextStep = "Done", Options = new List<FilterOptionDto>() };
     }
 
@@ -366,6 +433,11 @@ public class EducationFilterService : IEducationFilterService
             HasAcademicTerm = rule.HasAcademicTerm,
             HasContentUnits = rule.HasContentUnits,
             HasLessons = rule.HasLessons,
+            HasUniversity = rule.HasUniversity,
+            HasCollege = rule.HasCollege,
+            HasDepartment = rule.HasDepartment,
+            HasAcademicProgram = rule.HasAcademicProgram,
+            AcademicTermOptional = rule.AcademicTermOptional,
             RequiresQuranContentType = rule.RequiresQuranContentType,
             RequiresQuranLevel = rule.RequiresQuranLevel,
             RequiresUnitTypeSelection = rule.RequiresUnitTypeSelection,

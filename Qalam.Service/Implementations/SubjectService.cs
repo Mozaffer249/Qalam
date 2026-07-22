@@ -93,6 +93,8 @@ public class SubjectService : ISubjectService
         existing.LevelId = subject.LevelId;
         existing.GradeId = subject.GradeId;
         existing.TermId = subject.TermId;
+        existing.AcademicProgramId = subject.AcademicProgramId;
+        existing.UniversityId = subject.UniversityId;
         existing.IsActive = subject.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 

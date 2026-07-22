@@ -16,5 +16,7 @@ public class UpdateSubjectCommand : IRequest<Response<Subject>>
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
     public int? TermId { get; set; }
+    public int? AcademicProgramId { get; set; }
+    public int? UniversityId { get; set; }
     public bool IsActive { get; set; }
 }

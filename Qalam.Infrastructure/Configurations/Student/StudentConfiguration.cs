@@ -25,6 +25,7 @@ public class StudentConfiguration : IEntityTypeConfiguration<StudentEntity>
         builder.HasIndex(s => s.IsMinor);
         builder.HasIndex(s => s.IsActive);
         builder.HasIndex(s => new { s.DomainId, s.CurriculumId, s.LevelId, s.GradeId });
+        builder.HasIndex(s => new { s.UniversityId, s.CollegeId, s.DepartmentId, s.AcademicProgramId });
 
         // Properties
         builder.Property(s => s.UserId).IsRequired();
@@ -65,6 +66,26 @@ public class StudentConfiguration : IEntityTypeConfiguration<StudentEntity>
         builder.HasOne(s => s.Grade)
                .WithMany()
                .HasForeignKey(s => s.GradeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(s => s.University)
+               .WithMany()
+               .HasForeignKey(s => s.UniversityId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(s => s.College)
+               .WithMany()
+               .HasForeignKey(s => s.CollegeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(s => s.Department)
+               .WithMany()
+               .HasForeignKey(s => s.DepartmentId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(s => s.AcademicProgram)
+               .WithMany()
+               .HasForeignKey(s => s.AcademicProgramId)
                .OnDelete(DeleteBehavior.Restrict);
     }
 }
