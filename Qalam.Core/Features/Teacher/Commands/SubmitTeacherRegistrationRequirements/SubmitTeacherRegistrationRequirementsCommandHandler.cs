@@ -82,13 +82,20 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
 
         request.NationalityCode = nationalityCode;
 
-        var isSaudi = TeacherDocumentBusinessRules.IsSaudiNationality(nationalityCode);
-        // Issuing country for foreign IDs is the nationality; Saudi IDs must not send a country.
-        if (isSaudi)
+        if (!request.Location.HasValue
+            || (request.Location != TeacherLocation.InsideSaudiArabia
+                && request.Location != TeacherLocation.OutsideSaudiArabia))
+        {
+            return BadRequest<TeacherRegistrationSubmitResponseDto>("Residence location is required.");
+        }
+
+        var location = request.Location.Value;
+        var insideSaudi = TeacherDocumentBusinessRules.IsInsideSaudiArabia(location);
+
+        // Issuing country applies only to foreign (outside-SA) identity documents.
+        if (insideSaudi)
             request.IssuingCountryCode = null;
-        else if (string.IsNullOrWhiteSpace(request.IssuingCountryCode))
-            request.IssuingCountryCode = nationalityCode;
-        else
+        else if (!string.IsNullOrWhiteSpace(request.IssuingCountryCode))
             request.IssuingCountryCode = request.IssuingCountryCode.Trim().ToUpperInvariant();
 
         var activeRequirements = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
@@ -105,8 +112,8 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         {
             try
             {
-                TeacherDocumentBusinessRules.ValidateSaudiIdentityRules(
-                    nationalityCode, request.IdentityType, request.IssuingCountryCode, _authLocalizer);
+                TeacherDocumentBusinessRules.ValidateIdentityLocationRules(
+                    location, request.IdentityType, request.IssuingCountryCode, _authLocalizer);
 
                 await TeacherDocumentBusinessRules.ValidateIdentityUnique(
                     _documentRepository, request.IdentityType, request.DocumentNumber,
@@ -128,7 +135,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
             }
 
             await _submitService.SubmitAsync(teacher, MapToInput(request), activeRequirements, cancellationToken);
-            await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, isSaudi);
+            await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, location);
 
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
             return Success(
@@ -152,6 +159,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         {
             NationalityCode = request.NationalityCode,
             Bio = request.Bio,
+            Location = request.Location!.Value,
             IdentityType = request.IdentityType,
             DocumentNumber = request.DocumentNumber,
             IssuingCountryCode = request.IssuingCountryCode,

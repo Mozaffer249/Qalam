@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Service.Abstracts;
 
@@ -18,7 +19,7 @@ public interface ITeacherRegistrationService
 
     Task CompleteDocumentUploadAsync(
         int teacherId,
-        bool isInSaudiArabia);
+        TeacherLocation location);
 
     /// <summary>
     /// Ensures the identity user has the Teacher role so teacher JWT endpoints authorize correctly.

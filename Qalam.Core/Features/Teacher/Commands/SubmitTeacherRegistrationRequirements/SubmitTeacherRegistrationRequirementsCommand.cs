@@ -17,10 +17,14 @@ public class SubmitTeacherRegistrationRequirementsCommand : IRequest<Response<Te
     public string? NationalityCode { get; set; }
     public string? Bio { get; set; }
 
+    /// <summary>Residence location (بلد الإقامة). Required — drives identity rules and Teacher.Location.</summary>
+    public TeacherLocation? Location { get; set; }
+
     public IdentityType IdentityType { get; set; }
     public string DocumentNumber { get; set; } = null!;
     /// <summary>
-    /// Optional on the wire — when omitted for foreign IDs, the handler sets this to <see cref="NationalityCode"/>.
+    /// Required for foreign identity types when residence is outside Saudi Arabia.
+    /// Must be null for NationalId / Iqama.
     /// </summary>
     public string? IssuingCountryCode { get; set; }
     public IFormFile? IdentityDocumentFile { get; set; }

@@ -13,6 +13,7 @@ public class TeacherRegistrationSubmissionInput
 {
     public string? NationalityCode { get; set; }
     public string? Bio { get; set; }
+    public TeacherLocation Location { get; set; }
     public IdentityType IdentityType { get; set; }
     public string DocumentNumber { get; set; } = null!;
     public string? IssuingCountryCode { get; set; }

@@ -17,6 +17,7 @@ using Qalam.Api.Helpers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Common;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using System.Net;
@@ -147,9 +148,10 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// Requires **Teacher** JWT. Content-Type: `multipart/form-data`.
         ///
         /// **Standard fields** (when corresponding requirement is active):
-        /// - `nationalityCode` — ISO2 nationality (drives identity-type options and Teacher.Location)
+        /// - `location` — residence: InsideSaudiArabia | OutsideSaudiArabia (drives identity types + Teacher.Location)
+        /// - `nationalityCode` — ISO2 nationality (profile data only)
         /// - `bio` — text requirement `bio`
-        /// - `identityType`, `documentNumber`, `identityDocumentFile` — `identity_document`
+        /// - `identityType`, `documentNumber`, `issuingCountryCode`, `identityDocumentFile` — `identity_document`
         /// - `certificates[i].file`, title, issuer, dates — `certificate` (min/max count enforced)
         ///
         /// **Custom file requirements:** form field `file_{code}` (e.g. `file_custom_cv`).
@@ -274,14 +276,20 @@ namespace Qalam.Api.Controllers.Authentication.Core
         #region Enum Helpers
 
         /// <summary>
-        /// Get available identity types (optionally filtered by nationality)
+        /// Get available identity types filtered by residence location (بلد الإقامة).
         /// </summary>
-        /// <param name="nationalityCode">ISO2 nationality: SA → National ID/Iqama; other → Passport/License/Government ID; null → all</param>
+        /// <param name="location">
+        /// InsideSaudiArabia → National ID / Iqama; OutsideSaudiArabia → Passport / License / Government ID;
+        /// omit for all types.
+        /// </param>
+        /// <param name="nationalityCode">Deprecated; ignored. Kept for older clients.</param>
         /// <returns>List of identity types with translations</returns>
         [HttpGet(Router.GetIdentityTypes)]
-        public IActionResult GetIdentityTypes([FromQuery] string? nationalityCode = null)
+        public IActionResult GetIdentityTypes(
+            [FromQuery] TeacherLocation? location = null,
+            [FromQuery] string? nationalityCode = null)
         {
-            var identityTypes = _enumService.GetIdentityTypes(nationalityCode);
+            var identityTypes = _enumService.GetIdentityTypes(location, nationalityCode);
             return Ok(new Response<List<EnumItemDto>>
             {
                 Data = identityTypes,

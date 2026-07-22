@@ -16,28 +16,30 @@ public static class TeacherDocumentBusinessRules
     public static bool IsSaudiNationality(string? nationalityCode) =>
         string.Equals(nationalityCode?.Trim(), SaudiArabiaCode, StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsInsideSaudiArabia(TeacherLocation location) =>
+        location == TeacherLocation.InsideSaudiArabia;
+
     /// <summary>
-    /// Validates identity rules based on nationality (SA vs non-SA).
-    /// For foreign IDs, <paramref name="countryCode"/> should equal the nationality code.
+    /// Validates identity document type against residence location (بلد الإقامة).
+    /// Nationality is not used — it is profile data only.
     /// </summary>
-    public static void ValidateSaudiIdentityRules(
-        string? nationalityCode,
+    public static void ValidateIdentityLocationRules(
+        TeacherLocation location,
         IdentityType type,
         string? countryCode,
         IStringLocalizer<AuthenticationResources> localizer)
     {
-        var isSaudi = IsSaudiNationality(nationalityCode);
+        var inside = IsInsideSaudiArabia(location);
 
-        if (isSaudi &&
-            (type == IdentityType.Passport
-             || type == IdentityType.DrivingLicense
-             || type == IdentityType.GovernmentId))
+        if (inside
+            && type != IdentityType.NationalId
+            && type != IdentityType.Iqama)
         {
             throw new ValidationException(
                 localizer[AuthenticationResourcesKeys.PassportNotAllowedInsideSaudi]);
         }
 
-        if (!isSaudi
+        if (!inside
             && type != IdentityType.Passport
             && type != IdentityType.DrivingLicense
             && type != IdentityType.GovernmentId)
@@ -61,6 +63,22 @@ public static class TeacherDocumentBusinessRules
             throw new ValidationException(
                 localizer[AuthenticationResourcesKeys.IssuingCountryShouldNotBeProvided]);
         }
+    }
+
+    /// <summary>
+    /// Deprecated: use <see cref="ValidateIdentityLocationRules"/>. Kept for any remaining call sites.
+    /// </summary>
+    [Obsolete("Use ValidateIdentityLocationRules — identity rules follow residence, not nationality.")]
+    public static void ValidateSaudiIdentityRules(
+        string? nationalityCode,
+        IdentityType type,
+        string? countryCode,
+        IStringLocalizer<AuthenticationResources> localizer)
+    {
+        var location = IsSaudiNationality(nationalityCode)
+            ? TeacherLocation.InsideSaudiArabia
+            : TeacherLocation.OutsideSaudiArabia;
+        ValidateIdentityLocationRules(location, type, countryCode, localizer);
     }
 
     /// <summary>

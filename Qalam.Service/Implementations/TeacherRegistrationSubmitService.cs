@@ -105,13 +105,8 @@ public class TeacherRegistrationSubmitService : ITeacherRegistrationSubmitServic
                 }
             }
 
-            // Derive Teacher.Location from nationality (SA → Inside, else Outside).
-            if (!string.IsNullOrWhiteSpace(input.NationalityCode))
-            {
-                teacher.Location = string.Equals(input.NationalityCode.Trim(), "SA", StringComparison.OrdinalIgnoreCase)
-                    ? TeacherLocation.InsideSaudiArabia
-                    : TeacherLocation.OutsideSaudiArabia;
-            }
+            // Persist explicit residence (بلد الإقامة); nationality is profile data only.
+            teacher.Location = input.Location;
 
             await _teacherRepository.UpdateAsync(teacher);
             await _teacherRepository.SaveChangesAsync();

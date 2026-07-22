@@ -234,7 +234,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
     public async Task CompleteDocumentUploadAsync(
         int teacherId,
-        bool isInSaudiArabia)
+        TeacherLocation location)
     {
         var teacher = await _teacherRepository.GetByIdAsync(teacherId);
         var previousStatus = teacher?.Status ?? TeacherStatus.AwaitingDocuments;
@@ -243,11 +243,6 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         await _teacherRepository.UpdateStatusAsync(
             teacherId,
             TeacherStatus.PendingVerification);
-
-        // Update teacher location
-        var location = isInSaudiArabia
-            ? TeacherLocation.InsideSaudiArabia
-            : TeacherLocation.OutsideSaudiArabia;
 
         await _teacherRepository.UpdateLocationAsync(teacherId, location);
 

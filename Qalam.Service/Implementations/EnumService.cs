@@ -15,19 +15,23 @@ public class EnumService : IEnumService
         _localizer = localizer;
     }
 
-    public List<EnumItemDto> GetIdentityTypes(string? nationalityCode = null)
+    public List<EnumItemDto> GetIdentityTypes(TeacherLocation? location = null, string? nationalityCode = null)
     {
+        // nationalityCode is deprecated — identity options follow residence location only.
+        _ = nationalityCode;
+
         var allTypes = Enum.GetValues<IdentityType>();
 
-        var isSaudi = string.Equals(nationalityCode?.Trim(), "SA", StringComparison.OrdinalIgnoreCase);
-
-        var filteredTypes = !string.IsNullOrWhiteSpace(nationalityCode)
-            ? allTypes.Where(t => isSaudi
-                ? (t == IdentityType.NationalId || t == IdentityType.Iqama)
-                : t == IdentityType.Passport
-                    || t == IdentityType.DrivingLicense
-                    || t == IdentityType.GovernmentId)
-            : allTypes;
+        IEnumerable<IdentityType> filteredTypes = location switch
+        {
+            TeacherLocation.InsideSaudiArabia => allTypes.Where(t =>
+                t == IdentityType.NationalId || t == IdentityType.Iqama),
+            TeacherLocation.OutsideSaudiArabia => allTypes.Where(t =>
+                t == IdentityType.Passport
+                || t == IdentityType.DrivingLicense
+                || t == IdentityType.GovernmentId),
+            _ => allTypes
+        };
 
         return filteredTypes.Select(type => new EnumItemDto
         {
