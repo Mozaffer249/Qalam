@@ -103,60 +103,17 @@ public class EducationController : AppControllerBase
     /// Education filter wizard — next step and options from cumulative query selections.
     /// </summary>
     /// <remarks>
-    /// Stateless: send all IDs chosen so far on every call. After **Grade** → **Subject** → **Term** → **Unit** → optional **Lesson** → **Done**.
+    /// Stateless: send all IDs chosen so far on every call.
+    /// School: Curriculum → Level → Grade → Subject → Term → Unit → optional Lesson → Done.
+    /// University: University → College → Department → AcademicProgram → Level → Subject → [Term?] → Unit → Lesson → Done.
+    /// Bind via <see cref="GetFilterOptionsQuery"/> query string (DomainId, CurriculumId, UniversityId, CollegeId, DepartmentId, AcademicProgramId, SkipTerm, etc.).
     /// See OpenAPI description on this operation and `Qalam.Data/AppMetaData/docs/Education_Business_Logic.md`.
     /// </remarks>
-    /// <param name="domainId">Required. Education domain ID — start here (`GET /Education/Domains`).</param>
-    /// <param name="curriculumId">Wizard step 2 — after `nextStep` was `Curriculum`.</param>
-    /// <param name="levelId">Wizard step 3 — after `nextStep` was `Level`.</param>
-    /// <param name="gradeId">Wizard step 4 — after `nextStep` was `Grade`. Next step is Subject.</param>
-    /// <param name="subjectId">Wizard step 5 — after `nextStep` was `Subject`. Send before termIds.</param>
-    /// <param name="termIds">Wizard step 6 — after `nextStep` was `Term`. Repeat param for multi-select (`termIds=1&amp;termIds=2`).</param>
-    /// <param name="contentUnitId">Wizard step 7 — after picking from `data.unit[]` when `nextStep` was `Unit`.</param>
-    /// <param name="lessonIds">Wizard step 8 — optional lesson multi-select after `Unit`. Repeat param.</param>
-    /// <param name="skipLessons">When true with contentUnitId, skip Lesson step and return Done.</param>
-    /// <param name="quranContentTypeId">Quran domain only (echo / client state).</param>
-    /// <param name="quranLevelId">Quran domain only (echo / client state).</param>
-    /// <param name="unitTypeCode">Quran domain: `QuranPart` (default) or `QuranSurah`.</param>
-    /// <param name="pageNumber">Pagination when `nextStep` is `Unit` (Quran).</param>
-    /// <param name="pageSize">Pagination when `nextStep` is `Unit` (Quran).</param>
+    /// <param name="query">Cumulative filter state from the query string.</param>
     [HttpGet(Router.Education + "/filter-options")]
     [ProducesResponseType(typeof(Qalam.Data.DTOs.FilterOptionsResponseDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFilterOptions(
-        [FromQuery] int domainId,
-        [FromQuery] int? curriculumId,
-        [FromQuery] int? levelId,
-        [FromQuery] int? gradeId,
-        [FromQuery] int? subjectId,
-        [FromQuery] List<int>? termIds,
-        [FromQuery] int? contentUnitId,
-        [FromQuery] List<int>? lessonIds,
-        [FromQuery] int? quranContentTypeId,
-        [FromQuery] int? quranLevelId,
-        [FromQuery] string? unitTypeCode,
-        [FromQuery] bool skipLessons = false,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
-    {
-        var query = new GetFilterOptionsQuery
-        {
-            DomainId = domainId,
-            CurriculumId = curriculumId,
-            LevelId = levelId,
-            GradeId = gradeId,
-            SubjectId = subjectId,
-            TermIds = termIds,
-            ContentUnitId = contentUnitId,
-            LessonIds = lessonIds,
-            SkipLessons = skipLessons,
-            QuranContentTypeId = quranContentTypeId,
-            QuranLevelId = quranLevelId,
-            UnitTypeCode = unitTypeCode,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
-        return NewResult(await Mediator.Send(query));
-    }
+    public async Task<IActionResult> GetFilterOptions([FromQuery] GetFilterOptionsQuery query)
+        => NewResult(await Mediator.Send(query));
 
     #endregion
 

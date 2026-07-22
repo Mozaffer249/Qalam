@@ -139,24 +139,21 @@ public static class UniversityCatalogSeeder
                             });
                         await context.SaveChangesAsync();
 
-                        // Subjects attached to program + first level by default
-                        var subjectIndex = 0;
+                        // Subjects attached to program + first level (year) by default
                         foreach (var sub in prog.Subjects)
                         {
-                            var levelId = levelIds[Math.Min(subjectIndex, levelIds.Count - 1)];
                             context.Subjects.Add(new Subject
                             {
                                 DomainId = universityDomain.Id,
                                 UniversityId = university.Id,
                                 AcademicProgramId = program.Id,
-                                LevelId = levelId,
+                                LevelId = levelIds[0],
                                 Code = sub.Code,
                                 NameAr = sub.NameAr,
                                 NameEn = sub.NameEn,
                                 IsActive = true,
                                 CreatedAt = now,
                             });
-                            subjectIndex++;
                         }
                         await context.SaveChangesAsync();
                     }

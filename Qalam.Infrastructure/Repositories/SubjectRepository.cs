@@ -156,20 +156,26 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .AsNoTracking()
             .Where(s => s.DomainId == domainId && s.IsActive);
 
-        if (curriculumId.HasValue)
-            query = query.Where(s => s.CurriculumId == curriculumId);
-
-        if (levelId.HasValue)
-            query = query.Where(s => s.LevelId == levelId);
-
-        if (gradeId.HasValue)
-            query = query.Where(s => s.GradeId == gradeId);
-
-        if (termId.HasValue)
-            query = query.Where(s => s.TermId == termId);
-
+        // University path: subjects are owned by the program. Do not also require LevelId —
+        // seed/data may attach subjects to a single year while the wizard still picks Level.
         if (academicProgramId.HasValue)
+        {
             query = query.Where(s => s.AcademicProgramId == academicProgramId);
+        }
+        else
+        {
+            if (curriculumId.HasValue)
+                query = query.Where(s => s.CurriculumId == curriculumId);
+
+            if (levelId.HasValue)
+                query = query.Where(s => s.LevelId == levelId);
+
+            if (gradeId.HasValue)
+                query = query.Where(s => s.GradeId == gradeId);
+
+            if (termId.HasValue)
+                query = query.Where(s => s.TermId == termId);
+        }
 
         return await query
             .OrderBy(s => s.NameEn)

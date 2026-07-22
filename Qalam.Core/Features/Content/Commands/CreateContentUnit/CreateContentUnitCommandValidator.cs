@@ -50,12 +50,8 @@ public class CreateContentUnitCommandValidator : AbstractValidator<CreateContent
             .WithMessage("Quran Part ID should not be set for non-QuranPart unit types")
             .When(x => x.UnitTypeCode != "QuranPart");
 
-        // TermId validation - required for SchoolUnit, should be null for Quran units
-        RuleFor(x => x.TermId)
-            .NotNull()
-            .WithMessage("Term ID is required for SchoolUnit type")
-            .When(x => x.UnitTypeCode == "SchoolUnit");
-
+        // TermId validation — optional for SchoolUnit (university may skip term);
+        // if provided must be > 0. Quran units must not have TermId.
         RuleFor(x => x.TermId)
             .GreaterThan(0)
             .WithMessage("Term ID must be greater than 0")

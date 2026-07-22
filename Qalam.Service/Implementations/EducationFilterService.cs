@@ -337,6 +337,15 @@ public class EducationFilterService : IEducationFilterService
         // Subject
         if (!state.SubjectId.HasValue)
         {
+            // University: recover AcademicProgramId from Level when the client omitted it
+            // (otherwise subject options filter only by LevelId and often return empty).
+            if (!state.AcademicProgramId.HasValue && state.LevelId.HasValue && rule.HasAcademicProgram)
+            {
+                var level = await _levelRepository.GetByIdAsync(state.LevelId.Value);
+                if (level?.AcademicProgramId is int programId)
+                    state.AcademicProgramId = programId;
+            }
+
             var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
                 domainId,
                 state.CurriculumId,
@@ -354,13 +363,11 @@ public class EducationFilterService : IEducationFilterService
         {
             if (rule.AcademicTermOptional && rule.HasAcademicProgram)
             {
-                // University: optional term under program
+                // University: always surface Term so admin can select or Add (even if empty).
                 if (state.AcademicProgramId.HasValue)
                 {
                     var programTerms = await _termRepository.GetAcademicTermsByProgramAsOptionsAsync(state.AcademicProgramId.Value);
-                    if (programTerms.Count > 0)
-                        return new FilterStepResult { NextStep = "Term", Options = programTerms };
-                    // No terms seeded — skip to units
+                    return new FilterStepResult { NextStep = "Term", Options = programTerms };
                 }
             }
             else if (state.CurriculumId.HasValue)
