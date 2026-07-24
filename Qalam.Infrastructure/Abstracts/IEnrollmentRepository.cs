@@ -21,4 +21,16 @@ public interface IEnrollmentRepository : IGenericRepositoryAsync<Enrollment>
     /// No-tracking load with all participants for detail / list views.
     /// </summary>
     Task<Enrollment?> GetByIdWithParticipantsAsync(int id, CancellationToken ct);
+
+    IQueryable<Enrollment> GetTeacherListQueryable(int teacherId);
+
+    IQueryable<Enrollment> GetCourseListQueryable(int courseId);
+
+    Task<Enrollment?> GetByIdForTeacherDetailAsync(int id, CancellationToken ct);
+
+    Task<Enrollment?> GetByIdWithCourseAsync(int id, CancellationToken ct);
+
+    Task<string?> GetSucceededInvoiceNumberAsync(int enrollmentId, CancellationToken ct);
+
+    Task<string?> GetSucceededPaymentProviderAsync(int enrollmentId, CancellationToken ct);
 }

@@ -41,7 +41,11 @@ public class TeacherMySessionDetailDto : TeacherMySessionListItemDto
     public List<TeacherSessionStudentDto> Students { get; set; } = new();
     public List<TeacherSessionContentLinkDto> ContentLinks { get; set; } = new();
     public List<TeacherSessionHomeworkDto> Homework { get; set; } = new();
+    public List<SessionReviewDto> Feedback { get; set; } = new();
     public DateTime? EndedAt { get; set; }
+    public bool CanJoin { get; set; }
+    public string TeacherAttendance { get; set; } = "Pending";
+    public DateTime? TeacherJoinedAt { get; set; }
 }
 
 public class TeacherSessionStudentDto
@@ -50,6 +54,9 @@ public class TeacherSessionStudentDto
     public string StudentName { get; set; } = null!;
     public string? StudentAvatarUrl { get; set; }
     public string Attendance { get; set; } = "Pending";
+    public DateTime? JoinedAt { get; set; }
+    public decimal? Rating { get; set; }
+    public string? Note { get; set; }
 }
 
 public class TeacherFinanceSummaryDto

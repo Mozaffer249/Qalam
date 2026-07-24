@@ -1,8 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Teacher.Sessions.Commands.CancelMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.CompleteMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.JoinMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.RescheduleMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionAttendance;
+using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionTeacherNote;
+using Qalam.Core.Features.Teacher.Sessions.Commands.StartMySession;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessionById;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessions;
+using Qalam.Core.Features.Teacher.Sessions.Queries.GetSessionReviews;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
@@ -25,6 +33,59 @@ public class TeacherMySessionsController : AppControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(int id)
         => NewResult(await Mediator.Send(new GetMySessionByIdQuery { Id = id }));
+
+    [HttpPost("{id:int}/Join")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Join(int id)
+        => NewResult(await Mediator.Send(new JoinMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/Start")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Start(int id)
+        => NewResult(await Mediator.Send(new StartMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/Complete")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Complete(int id)
+        => NewResult(await Mediator.Send(new CompleteMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/Cancel")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Cancel(int id)
+        => NewResult(await Mediator.Send(new CancelMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/Reschedule")]
+    [ProducesResponseType(typeof(RescheduleMySessionResultDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Reschedule(int id, [FromBody] RescheduleMySessionRequestDto body)
+        => NewResult(await Mediator.Send(new RescheduleMySessionCommand
+        {
+            Id = id,
+            NewDate = body.NewDate,
+            TeacherAvailabilityId = body.TeacherAvailabilityId,
+        }));
+
+    [HttpPost("{id:int}/Attendance")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SetAttendance(int id, [FromBody] SetSessionAttendanceRequestDto body)
+        => NewResult(await Mediator.Send(new SetSessionAttendanceCommand
+        {
+            Id = id,
+            Items = body.Items ?? new(),
+        }));
+
+    [HttpPut("{id:int}/Notes")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SetNotes(int id, [FromBody] SetSessionTeacherNoteRequestDto body)
+        => NewResult(await Mediator.Send(new SetSessionTeacherNoteCommand
+        {
+            Id = id,
+            Note = body.Note ?? string.Empty,
+        }));
+
+    [HttpGet("{id:int}/Reviews")]
+    [ProducesResponseType(typeof(List<SessionReviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetReviews(int id)
+        => NewResult(await Mediator.Send(new GetSessionReviewsQuery { Id = id }));
 
     [HttpGet("{id:int}/Homework")]
     [ProducesResponseType(typeof(List<TeacherSessionHomeworkDto>), StatusCodes.Status200OK)]

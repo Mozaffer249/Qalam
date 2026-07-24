@@ -823,17 +823,33 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("EnrollmentId")
                         .HasColumnType("int");
 
                     b.Property<int?>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherAttendanceStatus")
                         .HasColumnType("int");
 
                     b.Property<int>("TeacherAvailabilityId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("TeacherJoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TeacherNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<int>("TeachingModeId")
                         .HasColumnType("int");
@@ -1000,6 +1016,12 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("ApprovedByTeacherId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CourseId")
                         .HasColumnType("int");
 
@@ -1057,6 +1079,8 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasIndex("ApprovedByTeacherId");
 
+                    b.HasIndex("CancelledByUserId");
+
                     b.HasIndex("CourseId");
 
                     b.HasIndex("EnrollmentRequestId");
@@ -1078,6 +1102,104 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("Source", "EnrollmentStatus");
 
                     b.ToTable("Enrollments", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("StudentLastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StudentUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TeacherLastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentId")
+                        .IsUnique();
+
+                    b.HasIndex("LastMessageAt");
+
+                    b.HasIndex("StudentUserId");
+
+                    b.HasIndex("TeacherId");
+
+                    b.ToTable("EnrollmentConversations", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversationMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EnrollmentConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MessageType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SenderUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.HasIndex("EnrollmentConversationId", "SentAt");
+
+                    b.ToTable("EnrollmentConversationMessages", "course");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentParticipant", b =>
@@ -1208,6 +1330,61 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("LessonId");
 
                     b.ToTable("EnrollmentSelectedSessionSlotUnits", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionAttendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsAutoResolved")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal?>("Rating")
+                        .HasPrecision(3, 1)
+                        .HasColumnType("decimal(3,1)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("CourseScheduleId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("SessionAttendances", "course");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
@@ -4770,11 +4947,15 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("StudentId");
+                    b.HasIndex("SessionId");
 
                     b.HasIndex("TeacherId");
 
-                    b.ToTable("TeacherReviews");
+                    b.HasIndex("StudentId", "SessionId")
+                        .IsUnique()
+                        .HasFilter("[SessionId] IS NOT NULL");
+
+                    b.ToTable("TeacherReviews", (string)null);
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherSubject", b =>
@@ -5460,6 +5641,11 @@ namespace Qalam.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "CancelledByUser")
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Course.Course", "Course")
                         .WithMany("Enrollments")
                         .HasForeignKey("CourseId")
@@ -5497,6 +5683,8 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.Navigation("ApprovedByTeacher");
 
+                    b.Navigation("CancelledByUser");
+
                     b.Navigation("Course");
 
                     b.Navigation("EnrollmentRequest");
@@ -5510,6 +5698,51 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("OwnerUser");
 
                     b.Navigation("PaidByUser");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversation", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "StudentUser")
+                        .WithMany()
+                        .HasForeignKey("StudentUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
+
+                    b.Navigation("StudentUser");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversationMessage", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.EnrollmentConversation", "EnrollmentConversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("EnrollmentConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("EnrollmentConversation");
+
+                    b.Navigation("SenderUser");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentParticipant", b =>
@@ -5573,6 +5806,25 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Lesson");
 
                     b.Navigation("SessionSlot");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionAttendance", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany("Attendances")
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Student.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseSchedule");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
@@ -6668,7 +6920,7 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasOne("Qalam.Data.Entity.Student.Student", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
@@ -6803,6 +7055,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Units");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Course.CourseSchedule", b =>
+                {
+                    b.Navigation("Attendances");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Course.CourseSession", b =>
                 {
                     b.Navigation("ContentLinks");
@@ -6817,6 +7074,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Participants");
 
                     b.Navigation("SelectedSessionSlots");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentParticipant", b =>

@@ -21,6 +21,7 @@ public class CourseScheduleConfiguration : IEntityTypeConfiguration<CourseSchedu
         // Properties
         builder.Property(e => e.Date).HasColumnType("date");
         builder.Property(e => e.DurationMinutes).IsRequired();
+        builder.Property(e => e.TeacherNote).HasMaxLength(2000);
 
         // Relationships
         builder.HasOne(e => e.Enrollment)

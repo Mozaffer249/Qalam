@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Helpers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -25,32 +26,23 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         var nowUtc = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(nowUtc);
         var currentTime = nowUtc.TimeOfDay;
+        var filterKey = filter.ToLowerInvariant();
+        var take = Math.Clamp(pageSize, 1, 50);
 
-        var query = _context.ScheduledSessions
+        var openQuery = _context.ScheduledSessions
             .AsNoTracking()
             .Where(ss => ss.Session.TeacherId == teacherId);
 
-        query = filter.ToLowerInvariant() switch
+        openQuery = filterKey switch
         {
-            "past" => query.Where(ss =>
+            "past" => openQuery.Where(ss =>
                 ss.Date < today || (ss.Date == today && ss.TimeSlot.StartTime < currentTime)),
-            "all" => query,
-            _ => query.Where(ss =>
+            "all" => openQuery,
+            _ => openQuery.Where(ss =>
                 ss.Date > today || (ss.Date == today && ss.TimeSlot.StartTime >= currentTime)),
         };
 
-        query = filter.ToLowerInvariant() switch
-        {
-            "past" or "all" => query
-                .OrderByDescending(ss => ss.Date)
-                .ThenByDescending(ss => ss.TimeSlot.StartTime),
-            _ => query
-                .OrderBy(ss => ss.Date)
-                .ThenBy(ss => ss.TimeSlot.StartTime),
-        };
-
-        var rows = await query
-            .Take(Math.Clamp(pageSize, 1, 50))
+        var openRows = await openQuery
             .Select(ss => new SessionRowProjection
             {
                 Id = ss.Id,
@@ -69,11 +61,58 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                     : (int)(ss.TimeSlot.EndTime - ss.TimeSlot.StartTime).TotalMinutes,
                 TeachingModeOnline = ss.TeachingMode.Code == "online",
                 SessionTypeGroup = ss.Session.SessionRequest.SessionType.Code == "group",
+                StudentsCount = 1,
                 Status = ss.Status,
             })
             .ToListAsync(cancellationToken);
 
-        return rows.Select(MapSessionRow).ToList();
+        var courseQuery = _context.CourseSchedules
+            .AsNoTracking()
+            .Where(cs =>
+                cs.Enrollment.ApprovedByTeacherId == teacherId
+                || (cs.Enrollment.Course != null && cs.Enrollment.Course.TeacherId == teacherId));
+
+        courseQuery = filterKey switch
+        {
+            "past" => courseQuery.Where(cs =>
+                cs.Date < today
+                || (cs.Date == today && cs.TeacherAvailability.TimeSlot.StartTime < currentTime)
+                || cs.Status == ScheduleStatus.Completed
+                || cs.Status == ScheduleStatus.Cancelled
+                || cs.Status == ScheduleStatus.Rescheduled),
+            "all" => courseQuery,
+            _ => courseQuery.Where(cs =>
+                (cs.Status == ScheduleStatus.Scheduled || cs.Status == ScheduleStatus.InProgress)
+                && (cs.Date > today
+                    || (cs.Date == today && cs.TeacherAvailability.TimeSlot.StartTime >= currentTime))),
+        };
+
+        var courseRows = await courseQuery
+            .Select(cs => new SessionRowProjection
+            {
+                Id = cs.Id,
+                CourseTitle = cs.Enrollment.Course != null ? cs.Enrollment.Course.Title : "Course session",
+                SourceLabel = "Course enrollment #" + cs.EnrollmentId,
+                SessionNumber = cs.CourseSession != null ? cs.CourseSession.SessionNumber : cs.Id,
+                SessionTitle = cs.CourseSession != null && cs.CourseSession.Title != null
+                    ? cs.CourseSession.Title
+                    : (cs.Enrollment.Course != null ? cs.Enrollment.Course.Title : "Session"),
+                Date = cs.Date,
+                StartTime = cs.TeacherAvailability.TimeSlot.StartTime,
+                DurationMinutes = cs.DurationMinutes,
+                TeachingModeOnline = cs.TeachingMode.Code == "online",
+                SessionTypeGroup = cs.Enrollment.Participants.Count > 1,
+                StudentsCount = cs.Enrollment.Participants.Count,
+                Status = cs.Status,
+            })
+            .ToListAsync(cancellationToken);
+
+        IEnumerable<SessionRowProjection> merged = openRows.Concat(courseRows);
+        merged = filterKey is "past" or "all"
+            ? merged.OrderByDescending(r => r.Date).ThenByDescending(r => r.StartTime)
+            : merged.OrderBy(r => r.Date).ThenBy(r => r.StartTime);
+
+        return merged.Take(take).Select(MapSessionRow).ToList();
     }
 
     public async Task<TeacherMySessionDetailDto?> GetMySessionByIdAsync(
@@ -108,7 +147,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
 
         if (row == null)
         {
-            var courseRow = await _context.CourseSchedules
+            var courseDetail = await _context.CourseSchedules
                 .AsNoTracking()
                 .Where(cs => cs.Id == scheduledSessionId &&
                     (cs.Enrollment.ApprovedByTeacherId == teacherId ||
@@ -122,42 +161,80 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                     cs.DurationMinutes,
                     TeachingModeOnline = cs.TeachingMode.Code == "online",
                     Status = cs.Status,
+                    cs.TeacherNote,
+                    cs.EndedAt,
+                    Participants = cs.Enrollment.Participants.Select(p => new
+                    {
+                        p.StudentId,
+                        StudentName = ((p.Student.User!.FirstName ?? "") + " " + (p.Student.User.LastName ?? "")).Trim(),
+                        AttendanceStatus = cs.Attendances
+                            .Where(a => a.StudentId == p.StudentId)
+                            .Select(a => (SessionAttendanceStatus?)a.Status)
+                            .FirstOrDefault(),
+                        JoinedAt = cs.Attendances
+                            .Where(a => a.StudentId == p.StudentId)
+                            .Select(a => a.JoinedAt)
+                            .FirstOrDefault(),
+                        Rating = cs.Attendances
+                            .Where(a => a.StudentId == p.StudentId)
+                            .Select(a => a.Rating)
+                            .FirstOrDefault(),
+                        Note = cs.Attendances
+                            .Where(a => a.StudentId == p.StudentId)
+                            .Select(a => a.Note)
+                            .FirstOrDefault(),
+                    }).ToList(),
+                    cs.TeacherAttendanceStatus,
+                    cs.TeacherJoinedAt,
+                    EnrollmentStatus = cs.Enrollment.EnrollmentStatus,
+                    EndTime = cs.TeacherAvailability.TimeSlot.EndTime,
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (courseRow == null)
+            if (courseDetail == null)
                 return null;
 
-            var participants = await _context.CourseSchedules
-                .AsNoTracking()
-                .Where(cs => cs.Id == scheduledSessionId)
-                .SelectMany(cs => cs.Enrollment.Participants)
+            var participants = courseDetail.Participants
                 .Select(p => new TeacherSessionStudentDto
                 {
                     StudentId = p.StudentId,
-                    StudentName = ((p.Student.User!.FirstName ?? "") + " " + (p.Student.User.LastName ?? "")).Trim(),
-                    Attendance = "Pending",
+                    StudentName = p.StudentName,
+                    Attendance = p.AttendanceStatus?.ToString() ?? "Pending",
+                    JoinedAt = p.JoinedAt,
+                    Rating = p.Rating,
+                    Note = p.Note,
                 })
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             var studentsCount = participants.Count > 0 ? participants.Count : 1;
+            var startsAt = courseDetail.Date.ToDateTime(TimeOnly.FromTimeSpan(courseDetail.StartTime), DateTimeKind.Utc);
+            var canJoin = SessionJoinRules.CanJoinUtc(
+                courseDetail.EnrollmentStatus,
+                courseDetail.Status,
+                courseDetail.Date,
+                courseDetail.StartTime,
+                courseDetail.EndTime,
+                DateTime.UtcNow);
 
             return new TeacherMySessionDetailDto
             {
-                Id = courseRow.Id,
-                CourseTitle = courseRow.CourseTitle,
+                Id = courseDetail.Id,
+                CourseTitle = courseDetail.CourseTitle,
                 SourceLabel = "Course enrollment",
                 SessionNumber = 1,
-                SessionTitle = courseRow.CourseTitle,
-                StartsAt = courseRow.Date.ToDateTime(TimeOnly.FromTimeSpan(courseRow.StartTime), DateTimeKind.Utc),
-                DurationMinutes = courseRow.DurationMinutes,
-                TeachingMode = courseRow.TeachingModeOnline ? "Online" : "InPerson",
+                SessionTitle = courseDetail.CourseTitle,
+                StartsAt = startsAt,
+                DurationMinutes = courseDetail.DurationMinutes,
+                TeachingMode = courseDetail.TeachingModeOnline ? "Online" : "InPerson",
                 SessionType = studentsCount > 1 ? "Group" : "Individual",
                 StudentsCount = studentsCount,
-                Status = courseRow.Status == ScheduleStatus.Completed ? "Completed"
-                    : courseRow.Status == ScheduleStatus.Cancelled ? "Cancelled"
-                    : "Scheduled",
+                Status = MapScheduleStatus(courseDetail.Status),
+                Notes = courseDetail.TeacherNote,
+                EndedAt = courseDetail.EndedAt,
                 Students = participants,
+                CanJoin = canJoin,
+                TeacherAttendance = courseDetail.TeacherAttendanceStatus.ToString(),
+                TeacherJoinedAt = courseDetail.TeacherJoinedAt,
             };
         }
 
@@ -376,11 +453,18 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             DurationMinutes = row.DurationMinutes,
             TeachingMode = row.TeachingModeOnline ? "Online" : "InPerson",
             SessionType = row.SessionTypeGroup ? "Group" : "Individual",
-            StudentsCount = 1,
-            Status = row.Status == ScheduleStatus.Completed ? "Completed"
-                : row.Status == ScheduleStatus.Cancelled ? "Cancelled"
-                : "Scheduled",
+            StudentsCount = row.StudentsCount > 0 ? row.StudentsCount : 1,
+            Status = MapScheduleStatus(row.Status),
         };
+
+    private static string MapScheduleStatus(ScheduleStatus status) => status switch
+    {
+        ScheduleStatus.Completed => "Completed",
+        ScheduleStatus.Cancelled => "Cancelled",
+        ScheduleStatus.Rescheduled => "Rescheduled",
+        ScheduleStatus.InProgress => "InProgress",
+        _ => "Scheduled",
+    };
 
     private sealed class SessionRowProjection
     {
@@ -394,6 +478,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         public int DurationMinutes { get; init; }
         public bool TeachingModeOnline { get; init; }
         public bool SessionTypeGroup { get; init; }
+        public int StudentsCount { get; init; } = 1;
         public ScheduleStatus Status { get; init; }
     }
 

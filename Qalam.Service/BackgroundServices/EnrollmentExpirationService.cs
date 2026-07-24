@@ -55,6 +55,8 @@ public class EnrollmentExpirationService : BackgroundService
         foreach (var enrollment in expired)
         {
             enrollment.EnrollmentStatus = EnrollmentStatus.Cancelled;
+            enrollment.CancelledAt = DateTime.UtcNow;
+            // CancelledByUserId stays null — cancelled by expiration job.
 
             // Mark still-pending participants as Cancelled. Already-Succeeded participants
             // stay Succeeded; refund handling is out of scope here.

@@ -64,4 +64,43 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
 
         return rows.Select(r => (r.Date, r.Start, r.End)).ToList();
     }
+
+    public async Task<CourseSchedule?> GetByIdForLifecycleAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _context.CourseSchedules
+            .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
+            .Include(cs => cs.Enrollment).ThenInclude(e => e.Course)
+            .Include(cs => cs.Attendances)
+            .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
+            .FirstOrDefaultAsync(cs => cs.Id == id, cancellationToken);
+    }
+
+    public async Task<List<CourseSchedule>> GetOverdueForAutoCompleteAsync(
+        DateTime utcNow,
+        int graceMinutes,
+        CancellationToken cancellationToken = default)
+    {
+        // Rough pre-filter: anything whose calendar date is after "today + tiny buffer" cannot be overdue yet.
+        var maxCandidateDate = DateOnly.FromDateTime(utcNow);
+
+        var candidates = await _context.CourseSchedules
+            .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
+            .Include(cs => cs.Attendances)
+            .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
+            .Where(cs =>
+                (cs.Status == ScheduleStatus.Scheduled || cs.Status == ScheduleStatus.InProgress)
+                && cs.Date <= maxCandidateDate
+                && cs.TeacherAvailability != null
+                && cs.TeacherAvailability.TimeSlot != null)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(cs =>
+            {
+                var end = cs.TeacherAvailability.TimeSlot!.EndTime;
+                var endUtc = cs.Date.ToDateTime(TimeOnly.FromTimeSpan(end), DateTimeKind.Utc);
+                return endUtc.AddMinutes(graceMinutes) < utcNow;
+            })
+            .ToList();
+    }
 }

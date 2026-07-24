@@ -187,6 +187,12 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherEnrollments = Rule + "Teacher/Enrollments";
         /// <summary>Enrollment detail (unified — individual or group): Api/V1/Teacher/Enrollments/{id}</summary>
         public const string TeacherEnrollmentById = TeacherEnrollments + "/{id}";
+        /// <summary>Remind unpaid participants: Api/V1/Teacher/Enrollments/{id}/Remind</summary>
+        public const string TeacherEnrollmentRemind = TeacherEnrollmentById + "/Remind";
+        /// <summary>Invoice metadata for enrollment: Api/V1/Teacher/Enrollments/{id}/Invoice</summary>
+        public const string TeacherEnrollmentInvoice = TeacherEnrollmentById + "/Invoice";
+        /// <summary>Find-or-create enrollment chat (teacher): Api/V1/Teacher/Enrollments/{id}/Conversation</summary>
+        public const string TeacherEnrollmentConversation = TeacherEnrollmentById + "/Conversation";
 
         /// <summary>Teacher profile: Api/V1/Teacher/Profile/me</summary>
         public const string TeacherProfileMe = Rule + "Teacher/Profile/me";
@@ -198,6 +204,14 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherMySessionContentByLinkId = TeacherMySessionContent + "/{linkId:int}";
         public const string TeacherMySessionHomework = TeacherMySessionById + "/Homework";
         public const string TeacherMySessionHomeworkById = TeacherMySessionHomework + "/{assignmentId:int}";
+        public const string TeacherMySessionStart = TeacherMySessionById + "/Start";
+        public const string TeacherMySessionComplete = TeacherMySessionById + "/Complete";
+        public const string TeacherMySessionCancel = TeacherMySessionById + "/Cancel";
+        public const string TeacherMySessionReschedule = TeacherMySessionById + "/Reschedule";
+        public const string TeacherMySessionAttendance = TeacherMySessionById + "/Attendance";
+        public const string TeacherMySessionNotes = TeacherMySessionById + "/Notes";
+        public const string TeacherMySessionJoin = TeacherMySessionById + "/Join";
+        public const string TeacherMySessionReviews = TeacherMySessionById + "/Reviews";
 
         /// <summary>Teacher content library folders: Api/V1/Teacher/Content/Folders</summary>
         public const string TeacherContentFolders = Rule + "Teacher/Content/Folders";
@@ -252,6 +266,15 @@ namespace Qalam.Data.AppMetaData
         public const string OfferConversationMessages = OfferConversations + "/{conversationId:int}/messages";
         /// <summary>Mark messages as read: Api/V1/Conversations/{conversationId}/read</summary>
         public const string OfferConversationMarkRead = OfferConversations + "/{conversationId:int}/read";
+
+        /// <summary>Enrollment conversations (shared namespace): Api/V1/EnrollmentConversations</summary>
+        public const string EnrollmentConversations = Rule + "EnrollmentConversations";
+        /// <summary>Find-or-create by enrollment: Api/V1/EnrollmentConversations/by-enrollment/{enrollmentId}</summary>
+        public const string EnrollmentConversationByEnrollment = EnrollmentConversations + "/by-enrollment/{enrollmentId:int}";
+        /// <summary>Cursor-paginated messages: Api/V1/EnrollmentConversations/{conversationId}/messages</summary>
+        public const string EnrollmentConversationMessages = EnrollmentConversations + "/{conversationId:int}/messages";
+        /// <summary>Mark messages as read: Api/V1/EnrollmentConversations/{conversationId}/read</summary>
+        public const string EnrollmentConversationMarkRead = EnrollmentConversations + "/{conversationId:int}/read";
         #endregion
 
         #region Student
@@ -307,6 +330,12 @@ namespace Qalam.Data.AppMetaData
         public const string StudentPayEnrollmentParticipant = Rule + "Student/Payments/Participants";
         /// <summary>Unified enrollment payment summary: Api/V1/Student/Payments/Enrollments/{enrollmentId}/Summary</summary>
         public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollments/{enrollmentId}/Summary";
+
+        /// <summary>Student course schedules (join / review): Api/V1/Student/Sessions</summary>
+        public const string StudentSessions = Rule + "Student/Sessions";
+        public const string StudentSessionById = StudentSessions + "/{id:int}";
+        public const string StudentSessionJoin = StudentSessionById + "/Join";
+        public const string StudentSessionReview = StudentSessionById + "/Review";
 
         /// <summary>Teacher availability for a date range (calendar view): Api/V1/Student/Teachers/{teacherId}/Availability</summary>
         public const string StudentTeacherAvailability = Rule + "Student/Teachers/{teacherId}/Availability";

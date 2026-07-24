@@ -4,6 +4,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessionById;
@@ -14,16 +15,19 @@ public class GetMySessionByIdQueryHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDashboardReadRepository _dashboardRepository;
     private readonly ITeacherContentService _contentService;
+    private readonly ISessionReviewService _reviewService;
 
     public GetMySessionByIdQueryHandler(
         IStringLocalizer<SharedResources> localizer,
         ITeacherRepository teacherRepository,
         ITeacherDashboardReadRepository dashboardRepository,
-        ITeacherContentService contentService) : base(localizer)
+        ITeacherContentService contentService,
+        ISessionReviewService reviewService) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _dashboardRepository = dashboardRepository;
         _contentService = contentService;
+        _reviewService = reviewService;
     }
 
     public async Task<Response<TeacherMySessionDetailDto>> Handle(
@@ -40,6 +44,7 @@ public class GetMySessionByIdQueryHandler : ResponseHandler,
 
         item.ContentLinks = await _contentService.GetContentLinksForSessionAsync(request.Id, cancellationToken);
         item.Homework = await _contentService.GetHomeworkForSessionAsync(request.Id, cancellationToken);
+        item.Feedback = await _reviewService.GetReviewsForSessionAsync(request.Id, cancellationToken);
 
         return Success(entity: item);
     }

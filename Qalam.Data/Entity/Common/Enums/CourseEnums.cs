@@ -58,3 +58,12 @@ public enum EnrollmentSource
     CourseRequest = 1,
     SessionRequest = 2
 }
+
+/// <summary>
+/// نوع رسالة محادثة التسجيل
+/// </summary>
+public enum EnrollmentMessageType
+{
+    Text = 1,
+    System = 2
+}

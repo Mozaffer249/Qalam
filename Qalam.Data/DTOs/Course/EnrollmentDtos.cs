@@ -298,9 +298,25 @@ public class EnrollmentSessionItemDto
     public ScheduleStatus? Status { get; set; }
 
     /// <summary>
-    /// True when enrollment is Active, status is Scheduled, and current UTC lies within the session window on that date.
+    /// True when enrollment is Active, status is Scheduled/InProgress, and current UTC lies within the session window on that date.
     /// </summary>
     public bool CanStart { get; set; }
+
+    /// <summary>Same window as CanStart — Join CTA enabled only inside the session time range.</summary>
+    public bool CanJoin { get; set; }
+
+    public string? TeacherAttendanceStatus { get; set; }
+    public DateTime? TeacherJoinedAt { get; set; }
+
+    /// <summary>Primary unit name for teacher UI (first unit).</summary>
+    public string? UnitName { get; set; }
+
+    /// <summary>Primary lesson name for teacher UI (first lesson).</summary>
+    public string? LessonName { get; set; }
+
+    public string? AttendanceStatus { get; set; }
+    public decimal? Rating { get; set; }
+    public string? TeacherNote { get; set; }
 
     /// <summary>Content units / lessons covered in this session (culture-selected names).</summary>
     public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();

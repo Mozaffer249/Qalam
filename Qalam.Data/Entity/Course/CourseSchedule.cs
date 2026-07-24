@@ -41,10 +41,24 @@ public class CourseSchedule : AuditableEntity
 
     public ScheduleStatus Status { get; set; } = ScheduleStatus.Scheduled;
 
+    public DateTime? StartedAt { get; set; }
+
+    public DateTime? EndedAt { get; set; }
+
+    /// <summary>Teacher summary note for the whole session (not per-student).</summary>
+    public string? TeacherNote { get; set; }
+
+    /// <summary>Teacher presence for this schedule (set on Join).</summary>
+    public SessionAttendanceStatus TeacherAttendanceStatus { get; set; } = SessionAttendanceStatus.Pending;
+
+    /// <summary>When the teacher joined (CTA / future stream open).</summary>
+    public DateTime? TeacherJoinedAt { get; set; }
+
     // Navigation Properties
     public Enrollment Enrollment { get; set; } = null!;
     public CourseSession? CourseSession { get; set; }
     public TeacherAvailability TeacherAvailability { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
     public Location? Location { get; set; }
+    public ICollection<SessionAttendance> Attendances { get; set; } = new List<SessionAttendance>();
 }

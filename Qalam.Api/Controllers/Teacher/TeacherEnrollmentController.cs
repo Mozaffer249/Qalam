@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Teacher.Enrollments.Commands.RemindEnrollmentPayment;
 using Qalam.Core.Features.Teacher.Enrollments.Queries.GetCourseEnrollmentsList;
+using Qalam.Core.Features.Teacher.Enrollments.Queries.GetEnrollmentInvoice;
 using Qalam.Core.Features.Teacher.Enrollments.Queries.GetTeacherEnrollmentById;
 using Qalam.Core.Features.Teacher.Enrollments.Queries.GetTeacherEnrollmentsList;
 using Qalam.Data.AppMetaData;
@@ -68,4 +70,22 @@ public class TeacherEnrollmentController : AppControllerBase
         var query = new GetTeacherEnrollmentByIdQuery { Id = id };
         return NewResult(await Mediator.Send(query));
     }
+
+    /// <summary>
+    /// Record a payment reminder for a pending-payment enrollment (notification delivery deferred).
+    /// </summary>
+    [HttpPost(Router.TeacherEnrollmentRemind)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Remind(int id)
+        => NewResult(await Mediator.Send(new RemindEnrollmentPaymentCommand { Id = id }));
+
+    /// <summary>
+    /// Invoice metadata for an enrollment (invoiceNumber from Payment when present; downloadUrl null for now).
+    /// </summary>
+    [HttpGet(Router.TeacherEnrollmentInvoice)]
+    [ProducesResponseType(typeof(TeacherEnrollmentInvoiceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Invoice(int id)
+        => NewResult(await Mediator.Send(new GetEnrollmentInvoiceQuery { Id = id }));
 }

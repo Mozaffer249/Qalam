@@ -76,6 +76,11 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
                .HasForeignKey(e => e.OwnerUserId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.CancelledByUser)
+               .WithMany()
+               .HasForeignKey(e => e.CancelledByUserId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(e => e.Participants)
                .WithOne(p => p.Enrollment)
                .HasForeignKey(p => p.EnrollmentId)

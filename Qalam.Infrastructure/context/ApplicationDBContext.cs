@@ -126,6 +126,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<Enrollment> Enrollments { get; set; }
         public DbSet<EnrollmentParticipant> EnrollmentParticipants { get; set; }
         public DbSet<CourseSchedule> CourseSchedules { get; set; }
+        public DbSet<SessionAttendance> SessionAttendances { get; set; }
 
         // Session Schema DbSets (legacy placeholder — kept for production data; not used by new code)
         public DbSet<SessionRequest> SessionRequests { get; set; }
@@ -143,6 +144,10 @@ namespace Qalam.Infrastructure.context
         public DbSet<Qalam.Data.Entity.OpenSessionRequests.OpenSessionOffer> OpenSessionOffers { get; set; }
         public DbSet<Qalam.Data.Entity.OpenSessionRequests.OfferConversation> OfferConversations { get; set; }
         public DbSet<Qalam.Data.Entity.OpenSessionRequests.OfferMessage> OfferMessages { get; set; }
+
+        // Enrollment conversations (teacher ↔ student for an active enrollment)
+        public DbSet<Qalam.Data.Entity.Course.EnrollmentConversation> EnrollmentConversations { get; set; }
+        public DbSet<Qalam.Data.Entity.Course.EnrollmentConversationMessage> EnrollmentConversationMessages { get; set; }
 
         // Payment Schema DbSets
         public DbSet<Payment> Payments { get; set; }

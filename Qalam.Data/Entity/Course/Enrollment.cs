@@ -86,6 +86,11 @@ public class Enrollment : AuditableEntity
     /// </summary>
     public DateOnly? PreferredEndDate { get; set; }
 
+    public DateTime? CancelledAt { get; set; }
+
+    /// <summary>User who cancelled (student owner or system). Null when cancelled by expiration job.</summary>
+    public int? CancelledByUserId { get; set; }
+
     // Navigation Properties
     public Course? Course { get; set; }
     public CourseEnrollmentRequest? EnrollmentRequest { get; set; }
@@ -95,6 +100,7 @@ public class Enrollment : AuditableEntity
     public Student.Student? LeaderStudent { get; set; }
     public User? PaidByUser { get; set; }
     public User? OwnerUser { get; set; }
+    public User? CancelledByUser { get; set; }
 
     public ICollection<EnrollmentParticipant> Participants { get; set; } = new List<EnrollmentParticipant>();
     public ICollection<CourseSchedule> CourseSchedules { get; set; } = new List<CourseSchedule>();

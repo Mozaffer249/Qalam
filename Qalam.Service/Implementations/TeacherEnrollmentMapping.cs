@@ -2,7 +2,7 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 
-namespace Qalam.Core.Features.Teacher.Enrollments;
+namespace Qalam.Service.Implementations;
 
 internal static class TeacherEnrollmentMapping
 {
@@ -54,6 +54,39 @@ internal static class TeacherEnrollmentMapping
         var schedules = enrollment.CourseSchedules ?? [];
         var sessionsTotal = schedules.Count;
         var sessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed);
+        var utcNow = DateTime.UtcNow;
+        var next = schedules
+            .Where(s => s.Status is ScheduleStatus.Scheduled or ScheduleStatus.InProgress)
+            .Select(s =>
+            {
+                var start = s.TeacherAvailability?.TimeSlot?.StartTime ?? TimeSpan.Zero;
+                return s.Date.ToDateTime(TimeOnly.FromTimeSpan(start), DateTimeKind.Utc);
+            })
+            .Where(dt => dt >= utcNow)
+            .OrderBy(dt => dt)
+            .Cast<DateTime?>()
+            .FirstOrDefault();
+
+        var attendances = schedules.SelectMany(s => s.Attendances ?? Enumerable.Empty<SessionAttendance>()).ToList();
+        var attended = attendances.Count(a =>
+            a.Status is SessionAttendanceStatus.Present or SessionAttendanceStatus.Late);
+        var absentOrLate = attendances.Count(a =>
+            a.Status is SessionAttendanceStatus.Absent or SessionAttendanceStatus.Late);
+
+        string? cancelledByLabel = null;
+        if (enrollment.CancelledAt.HasValue)
+        {
+            if (enrollment.CancelledByUserId.HasValue &&
+                enrollment.OwnerUserId.HasValue &&
+                enrollment.CancelledByUserId == enrollment.OwnerUserId)
+            {
+                cancelledByLabel = "Student";
+            }
+            else if (enrollment.CancelledByUserId == null)
+            {
+                cancelledByLabel = "System";
+            }
+        }
 
         return new TeacherEnrollmentListItemDto
         {
@@ -89,6 +122,11 @@ internal static class TeacherEnrollmentMapping
             AmountPaid = amountPaid,
             AmountRemaining = Math.Max(0, amountDue - amountPaid),
             Currency = currency,
+            NextSessionAt = next,
+            SessionsAttended = attended,
+            SessionsAbsentOrLate = absentOrLate,
+            CancelledAt = enrollment.CancelledAt,
+            CancelledByLabel = cancelledByLabel,
         };
     }
 

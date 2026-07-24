@@ -26,4 +26,18 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
         DateOnly fromDate,
         DateOnly toDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tracking load with Enrollment.Participants, Attendances, and TimeSlot for lifecycle operations.
+    /// </summary>
+    Task<CourseSchedule?> GetByIdForLifecycleAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Schedules still Scheduled/InProgress whose (Date + EndTime + grace) is before <paramref name="utcNow"/>.
+    /// Returned tracked with Participants + Attendances for auto-complete.
+    /// </summary>
+    Task<List<CourseSchedule>> GetOverdueForAutoCompleteAsync(
+        DateTime utcNow,
+        int graceMinutes,
+        CancellationToken cancellationToken = default);
 }

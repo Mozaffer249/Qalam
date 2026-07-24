@@ -64,6 +64,7 @@ namespace Qalam.Service
             services.AddTransient<IEducationFilterService, EducationFilterService>();
             services.AddTransient<IEducationDeleteGuardService, EducationDeleteGuardService>();
             services.AddTransient<ITeacherCourseService, TeacherCourseService>();
+            services.AddTransient<ITeacherEnrollmentService, TeacherEnrollmentService>();
             services.AddTransient<ITeacherSubjectRepertoireService, TeacherSubjectRepertoireService>();
             services.AddTransient<ITeacherContentService, TeacherContentService>();
 
@@ -71,6 +72,9 @@ namespace Qalam.Service
             services.AddTransient<IScheduleGenerationService, ScheduleGenerationService>();
             services.AddTransient<ITeacherAvailabilityCalendarService, TeacherAvailabilityCalendarService>();
             services.AddTransient<IEnrollmentApprovalService, EnrollmentApprovalService>();
+            services.AddTransient<ISessionLifecycleService, SessionLifecycleHelper>();
+            services.AddTransient<ISessionPresenceService, SessionPresenceService>();
+            services.AddTransient<ISessionReviewService, SessionReviewService>();
 
             // Open Session Request services (Scenario 2)
             services.AddTransient<ITeacherMatchingService, TeacherMatchingService>();

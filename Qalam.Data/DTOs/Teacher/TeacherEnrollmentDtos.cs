@@ -66,6 +66,12 @@ public class TeacherEnrollmentListItemDto
     public decimal AmountPaid { get; set; }
     public decimal AmountRemaining { get; set; }
     public string Currency { get; set; } = "SAR";
+
+    public DateTime? NextSessionAt { get; set; }
+    public int SessionsAttended { get; set; }
+    public int SessionsAbsentOrLate { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelledByLabel { get; set; }
 }
 
 /// <summary>One participant inside a teacher's enrollment detail view.</summary>
@@ -111,6 +117,16 @@ public class TeacherEnrollmentDetailDto
     public decimal AmountPaid { get; set; }
     public decimal AmountRemaining { get; set; }
     public string Currency { get; set; } = "SAR";
+
+    public int? EnrollmentRequestId { get; set; }
+    public int? SessionOfferId { get; set; }
+    public string? PaymentMethod { get; set; }
+    public decimal? CoursePrice { get; set; }
+    public DateTime? NextSessionAt { get; set; }
+    public int SessionsCompleted { get; set; }
+    public int SessionsTotal { get; set; }
+    public int SessionsAttended { get; set; }
+    public int SessionsAbsentOrLate { get; set; }
 
     public List<TeacherEnrollmentParticipantDto> Participants { get; set; } = new();
 
