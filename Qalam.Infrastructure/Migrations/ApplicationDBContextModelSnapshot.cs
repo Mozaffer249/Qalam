@@ -844,7 +844,13 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int>("TeacherAvailabilityId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("TeacherInRoom")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("TeacherJoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("TeacherLeftAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("TeacherNote")
@@ -1385,6 +1391,63 @@ namespace Qalam.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("SessionAttendances", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionLivePresenceEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Identity")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("LiveKitEventId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LiveKitEventId")
+                        .IsUnique();
+
+                    b.HasIndex("CourseScheduleId", "OccurredAt");
+
+                    b.HasIndex("CourseScheduleId", "Role", "ParticipantId");
+
+                    b.ToTable("SessionLivePresenceEvents", "course");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
@@ -5827,6 +5890,17 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionLivePresenceEvent", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany("LivePresenceEvents")
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CourseSchedule");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Education.Department", "Department")
@@ -7058,6 +7132,8 @@ namespace Qalam.Infrastructure.Migrations
             modelBuilder.Entity("Qalam.Data.Entity.Course.CourseSchedule", b =>
                 {
                     b.Navigation("Attendances");
+
+                    b.Navigation("LivePresenceEvents");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Course.CourseSession", b =>

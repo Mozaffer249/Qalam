@@ -295,6 +295,11 @@ public class EnrollmentSessionItemDto
 
     public int DurationMinutes { get; set; }
 
+    /// <summary>
+    /// Derived from <c>StartedAt</c> → <c>EndedAt</c> once the session has actually run; null otherwise.
+    /// </summary>
+    public int? ActualDurationMinutes { get; set; }
+
     public ScheduleStatus? Status { get; set; }
 
     /// <summary>

@@ -68,8 +68,7 @@ internal static class TeacherEnrollmentMapping
             .FirstOrDefault();
 
         var attendances = schedules.SelectMany(s => s.Attendances ?? Enumerable.Empty<SessionAttendance>()).ToList();
-        var attended = attendances.Count(a =>
-            a.Status is SessionAttendanceStatus.Present or SessionAttendanceStatus.Late);
+        var attended = attendances.Count(a => a.Status is SessionAttendanceStatus.Present);
         var absentOrLate = attendances.Count(a =>
             a.Status is SessionAttendanceStatus.Absent or SessionAttendanceStatus.Late);
 

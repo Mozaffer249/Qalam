@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.Sessions.Commands.CancelMySession;
 using Qalam.Core.Features.Teacher.Sessions.Commands.CompleteMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.GetMySessionLiveToken;
 using Qalam.Core.Features.Teacher.Sessions.Commands.JoinMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.LeaveMySession;
 using Qalam.Core.Features.Teacher.Sessions.Commands.RescheduleMySession;
 using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionAttendance;
 using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionTeacherNote;
@@ -12,6 +14,7 @@ using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessionById;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessions;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetSessionReviews;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Live;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Implementations;
@@ -38,6 +41,17 @@ public class TeacherMySessionsController : AppControllerBase
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
     public async Task<IActionResult> Join(int id)
         => NewResult(await Mediator.Send(new JoinMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/Leave")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Leave(int id)
+        => NewResult(await Mediator.Send(new LeaveMySessionCommand { Id = id }));
+
+    [HttpPost("{id:int}/LiveToken")]
+    [ProducesResponseType(typeof(LiveSessionAccessDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> LiveToken(int id)
+        => NewResult(await Mediator.Send(new GetMySessionLiveTokenCommand { Id = id }));
 
     [HttpPost("{id:int}/Start")]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]

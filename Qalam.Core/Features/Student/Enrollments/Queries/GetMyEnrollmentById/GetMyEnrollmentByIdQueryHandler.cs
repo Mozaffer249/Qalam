@@ -2,6 +2,7 @@ using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Commons;
@@ -9,6 +10,7 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
@@ -20,18 +22,21 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
+    private readonly SessionSettings _sessionSettings;
 
     public GetMyEnrollmentByIdQueryHandler(
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
+        IOptions<SessionSettings> sessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _enrollmentRepository = enrollmentRepository;
         _mapper = mapper;
+        _sessionSettings = sessionSettings.Value;
     }
 
     public async Task<Response<EnrollmentDetailDto>> Handle(
@@ -56,9 +61,26 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             .ToList();
         dto.IsOwner = isOwner;
         ApplyPaymentFlags(dto, enrollment, isOwner);
-        dto.Sessions = BuildSessions(enrollment);
+
+        var viewingStudentId = ResolveViewingStudentId(enrollment, ownedStudentIds);
+        dto.Sessions = BuildSessions(
+            enrollment, viewingStudentId, _sessionSettings.EnforceJoinWindow);
 
         return Success(entity: dto);
+    }
+
+    private static int? ResolveViewingStudentId(Enrollment enrollment, HashSet<int> ownedStudentIds)
+    {
+        var participant = enrollment.Participants
+            .FirstOrDefault(p => ownedStudentIds.Contains(p.StudentId));
+        if (participant != null)
+            return participant.StudentId;
+
+        if (enrollment.LeaderStudentId is int leaderId && ownedStudentIds.Contains(leaderId))
+            return leaderId;
+
+        return enrollment.Participants.FirstOrDefault()?.StudentId
+               ?? enrollment.LeaderStudentId;
     }
 
     private async Task<HashSet<int>> ResolveOwnedStudentIdsAsync(int userId)
@@ -117,6 +139,8 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
                     .ThenInclude(ta => ta!.TimeSlot)
+            .Include(e => e.CourseSchedules)
+                .ThenInclude(cs => cs.Attendances)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
@@ -147,7 +171,10 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                         && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment;
     }
 
-    private static List<EnrollmentSessionItemDto> BuildSessions(Enrollment enrollment)
+    private static List<EnrollmentSessionItemDto> BuildSessions(
+        Enrollment enrollment,
+        int? viewingStudentId,
+        bool enforceJoinWindow)
     {
         var utcNow = DateTime.UtcNow;
         var courseSessionsByNumber = (enrollment.Course?.Sessions ?? [])
@@ -195,6 +222,22 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             if (string.IsNullOrWhiteSpace(title))
                 title = slot?.LabelEn ?? slot?.LabelAr;
 
+            var canJoin = SessionJoinRules.CanJoinUtc(
+                enrollment.EnrollmentStatus,
+                schedule.Status,
+                schedule.Date,
+                slot?.StartTime,
+                slot?.EndTime,
+                utcNow,
+                enforceJoinWindow);
+
+            SessionAttendance? attendance = null;
+            if (viewingStudentId is int studentId)
+            {
+                attendance = schedule.Attendances?
+                    .FirstOrDefault(a => a.StudentId == studentId);
+            }
+
             sessions.Add(new EnrollmentSessionItemDto
             {
                 ScheduleId = schedule.Id,
@@ -205,14 +248,29 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                 StartTime = slot?.StartTime,
                 EndTime = slot?.EndTime,
                 DurationMinutes = duration,
+                ActualDurationMinutes = ResolveActualDurationMinutes(schedule),
                 Status = schedule.Status,
-                CanStart = CanStartSessionUtc(
-                    enrollment.EnrollmentStatus, schedule.Status, slot, schedule.Date, utcNow),
+                CanStart = canJoin,
+                CanJoin = canJoin,
+                TeacherAttendanceStatus = schedule.TeacherAttendanceStatus.ToString(),
+                TeacherJoinedAt = schedule.TeacherJoinedAt,
+                AttendanceStatus = attendance?.Status.ToString(),
+                Rating = attendance?.Rating,
+                TeacherNote = schedule.TeacherNote,
                 Units = MapUnits(courseSession?.Units)
             });
         }
 
         return sessions;
+    }
+
+    private static int? ResolveActualDurationMinutes(CourseSchedule schedule)
+    {
+        if (schedule.StartedAt is null || schedule.EndedAt is null)
+            return null;
+        if (schedule.EndedAt <= schedule.StartedAt)
+            return null;
+        return (int)Math.Round((schedule.EndedAt.Value - schedule.StartedAt.Value).TotalMinutes);
     }
 
     private static List<EnrollmentSessionContentUnitDto> MapUnits(
@@ -253,28 +311,4 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         return enrollmentSlot?.SessionNumber ?? ordinalSessionNumber;
     }
 
-    private static bool CanStartSessionUtc(
-        EnrollmentStatus enrollmentStatus,
-        ScheduleStatus scheduleStatus,
-        TimeSlot? timeSlot,
-        DateOnly sessionDate,
-        DateTime utcNow)
-    {
-        if (enrollmentStatus != EnrollmentStatus.Active)
-            return false;
-        if (scheduleStatus != ScheduleStatus.Scheduled)
-            return false;
-        if (timeSlot == null)
-            return false;
-
-        var start = TimeOnly.FromTimeSpan(timeSlot.StartTime);
-        var end = TimeOnly.FromTimeSpan(timeSlot.EndTime);
-        if (end <= start)
-            return false;
-
-        var startUtc = sessionDate.ToDateTime(start, DateTimeKind.Utc);
-        var endUtc = sessionDate.ToDateTime(end, DateTimeKind.Utc);
-
-        return utcNow >= startUtc && utcNow <= endUtc;
-    }
 }

@@ -36,6 +36,8 @@ namespace Qalam.Api.Base
                     return new ObjectResult(response) { StatusCode = (int)HttpStatusCode.TooManyRequests };
                 case HttpStatusCode.Forbidden:
                     return new ObjectResult(response) { StatusCode = (int)HttpStatusCode.Forbidden };
+                case HttpStatusCode.ServiceUnavailable:
+                    return new ObjectResult(response) { StatusCode = (int)HttpStatusCode.ServiceUnavailable };
                 default:
                     return new BadRequestObjectResult(response);
             }

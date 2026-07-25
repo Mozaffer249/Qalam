@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" Version="3.4.0" />
     <PackageReference Include="jose-jwt" Version="5.2.0" />
+    <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.2.2" />
     <PackageReference Include="MailKit" Version="4.14.1" />
     <!--
       Pinned to 8.0.x to match the .NET 8 runtime. Version 10.0.1 (the previous value)

@@ -39,6 +39,8 @@ public class SetSessionAttendanceCommandHandler : ResponseHandler,
         if (request.Items == null || request.Items.Count == 0)
             return BadRequest<string>("At least one attendance item is required.");
 
+        var isOnline = string.Equals(schedule.TeachingMode?.Code, "online", StringComparison.OrdinalIgnoreCase);
+
         var hasReviewFields = request.Items.Any(i => i.Rating.HasValue || !string.IsNullOrWhiteSpace(i.Note));
         if (hasReviewFields && schedule.Status != ScheduleStatus.Completed)
             return BadRequest<string>("Student ratings and notes can only be set after the session is completed.");
@@ -62,6 +64,20 @@ public class SetSessionAttendanceCommandHandler : ResponseHandler,
 
             if (item.Rating is < 0 or > 5)
                 return BadRequest<string>($"Rating for student {item.StudentId} must be between 0 and 5.");
+
+            if (isOnline)
+            {
+                if (!byStudent.TryGetValue(item.StudentId, out var existingOnline))
+                    return BadRequest<string>("Attendance for online sessions is automatic from the live room.");
+
+                if (existingOnline.Status != item.Status)
+                    return BadRequest<string>("Attendance for online sessions is automatic; teachers cannot change marks.");
+
+                // Reviews only after complete (already gated above).
+                existingOnline.Rating = item.Rating;
+                existingOnline.Note = item.Note;
+                continue;
+            }
 
             if (byStudent.TryGetValue(item.StudentId, out var existing))
             {

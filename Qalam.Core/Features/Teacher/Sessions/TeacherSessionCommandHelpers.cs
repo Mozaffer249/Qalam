@@ -17,7 +17,10 @@ internal static class TeacherSessionCommandHelpers
                && schedule.Enrollment.Course.TeacherId == teacherId;
     }
 
-    public static bool CanStartSessionUtc(CourseSchedule schedule, DateTime utcNow)
+    public static bool CanStartSessionUtc(
+        CourseSchedule schedule,
+        DateTime utcNow,
+        bool enforceJoinWindow = true)
     {
         if (schedule.Enrollment?.EnrollmentStatus != EnrollmentStatus.Active)
             return false;
@@ -33,6 +36,9 @@ internal static class TeacherSessionCommandHelpers
         var end = TimeOnly.FromTimeSpan(timeSlot.EndTime);
         if (end <= start)
             return false;
+
+        if (!enforceJoinWindow)
+            return true;
 
         var startUtc = schedule.Date.ToDateTime(start, DateTimeKind.Utc);
         var endUtc = schedule.Date.ToDateTime(end, DateTimeKind.Utc);

@@ -67,6 +67,8 @@ If someone never joins and the session is later completed (manually or by sweepe
 
 1. Session stays **In Progress**.
 2. Teacher can attach content, notes, homework assign (product surfaces as available).
+   - Attached **files and notes** are stored on the session record.
+   - Both student and teacher can **preview** them inline and **download** them from the session detail screen — during the session and afterward (attachments persist post-Completion).
 3. Live meeting / WebSocket stream is a later layer; Join remains the presence step.
 
 ---
@@ -88,6 +90,20 @@ If someone never joins and the session is later completed (manually or by sweepe
 
 One student review per session toward that teacher.
 
+### 7.1 Review display on the session detail screen (Completed sessions only)
+
+| Side | Already submitted a review? | What shows |
+|------|------------------------------|------------|
+| Teacher's review of student | Yes | Rating + note, read-only |
+| Teacher's review of student | No | "Rate student" action (teacher's own view only) |
+| Student's review of teacher | Yes | Rating + feedback, read-only |
+| Student's review of teacher | No | "Rate teacher" action (student's own view only) |
+
+- Each side sees **both** existing reviews (their own submission and the other side's, once submitted).
+- If a side hasn't reviewed yet, they see the rate action instead of an empty state — not a blank/hidden block.
+- Once submitted, a review becomes read-only (edit/delete is out of this flow unless stated elsewhere).
+- Review state (submitted / not yet submitted) is per session, per side — it does not carry over between sessions.
+
 ---
 
 ## 8. Loop
@@ -95,6 +111,25 @@ One student review per session toward that teacher.
 1. Return to the enrollment schedule.
 2. Repeat Join → Complete → Review for the next session.
 3. When all sessions are done, the enrollment’s learning schedule is finished; progress (attended / absent / completed) reflects those records.
+
+---
+
+## 9. Session detail screen — full field reference
+
+Everything a student or teacher can see when they open a single session's detail (any status, not just Completed):
+
+| Field | Applies from status | Notes |
+|-------|----------------------|-------|
+| Scheduled date & time | Always | From the generated schedule row |
+| **Scheduled duration** | Always | Planned length (e.g. 45 min), set at schedule generation |
+| **Actual duration** | In Progress / Completed | Derived from Join time → End/Complete time, once the session has actually started |
+| Session status | Always | Scheduled / In Progress / Completed / Cancelled / Rescheduled |
+| **Attendance status (per participant)** | Present: from Join onward · Absent/Late/Excused: resolved at Completion or set via teacher override | Present, Late, Absent, or Excused — teacher can override after the fact |
+| Join button | Always | Enabled/disabled per the time-window rule (Section 3) |
+| **Attached files & notes** | From when the teacher adds them (typically In Progress onward) | Previewable inline, downloadable, visible to both sides, persist after Completion |
+| **Reviews block** | Completed only | Shows both sides' reviews if submitted, or a "Rate" action for the viewer's own missing review (Section 7.1) |
+
+This section exists to give the frontend a single place to check what a session card/detail needs to render, independent of which step in the flow the user is currently on.
 
 ---
 

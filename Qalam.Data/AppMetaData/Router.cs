@@ -41,6 +41,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminTeacherDomainQuestions = Rule + "Admin/TeacherDomainQuestions";
         public const string AdminNationalities = Rule + "Admin/Nationalities";
         public const string Nationalities = Rule + "Nationalities";
+        public const string Contact = Rule + "Contact";
         public const string TeacherDomainQuestionsSubmit = Rule + "Teacher/DomainQuestions/submit";
 
         // Student / Parent Authentication & Registration
@@ -211,6 +212,8 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherMySessionAttendance = TeacherMySessionById + "/Attendance";
         public const string TeacherMySessionNotes = TeacherMySessionById + "/Notes";
         public const string TeacherMySessionJoin = TeacherMySessionById + "/Join";
+        public const string TeacherMySessionLeave = TeacherMySessionById + "/Leave";
+        public const string TeacherMySessionLiveToken = TeacherMySessionById + "/LiveToken";
         public const string TeacherMySessionReviews = TeacherMySessionById + "/Reviews";
 
         /// <summary>Teacher content library folders: Api/V1/Teacher/Content/Folders</summary>
@@ -275,6 +278,9 @@ namespace Qalam.Data.AppMetaData
         public const string EnrollmentConversationMessages = EnrollmentConversations + "/{conversationId:int}/messages";
         /// <summary>Mark messages as read: Api/V1/EnrollmentConversations/{conversationId}/read</summary>
         public const string EnrollmentConversationMarkRead = EnrollmentConversations + "/{conversationId:int}/read";
+
+        /// <summary>LiveKit webhook receiver: Api/V1/Live/Webhooks/LiveKit</summary>
+        public const string LiveKitWebhook = Rule + "Live/Webhooks/LiveKit";
         #endregion
 
         #region Student
@@ -335,6 +341,7 @@ namespace Qalam.Data.AppMetaData
         public const string StudentSessions = Rule + "Student/Sessions";
         public const string StudentSessionById = StudentSessions + "/{id:int}";
         public const string StudentSessionJoin = StudentSessionById + "/Join";
+        public const string StudentSessionLiveToken = StudentSessionById + "/LiveToken";
         public const string StudentSessionReview = StudentSessionById + "/Review";
 
         /// <summary>Teacher availability for a date range (calendar view): Api/V1/Student/Teachers/{teacherId}/Availability</summary>

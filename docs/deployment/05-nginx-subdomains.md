@@ -199,6 +199,8 @@ server {
 }
 ```
 
+LiveKit Cloud webhooks (`POST /Api/V1/Live/Webhooks/LiveKit`) are covered by this same `location /` — no dedicated location is required. Keep `client_max_body_size` as above; do not put `auth_basic` on the API vhost. Full webhook URL table and ngrok steps: [`06-livekit-webhooks.md`](./06-livekit-webhooks.md).
+
 **Staging API vhost** (`/etc/nginx/sites-available/api-staging.qalam.net.sa`):
 
 ```nginx

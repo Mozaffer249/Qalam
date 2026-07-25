@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Sessions.Commands.StartMySession;
@@ -12,14 +14,17 @@ public class StartMySessionCommandHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
+    private readonly SessionSettings _sessionSettings;
 
     public StartMySessionCommandHandler(
         ITeacherRepository teacherRepository,
         ICourseScheduleRepository scheduleRepository,
+        IOptions<SessionSettings> sessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _scheduleRepository = scheduleRepository;
+        _sessionSettings = sessionSettings.Value;
     }
 
     public async Task<Response<string>> Handle(StartMySessionCommand request, CancellationToken cancellationToken)
@@ -41,7 +46,8 @@ public class StartMySessionCommandHandler : ResponseHandler,
         if (schedule.Status != ScheduleStatus.Scheduled)
             return BadRequest<string>($"Cannot start a session in status {schedule.Status}.");
 
-        if (!TeacherSessionCommandHelpers.CanStartSessionUtc(schedule, DateTime.UtcNow))
+        if (!TeacherSessionCommandHelpers.CanStartSessionUtc(
+                schedule, DateTime.UtcNow, _sessionSettings.EnforceJoinWindow))
             return BadRequest<string>("Session can only be started during its scheduled time window.");
 
         schedule.Status = ScheduleStatus.InProgress;

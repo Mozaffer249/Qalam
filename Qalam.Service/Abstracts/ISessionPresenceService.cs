@@ -14,6 +14,14 @@ public interface ISessionPresenceService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Teacher leaves the live room. Clears TeacherInRoom and appends a Left presence event.
+    /// </summary>
+    Task<(bool Ok, string Message, bool Forbidden, bool NotFound)> LeaveAsTeacherAsync(
+        int userId,
+        int courseScheduleId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Student opens the session. Upserts SessionAttendance Present + JoinedAt.
     /// </summary>
     Task<(bool Ok, string Message, bool Forbidden, bool NotFound)> JoinAsStudentAsync(

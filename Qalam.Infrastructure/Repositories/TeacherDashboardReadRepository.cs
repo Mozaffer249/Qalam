@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Helpers;
@@ -11,10 +12,14 @@ namespace Qalam.Infrastructure.Repositories;
 public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
 {
     private readonly ApplicationDBContext _context;
+    private readonly SessionSettings _sessionSettings;
 
-    public TeacherDashboardReadRepository(ApplicationDBContext context)
+    public TeacherDashboardReadRepository(
+        ApplicationDBContext context,
+        IOptions<SessionSettings> sessionSettings)
     {
         _context = context;
+        _sessionSettings = sessionSettings.Value;
     }
 
     public async Task<List<TeacherMySessionListItemDto>> GetMySessionsAsync(
@@ -120,6 +125,136 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         int scheduledSessionId,
         CancellationToken cancellationToken = default)
     {
+        // Prefer CourseSchedule so enrollment live presence / attendance is not shadowed
+        // when a ScheduledSession happens to share the same id.
+        var courseDetail = await _context.CourseSchedules
+            .AsNoTracking()
+            .Where(cs => cs.Id == scheduledSessionId &&
+                (cs.Enrollment.ApprovedByTeacherId == teacherId ||
+                 (cs.Enrollment.Course != null && cs.Enrollment.Course.TeacherId == teacherId)))
+            .Select(cs => new
+            {
+                cs.Id,
+                CourseTitle = cs.Enrollment.Course != null ? cs.Enrollment.Course.Title : "Course session",
+                cs.Date,
+                StartTime = cs.TeacherAvailability.TimeSlot.StartTime,
+                cs.DurationMinutes,
+                TeachingModeOnline = cs.TeachingMode.Code == "online",
+                Status = cs.Status,
+                cs.TeacherNote,
+                cs.EndedAt,
+                Participants = cs.Enrollment.Participants.Select(p => new
+                {
+                    p.StudentId,
+                    StudentName = ((p.Student.User!.FirstName ?? "") + " " + (p.Student.User.LastName ?? "")).Trim(),
+                    AttendanceStatus = cs.Attendances
+                        .Where(a => a.StudentId == p.StudentId)
+                        .Select(a => (SessionAttendanceStatus?)a.Status)
+                        .FirstOrDefault(),
+                    JoinedAt = cs.Attendances
+                        .Where(a => a.StudentId == p.StudentId)
+                        .Select(a => a.JoinedAt)
+                        .FirstOrDefault(),
+                    Rating = cs.Attendances
+                        .Where(a => a.StudentId == p.StudentId)
+                        .Select(a => a.Rating)
+                        .FirstOrDefault(),
+                    Note = cs.Attendances
+                        .Where(a => a.StudentId == p.StudentId)
+                        .Select(a => a.Note)
+                        .FirstOrDefault(),
+                }).ToList(),
+                cs.TeacherAttendanceStatus,
+                cs.TeacherJoinedAt,
+                cs.TeacherLeftAt,
+                cs.TeacherInRoom,
+                EnrollmentStatus = cs.Enrollment.EnrollmentStatus,
+                EndTime = cs.TeacherAvailability.TimeSlot.EndTime,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (courseDetail != null)
+        {
+            var participants = courseDetail.Participants
+                .Select(p => new TeacherSessionStudentDto
+                {
+                    StudentId = p.StudentId,
+                    StudentName = p.StudentName,
+                    Attendance = p.AttendanceStatus?.ToString() ?? "Pending",
+                    JoinedAt = p.JoinedAt,
+                    Rating = p.Rating,
+                    Note = p.Note,
+                })
+                .ToList();
+
+            var studentNames = courseDetail.Participants
+                .ToDictionary(p => p.StudentId, p => string.IsNullOrWhiteSpace(p.StudentName) ? $"Student {p.StudentId}" : p.StudentName);
+
+            var presenceEvents = await _context.SessionLivePresenceEvents
+                .AsNoTracking()
+                .Where(e => e.CourseScheduleId == courseDetail.Id)
+                .OrderByDescending(e => e.OccurredAt)
+                .Take(100)
+                .Select(e => new
+                {
+                    e.Role,
+                    e.ParticipantId,
+                    e.EventType,
+                    e.OccurredAt,
+                })
+                .ToListAsync(cancellationToken);
+
+            var livePresenceEvents = presenceEvents
+                .Select(e => new SessionLivePresenceEventDto
+                {
+                    Role = e.Role.ToString(),
+                    ParticipantId = e.ParticipantId,
+                    ParticipantName = e.Role == LivePresenceRole.Teacher
+                        ? "Teacher"
+                        : studentNames.TryGetValue(e.ParticipantId, out var name)
+                            ? name
+                            : $"Student {e.ParticipantId}",
+                    EventType = e.EventType.ToString(),
+                    OccurredAt = e.OccurredAt,
+                })
+                .ToList();
+
+            var studentsCount = participants.Count > 0 ? participants.Count : 1;
+            var startsAt = courseDetail.Date.ToDateTime(TimeOnly.FromTimeSpan(courseDetail.StartTime), DateTimeKind.Utc);
+            var canJoin = SessionJoinRules.CanJoinUtc(
+                courseDetail.EnrollmentStatus,
+                courseDetail.Status,
+                courseDetail.Date,
+                courseDetail.StartTime,
+                courseDetail.EndTime,
+                DateTime.UtcNow,
+                _sessionSettings.EnforceJoinWindow);
+
+            return new TeacherMySessionDetailDto
+            {
+                Id = courseDetail.Id,
+                CourseTitle = courseDetail.CourseTitle,
+                SourceLabel = "Course enrollment",
+                SessionNumber = 1,
+                SessionTitle = courseDetail.CourseTitle,
+                StartsAt = startsAt,
+                DurationMinutes = courseDetail.DurationMinutes,
+                TeachingMode = courseDetail.TeachingModeOnline ? "Online" : "InPerson",
+                SessionType = studentsCount > 1 ? "Group" : "Individual",
+                StudentsCount = studentsCount,
+                Status = MapScheduleStatus(courseDetail.Status),
+                Notes = courseDetail.TeacherNote,
+                EndedAt = courseDetail.EndedAt,
+                Students = participants,
+                CanJoin = canJoin,
+                TeacherAttendance = courseDetail.TeacherAttendanceStatus.ToString(),
+                TeacherJoinedAt = courseDetail.TeacherJoinedAt,
+                TeacherLeftAt = courseDetail.TeacherLeftAt,
+                TeacherInRoom = courseDetail.TeacherInRoom,
+                LivePresenceEvents = livePresenceEvents,
+            };
+        }
+
         var row = await _context.ScheduledSessions
             .AsNoTracking()
             .Where(ss => ss.Session.TeacherId == teacherId && ss.Id == scheduledSessionId)
@@ -146,97 +281,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             .FirstOrDefaultAsync(cancellationToken);
 
         if (row == null)
-        {
-            var courseDetail = await _context.CourseSchedules
-                .AsNoTracking()
-                .Where(cs => cs.Id == scheduledSessionId &&
-                    (cs.Enrollment.ApprovedByTeacherId == teacherId ||
-                     (cs.Enrollment.Course != null && cs.Enrollment.Course.TeacherId == teacherId)))
-                .Select(cs => new
-                {
-                    cs.Id,
-                    CourseTitle = cs.Enrollment.Course != null ? cs.Enrollment.Course.Title : "Course session",
-                    cs.Date,
-                    StartTime = cs.TeacherAvailability.TimeSlot.StartTime,
-                    cs.DurationMinutes,
-                    TeachingModeOnline = cs.TeachingMode.Code == "online",
-                    Status = cs.Status,
-                    cs.TeacherNote,
-                    cs.EndedAt,
-                    Participants = cs.Enrollment.Participants.Select(p => new
-                    {
-                        p.StudentId,
-                        StudentName = ((p.Student.User!.FirstName ?? "") + " " + (p.Student.User.LastName ?? "")).Trim(),
-                        AttendanceStatus = cs.Attendances
-                            .Where(a => a.StudentId == p.StudentId)
-                            .Select(a => (SessionAttendanceStatus?)a.Status)
-                            .FirstOrDefault(),
-                        JoinedAt = cs.Attendances
-                            .Where(a => a.StudentId == p.StudentId)
-                            .Select(a => a.JoinedAt)
-                            .FirstOrDefault(),
-                        Rating = cs.Attendances
-                            .Where(a => a.StudentId == p.StudentId)
-                            .Select(a => a.Rating)
-                            .FirstOrDefault(),
-                        Note = cs.Attendances
-                            .Where(a => a.StudentId == p.StudentId)
-                            .Select(a => a.Note)
-                            .FirstOrDefault(),
-                    }).ToList(),
-                    cs.TeacherAttendanceStatus,
-                    cs.TeacherJoinedAt,
-                    EnrollmentStatus = cs.Enrollment.EnrollmentStatus,
-                    EndTime = cs.TeacherAvailability.TimeSlot.EndTime,
-                })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (courseDetail == null)
-                return null;
-
-            var participants = courseDetail.Participants
-                .Select(p => new TeacherSessionStudentDto
-                {
-                    StudentId = p.StudentId,
-                    StudentName = p.StudentName,
-                    Attendance = p.AttendanceStatus?.ToString() ?? "Pending",
-                    JoinedAt = p.JoinedAt,
-                    Rating = p.Rating,
-                    Note = p.Note,
-                })
-                .ToList();
-
-            var studentsCount = participants.Count > 0 ? participants.Count : 1;
-            var startsAt = courseDetail.Date.ToDateTime(TimeOnly.FromTimeSpan(courseDetail.StartTime), DateTimeKind.Utc);
-            var canJoin = SessionJoinRules.CanJoinUtc(
-                courseDetail.EnrollmentStatus,
-                courseDetail.Status,
-                courseDetail.Date,
-                courseDetail.StartTime,
-                courseDetail.EndTime,
-                DateTime.UtcNow);
-
-            return new TeacherMySessionDetailDto
-            {
-                Id = courseDetail.Id,
-                CourseTitle = courseDetail.CourseTitle,
-                SourceLabel = "Course enrollment",
-                SessionNumber = 1,
-                SessionTitle = courseDetail.CourseTitle,
-                StartsAt = startsAt,
-                DurationMinutes = courseDetail.DurationMinutes,
-                TeachingMode = courseDetail.TeachingModeOnline ? "Online" : "InPerson",
-                SessionType = studentsCount > 1 ? "Group" : "Individual",
-                StudentsCount = studentsCount,
-                Status = MapScheduleStatus(courseDetail.Status),
-                Notes = courseDetail.TeacherNote,
-                EndedAt = courseDetail.EndedAt,
-                Students = participants,
-                CanJoin = canJoin,
-                TeacherAttendance = courseDetail.TeacherAttendanceStatus.ToString(),
-                TeacherJoinedAt = courseDetail.TeacherJoinedAt,
-            };
-        }
+            return null;
 
         var item = MapSessionRow(row);
 

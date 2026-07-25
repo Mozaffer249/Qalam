@@ -31,3 +31,17 @@ $env:OssSettings__UseInternalEndpoint = if ($env:OSS_USE_INTERNAL_ENDPOINT) { $e
 # Messaging API URL when API runs on host (not inside Docker network)
 $messagingUrl = if ($env:MESSAGING_API_DEV_URL) { $env:MESSAGING_API_DEV_URL } else { "http://localhost:62901" }
 $env:MessagingApi__BaseUrl = $messagingUrl
+
+# Live session (RTC) — secrets from root .env only
+$env:LiveSession__Provider = if ($env:LIVE_SESSION_PROVIDER) { $env:LIVE_SESSION_PROVIDER } else { "LiveKit" }
+if ($env:LIVEKIT_URL) { $env:LiveSession__LiveKit__Url = $env:LIVEKIT_URL }
+if ($env:LIVEKIT_API_KEY) { $env:LiveSession__LiveKit__ApiKey = $env:LIVEKIT_API_KEY }
+if ($env:LIVEKIT_API_SECRET) { $env:LiveSession__LiveKit__ApiSecret = $env:LIVEKIT_API_SECRET }
+$env:LiveSession__LiveKit__TokenTtlMinutes = if ($env:LIVEKIT_TOKEN_TTL_MINUTES) { $env:LIVEKIT_TOKEN_TTL_MINUTES } else { "120" }
+
+# Session join/start window — false allows Join/Start any time (dev)
+$env:SessionSettings__EnforceJoinWindow = if ($null -ne $env:SESSION_ENFORCE_JOIN_WINDOW -and $env:SESSION_ENFORCE_JOIN_WINDOW -ne "") {
+    $env:SESSION_ENFORCE_JOIN_WINDOW
+} else {
+    "true"
+}

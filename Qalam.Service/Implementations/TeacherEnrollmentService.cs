@@ -27,6 +27,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
     private readonly UserManager<User> _userManager;
     private readonly IRabbitMQService _rabbitMq;
     private readonly PaymentSettings _paymentSettings;
+    private readonly SessionSettings _sessionSettings;
     private readonly ILogger<TeacherEnrollmentService> _logger;
 
     public TeacherEnrollmentService(
@@ -37,6 +38,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         UserManager<User> userManager,
         IRabbitMQService rabbitMq,
         IOptions<PaymentSettings> paymentSettings,
+        IOptions<SessionSettings> sessionSettings,
         ILogger<TeacherEnrollmentService> logger)
     {
         _teacherRepository = teacherRepository;
@@ -46,6 +48,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         _userManager = userManager;
         _rabbitMq = rabbitMq;
         _paymentSettings = paymentSettings.Value;
+        _sessionSettings = sessionSettings.Value;
         _logger = logger;
     }
 
@@ -329,11 +332,15 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 }
             }
 
-            var primaryAttendance = cs.Attendances?.FirstOrDefault();
+            var primaryAttendance = cs.Attendances == null || cs.Attendances.Count == 0
+                ? null
+                : enrollment.LeaderStudentId is int leaderId
+                    ? cs.Attendances.FirstOrDefault(a => a.StudentId == leaderId)
+                      ?? cs.Attendances.FirstOrDefault()
+                    : cs.Attendances.FirstOrDefault();
             if (cs.Attendances != null)
             {
-                attended += cs.Attendances.Count(a =>
-                    a.Status is SessionAttendanceStatus.Present or SessionAttendanceStatus.Late);
+                attended += cs.Attendances.Count(a => a.Status is SessionAttendanceStatus.Present);
                 absentOrLate += cs.Attendances.Count(a =>
                     a.Status is SessionAttendanceStatus.Absent or SessionAttendanceStatus.Late);
             }
@@ -349,14 +356,16 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 EndTime = slot?.EndTime,
                 DurationMinutes = duration,
                 Status = cs.Status,
-                CanStart = CanStartSessionUtc(enrollment.EnrollmentStatus, cs.Status, slot, cs.Date, utcNow),
+                CanStart = CanStartSessionUtc(
+                    enrollment.EnrollmentStatus, cs.Status, slot, cs.Date, utcNow, _sessionSettings.EnforceJoinWindow),
                 CanJoin = SessionJoinRules.CanJoinUtc(
                     enrollment.EnrollmentStatus,
                     cs.Status,
                     cs.Date,
                     slot?.StartTime,
                     slot?.EndTime,
-                    utcNow),
+                    utcNow,
+                    _sessionSettings.EnforceJoinWindow),
                 TeacherAttendanceStatus = cs.TeacherAttendanceStatus.ToString(),
                 TeacherJoinedAt = cs.TeacherJoinedAt,
                 UnitName = unitName,
@@ -609,7 +618,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         ScheduleStatus scheduleStatus,
         TimeSlot? timeSlot,
         DateOnly sessionDate,
-        DateTime utcNow)
+        DateTime utcNow,
+        bool enforceJoinWindow = true)
     {
         if (enrollmentStatus != EnrollmentStatus.Active) return false;
         if (scheduleStatus is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress)) return false;
@@ -618,6 +628,9 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         var start = TimeOnly.FromTimeSpan(timeSlot.StartTime);
         var end = TimeOnly.FromTimeSpan(timeSlot.EndTime);
         if (end <= start) return false;
+
+        if (!enforceJoinWindow)
+            return true;
 
         var startUtc = sessionDate.ToDateTime(start, DateTimeKind.Utc);
         var endUtc = sessionDate.ToDateTime(end, DateTimeKind.Utc);

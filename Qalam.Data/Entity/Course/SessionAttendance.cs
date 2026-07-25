@@ -18,7 +18,6 @@ public class SessionAttendance : AuditableEntity
 
     /// <summary>Optional teacher→student rating (0–5). Null when not rated.</summary>
     public decimal? Rating { get; set; }
-
     public string? Note { get; set; }
 
     public bool IsAutoResolved { get; set; }

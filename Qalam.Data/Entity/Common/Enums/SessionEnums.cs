@@ -34,3 +34,17 @@ public enum SessionAttendanceStatus
     Absent = 3,
     Excused = 4,
 }
+
+/// <summary>Who triggered a live-room presence event.</summary>
+public enum LivePresenceRole
+{
+    Teacher = 1,
+    Student = 2,
+}
+
+/// <summary>LiveKit room presence event kind.</summary>
+public enum LivePresenceEventType
+{
+    Joined = 1,
+    Left = 2,
+}

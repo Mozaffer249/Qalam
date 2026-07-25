@@ -5,8 +5,9 @@ namespace Qalam.Data.Helpers;
 public static class SessionJoinRules
 {
     /// <summary>
-    /// Join is allowed only inside the scheduled window (not before start, not after end)
-    /// while the enrollment is Active and the schedule is Scheduled or InProgress.
+    /// Join is allowed while the enrollment is Active and the schedule is Scheduled or InProgress.
+    /// When <paramref name="enforceJoinWindow"/> is true, also requires the current UTC time
+    /// to fall inside the scheduled start/end window.
     /// </summary>
     public static bool CanJoinUtc(
         EnrollmentStatus? enrollmentStatus,
@@ -14,7 +15,8 @@ public static class SessionJoinRules
         DateOnly date,
         TimeSpan? startTime,
         TimeSpan? endTime,
-        DateTime utcNow)
+        DateTime utcNow,
+        bool enforceJoinWindow = true)
     {
         if (enrollmentStatus != EnrollmentStatus.Active) return false;
         if (status is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress)) return false;
@@ -23,6 +25,9 @@ public static class SessionJoinRules
         var start = TimeOnly.FromTimeSpan(startTime.Value);
         var end = TimeOnly.FromTimeSpan(endTime.Value);
         if (end <= start) return false;
+
+        if (!enforceJoinWindow)
+            return true;
 
         var startUtc = date.ToDateTime(start, DateTimeKind.Utc);
         var endUtc = date.ToDateTime(end, DateTimeKind.Utc);

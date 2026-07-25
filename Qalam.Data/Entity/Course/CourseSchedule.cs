@@ -48,11 +48,17 @@ public class CourseSchedule : AuditableEntity
     /// <summary>Teacher summary note for the whole session (not per-student).</summary>
     public string? TeacherNote { get; set; }
 
-    /// <summary>Teacher presence for this schedule (set on Join).</summary>
+    /// <summary>Teacher presence for this schedule (set on Join / LiveKit join).</summary>
     public SessionAttendanceStatus TeacherAttendanceStatus { get; set; } = SessionAttendanceStatus.Pending;
 
-    /// <summary>When the teacher joined (CTA / future stream open).</summary>
+    /// <summary>When the teacher first joined (CTA or LiveKit).</summary>
     public DateTime? TeacherJoinedAt { get; set; }
+
+    /// <summary>When the teacher last left the live room (cleared on rejoin).</summary>
+    public DateTime? TeacherLeftAt { get; set; }
+
+    /// <summary>True while the teacher is currently connected to the live room.</summary>
+    public bool TeacherInRoom { get; set; }
 
     // Navigation Properties
     public Enrollment Enrollment { get; set; } = null!;
@@ -61,4 +67,5 @@ public class CourseSchedule : AuditableEntity
     public TeachingMode TeachingMode { get; set; } = null!;
     public Location? Location { get; set; }
     public ICollection<SessionAttendance> Attendances { get; set; } = new List<SessionAttendance>();
+    public ICollection<SessionLivePresenceEvent> LivePresenceEvents { get; set; } = new List<SessionLivePresenceEvent>();
 }

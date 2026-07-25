@@ -46,6 +46,18 @@ public class TeacherMySessionDetailDto : TeacherMySessionListItemDto
     public bool CanJoin { get; set; }
     public string TeacherAttendance { get; set; } = "Pending";
     public DateTime? TeacherJoinedAt { get; set; }
+    public DateTime? TeacherLeftAt { get; set; }
+    public bool TeacherInRoom { get; set; }
+    public List<SessionLivePresenceEventDto> LivePresenceEvents { get; set; } = new();
+}
+
+public class SessionLivePresenceEventDto
+{
+    public string Role { get; set; } = "Teacher";
+    public int ParticipantId { get; set; }
+    public string ParticipantName { get; set; } = string.Empty;
+    public string EventType { get; set; } = "Joined";
+    public DateTime OccurredAt { get; set; }
 }
 
 public class TeacherSessionStudentDto

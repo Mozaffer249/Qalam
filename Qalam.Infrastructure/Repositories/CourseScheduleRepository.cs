@@ -71,6 +71,7 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Course)
             .Include(cs => cs.Attendances)
+            .Include(cs => cs.TeachingMode)
             .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
             .FirstOrDefaultAsync(cs => cs.Id == id, cancellationToken);
     }

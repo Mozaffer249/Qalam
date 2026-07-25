@@ -76,6 +76,23 @@ namespace Qalam.Service
             services.AddTransient<ISessionPresenceService, SessionPresenceService>();
             services.AddTransient<ISessionReviewService, SessionReviewService>();
 
+            // Live session (RTC) — swap via LiveSession:Provider + new ILiveSessionProvider impl
+            services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
+                configuration.GetSection(Qalam.Data.Helpers.LiveSessionSettings.SectionName));
+            services.AddTransient<LiveKitLiveSessionProvider>();
+            services.AddTransient<ILiveSessionProvider>(sp =>
+            {
+                var settings = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Qalam.Data.Helpers.LiveSessionSettings>>().Value;
+                var provider = settings.Provider ?? LiveKitLiveSessionProvider.Name;
+                if (provider.Equals(LiveKitLiveSessionProvider.Name, StringComparison.OrdinalIgnoreCase))
+                    return sp.GetRequiredService<LiveKitLiveSessionProvider>();
+
+                throw new InvalidOperationException(
+                    $"Unsupported live session provider '{provider}'. Implement ILiveSessionProvider and register it.");
+            });
+            services.AddTransient<ILiveSessionAccessService, LiveSessionAccessService>();
+            services.AddTransient<ILivePresenceWebhookService, LivePresenceWebhookService>();
+
             // Open Session Request services (Scenario 2)
             services.AddTransient<ITeacherMatchingService, TeacherMatchingService>();
             services.AddTransient<IOpenSessionRequestTargetingService, OpenSessionRequestTargetingService>();

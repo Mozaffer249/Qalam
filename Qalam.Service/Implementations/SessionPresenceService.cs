@@ -1,7 +1,10 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -11,17 +14,23 @@ public class SessionPresenceService : ISessionPresenceService
     private readonly ITeacherRepository _teacherRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
+    private readonly ApplicationDBContext _db;
+    private readonly SessionSettings _sessionSettings;
     private readonly ILogger<SessionPresenceService> _logger;
 
     public SessionPresenceService(
         ITeacherRepository teacherRepository,
         IStudentRepository studentRepository,
         ICourseScheduleRepository scheduleRepository,
+        ApplicationDBContext db,
+        IOptions<SessionSettings> sessionSettings,
         ILogger<SessionPresenceService> logger)
     {
         _teacherRepository = teacherRepository;
         _studentRepository = studentRepository;
         _scheduleRepository = scheduleRepository;
+        _db = db;
+        _sessionSettings = sessionSettings.Value;
         _logger = logger;
     }
 
@@ -48,6 +57,8 @@ public class SessionPresenceService : ISessionPresenceService
         var now = DateTime.UtcNow;
         schedule.TeacherAttendanceStatus = SessionAttendanceStatus.Present;
         schedule.TeacherJoinedAt ??= now;
+        schedule.TeacherInRoom = true;
+        schedule.TeacherLeftAt = null;
 
         if (schedule.Status == ScheduleStatus.Scheduled)
         {
@@ -55,12 +66,59 @@ public class SessionPresenceService : ISessionPresenceService
             schedule.StartedAt ??= now;
         }
 
+        AddApiPresenceEvent(
+            schedule.Id,
+            LivePresenceRole.Teacher,
+            teacher.Id,
+            LivePresenceEventType.Joined,
+            now,
+            $"teacher-{teacher.Id}");
+
         await _scheduleRepository.SaveChangesAsync();
         _logger.LogInformation(
             "Teacher {TeacherId} joined CourseSchedule {ScheduleId}.",
             teacher.Id, schedule.Id);
 
         return (true, "Joined session.", false, false);
+    }
+
+    public async Task<(bool Ok, string Message, bool Forbidden, bool NotFound)> LeaveAsTeacherAsync(
+        int userId,
+        int courseScheduleId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await _teacherRepository.GetByUserIdAsync(userId);
+        if (teacher == null)
+            return (false, "Teacher profile not found.", false, true);
+
+        var schedule = await _scheduleRepository.GetByIdForLifecycleAsync(courseScheduleId, cancellationToken);
+        if (schedule == null)
+            return (false, "Session not found.", false, true);
+
+        if (!TeacherOwnsSchedule(schedule, teacher.Id))
+            return (false, "This session does not belong to you.", true, false);
+
+        if (schedule.Status is ScheduleStatus.Cancelled or ScheduleStatus.Rescheduled)
+            return (false, $"Cannot leave a session in status {schedule.Status}.", false, false);
+
+        var now = DateTime.UtcNow;
+        schedule.TeacherInRoom = false;
+        schedule.TeacherLeftAt = now;
+
+        AddApiPresenceEvent(
+            schedule.Id,
+            LivePresenceRole.Teacher,
+            teacher.Id,
+            LivePresenceEventType.Left,
+            now,
+            $"teacher-{teacher.Id}");
+
+        await _scheduleRepository.SaveChangesAsync();
+        _logger.LogInformation(
+            "Teacher {TeacherId} left CourseSchedule {ScheduleId}.",
+            teacher.Id, schedule.Id);
+
+        return (true, "Left session.", false, false);
     }
 
     public async Task<(bool Ok, string Message, bool Forbidden, bool NotFound)> JoinAsStudentAsync(
@@ -104,6 +162,14 @@ public class SessionPresenceService : ISessionPresenceService
             });
         }
 
+        AddApiPresenceEvent(
+            schedule.Id,
+            LivePresenceRole.Student,
+            student.Id,
+            LivePresenceEventType.Joined,
+            now,
+            $"student-{student.Id}");
+
         await _scheduleRepository.SaveChangesAsync();
         _logger.LogInformation(
             "Student {StudentId} joined CourseSchedule {ScheduleId}.",
@@ -112,7 +178,28 @@ public class SessionPresenceService : ISessionPresenceService
         return (true, "Joined session.", false, false);
     }
 
-    private static string? ValidateJoinWindow(CourseSchedule schedule)
+    private void AddApiPresenceEvent(
+        int scheduleId,
+        LivePresenceRole role,
+        int participantId,
+        LivePresenceEventType eventType,
+        DateTime occurredAt,
+        string identity)
+    {
+        _db.SessionLivePresenceEvents.Add(new SessionLivePresenceEvent
+        {
+            CourseScheduleId = scheduleId,
+            Role = role,
+            ParticipantId = participantId,
+            EventType = eventType,
+            OccurredAt = occurredAt,
+            // Unique synthetic id so API join/leave works without LiveKit webhooks.
+            LiveKitEventId = $"api-{eventType.ToString().ToLowerInvariant()}-{role.ToString().ToLowerInvariant()}-{scheduleId}-{participantId}-{Guid.NewGuid():N}",
+            Identity = identity,
+        });
+    }
+
+    private string? ValidateJoinWindow(CourseSchedule schedule)
     {
         if (schedule.Status is ScheduleStatus.Completed or ScheduleStatus.Cancelled or ScheduleStatus.Rescheduled)
             return $"Cannot join a session in status {schedule.Status}.";
@@ -120,6 +207,15 @@ public class SessionPresenceService : ISessionPresenceService
         var slot = schedule.TeacherAvailability?.TimeSlot;
         if (slot == null)
             return "Session time slot is not available.";
+
+        if (schedule.Enrollment?.EnrollmentStatus != EnrollmentStatus.Active)
+            return "Enrollment is not active.";
+
+        if (schedule.Status is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress))
+            return $"Cannot join a session in status {schedule.Status}.";
+
+        if (!_sessionSettings.EnforceJoinWindow)
+            return null;
 
         var utcNow = DateTime.UtcNow;
         var startUtc = schedule.Date.ToDateTime(TimeOnly.FromTimeSpan(slot.StartTime), DateTimeKind.Utc);
@@ -130,12 +226,6 @@ public class SessionPresenceService : ISessionPresenceService
 
         if (utcNow > endUtc)
             return "Cannot join after the session end time.";
-
-        if (schedule.Enrollment?.EnrollmentStatus != EnrollmentStatus.Active)
-            return "Enrollment is not active.";
-
-        if (schedule.Status is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress))
-            return $"Cannot join a session in status {schedule.Status}.";
 
         return null;
     }

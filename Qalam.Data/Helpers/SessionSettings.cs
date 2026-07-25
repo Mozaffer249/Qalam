@@ -13,4 +13,10 @@ public class SessionSettings
     /// Unjoined students default to Absent after session complete.
     /// </summary>
     public int DefaultAutoAttendanceStatus { get; set; } = 3;
+
+    /// <summary>
+    /// When true, Join/Start require the scheduled UTC window.
+    /// When false (typically local/dev via SESSION_ENFORCE_JOIN_WINDOW), time is ignored.
+    /// </summary>
+    public bool EnforceJoinWindow { get; set; } = true;
 }
