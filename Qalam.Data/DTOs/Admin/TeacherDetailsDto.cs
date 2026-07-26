@@ -31,6 +31,9 @@ public class TeacherDetailsDto
     /// <summary>Set by API from registration checklist when configured; otherwise from document counts.</summary>
     public bool CanBeActivated { get; set; }
 
+    /// <summary>Why activation is blocked (empty when <see cref="CanBeActivated"/> is true).</summary>
+    public List<string> ActivationBlockReasons { get; set; } = new();
+
     public List<AdminTeacherSubjectDto> Subjects { get; set; } = new();
     public TeacherSubjectSummaryDto SubjectSummary { get; set; } = new();
 

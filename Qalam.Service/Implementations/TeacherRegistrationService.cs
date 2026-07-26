@@ -362,6 +362,10 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             return BuildFixDomainVerificationStep(domainRejected);
         }
 
+        // Catalog may have grown after the teacher first registered — send them back to complete it.
+        if (await _completionService.HasMissingRequiredRegistrationSubmissionsAsync(teacherId))
+            return BuildCompleteRegistrationRequirementsStep();
+
         var catalogDomainIds = await _domainQuestionStatusService.GetCatalogDomainIdsWithRequiredQuestionsAsync();
         if (catalogDomainIds.Count > 0
             && await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId))
@@ -419,6 +423,16 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private async Task<bool> ShouldOfferSetAvailabilityStepAsync(int teacherId) =>
         await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId)
         && !await _availabilityRepository.HasAnyAvailabilityAsync(teacherId);
+
+    private static RegistrationStepDto BuildCompleteRegistrationRequirementsStep() =>
+        new()
+        {
+            CurrentStep = 3,
+            NextStep = 4,
+            NextStepName = "Complete Registration Requirements",
+            IsRegistrationComplete = false,
+            Message = "Please complete the required registration profile fields to continue."
+        };
 
     private static RegistrationStepDto BuildReuploadRejectedDocumentsStep(
         List<TeacherReviewCorrectionDto> corrections) =>

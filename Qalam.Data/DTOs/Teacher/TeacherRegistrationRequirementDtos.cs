@@ -29,6 +29,11 @@ public class TeacherRegistrationRequirementPublicDto
     public int? MaxLength { get; set; }
     /// <summary>Only populated for Selection-type requirements.</summary>
     public List<RequirementOptionDto>? Options { get; set; }
+    /// <summary>
+    /// When the caller is an authenticated teacher, true if they already submitted this requirement.
+    /// Anonymous catalog responses leave this false.
+    /// </summary>
+    public bool IsSubmitted { get; set; }
 }
 
 public class TeacherRegistrationRequirementsResponseDto

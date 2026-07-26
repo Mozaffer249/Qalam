@@ -70,6 +70,14 @@ public class GetTeacherDetailsQueryHandler : ResponseHandler,
 				request.TeacherId,
 				cancellationToken);
 
+			if (!teacherDetails.CanBeActivated)
+			{
+				var reasons = await _completionService.GetActivationBlockReasonsAsync(
+					request.TeacherId,
+					cancellationToken);
+				teacherDetails.ActivationBlockReasons = reasons.ToList();
+			}
+
 			_logger.LogInformation(
 				"Successfully fetched details for teacher {TeacherId} with {DocumentCount} documents",
 				request.TeacherId,

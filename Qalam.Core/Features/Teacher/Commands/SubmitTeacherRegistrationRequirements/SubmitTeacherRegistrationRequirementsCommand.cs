@@ -21,7 +21,11 @@ public class SubmitTeacherRegistrationRequirementsCommand : IRequest<Response<Te
     public TeacherLocation? Location { get; set; }
 
     public IdentityType IdentityType { get; set; }
-    public string DocumentNumber { get; set; } = null!;
+    /// <summary>
+    /// Required only when uploading a new identity file. Optional on completion submits
+    /// that only fill missing non-file catalog fields (identity already submitted).
+    /// </summary>
+    public string? DocumentNumber { get; set; }
     /// <summary>
     /// Required for foreign identity types when residence is outside Saudi Arabia.
     /// Must be null for NationalId / Iqama.

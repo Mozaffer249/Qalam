@@ -27,6 +27,8 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
     private readonly INationalityRepository _nationalityRepository;
     private readonly ITeacherRegistrationSubmitService _submitService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
+    private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ITeacherRegistrationSubmissionRepository _submissionRepository;
     private readonly UserManager<User> _userManager;
     private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
     private readonly ILogger<SubmitTeacherRegistrationRequirementsCommandHandler> _logger;
@@ -38,6 +40,8 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         INationalityRepository nationalityRepository,
         ITeacherRegistrationSubmitService submitService,
         ITeacherRegistrationService teacherRegistrationService,
+        ITeacherRegistrationCompletionService completionService,
+        ITeacherRegistrationSubmissionRepository submissionRepository,
         UserManager<User> userManager,
         IStringLocalizer<SharedResources> sharedLocalizer,
         IStringLocalizer<AuthenticationResources> authLocalizer,
@@ -49,6 +53,8 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         _nationalityRepository = nationalityRepository;
         _submitService = submitService;
         _teacherRegistrationService = teacherRegistrationService;
+        _completionService = completionService;
+        _submissionRepository = submissionRepository;
         _userManager = userManager;
         _authLocalizer = authLocalizer;
         _logger = logger;
@@ -67,7 +73,11 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
 
         await _teacherRegistrationService.EnsureTeacherRoleForUserAsync(request.UserId);
 
-        if (teacher.Status == TeacherStatus.PendingVerification)
+        var hasMissingRequired =
+            await _completionService.HasMissingRequiredRegistrationSubmissionsAsync(teacher.Id, cancellationToken);
+
+        // Allow PendingVerification only when catalog fields are still missing (legacy / catalog grew).
+        if (teacher.Status == TeacherStatus.PendingVerification && !hasMissingRequired)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.DocumentsAlreadyPendingVerification]);
         if (teacher.Status == TeacherStatus.Active)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(_authLocalizer[AuthenticationResourcesKeys.AccountAlreadyVerified]);
@@ -102,7 +112,15 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         if (activeRequirements.Count == 0)
             return BadRequest<TeacherRegistrationSubmitResponseDto>("No active registration requirements configured.");
 
-        var validationError = ValidateAgainstRequirements(request, activeRequirements);
+        var existingSubmissions =
+            await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacher.Id, cancellationToken);
+        var alreadySubmittedCodes = existingSubmissions
+            .Select(s => s.Requirement?.Code ?? activeRequirements.FirstOrDefault(r => r.Id == s.RequirementId)?.Code)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Cast<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var validationError = ValidateAgainstRequirements(request, activeRequirements, alreadySubmittedCodes);
         if (validationError != null)
             return BadRequest<TeacherRegistrationSubmitResponseDto>(validationError);
 
@@ -116,7 +134,7 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
                     location, request.IdentityType, request.IssuingCountryCode, _authLocalizer);
 
                 await TeacherDocumentBusinessRules.ValidateIdentityUnique(
-                    _documentRepository, request.IdentityType, request.DocumentNumber,
+                    _documentRepository, request.IdentityType, request.DocumentNumber ?? string.Empty,
                     request.IssuingCountryCode, _authLocalizer, excludeTeacherId: teacher.Id);
             }
             catch (ValidationException vex)
@@ -134,7 +152,13 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
                 await _userManager.UpdateAsync(user);
             }
 
-            await _submitService.SubmitAsync(teacher, MapToInput(request), activeRequirements, cancellationToken);
+            await _submitService.SubmitAsync(
+                teacher,
+                MapToInput(request),
+                activeRequirements,
+                alreadySubmittedCodes,
+                preserveExistingSubmissions: hasMissingRequired && alreadySubmittedCodes.Count > 0,
+                cancellationToken);
             await _teacherRegistrationService.CompleteDocumentUploadAsync(teacher.Id, location);
 
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
@@ -180,10 +204,15 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
     /// </summary>
     private static string? ValidateAgainstRequirements(
         SubmitTeacherRegistrationRequirementsCommand request,
-        List<TeacherRegistrationRequirement> active)
+        List<TeacherRegistrationRequirement> active,
+        IReadOnlySet<string> alreadySubmittedCodes)
     {
         foreach (var req in active.Where(r => r.IsRequired))
         {
+            // Already satisfied (e.g. identity/certs from first registration) — skip re-upload.
+            if (alreadySubmittedCodes.Contains(req.Code))
+                continue;
+
             if (req.Code == TeacherRegistrationRequirementCodes.IdentityDocument)
             {
                 if (request.IdentityDocumentFile == null)
@@ -240,7 +269,9 @@ public class SubmitTeacherRegistrationRequirementsCommandHandler : ResponseHandl
         }
 
         var certReq = active.FirstOrDefault(r => r.Code == TeacherRegistrationRequirementCodes.Certificate);
-        if (certReq != null && request.Certificates.Count > certReq.MaxCount)
+        if (certReq != null
+            && !alreadySubmittedCodes.Contains(TeacherRegistrationRequirementCodes.Certificate)
+            && request.Certificates.Count > certReq.MaxCount)
             return $"Maximum {certReq.MaxCount} certificates allowed.";
 
         return null;

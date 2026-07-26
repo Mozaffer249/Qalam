@@ -15,7 +15,7 @@ public class TeacherRegistrationSubmissionInput
     public string? Bio { get; set; }
     public TeacherLocation Location { get; set; }
     public IdentityType IdentityType { get; set; }
-    public string DocumentNumber { get; set; } = null!;
+    public string? DocumentNumber { get; set; }
     public string? IssuingCountryCode { get; set; }
     public IFormFile? IdentityDocumentFile { get; set; }
     public List<CertificateUploadDto> Certificates { get; set; } = new();

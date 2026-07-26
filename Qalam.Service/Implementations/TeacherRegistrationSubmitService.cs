@@ -40,18 +40,37 @@ public class TeacherRegistrationSubmitService : ITeacherRegistrationSubmitServic
         Teacher teacher,
         TeacherRegistrationSubmissionInput input,
         List<TeacherRegistrationRequirement> activeRequirements,
+        IReadOnlySet<string> alreadySubmittedCodes,
+        bool preserveExistingSubmissions,
         CancellationToken cancellationToken)
     {
         using var transaction = await _submissionRepository.BeginTransactionAsync();
         try
         {
-            // Wipe orphans from any prior partial-attempt — handler only delegates here when
-            // teacher status permits a fresh submit, so existing rows are not real data.
-            await _submissionRepository.DeleteAllForTeacherAsync(teacher.Id, cancellationToken);
-            await _documentRepository.DeletePendingForTeacherAsync(teacher.Id, cancellationToken);
+            var reuploadingFiles = input.IdentityDocumentFile != null
+                || input.Certificates.Any(c => c.File != null);
+
+            if (!preserveExistingSubmissions)
+            {
+                // Wipe orphans from any prior partial-attempt — handler only delegates here when
+                // teacher status permits a fresh submit, so existing rows are not real data.
+                await _submissionRepository.DeleteAllForTeacherAsync(teacher.Id, cancellationToken);
+                await _documentRepository.DeletePendingForTeacherAsync(teacher.Id, cancellationToken);
+            }
+            else if (reuploadingFiles)
+            {
+                // Completion path with a document re-upload: clear pending docs only.
+                await _documentRepository.DeletePendingForTeacherAsync(teacher.Id, cancellationToken);
+            }
 
             foreach (var req in activeRequirements)
             {
+                if (preserveExistingSubmissions
+                    && alreadySubmittedCodes.Contains(req.Code))
+                {
+                    continue;
+                }
+
                 // Identity + certificate keep their structurally-complex shapes (multi-field tuple,
                 // list-of-tuples). Everything else flows through code-keyed generic dispatch.
                 if (req.Code == TeacherRegistrationRequirementCodes.IdentityDocument)
@@ -238,10 +257,10 @@ public class TeacherRegistrationSubmitService : ITeacherRegistrationSubmitServic
         }
     }
 
-    // Always-insert. Prior submissions for this teacher were wiped at the top of SubmitAsync,
-    // so duplicate-key risk is gone. The filtered unique index
-    // (TeacherId, RequirementId) WHERE TeacherDocumentId IS NULL still enforces one text/bool
-    // answer per requirement while allowing many file-backed rows (multi-cert).
+    // Always-insert for codes being processed. Fresh submits wipe prior rows; completion
+    // submits skip already-submitted codes so duplicate-key risk stays gone. The filtered
+    // unique index (TeacherId, RequirementId) WHERE TeacherDocumentId IS NULL still enforces
+    // one text/bool answer per requirement while allowing many file-backed rows (multi-cert).
     private async Task SaveSubmissionAsync(
         int teacherId,
         int requirementId,

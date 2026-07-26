@@ -191,9 +191,14 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
     public async Task<bool> CanActivateTeacherAccountAsync(int teacherId, CancellationToken cancellationToken = default)
     {
-        var (_, isReady) = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
-        return isReady;
+        var reasons = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
+        return reasons.Count == 0;
     }
+
+    public async Task<IReadOnlyList<string>> GetActivationBlockReasonsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default) =>
+        await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
 
     public async Task<(bool Success, string? ErrorMessage)> ActivateTeacherAccountAsync(
         int teacherId,
@@ -213,9 +218,9 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (teacher.Status == TeacherStatus.DocumentsRejected)
             return (false, "Rejected documents or domain answers must be corrected before activation.");
 
-        var (blockReason, isReady) = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
-        if (!isReady)
-            return (false, blockReason ?? "Teacher is not ready for activation.");
+        var blockReasons = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
+        if (blockReasons.Count > 0)
+            return (false, blockReasons[0]);
 
         await _teacherRepository.UpdateStatusAsync(teacherId, TeacherStatus.Active);
         await _teacherRepository.SaveChangesAsync();
@@ -258,10 +263,11 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         await SetStatusAsync(teacherId, TeacherStatus.PendingVerification);
     }
 
-    private async Task<(string? BlockReason, bool IsReady)> EvaluateActivationReadinessAsync(
+    private async Task<IReadOnlyList<string>> EvaluateActivationReadinessAsync(
         int teacherId,
         CancellationToken cancellationToken)
     {
+        var reasons = new List<string>();
         var activeRequired = (await _requirementRepository.GetActiveOrderedAsync(cancellationToken))
             .Where(r => r.IsRequired)
             .ToList();
@@ -270,16 +276,16 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         {
             var legacyDocs = await _documentRepository.GetByTeacherIdAsync(teacherId);
             if (legacyDocs.Count == 0)
-                return ("No registration documents found.", false);
-
-            if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Rejected))
-                return ("One or more documents were rejected.", false);
-
-            if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending))
-                return ("One or more documents are still pending admin approval.", false);
-
-            if (!legacyDocs.All(d => d.VerificationStatus == DocumentVerificationStatus.Approved))
-                return ("Not all documents are approved.", false);
+                reasons.Add("No registration documents found.");
+            else
+            {
+                if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Rejected))
+                    reasons.Add("One or more documents were rejected.");
+                if (legacyDocs.Any(d => d.VerificationStatus == DocumentVerificationStatus.Pending))
+                    reasons.Add("One or more documents are still pending admin approval.");
+                else if (!legacyDocs.All(d => d.VerificationStatus == DocumentVerificationStatus.Approved))
+                    reasons.Add("Not all documents are approved.");
+            }
         }
         else
         {
@@ -288,45 +294,48 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
             foreach (var req in activeRequired)
             {
-                if (IsRequirementMissing(req, submissionsByReqId))
-                    return ($"Required registration item '{req.Code}' has not been submitted.", false);
-
-                if (!submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
-                    return ($"Required registration item '{req.Code}' has not been submitted.", false);
+                if (IsRequirementMissing(req, submissionsByReqId)
+                    || !submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
+                {
+                    reasons.Add($"Required registration item '{req.Code}' has not been submitted.");
+                    continue;
+                }
 
                 if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
                 {
-                    var fileSubs = reqSubs;
-                    if (fileSubs.Count < req.MinCount)
-                        return ($"Requirement '{req.Code}' requires at least {req.MinCount} file(s).", false);
-                    if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
-                        return ("One or more required registration items were rejected.", false);
-                    if (fileSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
-                        return ("One or more required registration items are still pending approval.", false);
-                    if (!fileSubs.All(s => s.VerificationStatus == DocumentVerificationStatus.Approved))
-                        return ("Not all required registration items are approved.", false);
+                    if (reqSubs.Count < req.MinCount)
+                        reasons.Add($"Requirement '{req.Code}' requires at least {req.MinCount} file(s).");
+                    if (reqSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
+                        reasons.Add($"Requirement '{req.Code}' has rejected file(s).");
+                    else if (reqSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
+                        reasons.Add($"Requirement '{req.Code}' is still pending approval.");
+                    else if (!reqSubs.All(s => s.VerificationStatus == DocumentVerificationStatus.Approved))
+                        reasons.Add($"Requirement '{req.Code}' is not fully approved.");
                 }
                 else
                 {
                     var sub = GetRepresentativeSubmission(reqSubs);
                     if (sub == null)
-                        return ($"Required registration item '{req.Code}' has not been submitted.", false);
+                    {
+                        reasons.Add($"Required registration item '{req.Code}' has not been submitted.");
+                        continue;
+                    }
 
                     if (sub.VerificationStatus == DocumentVerificationStatus.Rejected)
-                        return ("One or more required registration items were rejected.", false);
-                    if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
-                        return ("One or more required registration items are still pending approval.", false);
-                    if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
-                        return ("Not all required registration items are approved.", false);
+                        reasons.Add($"Required registration item '{req.Code}' was rejected.");
+                    else if (sub.VerificationStatus == DocumentVerificationStatus.Pending)
+                        reasons.Add($"Required registration item '{req.Code}' is still pending approval.");
+                    else if (sub.VerificationStatus != DocumentVerificationStatus.Approved)
+                        reasons.Add($"Required registration item '{req.Code}' is not approved.");
                 }
             }
         }
 
         var domainBlock = await GetDomainQuestionActivationBlockReasonAsync(teacherId, cancellationToken);
         if (domainBlock != null)
-            return (domainBlock, false);
+            reasons.Add(domainBlock);
 
-        return (null, true);
+        return reasons;
     }
 
     private async Task<string?> GetDomainQuestionActivationBlockReasonAsync(int teacherId, CancellationToken cancellationToken)
@@ -363,6 +372,22 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         return "No education domain has all its required questions approved yet.";
     }
 
+    public async Task<bool> HasMissingRequiredRegistrationSubmissionsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeRequired = (await _requirementRepository.GetActiveOrderedAsync(cancellationToken))
+            .Where(r => r.IsRequired)
+            .ToList();
+
+        if (activeRequired.Count == 0)
+            return false;
+
+        var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
+        var submissionsByReqId = GroupSubmissionsByRequirementId(submissions);
+        return activeRequired.Any(r => IsRequirementMissing(r, submissionsByReqId));
+    }
+
     public async Task<bool> HasPendingRequiredRegistrationReviewAsync(
         int teacherId,
         CancellationToken cancellationToken = default)
@@ -382,16 +407,15 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
         foreach (var req in activeRequired)
         {
+            // Missing items are handled by HasMissingRequiredRegistrationSubmissionsAsync / next-step.
             if (IsRequirementMissing(req, submissionsByReqId))
-                return true;
+                continue;
 
             if (!submissionsByReqId.TryGetValue(req.Id, out var reqSubs))
-                return true;
+                continue;
 
             if (req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1)
             {
-                if (reqSubs.Count < req.MinCount)
-                    return true;
                 if (reqSubs.Any(s => s.VerificationStatus == DocumentVerificationStatus.Pending))
                     return true;
             }

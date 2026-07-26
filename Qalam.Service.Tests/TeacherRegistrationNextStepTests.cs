@@ -114,6 +114,22 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
+    public async Task GetNextStep_PendingVerificationWithMissingRegistrationFields_ReturnsCompleteRegistrationRequirements()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: true,
+            hasSubjects: true,
+            canActivate: false,
+            hasMissingRequiredRegistration: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Complete Registration Requirements", step.NextStepName);
+        Assert.False(step.IsRegistrationComplete);
+    }
+
+    [Fact]
     public async Task GetNextStep_PendingVerificationWhenNotReadyWithAvailability_ReturnsAwaitingDomainVerification()
     {
         var service = BuildService(
@@ -554,6 +570,7 @@ public class TeacherRegistrationNextStepTests
         bool hasCatalogDomainsPendingReview = false,
         bool allCatalogDomainsApproved = false,
         bool hasPendingRegistrationReview = false,
+        bool hasMissingRequiredRegistration = false,
         bool hasAnyAnswersPendingAdminReview = false,
         bool hasAnyFullyApprovedCatalogDomain = false,
         bool hasRejectedDomainQuestions = false)
@@ -585,6 +602,9 @@ public class TeacherRegistrationNextStepTests
         completionService
             .Setup(s => s.HasPendingRequiredRegistrationReviewAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(hasPendingRegistrationReview);
+        completionService
+            .Setup(s => s.HasMissingRequiredRegistrationSubmissionsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasMissingRequiredRegistration);
 
         var reviewCorrectionService = new Mock<ITeacherReviewCorrectionService>();
         reviewCorrectionService
@@ -713,6 +733,10 @@ public class TeacherRegistrationStatusServiceTests
 
         var registrationService = new Mock<ITeacherRegistrationService>();
 
+        var userStore = new Mock<IUserStore<User>>();
+        var userManager = new Mock<UserManager<User>>(
+            userStore.Object, null, null, null, null, null, null, null, null);
+
         return new TeacherRegistrationStatusService(
             requirementRepo.Object,
             submissionRepo.Object,
@@ -721,7 +745,8 @@ public class TeacherRegistrationStatusServiceTests
             completionService.Object,
             availabilityRepo.Object,
             subjectRepo.Object,
-            registrationService.Object);
+            registrationService.Object,
+            userManager.Object);
     }
 }
 
@@ -907,6 +932,10 @@ public class TeacherAccountStatusServiceTests
         var availabilityRepo = new Mock<ITeacherAvailabilityRepository>();
         availabilityRepo.Setup(r => r.HasAnyAvailabilityAsync(TeacherId)).ReturnsAsync(hasAvailability);
 
+        var userStore = new Mock<IUserStore<User>>();
+        var userManager = new Mock<UserManager<User>>(
+            userStore.Object, null, null, null, null, null, null, null, null);
+
         return new TeacherRegistrationStatusService(
             Mock.Of<ITeacherRegistrationRequirementRepository>(),
             Mock.Of<ITeacherRegistrationSubmissionRepository>(),
@@ -915,7 +944,8 @@ public class TeacherAccountStatusServiceTests
             completionService.Object,
             availabilityRepo.Object,
             Mock.Of<ITeacherSubjectRepository>(),
-            registrationService.Object);
+            registrationService.Object,
+            userManager.Object);
     }
 
     private static TeacherRegistrationStatusService BuildAccountStatusServiceWithCompletion(
@@ -977,6 +1007,10 @@ public class TeacherAccountStatusServiceTests
         var availabilityRepo = new Mock<ITeacherAvailabilityRepository>();
         availabilityRepo.Setup(r => r.HasAnyAvailabilityAsync(TeacherId)).ReturnsAsync(hasAvailability);
 
+        var userStore = new Mock<IUserStore<User>>();
+        var userManager = new Mock<UserManager<User>>(
+            userStore.Object, null, null, null, null, null, null, null, null);
+
         return new TeacherRegistrationStatusService(
             requirementRepo.Object,
             submissionRepo.Object,
@@ -985,6 +1019,7 @@ public class TeacherAccountStatusServiceTests
             completionService,
             availabilityRepo.Object,
             Mock.Of<ITeacherSubjectRepository>(),
-            registrationService.Object);
+            registrationService.Object,
+            userManager.Object);
     }
 }

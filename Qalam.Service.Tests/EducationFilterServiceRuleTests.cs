@@ -221,7 +221,13 @@ public class EducationFilterServiceRuleTests
 
     var subjectRepo = new Mock<ISubjectRepository>();
     subjectRepo
-      .Setup(r => r.GetSubjectsAsOptionsAsync(domainId, null, null, null, null))
+      .Setup(r => r.GetSubjectsAsOptionsAsync(
+        domainId,
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>()))
       .ReturnsAsync([new FilterOptionDto { Id = subjectId, NameEn = "Holy Quran", NameAr = "القرآن الكريم" }]);
 
     var quranContentTypeRepo = new Mock<IQuranContentTypeRepository>();
@@ -271,6 +277,10 @@ public class EducationFilterServiceRuleTests
       contentUnitRepo ?? Mock.Of<IContentUnitRepository>(),
       lessonRepo ?? Mock.Of<ILessonRepository>(),
       quranContentTypeRepo ?? Mock.Of<IQuranContentTypeRepository>(),
-      quranLevelRepo ?? Mock.Of<IQuranLevelRepository>());
+      quranLevelRepo ?? Mock.Of<IQuranLevelRepository>(),
+      Mock.Of<IUniversityRepository>(),
+      Mock.Of<ICollegeRepository>(),
+      Mock.Of<IDepartmentRepository>(),
+      Mock.Of<IAcademicProgramRepository>());
   }
 }
