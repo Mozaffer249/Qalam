@@ -68,29 +68,23 @@ public class EmailConsumerService : BackgroundService
             consumer.ReceivedAsync += async (_, ea) =>
             {
                 var messageId = Guid.NewGuid().ToString();
+                EmailMessage? emailMessage = null;
                 try
                 {
                     var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    var emailMessage = JsonSerializer.Deserialize<EmailMessage>(body);
+                    emailMessage = JsonSerializer.Deserialize<EmailMessage>(body);
 
                     if (emailMessage != null)
                     {
-                        await SendEmailDirectAsync(emailMessage);
-                        _logger.LogInformation("Email consumed and sent to: {To}", emailMessage.To);
+                        using var scope = _scopeFactory.CreateScope();
+                        var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
 
-                        try
-                        {
-                            using var scope = _scopeFactory.CreateScope();
-                            var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
-                            await trackingService.LogMessageAsync(messageId, MessageType.Email,
-                                emailMessage.To, emailMessage.Subject, emailMessage.Body, MessageStatus.Sent);
-                        }
-                        catch (Exception trackEx)
-                        {
-                            _logger.LogWarning(trackEx,
-                                "Email sent to {To} but MessageLog tracking failed (messageId: {MessageId})",
-                                emailMessage.To, messageId);
-                        }
+                        await trackingService.LogMessageAsync(messageId, MessageType.Email,
+                            emailMessage.To, emailMessage.Subject, emailMessage.Body, MessageStatus.Processing);
+
+                        await SendEmailDirectAsync(emailMessage);
+                        await trackingService.UpdateStatusAsync(messageId, MessageStatus.Sent);
+                        _logger.LogInformation("Email consumed and sent to: {To}", emailMessage.To);
                     }
 
                     await _channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -99,11 +93,28 @@ public class EmailConsumerService : BackgroundService
                 {
                     _logger.LogError(ex, "Failed to process email message");
 
-                    using var scope = _scopeFactory.CreateScope();
-                    var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
-                    await trackingService.UpdateStatusAsync(messageId, MessageStatus.Failed, ex.Message);
+                    try
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
+                        await trackingService.UpdateStatusAsync(messageId, MessageStatus.Failed, ex.Message);
+                    }
+                    catch (Exception trackEx)
+                    {
+                        _logger.LogWarning(trackEx,
+                            "Failed to record email failure (messageId: {MessageId})", messageId);
+                    }
 
-                    await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                    // Permanent SMTP rejects (bad domain/recipient) must not be requeued — that loops forever.
+                    var requeue = !IsPermanentEmailFailure(ex);
+                    if (!requeue)
+                    {
+                        _logger.LogWarning(
+                            "Dropping email after permanent delivery failure (to: {To}, messageId: {MessageId})",
+                            emailMessage?.To, messageId);
+                    }
+
+                    await _channel.BasicNackAsync(ea.DeliveryTag, false, requeue);
                 }
             };
 
@@ -149,6 +160,25 @@ public class EmailConsumerService : BackgroundService
 
         await smtp.SendAsync(mimeMessage);
         await smtp.DisconnectAsync(true);
+    }
+
+    private static bool IsPermanentEmailFailure(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is SmtpCommandException smtpEx)
+            {
+                // 5xx = permanent failure (invalid mailbox/domain, rejected, etc.)
+                var code = (int)smtpEx.StatusCode;
+                if (code >= 500 && code < 600)
+                    return true;
+            }
+
+            if (current is ParseException)
+                return true;
+        }
+
+        return false;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
