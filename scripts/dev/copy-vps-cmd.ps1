@@ -8,7 +8,8 @@ param(
         "teacher",
         "manual-all",
         "deploy-api",
-        "status"
+        "status",
+        "purge-email-queue"
     )]
     [string]$Name
 )
@@ -54,6 +55,13 @@ sudo bash scripts/vps/deploy.sh --no-prune --service qalam-api
 cd /opt/qalam-backend/Qalam
 docker compose ps
 docker logs --tail 80 qalam-backend-api
+"@
+    "purge-email-queue" = @"
+# Purge looping email-queue poison messages, then check DLQ depth.
+# Run before/after messaging-api redeploy when bad recipients flood logs.
+docker exec qalam-rabbitmq rabbitmqctl list_queues name messages
+docker exec qalam-rabbitmq rabbitmqctl purge_queue email-queue
+docker exec qalam-rabbitmq rabbitmqctl list_queues name messages
 "@
 }
 

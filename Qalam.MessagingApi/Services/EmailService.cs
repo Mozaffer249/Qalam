@@ -33,6 +33,8 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string email, string subject, string message, SendingStrategy strategy)
     {
+        EnsureValidEmailAddress(email);
+
         switch (strategy)
         {
             case SendingStrategy.Direct:
@@ -83,6 +85,7 @@ public class EmailService : IEmailService
     {
         await _messageQueueService.QueueEmailAsync(new EmailMessage
         {
+            MessageId = Guid.NewGuid().ToString(),
             To = email,
             Subject = subject,
             Body = body,
@@ -110,5 +113,11 @@ public class EmailService : IEmailService
                 throw;
             }
         }
+    }
+
+    private static void EnsureValidEmailAddress(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !MailboxAddress.TryParse(email, out _))
+            throw new ArgumentException($"Invalid email address: '{email}'", nameof(email));
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using MimeKit;
 using RabbitMQ.Client;
 using Qalam.MessagingApi.Configuration;
 using Qalam.MessagingApi.Models.Entities;
@@ -47,6 +48,7 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
             var queues = new[]
             {
                 _settings.EmailQueueName,
+                _settings.EmailDeadLetterQueueName,
                 _settings.SmsQueueName,
                 _settings.PushQueueName,
                 _settings.TeacherDocUploadQueueName,
@@ -79,14 +81,18 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
         }
     }
 
-    private async Task PublishAsync<T>(string queueName, T message)
+    private async Task PublishAsync<T>(string queueName, T message, IDictionary<string, object?>? headers = null)
     {
         await EnsureInitializedAsync();
 
         var messageJson = JsonSerializer.Serialize(message);
         var body = Encoding.UTF8.GetBytes(messageJson);
 
-        var properties = new BasicProperties { Persistent = true };
+        var properties = new BasicProperties
+        {
+            Persistent = true,
+            Headers = headers
+        };
 
         await _channel!.BasicPublishAsync(
             exchange: "",
@@ -100,9 +106,16 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(emailMessage.To) || !MailboxAddress.TryParse(emailMessage.To, out _))
+                throw new ArgumentException($"Invalid email address: '{emailMessage.To}'", nameof(emailMessage));
+
+            if (string.IsNullOrWhiteSpace(emailMessage.MessageId))
+                emailMessage.MessageId = Guid.NewGuid().ToString();
+
             emailMessage.QueuedAt = DateTime.UtcNow;
             await PublishAsync(_settings.EmailQueueName, emailMessage);
-            _logger.LogInformation("Email queued successfully to: {To}", emailMessage.To);
+            _logger.LogInformation("Email queued successfully to: {To}, MessageId: {MessageId}",
+                emailMessage.To, emailMessage.MessageId);
         }
         catch (Exception ex)
         {

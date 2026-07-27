@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MimeKit;
 using RabbitMQ.Client;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Helpers;
@@ -52,6 +53,10 @@ namespace Qalam.Service.Implementations
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
                 await _channel.QueueDeclareAsync(
+                    queue: _settings.EmailDeadLetterQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
+                await _channel.QueueDeclareAsync(
                     queue: _settings.SmsQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
@@ -91,7 +96,14 @@ namespace Qalam.Service.Implementations
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(emailMessage.To) || !MailboxAddress.TryParse(emailMessage.To, out _))
+                    throw new ArgumentException($"Invalid email address: '{emailMessage.To}'", nameof(emailMessage));
+
                 await EnsureInitializedAsync();
+
+                if (string.IsNullOrWhiteSpace(emailMessage.MessageId))
+                    emailMessage.MessageId = Guid.NewGuid().ToString();
+
                 emailMessage.QueuedAt = DateTime.UtcNow;
 
                 var messageJson = JsonSerializer.Serialize(emailMessage);
@@ -102,7 +114,8 @@ namespace Qalam.Service.Implementations
                     exchange: "", routingKey: _settings.EmailQueueName,
                     mandatory: false, basicProperties: properties, body: body);
 
-                _logger.LogInformation("Email queued successfully to: {To}", emailMessage.To);
+                _logger.LogInformation("Email queued successfully to: {To}, MessageId: {MessageId}",
+                    emailMessage.To, emailMessage.MessageId);
             }
             catch (Exception ex)
             {

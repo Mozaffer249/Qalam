@@ -9,6 +9,13 @@
 #   sudo bash scripts/vps/update-one-by-one.sh qalam-api     # one service
 #   sudo bash scripts/vps/update-one-by-one.sh qalam-api qalam-admin
 #   sudo bash scripts/vps/update-one-by-one.sh --no-pull ...
+#
+# Email poison / messaging-api redeploy:
+#   If email-queue is looping bad messages (e.g. invalid recipient), purge before or after
+#   redeploying messaging-api, then inspect permanent failures in email-queue.dlq:
+#     docker exec qalam-rabbitmq rabbitmqctl list_queues name messages
+#     docker exec qalam-rabbitmq rabbitmqctl purge_queue email-queue
+#     docker exec qalam-rabbitmq rabbitmqctl list_queues name messages | grep email
 # ==============================================================================
 set -euo pipefail
 

@@ -35,6 +35,8 @@ namespace Qalam.Service.Implementations
 
         public async Task SendEmailAsync(string email, string subject, string message, SendingStrategy strategy)
         {
+            EnsureValidEmailAddress(email);
+
             switch (strategy)
             {
                 case SendingStrategy.Direct:
@@ -78,6 +80,7 @@ namespace Qalam.Service.Implementations
         {
             await _rabbitMQService.QueueEmailAsync(new EmailMessage
             {
+                MessageId = Guid.NewGuid().ToString(),
                 To = email,
                 Subject = subject,
                 Body = message
@@ -105,6 +108,12 @@ namespace Qalam.Service.Implementations
                     throw;
                 }
             }
+        }
+
+        private static void EnsureValidEmailAddress(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !MailboxAddress.TryParse(email, out _))
+                throw new ArgumentException($"Invalid email address: '{email}'", nameof(email));
         }
     }
 }

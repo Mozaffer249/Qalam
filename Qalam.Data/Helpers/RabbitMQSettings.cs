@@ -8,6 +8,8 @@ namespace Qalam.Data.Helpers
         public string Password { get; set; } = "guest";
         public string VirtualHost { get; set; } = "/";
         public string EmailQueueName { get; set; } = "email-queue";
+        public string EmailDeadLetterQueueName { get; set; } = "email-queue.dlq";
+        public int EmailMaxRetries { get; set; } = 3;
         public string SmsQueueName { get; set; } = "sms-queue";
         public string PushQueueName { get; set; } = "push-queue";
         public string TeacherDocUploadQueueName { get; set; } = "teacher-doc-upload-queue";
