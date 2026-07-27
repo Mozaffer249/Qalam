@@ -1,0 +1,134 @@
+{
+  "workspace": {
+    "folders": [
+      {
+        "id": "a1111111-1111-4111-8111-111111111101",
+        "name": "Local",
+        "parentFolderId": null,
+        "sortOrder": 0,
+        "joinWith": " && "
+      },
+      {
+        "id": "a1111111-1111-4111-8111-111111111102",
+        "name": "VPS",
+        "parentFolderId": null,
+        "sortOrder": 1,
+        "joinWith": " && "
+      }
+    ],
+    "commands": [
+      {
+        "id": "b1111111-1111-4111-8111-111111111201",
+        "name": "Push submodules + main",
+        "command": ".\\scripts\\dev\\push-submodules.ps1 \"{message}\"",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 0,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111202",
+        "name": "Run API",
+        "command": ".\\scripts\\dev\\run-api.ps1",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 1,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111203",
+        "name": "Run Admin",
+        "command": ".\\scripts\\dev\\run-admin.ps1",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 2,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111204",
+        "name": "Run Teacher",
+        "command": ".\\scripts\\dev\\run-teacher.ps1",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 3,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111205",
+        "name": "Run Messaging API",
+        "command": ".\\scripts\\dev\\run-messaging-api.ps1",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 4,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111206",
+        "name": "Run RabbitMQ",
+        "command": ".\\scripts\\dev\\run-rabbitmq.ps1",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 5,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111301",
+        "name": "Update all (one-by-one)",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/update-one-by-one.sh",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 0,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111302",
+        "name": "Update qalam-api",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/update-one-by-one.sh --no-pull qalam-api",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 1,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111303",
+        "name": "Update messaging-api",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/update-one-by-one.sh --no-pull messaging-api",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 2,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111304",
+        "name": "Update qalam-admin",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/update-one-by-one.sh --no-pull qalam-admin",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 3,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111305",
+        "name": "Update qalam-teacher",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/update-one-by-one.sh --no-pull qalam-teacher",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 4,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111306",
+        "name": "Manual stop→rm→up (all)",
+        "command": "cd /opt/qalam-backend/Qalam && git pull --ff-only --recurse-submodules origin main && git submodule update --init --recursive && docker compose stop qalam-api && docker compose rm -f qalam-api && docker compose up -d --build --force-recreate qalam-api && docker compose stop messaging-api && docker compose rm -f messaging-api && docker compose up -d --build --force-recreate messaging-api && docker compose stop qalam-admin && docker compose rm -f qalam-admin && docker compose up -d --build --force-recreate qalam-admin && docker compose stop qalam-teacher && docker compose rm -f qalam-teacher && docker compose up -d --build --force-recreate qalam-teacher && docker compose ps",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 5,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111307",
+        "name": "deploy.sh api only",
+        "command": "cd /opt/qalam-backend/Qalam && sudo bash scripts/vps/deploy.sh --no-prune --service qalam-api",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 6,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111308",
+        "name": "Status + api logs",
+        "command": "cd /opt/qalam-backend/Qalam && docker compose ps && docker logs --tail 80 qalam-backend-api",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 7,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      }
+    ]
+  }
+}
