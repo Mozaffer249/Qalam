@@ -35,6 +35,7 @@ namespace Qalam.Service
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
             services.AddTransient<ITeacherRegistrationSubmitService, TeacherRegistrationSubmitService>();
             services.AddTransient<ITeacherManagementService, TeacherManagementService>();
+            services.AddTransient<ITeacherAccountDeletionService, TeacherAccountDeletionService>();
             services.AddTransient<ITeacherSubjectAdminService, TeacherSubjectAdminService>();
             services.AddTransient<INationalityProvider, NationalityProvider>();
             services.AddTransient<ITeacherRegistrationRequirementProvider, TeacherRegistrationRequirementProvider>();

@@ -14,6 +14,7 @@ public class TeacherManagementService : ITeacherManagementService
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
+    private readonly ITeacherAccountDeletionService _accountDeletionService;
     private readonly ILogger<TeacherManagementService> _logger;
 
     public TeacherManagementService(
@@ -21,12 +22,14 @@ public class TeacherManagementService : ITeacherManagementService
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationCompletionService completionService,
         ITeacherLifecycleEmailService lifecycleEmailService,
+        ITeacherAccountDeletionService accountDeletionService,
         ILogger<TeacherManagementService> logger)
     {
         _teacherRepository = teacherRepository;
         _documentRepository = documentRepository;
         _completionService = completionService;
         _lifecycleEmailService = lifecycleEmailService;
+        _accountDeletionService = accountDeletionService;
         _logger = logger;
     }
 
@@ -155,6 +158,13 @@ public class TeacherManagementService : ITeacherManagementService
 
         return (true, true, "Teacher account blocked successfully");
     }
+
+    public Task<(bool Success, string Message)> DeleteTeacherAccountAsync(
+        int teacherId,
+        int adminId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+        => _accountDeletionService.DeleteTeacherAccountAsync(teacherId, adminId, reason, cancellationToken);
 
     public async Task<bool> ReuploadDocumentAsync(int teacherId, int documentId, string newFilePath)
     {

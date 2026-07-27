@@ -101,12 +101,14 @@ public class TeacherManagementServiceBlockToggleTests
         var documentRepo = new Mock<ITeacherDocumentRepository>();
         var completionService = new Mock<ITeacherRegistrationCompletionService>();
         var lifecycleEmail = new Mock<ITeacherLifecycleEmailService>();
+        var accountDeletion = new Mock<ITeacherAccountDeletionService>();
 
         var service = new TeacherManagementService(
             teacherRepo.Object,
             documentRepo.Object,
             completionService.Object,
             lifecycleEmail.Object,
+            accountDeletion.Object,
             NullLogger<TeacherManagementService>.Instance);
 
         return (service, lifecycleEmail, teacherRepo);

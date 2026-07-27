@@ -17,7 +17,7 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
         builder.HasIndex(e => new { e.TeacherId, e.SubjectId });
 
         builder.HasOne(e => e.Teacher)
-               .WithMany()
+               .WithMany(t => t.TeacherSubjects)
                .HasForeignKey(e => e.TeacherId)
                .OnDelete(DeleteBehavior.Cascade);
 

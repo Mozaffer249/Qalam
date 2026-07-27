@@ -6,6 +6,7 @@ using Qalam.Core.Features.Admin.Commands.ActivateTeacherAccount;
 using Qalam.Core.Features.Admin.Commands.ApproveDocument;
 using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.BlockTeacher;
+using Qalam.Core.Features.Admin.Commands.DeleteTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
 using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
@@ -226,6 +227,24 @@ public class TeacherManagementController : AppControllerBase
 		};
 		var response = await _mediator.Send(command);
 		return NewResult(response);
+	}
+
+	/// <summary>
+	/// Permanently delete a teacher account, linked Identity user, and teacher-owned related data.
+	/// Student-owned session requests are kept (targeting detached). Cannot be undone.
+	/// </summary>
+	[HttpDelete("{teacherId:int}")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	public async Task<IActionResult> DeleteTeacher(int teacherId, [FromBody] DeleteTeacherRequest? request)
+	{
+		var command = new DeleteTeacherCommand
+		{
+			TeacherId = teacherId,
+			Reason = request?.Reason
+		};
+		return NewResult(await _mediator.Send(command));
 	}
 
 	/// <summary>
