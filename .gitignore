@@ -1,5 +1,8 @@
 # Environment variables (secrets)
 .env
+.env.staging
+.env.prod
+.env.local
 
 # VPS deploy marker (last successfully deployed commit SHA)
 .deploy-state
