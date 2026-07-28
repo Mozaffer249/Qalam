@@ -16,5 +16,8 @@ public class AuthSettingsDefaultsTests
         Assert.Equal("Email", restored.Student.OtpDelivery);
         Assert.True(restored.Teacher.RegisterRequiresEmail);
         Assert.Equal(4, restored.Otp.Length);
+        Assert.Equal(300, restored.Otp.ExpirySeconds);
+        Assert.Equal(45, restored.Otp.ResendCooldownSeconds);
+        Assert.True(restored.Otp.AllowTestCodeInDevelopment);
     }
 }

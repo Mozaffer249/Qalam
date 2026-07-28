@@ -215,6 +215,12 @@ public class StudentSendOtpResponseDto
     public string PhoneNumber { get; set; } = default!;
     public string OtpSentTo { get; set; } = default!;
     public string MaskedDestination { get; set; } = default!;
+    /// <summary>OTP digit count — UI input length after send/resend.</summary>
+    public int OtpLength { get; set; }
+    /// <summary>Seconds until this OTP expires.</summary>
+    public int ExpirySeconds { get; set; }
+    /// <summary>Seconds until another send is allowed for this phone.</summary>
+    public int ResendCooldownSeconds { get; set; }
 }
 
 #endregion

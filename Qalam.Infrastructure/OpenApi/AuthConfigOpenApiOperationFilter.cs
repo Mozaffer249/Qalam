@@ -23,8 +23,9 @@ public sealed class AuthConfigOpenApiOperationFilter : IOperationFilter
                     **Scalar hint — frontend flow**
                     1. Call this endpoint on app load (no `Authorization` header).
                     2. Read `data.teacher` or `data.student` for which fields to show and whether OTP goes to Email or Sms.
-                    3. Use `data.otp.length` for the OTP input and `otpHintEn` / `otpHintAr` on the verify screen.
-                    4. Then call Teacher `LoginOrRegister` or Student `SendOtp` (see repo guide below).
+                    3. Use `data.otp.length` for the OTP input, `otp.expirySeconds` / `otp.resendCooldownSeconds` for timers, and `otpHintEn` / `otpHintAr` on the verify screen. Resend must call LoginOrRegister again after the cooldown.
+                    4. If `otp.allowTestCode` is true (Dev/Staging only), the UI may show that test code `1234` is accepted.
+                    5. Then call Teacher `LoginOrRegister` or Student `SendOtp` (see repo guide below).
 
                     **Repository guide:** `docs/Auth-Config-Frontend.md`  
                     **Also see:** `STUDENT_AUTH_FRONTEND_GUIDE.md`, `TEACHER_AUTH_FRONTEND_GUIDE copy.md` (repo root)

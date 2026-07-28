@@ -75,20 +75,27 @@ internal static class AuthConfigMapper
 {
     public static AuthConfigResponseDto ToPublicConfig(AuthSettingsDto settings)
     {
+        var length = Math.Max(1, settings.Otp.Length);
+        var envName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+        var isNonProd = string.Equals(envName, "Development", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(envName, "Staging", StringComparison.OrdinalIgnoreCase);
+        var allowTestCode = settings.Otp.AllowTestCodeInDevelopment && isNonProd;
+
         return new AuthConfigResponseDto
         {
-            Teacher = MapPersona(settings.Teacher, settings.Teacher.OtpDelivery),
-            Student = MapPersona(settings.Student, settings.Student.OtpDelivery),
+            Teacher = MapPersona(settings.Teacher, settings.Teacher.OtpDelivery, length),
+            Student = MapPersona(settings.Student, settings.Student.OtpDelivery, length),
             Otp = new AuthOtpConfigDto
             {
-                Length = settings.Otp.Length,
+                Length = length,
                 ExpirySeconds = settings.Otp.ExpirySeconds,
-                ResendCooldownSeconds = settings.Otp.ResendCooldownSeconds
+                ResendCooldownSeconds = settings.Otp.ResendCooldownSeconds,
+                AllowTestCode = allowTestCode
             }
         };
     }
 
-    private static AuthPersonaConfigDto MapPersona(PersonaAuthSettingsDto p, string delivery)
+    private static AuthPersonaConfigDto MapPersona(PersonaAuthSettingsDto p, string delivery, int otpLength)
     {
         var isEmail = string.Equals(delivery, "Email", StringComparison.OrdinalIgnoreCase);
         return new AuthPersonaConfigDto
@@ -100,11 +107,11 @@ internal static class AuthConfigMapper
             PhoneRequired = p.RegisterRequiresPhone,
             EmailRequired = p.RegisterRequiresEmail,
             OtpHintEn = isEmail
-                ? "We sent a 4-digit code to your email"
-                : "We sent a 4-digit code to your phone",
+                ? $"We sent a {otpLength}-digit code to your email"
+                : $"We sent a {otpLength}-digit code to your phone",
             OtpHintAr = isEmail
-                ? "أرسلنا رمزاً من 4 أرقام إلى بريدك الإلكتروني"
-                : "أرسلنا رمزاً من 4 أرقام إلى هاتفك"
+                ? $"أرسلنا رمزاً من {otpLength} أرقام إلى بريدك الإلكتروني"
+                : $"أرسلنا رمزاً من {otpLength} أرقام إلى هاتفك"
         };
     }
 }

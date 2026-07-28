@@ -103,7 +103,7 @@ public class SendPhoneOtpCommandHandler : ResponseHandler,
         if (sendResult == null)
         {
             return TooManyRequests<SendOtpResponseDto>(
-                "A valid OTP has already been sent. Please check your messages or wait before requesting a new one.");
+                $"Please wait {settings.Otp.ResendCooldownSeconds} seconds before requesting a new code.");
         }
 
         var maskedPhone = request.PhoneNumber.Length >= 4
@@ -119,7 +119,10 @@ public class SendPhoneOtpCommandHandler : ResponseHandler,
             Message = isNewUser
                 ? "OTP sent successfully. Complete registration after verification."
                 : "OTP sent successfully. Welcome back!",
-            HasAcceptedTerms = !isNewUser && existingUser?.TermsAcceptedAt != null
+            HasAcceptedTerms = !isNewUser && existingUser?.TermsAcceptedAt != null,
+            OtpLength = settings.Otp.Length,
+            ExpirySeconds = settings.Otp.ExpirySeconds,
+            ResendCooldownSeconds = settings.Otp.ResendCooldownSeconds
         });
     }
 }

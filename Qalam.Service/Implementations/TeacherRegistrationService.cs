@@ -375,11 +375,13 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             && await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId))
             return BuildAwaitingDomainVerificationStep();
 
-        var hasPendingRegistration =
-            await _completionService.HasPendingRequiredRegistrationReviewAsync(teacherId);
+        // Identity / certificates still under admin review — do not unlock subjects or availability.
+        if (await _completionService.HasPendingRequiredRegistrationReviewAsync(teacherId))
+            return BuildAwaitingAdminVerificationStep();
+
         var hasPendingDomain = catalogDomainIds.Count > 0
             && await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId);
-        if (hasPendingRegistration || hasPendingDomain)
+        if (hasPendingDomain)
         {
             if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
                 return BuildAddSubjectsStep();
@@ -475,6 +477,16 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             NextStepName = "Awaiting Domain Verification",
             IsRegistrationComplete = false,
             Message = "Your registration documents and domain answers are being reviewed. Please wait for admin approval."
+        };
+
+    private static RegistrationStepDto BuildAwaitingAdminVerificationStep() =>
+        new()
+        {
+            CurrentStep = 5,
+            NextStep = 0,
+            NextStepName = "Awaiting Admin Verification",
+            IsRegistrationComplete = false,
+            Message = "Your identity and certificate documents are being reviewed. Please wait for admin approval before continuing."
         };
 
     private static RegistrationStepDto BuildAddSubjectsStep() =>

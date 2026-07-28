@@ -38,4 +38,9 @@ public class AuthOtpConfigDto
     public int ExpirySeconds { get; set; }
     /// <summary>Resend cooldown in seconds — UI should disable the "Resend code" button until this many seconds have elapsed since the last send.</summary>
     public int ResendCooldownSeconds { get; set; }
+    /// <summary>
+    /// True only in Development/Staging when <c>AllowTestCodeInDevelopment</c> is enabled.
+    /// Never true in Production — frontends may show a test-code hint.
+    /// </summary>
+    public bool AllowTestCode { get; set; }
 }

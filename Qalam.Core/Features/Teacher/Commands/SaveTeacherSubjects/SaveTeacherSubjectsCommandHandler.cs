@@ -18,6 +18,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
     private readonly ISubjectService _subjectService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
+    private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
@@ -26,6 +27,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         ISubjectService subjectService,
         ITeacherRegistrationService teacherRegistrationService,
         ITeacherDomainQuestionStatusService domainQuestionStatusService,
+        ITeacherRegistrationCompletionService completionService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -34,6 +36,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         _subjectService = subjectService;
         _teacherRegistrationService = teacherRegistrationService;
         _domainQuestionStatusService = domainQuestionStatusService;
+        _completionService = completionService;
         _mapper = mapper;
     }
 
@@ -62,6 +65,12 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         {
             return BadRequest<TeacherSubjectsResponseDto>(
                 "Complete registration and domain verification before adding teaching subjects.");
+        }
+
+        if (await _completionService.HasPendingRequiredRegistrationReviewAsync(teacher.Id, cancellationToken))
+        {
+            return BadRequest<TeacherSubjectsResponseDto>(
+                "Identity and certificate documents are still under review. Please wait for admin approval before adding teaching subjects.");
         }
 
         var domainQuestionError = await _domainQuestionStatusService.ValidateSubjectsDomainQuestionsAsync(

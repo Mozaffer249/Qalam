@@ -5,6 +5,7 @@ using Qalam.Core.Features.Teacher.Queries.GetTeacherAvailability;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Commands.SaveTeacherAvailability;
 
@@ -13,16 +14,19 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
 {
     private readonly ITeacherAvailabilityRepository _availabilityRepository;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly IMediator _mediator;
 
     public SaveTeacherAvailabilityCommandHandler(
         ITeacherAvailabilityRepository availabilityRepository,
         ITeacherRepository teacherRepository,
+        ITeacherRegistrationCompletionService completionService,
         IMediator mediator,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _availabilityRepository = availabilityRepository;
         _teacherRepository = teacherRepository;
+        _completionService = completionService;
         _mediator = mediator;
     }
 
@@ -41,6 +45,12 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
         if (request.DaySchedules.Count == 0)
         {
             return BadRequest<TeacherAvailabilityResponseDto>("At least one day schedule is required");
+        }
+
+        if (await _completionService.HasPendingRequiredRegistrationReviewAsync(teacher.Id, cancellationToken))
+        {
+            return BadRequest<TeacherAvailabilityResponseDto>(
+                "Identity and certificate documents are still under review. Please wait for admin approval before setting availability.");
         }
 
         // Save availability (additive — skips existing slots automatically)

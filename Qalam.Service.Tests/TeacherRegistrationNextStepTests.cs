@@ -98,7 +98,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsSetAvailabilityWhenSubjectsExist()
+    public async Task GetNextStep_PendingVerificationWhenNotReady_ReturnsAwaitingAdminWhenSubjectsExistButDocsPending()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -109,8 +109,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Set Your Availability", step.NextStepName);
-        Assert.True(step.RequiresAvailabilitySetup);
+        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
+        Assert.False(step.RequiresAvailabilitySetup);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenNotReadyWithAvailability_ReturnsAwaitingDomainVerification()
+    public async Task GetNextStep_PendingVerificationWhenNotReadyWithAvailability_ReturnsAwaitingAdminVerification()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -141,7 +141,7 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
         Assert.False(step.AwaitingFinalApproval);
     }
 
@@ -370,6 +370,26 @@ public class TeacherRegistrationNextStepTests
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
         Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+    }
+
+    [Fact]
+    public async Task GetNextStep_ApprovedDomainButPendingRegistrationDocs_ReturnsAwaitingAdminVerification()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            hasAvailability: false,
+            hasSubjects: false,
+            canActivate: false,
+            catalogDomainIds: [1, 2],
+            hasAnyAnswersPendingAdminReview: false,
+            hasAnyFullyApprovedCatalogDomain: true,
+            hasRejectedDomainQuestions: false,
+            hasPendingRegistrationReview: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Awaiting Admin Verification", step.NextStepName);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
     }
 
     [Fact]

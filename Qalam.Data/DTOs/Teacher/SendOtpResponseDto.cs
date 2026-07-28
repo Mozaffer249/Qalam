@@ -35,4 +35,13 @@ public class SendOtpResponseDto
     /// Always false for new users until they accept during registration.
     /// </summary>
     public bool HasAcceptedTerms { get; set; }
+
+    /// <summary>OTP digit count — UI input length after send/resend.</summary>
+    public int OtpLength { get; set; }
+
+    /// <summary>Seconds until this OTP expires.</summary>
+    public int ExpirySeconds { get; set; }
+
+    /// <summary>Seconds until another send is allowed for this phone.</summary>
+    public int ResendCooldownSeconds { get; set; }
 }

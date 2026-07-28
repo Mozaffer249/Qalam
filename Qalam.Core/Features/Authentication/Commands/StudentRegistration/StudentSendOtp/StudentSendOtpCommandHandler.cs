@@ -99,7 +99,7 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
         if (sendResult == null)
         {
             return TooManyRequests<StudentSendOtpResponseDto>(
-                "A valid OTP code has already been sent. Please check your messages or wait before requesting a new one.");
+                $"Please wait {settings.Otp.ResendCooldownSeconds} seconds before requesting a new code.");
         }
 
         var maskedPhone = request.PhoneNumber.Length >= 4
@@ -116,7 +116,10 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
             PhoneNumber = maskedPhone,
             OtpSentTo = sendResult.OtpSentTo,
             MaskedDestination = sendResult.MaskedDestination,
-            Message = message
+            Message = message,
+            OtpLength = settings.Otp.Length,
+            ExpirySeconds = settings.Otp.ExpirySeconds,
+            ResendCooldownSeconds = settings.Otp.ResendCooldownSeconds
         });
     }
 }
