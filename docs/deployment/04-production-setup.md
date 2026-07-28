@@ -62,7 +62,7 @@ Required fills:
 | `SEED_DEFAULT_ADMIN` | `true` **only for the very first boot**; flip to `false` immediately after |
 | `DEFAULT_ADMIN_PASSWORD` | One-time strong password; you'll rotate via API and unset this within an hour |
 | `EMAIL_*` | Real SMTP — bounces/OTP must be reliable |
-| `CORS_ALLOWED_ORIGINS` | Locked to your production frontends (already pre-filled with `qalam.net.sa`, `teacher.qalam.net.sa`, `admin.qalam.net.sa`) |
+| `CORS_ALLOWED_ORIGINS` | Locked to production frontends: `https://qalam.net.sa` (teacher), `https://admin.qalam.net.sa` |
 
 ---
 

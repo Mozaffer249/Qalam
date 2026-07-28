@@ -11,24 +11,23 @@ This guide assumes:
 - Backend runs in Docker (one stack per environment — see compose files) and listens on the host at **`127.0.0.1:8080`** (prod) / **`127.0.0.1:8081`** (staging).
 - You will serve **eight** vhosts on the same machine — one set per environment:
 
-**Production**
+**Production** (live mapping)
 
-| Subdomain | Purpose | Typical Nginx target |
-|-----------|---------|----------------------|
+| Host | Purpose | Typical Nginx target |
+|------|---------|----------------------|
 | `api.qalam.net.sa` | ASP.NET Core API (prod) | Reverse proxy → `http://127.0.0.1:8080` |
-| `qalam.net.sa` | Public / student web app (prod) | Static files **or** reverse proxy to a container |
-| `teacher.qalam.net.sa` | Teacher dashboard (prod) | Static files **or** reverse proxy to a container |
-| `admin.qalam.net.sa` | Admin dashboard (prod) | Static files **or** reverse proxy to a container |
+| **`qalam.net.sa`** | **Teacher app (prod)** | Reverse proxy → `http://127.0.0.1:8091` |
+| `admin.qalam.net.sa` | Admin dashboard (prod) | Reverse proxy → `http://127.0.0.1:8090` |
 
-**Staging**
+**Staging** (keep off the apex so prod teacher stays untouched)
 
-| Subdomain | Purpose | Typical Nginx target |
-|-----------|---------|----------------------|
+| Host | Purpose | Typical Nginx target |
+|------|---------|----------------------|
 | `api-staging.qalam.net.sa` | ASP.NET Core API (staging) | Reverse proxy → `http://127.0.0.1:8081` |
-| `teacher-staging.qalam.net.sa` | Teacher dashboard (staging) | Static files **or** reverse proxy to a container |
-| `admin-staging.qalam.net.sa` | Admin dashboard (staging) | Static files **or** reverse proxy to a container |
+| `teacher-staging.qalam.net.sa` | Teacher app (staging) | Reverse proxy → `http://127.0.0.1:8093` |
+| `admin-staging.qalam.net.sa` | Admin dashboard (staging) | Reverse proxy → `http://127.0.0.1:8092` |
 
-The public landing page at `qalam.net.sa` intentionally has **no staging vhost** — it's mostly static marketing content, low-risk to change, and faster to preview via the build tool's PR-preview feature (Vercel/Netlify). Add `staging.qalam.net.sa` later only if the landing grows real API-driven flows (sign-up, course catalog with live data, etc.).
+Do **not** put staging teacher on `qalam.net.sa` — that host is production. Optional legacy DNS `teacher.qalam.net.sa` can 301 → `https://qalam.net.sa` if it still exists.
 
 Keep **one subdomain per environment for the API** so HTTPS and CORS stay simple.
 
@@ -40,10 +39,10 @@ Keep **one subdomain per environment for the API** so HTTPS and CORS stay simple
 
 | Type | Host / Name | Value |
 |------|-------------|--------|
-| A | `@` (root `qalam.net.sa`) | `8.213.80.90` |
+| A | `@` (root `qalam.net.sa` — **teacher prod**) | `8.213.80.90` |
 | A | `api` | `8.213.80.90` |
-| A | `teacher` | `8.213.80.90` |
 | A | `admin` | `8.213.80.90` |
+| A | `teacher` (optional legacy → redirect to apex) | `8.213.80.90` |
 
 **Staging records — add these** before running the staging setup or issuing certs:
 
@@ -55,7 +54,7 @@ Keep **one subdomain per environment for the API** so HTTPS and CORS stay simple
 
 Wait until DNS resolves before continuing:
 
-```bash
+```sh
 dig +short api.qalam.net.sa            # prod
 dig +short qalam.net.sa                # prod landing page
 dig +short api-staging.qalam.net.sa    # staging API
@@ -82,7 +81,7 @@ You usually **do not** need to expose **8080** publicly if Nginx proxies to `127
 
 SSH into the server:
 
-```bash
+```sh
 sudo apt update
 sudo apt install -y nginx certbot python3-certbot-nginx
 sudo systemctl enable --now nginx
@@ -90,7 +89,7 @@ sudo systemctl enable --now nginx
 
 If `ufw` is enabled:
 
-```bash
+```sh
 sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
 sudo ufw enable
@@ -102,20 +101,9 @@ sudo ufw enable
 
 For each SPA produce a production build (`npm run build`) and copy the output folder to the server. The student landing page only has a prod build; teacher and admin dashboards have both prod and staging.
 
-```text
-# Production
-/var/www/qalam-student/html            # serves qalam.net.sa  (landing — prod only)
-/var/www/qalam-teacher/html            # serves teacher.qalam.net.sa
-/var/www/qalam-admin/html              # serves admin.qalam.net.sa
-
-# Staging
-/var/www/qalam-teacher-staging/html    # serves teacher-staging.qalam.net.sa
-/var/www/qalam-admin-staging/html      # serves admin-staging.qalam.net.sa
-```
-
 Create directories and set ownership:
 
-```bash
+```sh
 sudo mkdir -p /var/www/qalam-{student,teacher,admin}/html
 sudo mkdir -p /var/www/qalam-{teacher,admin}-staging/html
 sudo chown -R www-data:www-data /var/www/qalam-*
@@ -131,13 +119,13 @@ Copy each built `index.html` + assets bundle into the matching `html` folder. St
 
 From your project directory (where `docker-compose.prod.yml` and `.env` live):
 
-```bash
+```sh
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Confirm the API responds locally:
 
-```bash
+```sh
 curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/swagger/index.html
 ```
 
@@ -152,20 +140,20 @@ Each environment's API must allow browser calls only from its own frontends. Set
 **Production** — in `/opt/qalam-backend/Qalam/.env.prod` (or `.env`):
 
 ```env
-CORS_ALLOWED_ORIGINS=https://qalam.net.sa,https://teacher.qalam.net.sa,https://admin.qalam.net.sa
+CORS_ALLOWED_ORIGINS=https://qalam.net.sa,https://admin.qalam.net.sa
 ```
 
 **Staging** — in the same repo, `.env.staging`:
 
 ```env
-CORS_ALLOWED_ORIGINS=https://staging.qalam.net.sa,https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa
+CORS_ALLOWED_ORIGINS=https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa
 ```
 
 If you still use Vercel during migration, append it to the relevant env file.
 
 Apply changes:
 
-```bash
+```sh
 # Prod
 docker compose -f docker-compose.prod.yml -p qalam-prod --env-file .env.prod up -d
 
@@ -223,7 +211,7 @@ server {
 
 Enable both and test:
 
-```bash
+```sh
 sudo ln -sf /etc/nginx/sites-available/api.qalam.net.sa         /etc/nginx/sites-enabled/api.qalam.net.sa
 sudo ln -sf /etc/nginx/sites-available/api-staging.qalam.net.sa /etc/nginx/sites-enabled/api-staging.qalam.net.sa
 sudo nginx -t && sudo systemctl reload nginx
@@ -249,24 +237,20 @@ server {
 }
 ```
 
-**Production** — create six? no, three vhost files:
+**Production** (Docker proxy preferred — matches live compose ports):
 
-- `qalam-student.conf` → `server_name qalam.net.sa;`           → `root /var/www/qalam-student/html;`
-- `qalam-teacher.conf` → `server_name teacher.qalam.net.sa;`   → `root /var/www/qalam-teacher/html;`
-- `qalam-admin.conf`   → `server_name admin.qalam.net.sa;`     → `root /var/www/qalam-admin/html;`
+- `qalam.net.sa` → `proxy_pass http://127.0.0.1:8091;` (**teacher**)
+- `admin.qalam.net.sa` → `proxy_pass http://127.0.0.1:8090;`
+- Optional: `teacher.qalam.net.sa` → `return 301 https://qalam.net.sa$request_uri;`
 
-**Staging** — two more vhost files (no staging landing page):
+**Staging**:
 
-- `qalam-teacher-staging.conf` → `server_name teacher-staging.qalam.net.sa;` → `root /var/www/qalam-teacher-staging/html;`
-- `qalam-admin-staging.conf`   → `server_name admin-staging.qalam.net.sa;`   → `root /var/www/qalam-admin-staging/html;`
+- `teacher-staging.qalam.net.sa` → `proxy_pass http://127.0.0.1:8093;`
+- `admin-staging.qalam.net.sa` → `proxy_pass http://127.0.0.1:8092;`
 
-Enable everything:
+Enable site files under `/etc/nginx/sites-available/`, then:
 
-```bash
-for f in qalam-student qalam-teacher qalam-admin \
-         qalam-teacher-staging qalam-admin-staging; do
-  sudo ln -sf /etc/nginx/sites-available/${f}.conf /etc/nginx/sites-enabled/${f}.conf
-done
+```sh
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -276,28 +260,27 @@ sudo nginx -t && sudo systemctl reload nginx
 
 After DNS resolves correctly for **all** subdomains (Step 1), issue certs in two batches — one per environment, so the cert for staging can renew independently:
 
-```bash
-# Production cert (4 hostnames)
+```sh
+# Production cert (teacher = apex)
 sudo certbot --nginx \
   -d api.qalam.net.sa \
   -d qalam.net.sa \
-  -d teacher.qalam.net.sa \
   -d admin.qalam.net.sa \
-  --redirect --agree-tos -m you@example.com
+  --redirect --agree-tos -m info@qalam.net.sa
 
-# Staging cert (3 hostnames — no landing page)
+# Staging cert
 sudo certbot --nginx \
   -d api-staging.qalam.net.sa \
   -d teacher-staging.qalam.net.sa \
   -d admin-staging.qalam.net.sa \
-  --redirect --agree-tos -m you@example.com
+  --redirect --agree-tos -m info@qalam.net.sa
 ```
 
 Follow the prompts. Certbot will modify the matching Nginx vhosts for TLS and add the HTTP→HTTPS redirect.
 
 Test renewal (both certs at once):
 
-```bash
+```sh
 sudo certbot renew --dry-run
 sudo certbot certificates    # confirm both certs are listed with > 60 days remaining
 ```
@@ -308,14 +291,6 @@ sudo certbot certificates    # confirm both certs are listed with > 60 days rema
 
 In each frontend's environment (build-time or runtime config), set the API base URL **per environment**:
 
-```text
-# Production builds (qalam.net.sa, teacher.qalam.net.sa, admin.qalam.net.sa)
-VITE_API_URL=https://api.qalam.net.sa
-
-# Staging builds (staging.qalam.net.sa, teacher-staging.qalam.net.sa, admin-staging.qalam.net.sa)
-VITE_API_URL=https://api-staging.qalam.net.sa
-```
-
 Rebuild each environment separately and deploy to the matching directory under `/var/www/`. Don't reuse a staging build under a prod hostname — the embedded API URL would silently misroute traffic.
 
 ---
@@ -324,14 +299,13 @@ Rebuild each environment separately and deploy to the matching directory under `
 
 From your laptop:
 
-```bash
+```sh
 # Production
 curl -I https://api.qalam.net.sa/swagger/index.html
 curl -I https://qalam.net.sa/
-curl -I https://teacher.qalam.net.sa/
 curl -I https://admin.qalam.net.sa/
 
-# Staging (no landing page)
+# Staging
 curl -I https://api-staging.qalam.net.sa/swagger/index.html
 curl -I https://teacher-staging.qalam.net.sa/
 curl -I https://admin-staging.qalam.net.sa/

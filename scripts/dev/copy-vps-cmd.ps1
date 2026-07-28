@@ -9,7 +9,16 @@ param(
         "manual-all",
         "deploy-api",
         "status",
-        "purge-email-queue"
+        "purge-email-queue",
+        "staging-up",
+        "staging-all",
+        "staging-rabbitmq",
+        "staging-api",
+        "staging-messaging",
+        "staging-admin",
+        "staging-teacher",
+        "staging-status",
+        "staging-purge-email"
     )]
     [string]$Name
 )
@@ -39,13 +48,7 @@ sudo bash scripts/vps/update-one-by-one.sh --no-pull qalam-teacher
 cd /opt/qalam-backend/Qalam
 git pull --ff-only --recurse-submodules origin main
 git submodule update --init --recursive
-
-docker compose stop qalam-api && docker compose rm -f qalam-api && docker compose up -d --build --force-recreate qalam-api
-docker compose stop messaging-api && docker compose rm -f messaging-api && docker compose up -d --build --force-recreate messaging-api
-docker compose stop qalam-admin && docker compose rm -f qalam-admin && docker compose up -d --build --force-recreate qalam-admin
-docker compose stop qalam-teacher && docker compose rm -f qalam-teacher && docker compose up -d --build --force-recreate qalam-teacher
-
-docker compose ps
+docker compose --env-file .env up -d --build
 "@
     "deploy-api" = @"
 cd /opt/qalam-backend/Qalam
@@ -53,15 +56,52 @@ sudo bash scripts/vps/deploy.sh --no-prune --service qalam-api
 "@
     status = @"
 cd /opt/qalam-backend/Qalam
-docker compose ps
+docker compose --env-file .env ps
 docker logs --tail 80 qalam-backend-api
 "@
     "purge-email-queue" = @"
-# Purge looping email-queue poison messages, then check DLQ depth.
-# Run before/after messaging-api redeploy when bad recipients flood logs.
 docker exec qalam-rabbitmq rabbitmqctl list_queues name messages
 docker exec qalam-rabbitmq rabbitmqctl purge_queue email-queue
 docker exec qalam-rabbitmq rabbitmqctl list_queues name messages
+"@
+    "staging-up" = @"
+cd /opt/qalam-backend/Qalam
+# Prefer one-by-one (staging-all) — full up --build is slow on VPS
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh --no-pull
+"@
+    "staging-all" = @"
+cd /opt/qalam-backend/Qalam
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh
+"@
+    "staging-rabbitmq" = @"
+cd /opt/qalam-backend/Qalam
+docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d rabbitmq
+"@
+    "staging-api" = @"
+cd /opt/qalam-backend/Qalam
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh --no-pull qalam-api
+"@
+    "staging-messaging" = @"
+cd /opt/qalam-backend/Qalam
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh --no-pull messaging-api
+"@
+    "staging-admin" = @"
+cd /opt/qalam-backend/Qalam
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh --no-pull qalam-admin
+"@
+    "staging-teacher" = @"
+cd /opt/qalam-backend/Qalam
+sudo ENV_FILE=.env.staging COMPOSE_FILE=docker-compose.staging.yml COMPOSE_PROJECT_NAME=qalam-staging bash scripts/vps/update-one-by-one.sh --no-pull qalam-teacher
+"@
+    "staging-status" = @"
+cd /opt/qalam-backend/Qalam
+docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging ps
+docker logs --tail 80 qalam-staging-backend-api
+"@
+    "staging-purge-email" = @"
+docker exec qalam-staging-rabbitmq rabbitmqctl list_queues name messages
+docker exec qalam-staging-rabbitmq rabbitmqctl purge_queue email-queue
+docker exec qalam-staging-rabbitmq rabbitmqctl list_queues name messages
 "@
 }
 

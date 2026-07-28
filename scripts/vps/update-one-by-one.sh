@@ -22,9 +22,12 @@ set -euo pipefail
 REPO_PATH="${REPO_PATH:-/opt/qalam-backend/Qalam}"
 ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
+# Optional: e.g. COMPOSE_PROJECT_NAME=qalam-staging (staging file also sets name: qalam-staging)
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
 DO_PULL=1
 
-ALL_SERVICES=(messaging-api qalam-api qalam-admin qalam-teacher)
+# rabbitmq first (image pull only), then apps that depend on it
+ALL_SERVICES=(rabbitmq messaging-api qalam-api qalam-admin qalam-teacher)
 
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 ok()   { printf '\033[1;32m✓ %s\033[0m\n' "$*"; }
@@ -49,6 +52,9 @@ cd "$REPO_PATH" || fail "Repo not found: $REPO_PATH"
 [[ -f "$ENV_FILE" ]] || fail "Missing $ENV_FILE"
 
 COMPOSE=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+if [[ -n "$COMPOSE_PROJECT_NAME" ]]; then
+  COMPOSE+=(-p "$COMPOSE_PROJECT_NAME")
+fi
 
 if [[ "$DO_PULL" -eq 1 ]]; then
   note "git pull --ff-only --recurse-submodules origin main"
@@ -62,8 +68,13 @@ for svc in "${SERVICES[@]}"; do
   note "stop + remove"
   "${COMPOSE[@]}" stop "$svc" || true
   "${COMPOSE[@]}" rm -f "$svc" || true
-  note "build + recreate"
-  "${COMPOSE[@]}" up -d --build --force-recreate "$svc"
+  if [[ "$svc" == "rabbitmq" ]]; then
+    note "up (no build — image pull)"
+    "${COMPOSE[@]}" up -d --force-recreate "$svc"
+  else
+    note "build + recreate"
+    "${COMPOSE[@]}" up -d --build --force-recreate "$svc"
+  fi
   ok "$svc running"
 done
 
