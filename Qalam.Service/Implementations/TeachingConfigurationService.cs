@@ -185,11 +185,16 @@ public class TeachingConfigurationService : ITeachingConfigurationService
 
     public async Task<TimeSlot> CreateTimeSlotAsync(TimeSlot timeSlot)
     {
+        if (timeSlot.EndTime <= timeSlot.StartTime)
+            throw new InvalidOperationException("End time must be after start time");
+
         if (await IsTimeSlotOverlappingAsync(0, timeSlot.StartTime, timeSlot.EndTime))
             throw new InvalidOperationException("Time slot overlaps with existing slot");
 
+        if (timeSlot.DurationMinutes <= 0)
+            timeSlot.DurationMinutes = (int)Math.Round((timeSlot.EndTime - timeSlot.StartTime).TotalMinutes);
+
         timeSlot.CreatedAt = DateTime.UtcNow;
-        timeSlot.IsActive = true;
         return await _timeSlotRepository.AddAsync(timeSlot);
     }
 
@@ -199,6 +204,9 @@ public class TeachingConfigurationService : ITeachingConfigurationService
         if (existing == null)
             throw new InvalidOperationException("Time slot not found");
 
+        if (timeSlot.EndTime <= timeSlot.StartTime)
+            throw new InvalidOperationException("End time must be after start time");
+
         if (await IsTimeSlotOverlappingAsync(0, timeSlot.StartTime, timeSlot.EndTime, timeSlot.Id))
             throw new InvalidOperationException("Time slot overlaps with existing slot");
 
@@ -206,7 +214,9 @@ public class TeachingConfigurationService : ITeachingConfigurationService
         existing.LabelEn = timeSlot.LabelEn;
         existing.StartTime = timeSlot.StartTime;
         existing.EndTime = timeSlot.EndTime;
-        existing.DurationMinutes = timeSlot.DurationMinutes;
+        existing.DurationMinutes = timeSlot.DurationMinutes > 0
+            ? timeSlot.DurationMinutes
+            : (int)Math.Round((timeSlot.EndTime - timeSlot.StartTime).TotalMinutes);
         existing.IsActive = timeSlot.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;
 
@@ -219,6 +229,10 @@ public class TeachingConfigurationService : ITeachingConfigurationService
         var timeSlot = await _timeSlotRepository.GetByIdAsync(id);
         if (timeSlot == null)
             return false;
+
+        if (await _timeSlotRepository.IsTimeSlotInUseAsync(id))
+            throw new InvalidOperationException(
+                "Time slot is in use. Deactivate it instead of deleting.");
 
         await _timeSlotRepository.DeleteAsync(timeSlot);
         return true;
@@ -235,6 +249,21 @@ public class TeachingConfigurationService : ITeachingConfigurationService
         await _timeSlotRepository.UpdateAsync(timeSlot);
         return true;
     }
+
+    public async Task<bool> SetTimeSlotActiveAsync(int id, bool isActive)
+    {
+        var timeSlot = await _timeSlotRepository.GetByIdAsync(id);
+        if (timeSlot == null)
+            return false;
+
+        timeSlot.IsActive = isActive;
+        timeSlot.UpdatedAt = DateTime.UtcNow;
+        await _timeSlotRepository.UpdateAsync(timeSlot);
+        return true;
+    }
+
+    public Task<bool> IsTimeSlotInUseAsync(int id)
+        => _timeSlotRepository.IsTimeSlotInUseAsync(id);
 
     #endregion
 
@@ -308,9 +337,14 @@ public class TeachingConfigurationService : ITeachingConfigurationService
     }
 
     public async Task<PaginatedResult<TimeSlot>> GetPaginatedTimeSlotsAsync(
-        int pageNumber, int pageSize)
+        int pageNumber, int pageSize, bool? activeOnly = null)
     {
         var query = _timeSlotRepository.GetTimeSlotsQueryable();
+
+        if (activeOnly == true)
+            query = query.Where(ts => ts.IsActive);
+        else if (activeOnly == false)
+            query = query.Where(ts => !ts.IsActive);
 
         var totalCount = await query.CountAsync();
 

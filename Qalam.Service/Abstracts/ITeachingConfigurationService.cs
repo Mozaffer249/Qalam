@@ -34,8 +34,13 @@ public interface ITeachingConfigurationService
     Task<TimeSlot> GetTimeSlotByIdAsync(int id);
     Task<TimeSlot> CreateTimeSlotAsync(TimeSlot timeSlot);
     Task<TimeSlot> UpdateTimeSlotAsync(TimeSlot timeSlot);
+    /// <summary>
+    /// Hard-deletes when unused. Throws <see cref="InvalidOperationException"/> when referenced.
+    /// </summary>
     Task<bool> DeleteTimeSlotAsync(int id);
     Task<bool> ToggleTimeSlotStatusAsync(int id);
+    Task<bool> SetTimeSlotActiveAsync(int id, bool isActive);
+    Task<bool> IsTimeSlotInUseAsync(int id);
 
     // Day of Week Operations
     IQueryable<DayOfWeekMaster> GetDaysOfWeekQueryable();
@@ -48,7 +53,7 @@ public interface ITeachingConfigurationService
     Task<PaginatedResult<SessionType>> GetPaginatedSessionTypesAsync(
         int pageNumber, int pageSize, string? search = null);
     Task<PaginatedResult<TimeSlot>> GetPaginatedTimeSlotsAsync(
-        int pageNumber, int pageSize);
+        int pageNumber, int pageSize, bool? activeOnly = null);
     Task<PaginatedResult<DayOfWeekDto>> GetPaginatedDaysOfWeekAsync(
         int pageNumber, int pageSize);
 

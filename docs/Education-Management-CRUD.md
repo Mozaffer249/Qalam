@@ -50,7 +50,8 @@ The education catalog is a **tree** rooted at **Domain**. Each domain has an **`
 | Content | `ContentUnit` | **Full CRUD** |
 | Content | `Lesson` | **Full CRUD** |
 | Quran ref | `QuranLevel`, `QuranPart`, `QuranSurah` | **Read-only lists** |
-| Teaching ref | `TeachingMode`, `SessionType`, `TimeSlot`, `DayOfWeek` | **Read-only lists** |
+| Teaching ref | `TeachingMode`, `SessionType`, `DayOfWeek` | **Read-only lists** |
+| Teaching ref | `TimeSlot` | **Full CRUD** (Admin/SuperAdmin write; list for all auth users) |
 
 Default seeded domain codes: `school`, `quran`, `language`, `skills`, `university` — see `EducationDomainsSeeder`.
 
@@ -150,7 +151,7 @@ List endpoints return rows in `data` and pagination in `meta`. Command endpoints
 | **Filter wizard** | `/Education/filter-options` | — | — | — | — | see §12 |
 | **Teaching modes** | `/Teaching/Modes` | — | — | — | — | read-only |
 | **Session types** | `/Teaching/SessionTypes` | — | — | — | — | read-only |
-| **Time slots** | `/Teaching/TimeSlots` | — | — | — | — | read-only |
+| **Time slots** | `/Teaching/TimeSlots` | Admin | Admin | Admin | Admin (`PATCH …/active`) | list + Admin CRUD |
 | **Days of week** | `/Teaching/DaysOfWeek` | — | — | — | — | read-only |
 | **Quran levels** | `/Quran/Levels` | — | — | — | — | read-only |
 | **Quran parts** | `/Quran/Parts` | — | — | — | — | read-only |
@@ -582,20 +583,26 @@ Both `quranContentTypeId` and `quranLevelId` are **required**; `orderIndex` is u
 
 ---
 
-## 11. Reference data (read-only)
+## 11. Reference data
 
-Use these to populate dropdowns; **no admin CRUD** in current API.
+Use these to populate dropdowns. Modes, session types, and days of week are **read-only**. **Time slots** support Admin CRUD.
 
 ### Teaching configuration
 
 ```http
 GET /Api/V1/Teaching/Modes
 GET /Api/V1/Teaching/SessionTypes
-GET /Api/V1/Teaching/TimeSlots
+GET /Api/V1/Teaching/TimeSlots?pageNumber=1&pageSize=100&activeOnly=true
 GET /Api/V1/Teaching/DaysOfWeek
+
+# Admin/SuperAdmin only:
+POST   /Api/V1/Teaching/TimeSlots
+PUT    /Api/V1/Teaching/TimeSlots/{id}
+DELETE /Api/V1/Teaching/TimeSlots/{id}   # fails if in use — deactivate instead
+PATCH  /Api/V1/Teaching/TimeSlots/{id}/active
 ```
 
-All support `pageNumber` / `pageSize` query params.
+`TimeSlots` list: `pageNumber` / `pageSize` (default **100**), `activeOnly` (`true` | `false` | omit for all). Teacher pickers should pass `activeOnly=true`.
 
 ### Quran catalog
 

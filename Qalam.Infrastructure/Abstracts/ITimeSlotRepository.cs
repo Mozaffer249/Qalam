@@ -9,4 +9,5 @@ public interface ITimeSlotRepository : IGenericRepositoryAsync<TimeSlot>
     IQueryable<TimeSlot> GetActiveTimeSlotsQueryable();
     IQueryable<TimeSlot> GetTimeSlotsByDayOfWeek(int dayOfWeek);
     Task<bool> IsTimeSlotOverlappingAsync(int dayOfWeek, TimeSpan startTime, TimeSpan endTime, int? excludeId = null);
+    Task<bool> IsTimeSlotInUseAsync(int timeSlotId, CancellationToken cancellationToken = default);
 }

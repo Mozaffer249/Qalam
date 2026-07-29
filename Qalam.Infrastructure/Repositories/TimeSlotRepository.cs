@@ -48,4 +48,19 @@ public class TimeSlotRepository : GenericRepositoryAsync<TimeSlot>, ITimeSlotRep
 
         return await query.AnyAsync();
     }
+
+    public async Task<bool> IsTimeSlotInUseAsync(int timeSlotId, CancellationToken cancellationToken = default)
+    {
+        if (await _context.TeacherAvailabilities.AnyAsync(ta => ta.TimeSlotId == timeSlotId, cancellationToken))
+            return true;
+        if (await _context.TeacherAvailabilityExceptions.AnyAsync(e => e.TimeSlotId == timeSlotId, cancellationToken))
+            return true;
+        if (await _context.ScheduledSessions.AnyAsync(s => s.TimeSlotId == timeSlotId, cancellationToken))
+            return true;
+        if (await _context.OpenSessionRequestSessions.AnyAsync(
+                s => s.TimeSlotId == timeSlotId, cancellationToken))
+            return true;
+
+        return false;
+    }
 }

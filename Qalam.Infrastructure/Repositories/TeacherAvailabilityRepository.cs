@@ -59,42 +59,48 @@ public class TeacherAvailabilityRepository : GenericRepositoryAsync<TeacherAvail
 
     public async Task SaveTeacherAvailabilityAsync(int teacherId, List<DayAvailabilityDto> daySchedules)
     {
-        // Get existing active slots to avoid duplicates
-        var existingSlots = await _teacherAvailability
-            .Where(ta => ta.TeacherId == teacherId && ta.IsActive)
-            .Select(ta => new { ta.DayOfWeekId, ta.TimeSlotId })
-            .ToListAsync();
-
-        var existingSet = existingSlots
-            .Select(s => (s.DayOfWeekId, s.TimeSlotId))
-            .ToHashSet();
-
-        // Only add new slots that don't already exist
-        var newSlots = new List<TeacherAvailability>();
-
+        // Replace per submitted day: deactivate removed slots, insert/reactivate missing ones.
+        // Empty TimeSlotIds clears that day. Days omitted from the payload are left unchanged.
         foreach (var daySchedule in daySchedules)
         {
-            foreach (var timeSlotId in daySchedule.TimeSlotIds)
+            var desiredIds = daySchedule.TimeSlotIds.Distinct().ToHashSet();
+
+            var existingForDay = await _teacherAvailability
+                .Where(ta => ta.TeacherId == teacherId && ta.DayOfWeekId == daySchedule.DayOfWeekId)
+                .ToListAsync();
+
+            foreach (var row in existingForDay)
             {
-                if (!existingSet.Contains((daySchedule.DayOfWeekId, timeSlotId)))
+                if (desiredIds.Contains(row.TimeSlotId))
                 {
-                    newSlots.Add(new TeacherAvailability
+                    if (!row.IsActive)
                     {
-                        TeacherId = teacherId,
-                        DayOfWeekId = daySchedule.DayOfWeekId,
-                        TimeSlotId = timeSlotId,
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        row.IsActive = true;
+                        row.UpdatedAt = DateTime.UtcNow;
+                    }
+                    desiredIds.Remove(row.TimeSlotId);
                 }
+                else if (row.IsActive)
+                {
+                    row.IsActive = false;
+                    row.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            foreach (var timeSlotId in desiredIds)
+            {
+                await _teacherAvailability.AddAsync(new TeacherAvailability
+                {
+                    TeacherId = teacherId,
+                    DayOfWeekId = daySchedule.DayOfWeekId,
+                    TimeSlotId = timeSlotId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
             }
         }
 
-        if (newSlots.Any())
-        {
-            await _teacherAvailability.AddRangeAsync(newSlots);
-            await _context.SaveChangesAsync();
-        }
+        await _context.SaveChangesAsync();
     }
 
     public async Task RemoveAllTeacherAvailabilityAsync(int teacherId)

@@ -25,7 +25,8 @@ public class GetTimeSlotsListQueryHandler : ResponseHandler,
     {
         var result = await _teachingService.GetPaginatedTimeSlotsAsync(
             request.PageNumber,
-            request.PageSize);
+            request.PageSize,
+            request.ActiveOnly);
 
         return Success(
             entity: result.Items,

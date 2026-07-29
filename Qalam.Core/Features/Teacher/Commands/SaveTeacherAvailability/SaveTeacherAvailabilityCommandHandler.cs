@@ -53,7 +53,7 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
                 "Identity and certificate documents are still under review. Please wait for admin approval before setting availability.");
         }
 
-        // Save availability (additive — skips existing slots automatically)
+        // Save availability (replace per submitted day — removes unchecked slots for those days)
         await _availabilityRepository.SaveTeacherAvailabilityAsync(teacher.Id, request.DaySchedules);
 
         // Return updated availability using the query handler
