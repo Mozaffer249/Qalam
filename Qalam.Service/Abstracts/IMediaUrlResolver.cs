@@ -7,7 +7,8 @@ public interface IMediaUrlResolver
 {
     /// <summary>
     /// Absolute http(s) URL for browsers/apps, or null when <paramref name="storedPath"/> is empty.
-    /// Relative paths like <c>uploads/courses/…</c> are prefixed with the API public base.
+    /// Already-absolute OSS/API URLs are returned unchanged. Legacy relative paths
+    /// (e.g. <c>uploads/…</c>) are prefixed with the API public base.
     /// </summary>
     string? ToPublicUrl(string? storedPath);
 }

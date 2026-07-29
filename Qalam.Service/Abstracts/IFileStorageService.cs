@@ -9,6 +9,10 @@ public interface IFileStorageService
         int teacherId,
         string documentType);
 
+    /// <summary>
+    /// Queues the cover image to the learning OSS bucket and returns the final public URL immediately
+    /// (ready to store on <c>Course.ImageUrl</c>).
+    /// </summary>
     Task<string> SaveCourseImageAsync(
         IFormFile file,
         int teacherId);

@@ -194,8 +194,8 @@ public class TeacherCourseController : AppControllerBase
     /// <remarks>
     /// POST Api/V1/Teacher/TeacherCourse/upload-image (multipart/form-data, field name: file)
     ///
-    /// Returns `{ "imageUrl": "uploads/courses/{teacherId}/{guid}.jpg" }` (relative path for create/update payload storage).
-    /// Read endpoints absolute-ize this via <c>PlatformSettings.ApiPublicBaseUrl</c> / request host.
+    /// Returns `{ "imageUrl": "https://{learning-oss}/courses/{teacherId}/{guid}.jpg" }`
+    /// (absolute learning-bucket URL — store as-is on create/update). Bytes are queued to OSS via MessagingApi.
     /// </remarks>
     [HttpPost("upload-image")]
     [ProducesResponseType(typeof(CourseImageUploadResultDto), StatusCodes.Status200OK)]

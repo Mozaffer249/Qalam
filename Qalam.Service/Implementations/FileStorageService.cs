@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Service.Abstracts;
@@ -9,12 +10,17 @@ public class FileStorageService : IFileStorageService
 {
     private readonly ILogger<FileStorageService> _logger;
     private readonly IRabbitMQService _rabbitMQService;
+    private readonly IConfiguration _configuration;
     private readonly string _uploadPath;
 
-    public FileStorageService(ILogger<FileStorageService> logger, IRabbitMQService rabbitMQService)
+    public FileStorageService(
+        ILogger<FileStorageService> logger,
+        IRabbitMQService rabbitMQService,
+        IConfiguration configuration)
     {
         _logger = logger;
         _rabbitMQService = rabbitMQService;
+        _configuration = configuration;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teachers");
 
         // Ensure directory exists
@@ -59,28 +65,43 @@ public class FileStorageService : IFileStorageService
 
     public async Task<string> SaveCourseImageAsync(IFormFile file, int teacherId)
     {
-        var coursePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "courses", teacherId.ToString());
-        if (!Directory.Exists(coursePath))
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".jpg";
+
+        var storageKey = $"courses/{teacherId}/{Guid.NewGuid()}{extension}";
+        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
+                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
+                          ?? _configuration["OssSettings:PublicBaseUrl"]
+                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
+                          ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(ossPublicBase))
+            throw new InvalidOperationException(
+                "OssSettings:LearningPublicBaseUrl is not configured; cannot upload course images to OSS.");
+
+        var publicUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
+
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        await _rabbitMQService.QueueCourseImageUploadAsync(new CourseImageUploadMessage
         {
-            Directory.CreateDirectory(coursePath);
-        }
+            TeacherId = teacherId,
+            FileName = file.FileName,
+            ContentType = file.ContentType ?? "application/octet-stream",
+            StorageKey = storageKey,
+            FileData = base64Data,
+        });
 
-        var extension = Path.GetExtension(file.FileName);
-        var fileName = $"{Guid.NewGuid()}{extension}";
-        var filePath = Path.Combine(coursePath, fileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        var relative = string.Join('/', "uploads", "courses", teacherId.ToString(), fileName);
         _logger.LogInformation(
-            "Course image saved for teacher {TeacherId}: {Path}",
+            "Course image queued for OSS: TeacherId={TeacherId}, Key={Key}, Url={Url}",
             teacherId,
-            relative);
+            storageKey,
+            publicUrl);
 
-        return relative;
+        return publicUrl;
     }
 
     public Task<bool> ValidateFileAsync(
