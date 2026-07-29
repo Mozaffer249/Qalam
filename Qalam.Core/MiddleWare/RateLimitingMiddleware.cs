@@ -64,7 +64,8 @@ namespace Qalam.Core.MiddleWare
 
                 await rateLimitingService.IncrementAsync(key, window);
             }
-            else if (path.Contains("/authentication/sendresetpasswordcode"))
+            else if (path.Contains("/authentication/sendresetpasswordcode")
+                  || path.Contains("/authentication/admin/sendresetpasswordcode"))
             {
                 var key = $"passwordreset:{ipAddress}";
                 var window = TimeSpan.FromMinutes(_settings.PasswordReset.WindowMinutes);

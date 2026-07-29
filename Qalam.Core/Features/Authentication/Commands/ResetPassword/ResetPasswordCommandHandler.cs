@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Authentication;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
@@ -66,6 +67,16 @@ namespace Qalam.Core.Features.Authentication.Commands.ResetPassword
                 return Unauthorized<string>(_authLocalizer[AuthenticationResourcesKeys.UserIsNotActive]);
             }
 
+            if (request.RequireAdminRole)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                var isAdmin = roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin);
+                if (!isAdmin)
+                {
+                    return NotFound<string>(_authLocalizer[AuthenticationResourcesKeys.EmailIsNotExist]);
+                }
+            }
+
             // Find OTP in database
             var otp = await _context.PasswordResetOtps
                 .Where(o => o.UserId == user.Id
@@ -116,9 +127,11 @@ namespace Qalam.Core.Features.Authentication.Commands.ResetPassword
                 await _passwordSecurityService.AddToPasswordHistoryAsync(user.Id, user.PasswordHash);
             }
 
-            // Update timestamp
+            // Update timestamp and clear lockout so the admin can sign in immediately
             user.PasswordChangedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
+            await _userManager.ResetAccessFailedCountAsync(user);
+            await _userManager.SetLockoutEndDateAsync(user, null);
 
             // Log security event
             var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
@@ -126,7 +139,9 @@ namespace Qalam.Core.Features.Authentication.Commands.ResetPassword
                 userId: user.Id,
                 eventType: SecurityEventType.PasswordChanged,
                 ipAddress: ipAddress,
-                details: "Password reset via reset code"
+                details: request.RequireAdminRole
+                    ? "Admin password reset via reset code"
+                    : "Password reset via reset code"
             );
 
             // Send email notification

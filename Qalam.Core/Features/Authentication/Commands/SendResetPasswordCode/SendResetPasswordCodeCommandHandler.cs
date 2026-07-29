@@ -8,6 +8,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Authentication;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.context;
@@ -50,6 +51,17 @@ namespace Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode
             if (!user.IsActive)
             {
                 return Unauthorized<string>(_authLocalizer[AuthenticationResourcesKeys.UserIsNotActive]);
+            }
+
+            if (request.RequireAdminRole)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                var isAdmin = roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin);
+                if (!isAdmin)
+                {
+                    // Same response as missing email — avoid role enumeration.
+                    return NotFound<string>(_authLocalizer[AuthenticationResourcesKeys.EmailIsNotExist]);
+                }
             }
 
             // Generate 6-digit OTP

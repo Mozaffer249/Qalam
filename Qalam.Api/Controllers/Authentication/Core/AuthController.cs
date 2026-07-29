@@ -8,6 +8,9 @@ using Qalam.Core.Features.Authentication.Commands.Login;
 using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
 using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
+using Qalam.Core.Features.Authentication.Commands.ChangePassword;
+using Qalam.Core.Features.Authentication.Commands.ResetPassword;
+using Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode;
 using Qalam.Core.Features.Authentication.Commands.UpdateProfile;
 using Qalam.Core.Features.Authentication.Queries.GetProfile;
 using Qalam.Core.Features.Authentication.Queries.GetTeacherRegistrationRequirements;
@@ -64,6 +67,52 @@ namespace Qalam.Api.Controllers.Authentication.Core
         {
             return NewResult(await Mediator.Send(command));
         }
+
+        /// <summary>
+        /// Send a 6-digit password-reset code to an Admin / SuperAdmin email.
+        /// </summary>
+        /// <remarks>
+        /// Public (no JWT). Only accounts in roles Admin or SuperAdmin receive a code.
+        /// Rate-limited like other password-reset endpoints.
+        /// </remarks>
+        [AllowAnonymous]
+        [Tags("Admin Authentication")]
+        [HttpPost(Router.AdminSendResetPasswordCode)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AdminSendResetPasswordCode(
+            [FromBody] SendResetPasswordCodeCommand command)
+        {
+            command.RequireAdminRole = true;
+            return NewResult(await Mediator.Send(command));
+        }
+
+        /// <summary>
+        /// Reset an Admin / SuperAdmin password using the emailed code.
+        /// </summary>
+        /// <remarks>
+        /// Public (no JWT). Clears lockout after a successful reset so the admin can sign in immediately.
+        /// Body: `email`, `resetCode` (6 digits), `newPassword`, `confirmPassword`.
+        /// </remarks>
+        [AllowAnonymous]
+        [Tags("Admin Authentication")]
+        [HttpPost(Router.AdminResetPassword)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> AdminResetPassword([FromBody] ResetPasswordCommand command)
+        {
+            command.RequireAdminRole = true;
+            return NewResult(await Mediator.Send(command));
+        }
+
+        /// <summary>
+        /// Change password for the authenticated user (current password required).
+        /// </summary>
+        [Authorize]
+        [HttpPost(Router.AuthenticationChangePassword)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordCommand command)
+            => NewResult(await Mediator.Send(command));
 
         #region Teacher Authentication & Registration
 

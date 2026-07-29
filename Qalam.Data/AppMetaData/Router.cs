@@ -13,6 +13,8 @@ namespace Qalam.Data.AppMetaData
         public const string AuthenticationConfig = Authentication + "/Config";
         public const string AuthenticationRegister = Authentication + "/Register";
         public const string AdminLogin = Authentication + "/Admin/Login";
+        public const string AdminSendResetPasswordCode = Authentication + "/Admin/SendResetPasswordCode";
+        public const string AdminResetPassword = Authentication + "/Admin/ResetPassword";
         public const string AuthenticationLoginWithTwoFactor = Authentication + "/LoginWithTwoFactor";
         public const string AuthenticationLogout = Authentication + "/Logout";
         public const string AuthenticationRefreshToken = Authentication + "/RefreshToken";

@@ -149,7 +149,20 @@ public class OtpService : IOtpService
 
         await _loginOtpRepository.AddAsync(loginOtp, cancellationToken);
 
-        if (channel == LoginOtpChannel.Email)
+        if (ShouldSkipOtpDelivery())
+        {
+            // Staging/Dev: do not hit SMTP/SMS — use AllowTestCode (1234) or the logged code.
+            _logger.LogWarning(
+                "OTP delivery skipped ({Env}): {Persona} OTP for phone {Phone} → {Destination} code={Code}. " +
+                "Use test code {TestCode} when AllowTestCode is enabled.",
+                _hostEnvironment.EnvironmentName,
+                options.Persona,
+                phone,
+                deliveryDestination,
+                otpCode,
+                TestOtpCode);
+        }
+        else if (channel == LoginOtpChannel.Email)
         {
             var expiryMinutes = Math.Max(1, options.OtpSettings.ExpirySeconds / 60);
             var subject = LoginOtpEmailTemplate.BuildSubject(options.Persona);
@@ -162,7 +175,7 @@ public class OtpService : IOtpService
                 // MessagingApi.EmailConsumerService. With the Direct strategy this confirms SMTP success.
                 _logger.LogInformation(
                     "Login OTP dispatched for {Persona} via {Strategy} to {Email} (phone {Phone}). " +
-                    "If queued, verify the MessagingApi consumer log line 'Email consumed and sent to: {Email}' to confirm delivery.",
+                    "If queued, verify the MessagingApi consumer log line 'email consumed and sent to: {Email}' to confirm delivery.",
                     options.Persona, "configured-strategy", deliveryEmail, phone, deliveryEmail);
             }
             catch (Exception ex)
@@ -212,6 +225,12 @@ public class OtpService : IOtpService
 
     public Task MarkLoginOtpUsedAsync(int otpId, int? userId, CancellationToken cancellationToken = default) =>
         _loginOtpRepository.MarkAsUsedAsync(otpId, userId, cancellationToken);
+
+    /// <summary>
+    /// Staging and Development never send real login OTP email/SMS (use test code / logs instead).
+    /// </summary>
+    private bool ShouldSkipOtpDelivery() =>
+        _hostEnvironment.IsDevelopment() || _hostEnvironment.IsStaging();
 
     private bool IsTestCodeAllowed(string otpCode) =>
         otpCode == TestOtpCode
