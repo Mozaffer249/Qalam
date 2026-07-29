@@ -286,6 +286,10 @@ public class CourseProfile : Profile
                 src.ApprovedByTeacher != null && src.ApprovedByTeacher.User != null
                     ? (src.ApprovedByTeacher.User.FirstName + " " + src.ApprovedByTeacher.User.LastName).Trim()
                     : null))
+            .ForMember(dest => dest.TeacherImageUrl, opt => opt.MapFrom<StoredMediaUrlMemberResolver, string?>(
+                src => src.ApprovedByTeacher != null && src.ApprovedByTeacher.User != null
+                    ? src.ApprovedByTeacher.User.ProfilePictureUrl
+                    : null))
             .ForMember(dest => dest.ParticipantCount, opt => opt.MapFrom(src => src.Participants.Count))
             .ForMember(dest => dest.LeaderStudentName, opt => opt.MapFrom(src =>
                 src.LeaderStudent != null && src.LeaderStudent.User != null
@@ -294,7 +298,12 @@ public class CourseProfile : Profile
             .ForMember(dest => dest.SessionsCount, opt => opt.MapFrom(src =>
                 src.Course != null && src.Course.Sessions != null && src.Course.Sessions.Count > 0
                     ? src.Course.Sessions.Count
-                    : (int?)null));
+                    : (int?)null))
+            .ForMember(dest => dest.CompletedSessionsCount, opt => opt.Ignore())
+            .ForMember(dest => dest.ProgressPercent, opt => opt.Ignore())
+            .ForMember(dest => dest.NextSessionAt, opt => opt.Ignore())
+            .ForMember(dest => dest.NextScheduleId, opt => opt.Ignore())
+            .ForMember(dest => dest.TeacherIsOnline, opt => opt.Ignore());
 
         // EnrollmentParticipant -> EnrollmentParticipantDto
         CreateMap<EnrollmentParticipant, EnrollmentParticipantDto>()

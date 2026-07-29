@@ -35,6 +35,9 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Include(e => e.LeaderStudent)
                 .ThenInclude(s => s.User)
             .Include(e => e.Participants)
+            .Include(e => e.CourseSchedules)
+                .ThenInclude(cs => cs.TeacherAvailability)
+                    .ThenInclude(ta => ta.TimeSlot)
             .OrderByDescending(e => e.ApprovedAt);
     }
 

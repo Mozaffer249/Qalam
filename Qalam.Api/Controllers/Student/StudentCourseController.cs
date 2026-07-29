@@ -269,6 +269,12 @@ public class StudentCourseController : AppControllerBase
     /// - `enrollmentStatus` — `PendingPayment` | `Active` | `Completed` | `Cancelled`.
     /// - `participantCount` — `1` for Individual, N for Group.
     /// - `leaderStudentName` — populated for Group, null for Individual.
+    /// - `sessionsCount` — planned total from the course template.
+    /// - `completedSessionsCount` — schedules with status Completed.
+    /// - `progressPercent` — completed/sessionsCount * 100 when sessionsCount &gt; 0.
+    /// - `teacherImageUrl` — resolved profile picture URL for the tutor.
+    /// - `nextSessionAt` / `nextScheduleId` — next InProgress or Scheduled session (UTC).
+    /// - `teacherIsOnline` — true when the teacher is currently in a live room for this enrollment.
     ///
     /// Group enrollments appear here for every member (the per-member payment status lives on the participant row).
     /// </remarks>

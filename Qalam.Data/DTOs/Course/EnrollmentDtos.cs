@@ -242,7 +242,28 @@ public class EnrollmentListItemDto
     public int ParticipantCount { get; set; }
     public string? LeaderStudentName { get; set; }
     public int? SessionsCount { get; set; }
+
+    /// <summary>Count of schedules with <c>Status == Completed</c>.</summary>
+    public int? CompletedSessionsCount { get; set; }
+
+    /// <summary>
+    /// <c>completedSessionsCount / sessionsCount * 100</c> when <see cref="SessionsCount"/> is positive; otherwise null.
+    /// </summary>
+    public int? ProgressPercent { get; set; }
+
     public decimal AmountDue { get; set; }
+
+    /// <summary>Resolved media URL for the approving teacher's profile picture.</summary>
+    public string? TeacherImageUrl { get; set; }
+
+    /// <summary>UTC start of the next actionable (InProgress / Scheduled) session.</summary>
+    public DateTime? NextSessionAt { get; set; }
+
+    /// <summary><see cref="CourseSchedule"/> id for <see cref="NextSessionAt"/>.</summary>
+    public int? NextScheduleId { get; set; }
+
+    /// <summary>True when any schedule on this enrollment has the teacher currently in the live room.</summary>
+    public bool TeacherIsOnline { get; set; }
 
     /// <summary>Linked enrollment request id when this enrollment came from a request (for list dedup).</summary>
     public int? EnrollmentRequestId { get; set; }
