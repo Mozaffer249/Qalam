@@ -265,8 +265,12 @@ public class EducationController : AppControllerBase
     }
 
     /// <summary>
-    /// Delete an academic term
+    /// Delete an academic term.
     /// </summary>
+    /// <remarks>
+    /// Clears <c>TermId</c> on related Subjects, ContentUnits, and OpenSessionRequests
+    /// (does not delete those rows), then removes the term.
+    /// </remarks>
     [HttpDelete(Router.EducationTermById)]
     public async Task<IActionResult> DeleteTerm(int id)
     {

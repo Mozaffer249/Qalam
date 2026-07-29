@@ -60,11 +60,9 @@ public class EducationDeleteGuardService : IEducationDeleteGuardService
 
     public async Task AssertCanDeleteTermAsync(int id)
     {
-        var hasSubjects = await _subjectRepository
-            .GetSubjectsByTermId(id)
-            .AnyAsync();
-        if (hasSubjects)
-            throw new InvalidOperationException("Cannot delete term with existing subjects");
+        // Term delete clears Subject / ContentUnit / OpenSessionRequest.TermId first.
+        // No pre-check needed; existence is handled by DeleteTermAsync (404).
+        await Task.CompletedTask;
     }
 
     public async Task AssertCanDeleteContentUnitAsync(int id)

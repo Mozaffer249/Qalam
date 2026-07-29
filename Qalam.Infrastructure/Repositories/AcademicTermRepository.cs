@@ -106,7 +106,7 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
                 Id = at.Id,
                 NameAr = at.NameAr,
                 NameEn = at.NameEn,
-                CanDelete = !at.Subjects.Any()
+                CanDelete = true
             })
             .ToListAsync();
     }
@@ -122,8 +122,31 @@ public class AcademicTermRepository : GenericRepositoryAsync<AcademicTerm>, IAca
                 Id = at.Id,
                 NameAr = at.NameAr,
                 NameEn = at.NameEn,
-                CanDelete = !at.Subjects.Any()
+                CanDelete = true
             })
             .ToListAsync();
+    }
+
+    public async Task<bool> DeleteClearingReferencesAsync(int id)
+    {
+        var term = await _context.AcademicTerms.FirstOrDefaultAsync(t => t.Id == id);
+        if (term == null)
+            return false;
+
+        await _context.Subjects
+            .Where(s => s.TermId == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.TermId, (int?)null));
+
+        await _context.ContentUnits
+            .Where(cu => cu.TermId == id)
+            .ExecuteUpdateAsync(cu => cu.SetProperty(x => x.TermId, (int?)null));
+
+        await _context.OpenSessionRequests
+            .Where(r => r.TermId == id)
+            .ExecuteUpdateAsync(r => r.SetProperty(x => x.TermId, (int?)null));
+
+        _context.AcademicTerms.Remove(term);
+        await _context.SaveChangesAsync();
+        return true;
     }
 }

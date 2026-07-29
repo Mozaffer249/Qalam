@@ -16,4 +16,10 @@ public interface IAcademicTermRepository : IGenericRepositoryAsync<AcademicTerm>
     // Filter options
     Task<List<FilterOptionDto>> GetAcademicTermsAsOptionsAsync(int curriculumId);
     Task<List<FilterOptionDto>> GetAcademicTermsByProgramAsOptionsAsync(int academicProgramId);
+
+    /// <summary>
+    /// Nulls TermId on Subjects, ContentUnits, and OpenSessionRequests that reference the term, then deletes it.
+    /// </summary>
+    /// <returns>false if the term does not exist.</returns>
+    Task<bool> DeleteClearingReferencesAsync(int id);
 }

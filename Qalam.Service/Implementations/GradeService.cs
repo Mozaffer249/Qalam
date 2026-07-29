@@ -232,12 +232,7 @@ public class GradeService : IGradeService
 
     public async Task<bool> DeleteTermAsync(int id)
     {
-        var term = await _termRepository.GetByIdAsync(id);
-        if (term == null)
-            return false;
-
-        await _termRepository.DeleteAsync(term);
-        return true;
+        return await _termRepository.DeleteClearingReferencesAsync(id);
     }
 
     #endregion
