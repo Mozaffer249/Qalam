@@ -98,6 +98,7 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// Public (no JWT). Does **not** require the old password.
         /// Clears lockout after a successful reset so the admin can sign in immediately.
         /// Body: `email`, `resetCode` (6 digits), `newPassword`, `confirmPassword`.
+        /// **Dev/Staging:** `resetCode` `123456` is accepted without a prior SendResetPasswordCode.
         /// </remarks>
         [AllowAnonymous]
         [Tags("Admin Authentication")]

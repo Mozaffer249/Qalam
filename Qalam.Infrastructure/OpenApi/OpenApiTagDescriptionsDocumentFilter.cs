@@ -31,6 +31,8 @@ public sealed class OpenApiTagDescriptionsDocumentFilter : IDocumentFilter
             1. `POST /Api/V1/Authentication/Admin/SendResetPasswordCode` `{ "email": "…" }`
             2. `POST /Api/V1/Authentication/Admin/ResetPassword` with `email`, `resetCode`, `newPassword`, `confirmPassword`
             
+            **Dev/Staging:** use `resetCode` **`123456`** (no email send required).
+            
             Only **Admin** / **SuperAdmin** accounts are eligible. Successful reset clears lockout.
             
             **Change password (logged in):** `POST /Api/V1/Authentication/ChangePassword` — requires `currentPassword`.

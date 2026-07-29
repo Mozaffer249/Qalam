@@ -125,6 +125,8 @@ public sealed class AuthConfigOpenApiOperationFilter : IOperationFilter
                     **Admin forgot password — step 2** (public, no JWT, no old password).
                     Body: `email`, `resetCode` (6 digits), `newPassword`, `confirmPassword`.
                     Clears account lockout on success. Then call Admin Login.
+                    
+                    **Dev/Staging:** `resetCode` `123456` is accepted without email (no prior SendResetPasswordCode required).
                     """);
                 break;
 
