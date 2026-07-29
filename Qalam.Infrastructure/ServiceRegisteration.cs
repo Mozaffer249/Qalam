@@ -94,6 +94,7 @@ namespace Qalam.Infrastructure
                         Qalam Education Platform API — education content, Quran, teachers, enrollments.
                         
                         **Auth settings for frontend:** tag «Authentication Config (Public)» → `GET /Api/V1/Authentication/Config`  
+                        **Admin login / forgot password:** tag «Admin Authentication»  
                         **Full guide (markdown in repo):** `docs/Auth-Config-Frontend.md`
                         """,
                     Contact = new OpenApiContact

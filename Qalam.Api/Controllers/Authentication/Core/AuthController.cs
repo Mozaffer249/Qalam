@@ -58,11 +58,15 @@ namespace Qalam.Api.Controllers.Authentication.Core
         // }
 
         /// <summary>
-        /// Login with username and password
+        /// Login with username and password (Admin / SuperAdmin).
         /// </summary>
         /// <param name="command">Login credentials (username/email and password)</param>
         /// <returns>JWT access token and refresh token</returns>
+        [AllowAnonymous]
+        [Tags("Admin Authentication")]
         [HttpPost(Router.AdminLogin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> AdminLogin([FromBody] LoginCommand command)
         {
             return NewResult(await Mediator.Send(command));
@@ -73,7 +77,7 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// </summary>
         /// <remarks>
         /// Public (no JWT). Only accounts in roles Admin or SuperAdmin receive a code.
-        /// Rate-limited like other password-reset endpoints.
+        /// Does **not** require the old password. Rate-limited like other password-reset endpoints.
         /// </remarks>
         [AllowAnonymous]
         [Tags("Admin Authentication")]
@@ -91,7 +95,8 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// Reset an Admin / SuperAdmin password using the emailed code.
         /// </summary>
         /// <remarks>
-        /// Public (no JWT). Clears lockout after a successful reset so the admin can sign in immediately.
+        /// Public (no JWT). Does **not** require the old password.
+        /// Clears lockout after a successful reset so the admin can sign in immediately.
         /// Body: `email`, `resetCode` (6 digits), `newPassword`, `confirmPassword`.
         /// </remarks>
         [AllowAnonymous]
@@ -108,7 +113,12 @@ namespace Qalam.Api.Controllers.Authentication.Core
         /// <summary>
         /// Change password for the authenticated user (current password required).
         /// </summary>
+        /// <remarks>
+        /// Requires JWT. Body: `currentPassword`, `newPassword`, `confirmPassword`.
+        /// For forgotten password use Admin SendResetPasswordCode + Admin ResetPassword instead.
+        /// </remarks>
         [Authorize]
+        [Tags("Admin Authentication")]
         [HttpPost(Router.AuthenticationChangePassword)]
         [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordCommand command)

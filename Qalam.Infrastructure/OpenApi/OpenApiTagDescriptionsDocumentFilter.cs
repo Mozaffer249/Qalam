@@ -23,6 +23,18 @@ public sealed class OpenApiTagDescriptionsDocumentFilter : IDocumentFilter
             
             **Repo guide:** `docs/Auth-Config-Frontend.md` (section «Admin: change settings»)
             """,
+        ["Admin Authentication"] =
+            """
+            Admin portal auth: login, forgot-password (email OTP), and change password.
+            
+            **Forgot password (no old password):**
+            1. `POST /Api/V1/Authentication/Admin/SendResetPasswordCode` `{ "email": "…" }`
+            2. `POST /Api/V1/Authentication/Admin/ResetPassword` with `email`, `resetCode`, `newPassword`, `confirmPassword`
+            
+            Only **Admin** / **SuperAdmin** accounts are eligible. Successful reset clears lockout.
+            
+            **Change password (logged in):** `POST /Api/V1/Authentication/ChangePassword` — requires `currentPassword`.
+            """,
         ["Teacher Authentication"] =
             """
             Teacher login/register OTP flow. Configure delivery via **Authentication Config** → `data.teacher`.

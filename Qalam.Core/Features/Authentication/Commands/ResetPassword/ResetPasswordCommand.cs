@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Qalam.Core.Bases;
@@ -20,6 +21,7 @@ namespace Qalam.Core.Features.Authentication.Commands.ResetPassword
         /// Set by the Admin controller endpoint; not accepted from the client body.
         /// </summary>
         [BindNever]
+        [JsonIgnore]
         public bool RequireAdminRole { get; set; }
     }
 }

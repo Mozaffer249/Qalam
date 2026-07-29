@@ -97,6 +97,45 @@ public sealed class AuthConfigOpenApiOperationFilter : IOperationFilter
                     **Student/parent auth — verify OTP** (code from email or SMS per `data.student.otpDelivery`).
                     """);
                 break;
+
+            case "Api/V1/Authentication/Admin/Login" when context.ApiDescription.HttpMethod == "POST":
+                AppendDescription(operation,
+                    """
+                    
+                    **Admin login** — email/username + password → JWT.
+                    No OTP. For forgotten password use Admin SendResetPasswordCode → Admin ResetPassword (no old password).
+                    """);
+                break;
+
+            case "Api/V1/Authentication/Admin/SendResetPasswordCode" when context.ApiDescription.HttpMethod == "POST":
+                AppendDescription(operation,
+                    """
+                    
+                    **Admin forgot password — step 1** (public, no JWT, no old password).
+                    Body: `{ "email": "admin@…" }`.
+                    Only Admin / SuperAdmin emails receive a 6-digit code (non-admin → same as not found).
+                    Next: `POST …/Authentication/Admin/ResetPassword`.
+                    """);
+                break;
+
+            case "Api/V1/Authentication/Admin/ResetPassword" when context.ApiDescription.HttpMethod == "POST":
+                AppendDescription(operation,
+                    """
+                    
+                    **Admin forgot password — step 2** (public, no JWT, no old password).
+                    Body: `email`, `resetCode` (6 digits), `newPassword`, `confirmPassword`.
+                    Clears account lockout on success. Then call Admin Login.
+                    """);
+                break;
+
+            case "Api/V1/Authentication/ChangePassword" when context.ApiDescription.HttpMethod == "POST":
+                AppendDescription(operation,
+                    """
+                    
+                    **Change password while logged in** — requires Bearer JWT and `currentPassword`.
+                    Forgotten password → use Admin SendResetPasswordCode + ResetPassword instead.
+                    """);
+                break;
         }
     }
 
