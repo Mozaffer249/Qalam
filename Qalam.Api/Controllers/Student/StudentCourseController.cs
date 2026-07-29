@@ -296,10 +296,13 @@ public class StudentCourseController : AppControllerBase
     /// - `kind` and `leaderStudentId` (null for Individual).
     /// - `participants[]` — each entry carries `id` (use as `participantId` in payment), `studentId`,
     ///   `studentFullName`, `paymentStatus`, `paidAt`.
+    /// - `completedSessionsCount` / `progressPercent` — completed schedules vs planned `sessionsCount`.
     /// - `sessions[]` — saved `CourseSchedule` rows. Empty until the enrollment is `Active`
     ///   (i.e., all participants have paid). `canStart = true` only when enrollment is Active,
     ///   the schedule is `Scheduled`, and current UTC is within the time-slot window on the
     ///   session date.
+    /// - Each session also has `isLocked` / `unlockAt` (sequential by session start UTC;
+    ///   Completed / InProgress / Cancelled are never locked).
     /// </remarks>
     [HttpGet(Router.StudentEnrollmentById)]
     [ProducesResponseType(typeof(EnrollmentDetailDto), StatusCodes.Status200OK)]

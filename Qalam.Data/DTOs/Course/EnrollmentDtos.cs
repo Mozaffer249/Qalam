@@ -344,6 +344,15 @@ public class EnrollmentSessionItemDto
     public decimal? Rating { get; set; }
     public string? TeacherNote { get; set; }
 
+    /// <summary>
+    /// True when session start UTC is still in the future (sequential date lock).
+    /// Completed / InProgress / Cancelled are never locked. Template rows with no date are unlocked.
+    /// </summary>
+    public bool IsLocked { get; set; }
+
+    /// <summary>When <see cref="IsLocked"/>, UTC datetime when the session unlocks; otherwise null.</summary>
+    public DateTime? UnlockAt { get; set; }
+
     /// <summary>Content units / lessons covered in this session (culture-selected names).</summary>
     public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();
 }
@@ -395,6 +404,14 @@ public class EnrollmentDetailDto
     public string? GradeName { get; set; }
     public bool IsFlexible { get; set; }
     public int? SessionsCount { get; set; }
+
+    /// <summary>Count of schedules with <c>Status == Completed</c>.</summary>
+    public int? CompletedSessionsCount { get; set; }
+
+    /// <summary>
+    /// <c>completedSessionsCount / sessionsCount * 100</c> when <see cref="SessionsCount"/> is positive; otherwise null.
+    /// </summary>
+    public int? ProgressPercent { get; set; }
 
     /// <summary>
     /// Participants in this enrollment. One row for Individual; N rows for Group.

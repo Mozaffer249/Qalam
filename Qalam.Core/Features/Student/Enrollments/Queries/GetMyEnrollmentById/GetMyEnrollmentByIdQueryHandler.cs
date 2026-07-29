@@ -61,12 +61,25 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             .ToList();
         dto.IsOwner = isOwner;
         ApplyPaymentFlags(dto, enrollment, isOwner);
+        ApplyProgress(dto, enrollment);
 
         var viewingStudentId = ResolveViewingStudentId(enrollment, ownedStudentIds);
         dto.Sessions = BuildSessions(
             enrollment, viewingStudentId, _sessionSettings.EnforceJoinWindow);
 
         return Success(entity: dto);
+    }
+
+    private static void ApplyProgress(EnrollmentDetailDto dto, Enrollment enrollment)
+    {
+        var completed = (enrollment.CourseSchedules ?? [])
+            .Count(s => s.Status == ScheduleStatus.Completed);
+        dto.CompletedSessionsCount = completed;
+
+        if (dto.SessionsCount is int sessionsTotal && sessionsTotal > 0)
+            dto.ProgressPercent = (int)Math.Round(completed * 100.0 / sessionsTotal);
+        else
+            dto.ProgressPercent = null;
     }
 
     private static int? ResolveViewingStudentId(Enrollment enrollment, HashSet<int> ownedStudentIds)
@@ -238,6 +251,12 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                     .FirstOrDefault(a => a.StudentId == studentId);
             }
 
+            var (isLocked, unlockAt) = ResolveLock(
+                schedule.Status,
+                schedule.Date,
+                slot?.StartTime,
+                utcNow);
+
             sessions.Add(new EnrollmentSessionItemDto
             {
                 ScheduleId = schedule.Id,
@@ -257,11 +276,36 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                 AttendanceStatus = attendance?.Status.ToString(),
                 Rating = attendance?.Rating,
                 TeacherNote = schedule.TeacherNote,
+                IsLocked = isLocked,
+                UnlockAt = unlockAt,
                 Units = MapUnits(courseSession?.Units)
             });
         }
 
         return sessions;
+    }
+
+    /// <summary>
+    /// Sequential date lock: locked when start UTC is strictly after now.
+    /// Completed / InProgress / Cancelled never locked. No date → unlocked.
+    /// </summary>
+    private static (bool IsLocked, DateTime? UnlockAt) ResolveLock(
+        ScheduleStatus status,
+        DateOnly date,
+        TimeSpan? startTime,
+        DateTime utcNow)
+    {
+        if (status is ScheduleStatus.Completed or ScheduleStatus.InProgress or ScheduleStatus.Cancelled)
+            return (false, null);
+
+        var startUtc = date.ToDateTime(
+            TimeOnly.FromTimeSpan(startTime ?? TimeSpan.Zero),
+            DateTimeKind.Utc);
+
+        if (startUtc <= utcNow)
+            return (false, null);
+
+        return (true, startUtc);
     }
 
     private static int? ResolveActualDurationMinutes(CourseSchedule schedule)

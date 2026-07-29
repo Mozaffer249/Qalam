@@ -420,6 +420,8 @@ public class CourseProfile : Profile
                 src.Course != null && src.Course.Sessions != null && src.Course.Sessions.Count > 0
                     ? src.Course.Sessions.Count
                     : (int?)null))
+            .ForMember(dest => dest.CompletedSessionsCount, opt => opt.Ignore())
+            .ForMember(dest => dest.ProgressPercent, opt => opt.Ignore())
             .ForMember(dest => dest.Sessions, opt => opt.Ignore())
             .ForMember(dest => dest.IsOwner, opt => opt.Ignore())
             .ForMember(dest => dest.CanPay, opt => opt.Ignore())
