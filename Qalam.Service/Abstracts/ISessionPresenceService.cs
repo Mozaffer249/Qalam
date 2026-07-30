@@ -42,4 +42,12 @@ public interface ISessionReviewService
     Task<List<SessionReviewDto>> GetReviewsForSessionAsync(
         int courseScheduleId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Any student→teacher review for this schedule+student (approved or pending).
+    /// </summary>
+    Task<SessionReviewDto?> GetStudentToTeacherReviewAsync(
+        int courseScheduleId,
+        int studentId,
+        CancellationToken cancellationToken = default);
 }

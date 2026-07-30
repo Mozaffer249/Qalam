@@ -14,6 +14,9 @@ public class StudentSessionDetailDto
     public string? Notes { get; set; }
     public string? TeacherNote { get; set; }
     public string? TeacherDisplayName { get; set; }
+    public string? TeacherImageUrl { get; set; }
+    public string? StudentDisplayName { get; set; }
+    public string? StudentAvatarUrl { get; set; }
     public DateOnly? Date { get; set; }
     public TimeSpan? StartTime { get; set; }
     public TimeSpan? EndTime { get; set; }
@@ -21,7 +24,15 @@ public class StudentSessionDetailDto
     public int? ActualDurationMinutes { get; set; }
     public ScheduleStatus Status { get; set; }
     public bool CanJoin { get; set; }
+    /// <summary>Viewing student's attendance (Pending when participant has no row yet).</summary>
     public string? AttendanceStatus { get; set; }
+    public int? AttendanceLateMinutes { get; set; }
+    public string? TeacherAttendanceStatus { get; set; }
+    public int? TeacherAttendanceLateMinutes { get; set; }
+    /// <summary>True when session completed and viewing student has not submitted a teacher review.</summary>
+    public bool CanReview { get; set; }
+    public string? ReferenceCode { get; set; }
+    public string? RecordingUrl { get; set; }
     /// <summary>When the session actually started (or teacher joined), if known.</summary>
     public DateTime? StartedAt { get; set; }
     /// <summary>LiveKit server URL when online and joinable/live; token via LiveToken.</summary>

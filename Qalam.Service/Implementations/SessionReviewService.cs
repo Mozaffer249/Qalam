@@ -135,6 +135,30 @@ public class SessionReviewService : ISessionReviewService
             .ToList();
     }
 
+    public async Task<SessionReviewDto?> GetStudentToTeacherReviewAsync(
+        int courseScheduleId,
+        int studentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.TeacherReviews
+            .AsNoTracking()
+            .Where(r => r.SessionId == courseScheduleId && r.StudentId == studentId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new SessionReviewDto
+            {
+                Id = r.Id,
+                StudentId = r.StudentId,
+                StudentName = r.Student != null && r.Student.User != null
+                    ? ((r.Student.User.FirstName ?? "") + " " + (r.Student.User.LastName ?? "")).Trim()
+                    : $"Student #{r.StudentId}",
+                Rating = r.Rating,
+                Feedback = r.Feedback,
+                SubmittedAt = r.CreatedAt,
+                Direction = "StudentToTeacher",
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private async Task RecalculateTeacherRatingAverageAsync(int teacherId, CancellationToken cancellationToken)
     {
         var teacher = await _teacherRepository.GetByIdAsync(teacherId);
