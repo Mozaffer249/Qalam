@@ -40,4 +40,13 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
         DateTime utcNow,
         int graceMinutes,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Scheduled sessions whose platform-local start has passed and end+grace has not yet passed.
+    /// Returned tracked for auto InProgress.
+    /// </summary>
+    Task<List<CourseSchedule>> GetDueForAutoStartAsync(
+        DateTime utcNow,
+        int graceMinutes,
+        CancellationToken cancellationToken = default);
 }

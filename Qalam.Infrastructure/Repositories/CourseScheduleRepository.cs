@@ -105,4 +105,32 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             })
             .ToList();
     }
+
+    public async Task<List<CourseSchedule>> GetDueForAutoStartAsync(
+        DateTime utcNow,
+        int graceMinutes,
+        CancellationToken cancellationToken = default)
+    {
+        // Include today in platform terms; utcNow may be previous calendar day in UTC while AST is already "today".
+        var maxCandidateDate = DateOnly.FromDateTime(utcNow).AddDays(1);
+
+        var candidates = await _context.CourseSchedules
+            .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
+            .Where(cs =>
+                cs.Status == ScheduleStatus.Scheduled
+                && cs.Date <= maxCandidateDate
+                && cs.TeacherAvailability != null
+                && cs.TeacherAvailability.TimeSlot != null)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(cs =>
+            {
+                var slot = cs.TeacherAvailability!.TimeSlot!;
+                var startUtc = PlatformTime.ToUtc(cs.Date, slot.StartTime);
+                var endUtc = PlatformTime.ToUtc(cs.Date, slot.EndTime);
+                return startUtc <= utcNow && endUtc.AddMinutes(graceMinutes) >= utcNow;
+            })
+            .ToList();
+    }
 }

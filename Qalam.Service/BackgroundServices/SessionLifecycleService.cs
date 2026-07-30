@@ -9,8 +9,8 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Service.BackgroundServices;
 
 /// <summary>
-/// Sweeps CourseSchedules past (Date + EndTime + Grace) and auto-completes them with default attendance.
-/// Mirrors <see cref="EnrollmentExpirationService"/>.
+/// Sweeps CourseSchedules: auto-starts (Scheduled → InProgress) when start time is reached,
+/// then auto-completes past (end + grace) with default attendance.
 /// </summary>
 public class SessionLifecycleService : BackgroundService
 {
@@ -57,15 +57,34 @@ public class SessionLifecycleService : BackgroundService
         var lifecycle = scope.ServiceProvider.GetRequiredService<ISessionLifecycleService>();
 
         var now = DateTime.UtcNow;
-        var overdue = await scheduleRepo.GetOverdueForAutoCompleteAsync(now, _settings.GraceMinutes, ct);
-        if (overdue.Count == 0)
-            return;
+        var grace = _settings.GraceMinutes;
 
+        var due = await scheduleRepo.GetDueForAutoStartAsync(now, grace, ct);
+        var started = 0;
+        foreach (var schedule in due)
+        {
+            try
+            {
+                await lifecycle.MarkInProgressAsync(schedule, ct);
+                started++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to auto-start CourseSchedule {ScheduleId}.", schedule.Id);
+            }
+        }
+
+        if (started > 0)
+            _logger.LogInformation("Auto-started {Count} CourseSchedule(s).", started);
+
+        var overdue = await scheduleRepo.GetOverdueForAutoCompleteAsync(now, grace, ct);
+        var completed = 0;
         foreach (var schedule in overdue)
         {
             try
             {
                 await lifecycle.CompleteAsync(schedule, ct);
+                completed++;
             }
             catch (Exception ex)
             {
@@ -73,6 +92,7 @@ public class SessionLifecycleService : BackgroundService
             }
         }
 
-        _logger.LogInformation("Auto-completed {Count} overdue CourseSchedule(s).", overdue.Count);
+        if (completed > 0)
+            _logger.LogInformation("Auto-completed {Count} overdue CourseSchedule(s).", completed);
     }
 }

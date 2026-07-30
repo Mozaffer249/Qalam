@@ -57,6 +57,22 @@ public class SessionLifecycleHelper : ISessionLifecycleService
             schedule.Id, autoStatus);
     }
 
+    public async Task MarkInProgressAsync(CourseSchedule schedule, CancellationToken cancellationToken = default)
+    {
+        if (schedule.Status is ScheduleStatus.InProgress
+            or ScheduleStatus.Completed
+            or ScheduleStatus.Cancelled
+            or ScheduleStatus.Rescheduled)
+            return;
+
+        if (schedule.Status != ScheduleStatus.Scheduled)
+            return;
+
+        schedule.Status = ScheduleStatus.InProgress;
+        await _courseScheduleRepository.SaveChangesAsync();
+        _logger.LogInformation("Marked CourseSchedule {ScheduleId} InProgress (auto-start).", schedule.Id);
+    }
+
     private SessionAttendanceStatus ResolveAutoAttendanceStatus()
     {
         var value = _settings.DefaultAutoAttendanceStatus;
