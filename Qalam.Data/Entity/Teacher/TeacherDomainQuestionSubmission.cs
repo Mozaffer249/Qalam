@@ -34,4 +34,7 @@ public class TeacherDomainQuestionSubmission : AuditableEntity
     public Teacher Teacher { get; set; } = null!;
     public TeacherDomainQuestion Question { get; set; } = null!;
     public TeacherDocument? TeacherDocument { get; set; }
+
+    public ICollection<TeacherDomainQuestionSubmissionDocument> Documents { get; set; } =
+        new List<TeacherDomainQuestionSubmissionDocument>();
 }

@@ -145,6 +145,8 @@ public class TeacherDomainQuestionSubmissionStatusDto
     public DocumentVerificationStatus? VerificationStatus { get; set; }
     public string? RejectionReason { get; set; }
     public int? TeacherDocumentId { get; set; }
+    /// <summary>All linked document ids for file answers (primary first).</summary>
+    public List<int> TeacherDocumentIds { get; set; } = new();
     public string? TextValue { get; set; }
     public bool? BoolValue { get; set; }
     public List<RequirementOptionDto>? SelectedOptions { get; set; }

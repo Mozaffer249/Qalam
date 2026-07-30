@@ -404,9 +404,26 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
             VerificationStatus = submission.VerificationStatus,
             RejectionReason = submission.RejectionReason,
             TeacherDocumentId = submission.TeacherDocumentId,
+            TeacherDocumentIds = ResolveDocumentIds(submission),
             TextValue = submission.TextValue,
             BoolValue = submission.BoolValue,
             SelectedOptions = selectedOptions
         };
+    }
+
+    private static List<int> ResolveDocumentIds(Data.Entity.Teacher.TeacherDomainQuestionSubmission submission)
+    {
+        var ids = submission.Documents?
+            .Select(d => d.TeacherDocumentId)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (submission.TeacherDocumentId is int primary)
+        {
+            ids.Remove(primary);
+            ids.Insert(0, primary);
+        }
+
+        return ids;
     }
 }

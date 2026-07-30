@@ -47,17 +47,23 @@ public class ApproveTeacherDomainQuestionSubmissionCommandHandler : ResponseHand
 
         await _submissionRepository.UpdateAsync(submission);
 
+        var linkedDocIds = submission.Documents?
+            .Select(d => d.TeacherDocumentId)
+            .ToHashSet() ?? new HashSet<int>();
         if (submission.TeacherDocumentId.HasValue)
+            linkedDocIds.Add(submission.TeacherDocumentId.Value);
+
+        foreach (var docId in linkedDocIds)
         {
-            var doc = await _documentRepository.GetByIdAsync(submission.TeacherDocumentId.Value);
-            if (doc != null)
-            {
-                doc.VerificationStatus = DocumentVerificationStatus.Approved;
-                doc.ReviewedByAdminId = request.UserId;
-                doc.ReviewedAt = DateTime.UtcNow;
-                doc.RejectionReason = null;
-                await _documentRepository.UpdateAsync(doc);
-            }
+            var doc = await _documentRepository.GetByIdAsync(docId);
+            if (doc == null)
+                continue;
+
+            doc.VerificationStatus = DocumentVerificationStatus.Approved;
+            doc.ReviewedByAdminId = request.UserId;
+            doc.ReviewedAt = DateTime.UtcNow;
+            doc.RejectionReason = null;
+            await _documentRepository.UpdateAsync(doc);
         }
 
         await _submissionRepository.SaveChangesAsync();

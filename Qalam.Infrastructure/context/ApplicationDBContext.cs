@@ -103,6 +103,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherRegistrationSubmission> TeacherRegistrationSubmissions { get; set; }
         public DbSet<TeacherDomainQuestion> TeacherDomainQuestions { get; set; }
         public DbSet<TeacherDomainQuestionSubmission> TeacherDomainQuestionSubmissions { get; set; }
+        public DbSet<TeacherDomainQuestionSubmissionDocument> TeacherDomainQuestionSubmissionDocuments { get; set; }
         public DbSet<TeacherContentFolder> TeacherContentFolders { get; set; }
         public DbSet<TeacherContentItem> TeacherContentItems { get; set; }
         public DbSet<SessionContentLink> SessionContentLinks { get; set; }

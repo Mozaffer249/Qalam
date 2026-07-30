@@ -25,19 +25,25 @@ public class TeacherDomainQuestionSubmissionRepository
         _set.AsNoTracking()
             .Include(s => s.Question)
             .ThenInclude(q => q.Domain)
+            .Include(s => s.Documents)
             .Where(s => s.TeacherId == teacherId)
             .ToListAsync(cancellationToken);
 
     public Task<TeacherDomainQuestionSubmission?> GetByIdWithQuestionAsync(int submissionId, CancellationToken cancellationToken = default) =>
         _set.Include(s => s.Question)
             .ThenInclude(q => q.Domain)
+            .Include(s => s.Documents)
             .FirstOrDefaultAsync(s => s.Id == submissionId, cancellationToken);
 
     public Task<bool> ExistsForTeacherAndQuestionAsync(int teacherId, int questionId, CancellationToken cancellationToken = default) =>
         _set.AnyAsync(s => s.TeacherId == teacherId && s.QuestionId == questionId, cancellationToken);
 
     public Task<TeacherDomainQuestionSubmission?> GetByTeacherDocumentIdAsync(int teacherDocumentId, CancellationToken cancellationToken = default) =>
-        _set.FirstOrDefaultAsync(s => s.TeacherDocumentId == teacherDocumentId, cancellationToken);
+        _set.Include(s => s.Documents)
+            .FirstOrDefaultAsync(
+                s => s.TeacherDocumentId == teacherDocumentId
+                     || s.Documents.Any(d => d.TeacherDocumentId == teacherDocumentId),
+                cancellationToken);
 
     public Task<TeacherDomainQuestionSubmission?> GetByTeacherAndQuestionAsync(int teacherId, int questionId, CancellationToken cancellationToken = default) =>
         _set.FirstOrDefaultAsync(s => s.TeacherId == teacherId && s.QuestionId == questionId, cancellationToken);

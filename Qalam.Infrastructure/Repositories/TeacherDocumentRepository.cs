@@ -88,10 +88,15 @@ public class TeacherDocumentRepository : GenericRepositoryAsync<TeacherDocument>
     {
         // Domain-question file answers also create TeacherDocument rows. Those must not be
         // treated as registration rejects (that misroutes teachers to /teacher/reupload).
-        var domainLinkedDocIds = _dbContext.Set<TeacherDomainQuestionSubmission>()
+        var domainLinkedDocIds = _dbContext.Set<TeacherDomainQuestionSubmissionDocument>()
             .AsNoTracking()
-            .Where(s => s.TeacherId == teacherId && s.TeacherDocumentId != null)
-            .Select(s => s.TeacherDocumentId!.Value);
+            .Where(d => d.Submission.TeacherId == teacherId)
+            .Select(d => d.TeacherDocumentId)
+            .Union(
+                _dbContext.Set<TeacherDomainQuestionSubmission>()
+                    .AsNoTracking()
+                    .Where(s => s.TeacherId == teacherId && s.TeacherDocumentId != null)
+                    .Select(s => s.TeacherDocumentId!.Value));
 
         return await _teacherDocuments
             .Where(d => d.TeacherId == teacherId

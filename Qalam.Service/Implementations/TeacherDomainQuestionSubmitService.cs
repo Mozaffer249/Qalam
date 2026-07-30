@@ -6,6 +6,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -17,17 +18,20 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
 
     private readonly ITeacherDomainQuestionSubmissionRepository _submissionRepository;
     private readonly ITeacherDocumentRepository _documentRepository;
+    private readonly ApplicationDBContext _db;
     private readonly IFileStorageService _fileStorageService;
     private readonly ILogger<TeacherDomainQuestionSubmitService> _logger;
 
     public TeacherDomainQuestionSubmitService(
         ITeacherDomainQuestionSubmissionRepository submissionRepository,
         ITeacherDocumentRepository documentRepository,
+        ApplicationDBContext db,
         IFileStorageService fileStorageService,
         ILogger<TeacherDomainQuestionSubmitService> logger)
     {
         _submissionRepository = submissionRepository;
         _documentRepository = documentRepository;
+        _db = db;
         _fileStorageService = fileStorageService;
         _logger = logger;
     }
@@ -172,38 +176,41 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
             ? DocumentVerificationStatus.Pending
             : DocumentVerificationStatus.Approved;
 
-        var file = files[0];
-        if (!await _fileStorageService.ValidateFileAsync(file, extensions.ToArray(), limit))
-            throw new InvalidOperationException($"File for '{req.Code}' is invalid or too large");
+        // Ensure Documents collection is loaded for replace.
+        await _db.Entry(existing).Collection(s => s.Documents).LoadAsync();
 
-        if (existing.TeacherDocumentId.HasValue)
+        var existingLinks = existing.Documents.ToList();
+        foreach (var link in existingLinks)
+            _db.TeacherDomainQuestionSubmissionDocuments.Remove(link);
+        existing.Documents.Clear();
+
+        int? primaryDocumentId = null;
+        foreach (var file in files)
         {
-            var doc = await _documentRepository.GetByIdAsync(existing.TeacherDocumentId.Value);
-            if (doc != null)
+            if (!await _fileStorageService.ValidateFileAsync(file, extensions.ToArray(), limit))
+                throw new InvalidOperationException($"File for '{req.Code}' is invalid or too large");
+
+            var doc = new TeacherDocument
             {
-                doc.VerificationStatus = docStatus;
-                doc.RejectionReason = null;
-                doc.ReviewedByAdminId = null;
-                doc.ReviewedAt = null;
-                await _documentRepository.UpdateAsync(doc);
-                await _fileStorageService.QueueTeacherDocUploadAsync(file, teacherId, req.Code, doc.Id);
-                await UpdateSubmissionAsync(existing, documentId: doc.Id, status: status);
-                return;
-            }
+                TeacherId = teacherId,
+                DocumentType = docType,
+                FilePath = "pending-upload",
+                VerificationStatus = docStatus
+            };
+
+            await _documentRepository.AddAsync(doc);
+            await _documentRepository.SaveChangesAsync();
+            await _fileStorageService.QueueTeacherDocUploadAsync(file, teacherId, req.Code, doc.Id);
+
+            existing.Documents.Add(new TeacherDomainQuestionSubmissionDocument
+            {
+                SubmissionId = existing.Id,
+                TeacherDocumentId = doc.Id,
+            });
+            primaryDocumentId ??= doc.Id;
         }
 
-        var newDoc = new TeacherDocument
-        {
-            TeacherId = teacherId,
-            DocumentType = docType,
-            FilePath = "pending-upload",
-            VerificationStatus = docStatus
-        };
-
-        await _documentRepository.AddAsync(newDoc);
-        await _documentRepository.SaveChangesAsync();
-        await _fileStorageService.QueueTeacherDocUploadAsync(file, teacherId, req.Code, newDoc.Id);
-        await UpdateSubmissionAsync(existing, documentId: newDoc.Id, status: status);
+        await UpdateSubmissionAsync(existing, documentId: primaryDocumentId, status: status);
     }
 
     private async Task UpdateSubmissionAsync(
@@ -244,9 +251,7 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
             ? DocumentVerificationStatus.Pending
             : DocumentVerificationStatus.Approved;
 
-        // One submission per question (unique TeacherId+QuestionId). Extra files become
-        // TeacherDocuments only; the submission links to the first document.
-        int? primaryDocumentId = null;
+        var documentIds = new List<int>();
         foreach (var file in files)
         {
             if (!await _fileStorageService.ValidateFileAsync(file, extensions.ToArray(), limit))
@@ -264,18 +269,25 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
             await _documentRepository.SaveChangesAsync();
 
             await _fileStorageService.QueueTeacherDocUploadAsync(file, teacherId, req.Code, doc.Id);
-
-            primaryDocumentId ??= doc.Id;
+            documentIds.Add(doc.Id);
         }
 
-        if (primaryDocumentId.HasValue)
-            await SaveSubmissionAsync(teacherId, req.Id, documentId: primaryDocumentId, status: status);
+        if (documentIds.Count == 0)
+            return;
+
+        await SaveSubmissionAsync(
+            teacherId,
+            req.Id,
+            documentId: documentIds[0],
+            documentIds: documentIds,
+            status: status);
     }
 
     private async Task SaveSubmissionAsync(
         int teacherId,
         int questionId,
         int? documentId = null,
+        IReadOnlyList<int>? documentIds = null,
         string? textValue = null,
         bool? boolValue = null,
         DocumentVerificationStatus status = DocumentVerificationStatus.Pending)
@@ -286,7 +298,7 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
                 $"A submission for question {questionId} already exists for this teacher and cannot be created again.");
         }
 
-        await _submissionRepository.AddAsync(new TeacherDomainQuestionSubmission
+        var submission = new TeacherDomainQuestionSubmission
         {
             TeacherId = teacherId,
             QuestionId = questionId,
@@ -294,7 +306,27 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
             TextValue = textValue,
             BoolValue = boolValue,
             VerificationStatus = status
-        });
+        };
+
+        if (documentIds is { Count: > 0 })
+        {
+            foreach (var id in documentIds.Distinct())
+            {
+                submission.Documents.Add(new TeacherDomainQuestionSubmissionDocument
+                {
+                    TeacherDocumentId = id,
+                });
+            }
+        }
+        else if (documentId.HasValue)
+        {
+            submission.Documents.Add(new TeacherDomainQuestionSubmissionDocument
+            {
+                TeacherDocumentId = documentId.Value,
+            });
+        }
+
+        await _submissionRepository.AddAsync(submission);
         await _submissionRepository.SaveChangesAsync();
     }
 }
