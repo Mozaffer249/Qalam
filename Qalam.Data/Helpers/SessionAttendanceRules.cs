@@ -99,11 +99,14 @@ public static class SessionAttendanceRules
     }
 
     /// <summary>
-    /// On session complete: Pending + never joined → Absent. Never invent Present.
-    /// Leaves Present/Late/Excused (and any Pending that somehow has JoinedAt) alone.
+    /// On session complete: never joined → Absent. Never invent Present.
+    /// Also repairs legacy bad rows (Present/Late with null JoinedAt from old auto-Present config).
+    /// Leaves Excused and manual (non-auto) Present without join alone (offline teacher marks).
     /// </summary>
     public static void AutoResolveMissingAttendance(CourseSchedule schedule)
     {
+        RepairFalsePresentWithoutJoin(schedule);
+
         if (schedule.TeacherAttendanceStatus == SessionAttendanceStatus.Pending
             && schedule.TeacherJoinedAt == null)
         {
@@ -140,6 +143,73 @@ public static class SessionAttendanceRules
                 IsAutoResolved = true,
             });
         }
+    }
+
+    /// <summary>
+    /// Corrects Present/Late that have no join timestamp (legacy auto-complete bug).
+    /// Teacher: any Present/Late without TeacherJoinedAt → Absent.
+    /// Student: auto-resolved Present/Late without JoinedAt → Absent.
+    /// </summary>
+    public static bool RepairFalsePresentWithoutJoin(CourseSchedule schedule)
+    {
+        var changed = false;
+
+        if (schedule.TeacherJoinedAt == null
+            && schedule.TeacherAttendanceStatus is SessionAttendanceStatus.Present
+                or SessionAttendanceStatus.Late)
+        {
+            schedule.TeacherAttendanceStatus = SessionAttendanceStatus.Absent;
+            changed = true;
+        }
+
+        if (schedule.Attendances == null)
+            return changed;
+
+        foreach (var attendance in schedule.Attendances)
+        {
+            if (attendance.JoinedAt != null)
+                continue;
+
+            if (!attendance.IsAutoResolved)
+                continue;
+
+            if (attendance.Status is not (SessionAttendanceStatus.Present or SessionAttendanceStatus.Late))
+                continue;
+
+            attendance.Status = SessionAttendanceStatus.Absent;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>Effective status for API: never report auto Present/Late without a join.</summary>
+    public static (string Status, bool IsAutoResolved) EffectiveStudentAttendance(SessionAttendance? attendance)
+    {
+        if (attendance == null)
+            return (SessionAttendanceStatus.Pending.ToString(), false);
+
+        if (attendance.JoinedAt == null
+            && attendance.Status is SessionAttendanceStatus.Present or SessionAttendanceStatus.Late
+            && attendance.IsAutoResolved)
+        {
+            return (SessionAttendanceStatus.Absent.ToString(), true);
+        }
+
+        return (attendance.Status.ToString(), attendance.IsAutoResolved);
+    }
+
+    public static (string Status, bool IsAutoResolved) EffectiveTeacherAttendance(
+        SessionAttendanceStatus status,
+        DateTime? teacherJoinedAt)
+    {
+        if (teacherJoinedAt == null
+            && status is SessionAttendanceStatus.Present or SessionAttendanceStatus.Late)
+        {
+            return (SessionAttendanceStatus.Absent.ToString(), true);
+        }
+
+        return (status.ToString(), false);
     }
 
     private static DateTime NormalizeUtc(DateTime value) =>

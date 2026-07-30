@@ -134,21 +134,22 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             ? enrollment.Participants.FirstOrDefault(p => p.StudentId == vid)?.Student?.User
             : null;
 
-        var attendanceStatus = attendance?.Status.ToString();
-        if (attendanceStatus == null && isViewingParticipant)
-            attendanceStatus = SessionAttendanceStatus.Pending.ToString();
-
         SessionAttendanceInfoDto? attendanceInfo = null;
         if (isViewingParticipant)
         {
+            var (status, isAutoResolved) = SessionAttendanceRules.EffectiveStudentAttendance(attendance);
             attendanceInfo = new SessionAttendanceInfoDto
             {
-                Status = attendanceStatus ?? SessionAttendanceStatus.Pending.ToString(),
+                Status = status,
                 LateMinutes = SessionAttendanceRules.ComputeLateMinutes(attendance?.JoinedAt, startUtc),
                 JoinedAt = attendance?.JoinedAt,
-                IsAutoResolved = attendance?.IsAutoResolved ?? false,
+                IsAutoResolved = isAutoResolved,
             };
         }
+
+        var (teacherStatus, teacherAuto) = SessionAttendanceRules.EffectiveTeacherAttendance(
+            schedule.TeacherAttendanceStatus,
+            schedule.TeacherJoinedAt);
 
         var dto = new StudentSessionDetailDto
         {
@@ -172,10 +173,10 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Attendance = attendanceInfo,
             TeacherAttendance = new SessionAttendanceInfoDto
             {
-                Status = schedule.TeacherAttendanceStatus.ToString(),
+                Status = teacherStatus,
                 LateMinutes = SessionAttendanceRules.ComputeLateMinutes(schedule.TeacherJoinedAt, startUtc),
                 JoinedAt = schedule.TeacherJoinedAt,
-                IsAutoResolved = false,
+                IsAutoResolved = teacherAuto,
             },
             CanReview = canReview,
             ReferenceCode = $"CAL-{schedule.Id}",
