@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -51,6 +52,7 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
 
         var slotIds = weeklySlots.Select(s => s.Id).ToList();
         var bookedSet = await _scheduleRepository.GetScheduledSlotsAsync(fromDate, toDate, slotIds, cancellationToken);
+        var utcNow = DateTime.UtcNow;
 
         var slotsByDayOfWeek = weeklySlots
             .GroupBy(s => s.DayOfWeekId)
@@ -73,29 +75,43 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
                         matchingDates.Add(date);
                 }
 
-                var slotDtos = dailySlots.Select(slot =>
-                {
-                    var dateStatuses = matchingDates.Select(date =>
+                var slotDtos = dailySlots
+                    .Select(slot =>
                     {
-                        var status = ResolveCellStatus(date, slot, blackoutSet, bookedSet);
-                        return new AvailabilitySlotDateStatusDto
-                        {
-                            Date = date,
-                            Status = status
-                        };
-                    }).ToList();
+                        var dateStatuses = matchingDates
+                            .Select(date =>
+                            {
+                                var status = ResolveCellStatus(date, slot, blackoutSet, bookedSet, utcNow);
+                                return new AvailabilitySlotDateStatusDto
+                                {
+                                    Date = date,
+                                    Status = status
+                                };
+                            })
+                            // Past slots are omitted from the student picker — not shown as Blocked/Past.
+                            .Where(d => d.Status != AvailabilitySlotStatus.Past)
+                            .ToList();
 
-                    return new AvailabilitySlotByWeekdayDto
-                    {
-                        TeacherAvailabilityId = slot.Id,
-                        TimeSlotId = slot.TimeSlotId,
-                        StartTime = slot.TimeSlot?.StartTime ?? TimeSpan.Zero,
-                        EndTime = slot.TimeSlot?.EndTime ?? TimeSpan.Zero,
-                        DurationMinutes = slot.TimeSlot?.DurationMinutes ?? 0,
-                        LabelEn = slot.TimeSlot?.LabelEn,
-                        Dates = dateStatuses
-                    };
-                }).ToList();
+                        if (dateStatuses.Count == 0)
+                            return null;
+
+                        return new AvailabilitySlotByWeekdayDto
+                        {
+                            TeacherAvailabilityId = slot.Id,
+                            TimeSlotId = slot.TimeSlotId,
+                            StartTime = slot.TimeSlot?.StartTime ?? TimeSpan.Zero,
+                            EndTime = slot.TimeSlot?.EndTime ?? TimeSpan.Zero,
+                            DurationMinutes = slot.TimeSlot?.DurationMinutes ?? 0,
+                            LabelEn = slot.TimeSlot?.LabelEn,
+                            Dates = dateStatuses
+                        };
+                    })
+                    .Where(s => s != null)
+                    .Cast<AvailabilitySlotByWeekdayDto>()
+                    .ToList();
+
+                if (slotDtos.Count == 0)
+                    return null;
 
                 return new AvailabilityWeekdayDto
                 {
@@ -104,6 +120,8 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
                     Slots = slotDtos
                 };
             })
+            .Where(w => w != null)
+            .Cast<AvailabilityWeekdayDto>()
             .OrderBy(w => UiWeekdaySortKey(w.DayOfWeekId))
             .ToList();
 
@@ -144,6 +162,7 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
             .ToHashSet();
 
         var bookedSet = await _scheduleRepository.GetScheduledSlotsAsync(fromDate, toDate, slotIds, cancellationToken);
+        var utcNow = DateTime.UtcNow;
 
         foreach (var pair in slotDates.Distinct())
         {
@@ -159,7 +178,7 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
                 continue;
             }
 
-            result[pair] = ResolveCellStatus(pair.Date, slot, blackoutSet, bookedSet);
+            result[pair] = ResolveCellStatus(pair.Date, slot, blackoutSet, bookedSet, utcNow);
         }
 
         return result;
@@ -176,12 +195,20 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
         DateOnly date,
         TeacherAvailability slot,
         HashSet<(DateOnly Date, int TimeSlotId)> blackoutSet,
-        HashSet<(DateOnly Date, int TeacherAvailabilityId)> bookedSet)
+        HashSet<(DateOnly Date, int TeacherAvailabilityId)> bookedSet,
+        DateTime utcNow)
     {
         if (bookedSet.Contains((date, slot.Id)))
             return AvailabilitySlotStatus.Booked;
         if (blackoutSet.Contains((date, slot.TimeSlotId)))
             return AvailabilitySlotStatus.Blocked;
+        if (slot.TimeSlot == null)
+            return AvailabilitySlotStatus.Blocked;
+
+        var startUtc = PlatformTime.ToUtc(date, slot.TimeSlot.StartTime);
+        if (startUtc <= utcNow)
+            return AvailabilitySlotStatus.Past;
+
         return AvailabilitySlotStatus.Free;
     }
 }

@@ -100,7 +100,8 @@ public enum AvailabilitySlotStatus
 {
     Free = 0,
     Booked = 1,   // a CourseSchedule with Status=Scheduled exists for this (Date, TeacherAvailabilityId)
-    Blocked = 2   // a TeacherAvailabilityException with ExceptionType=Blocked exists for this (Date, TimeSlotId)
+    Blocked = 2,  // a TeacherAvailabilityException with ExceptionType=Blocked exists for this (Date, TimeSlotId)
+    Past = 3      // start already passed (Asia/Riyadh); omitted from availability GET, rejected on enroll
 }
 
 /// <summary>
