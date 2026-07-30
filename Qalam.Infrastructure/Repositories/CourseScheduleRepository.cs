@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -99,7 +100,7 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             .Where(cs =>
             {
                 var end = cs.TeacherAvailability.TimeSlot!.EndTime;
-                var endUtc = cs.Date.ToDateTime(TimeOnly.FromTimeSpan(end), DateTimeKind.Utc);
+                var endUtc = PlatformTime.ToUtc(cs.Date, end);
                 return endUtc.AddMinutes(graceMinutes) < utcNow;
             })
             .ToList();

@@ -29,8 +29,8 @@ public static class SessionJoinRules
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = date.ToDateTime(start, DateTimeKind.Utc);
-        var endUtc = date.ToDateTime(end, DateTimeKind.Utc);
+        var startUtc = PlatformTime.ToUtc(date, start);
+        var endUtc = PlatformTime.ToUtc(date, end);
         return utcNow >= startUtc && utcNow <= endUtc;
     }
 }

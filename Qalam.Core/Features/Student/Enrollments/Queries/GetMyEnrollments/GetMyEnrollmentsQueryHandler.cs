@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
@@ -123,6 +124,6 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
     private static DateTime ResolveScheduleStartUtc(CourseSchedule schedule)
     {
         var startTime = schedule.TeacherAvailability?.TimeSlot?.StartTime ?? TimeSpan.Zero;
-        return schedule.Date.ToDateTime(TimeOnly.FromTimeSpan(startTime), DateTimeKind.Utc);
+        return PlatformTime.ToUtc(schedule.Date, startTime);
     }
 }

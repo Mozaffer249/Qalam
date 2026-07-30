@@ -1,6 +1,7 @@
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 
 namespace Qalam.Service.Implementations;
 
@@ -60,7 +61,7 @@ internal static class TeacherEnrollmentMapping
             .Select(s =>
             {
                 var start = s.TeacherAvailability?.TimeSlot?.StartTime ?? TimeSpan.Zero;
-                return s.Date.ToDateTime(TimeOnly.FromTimeSpan(start), DateTimeKind.Utc);
+                return PlatformTime.ToUtc(s.Date, start);
             })
             .Where(dt => dt >= utcNow)
             .OrderBy(dt => dt)

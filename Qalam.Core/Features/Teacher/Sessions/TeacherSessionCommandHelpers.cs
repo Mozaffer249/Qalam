@@ -1,5 +1,6 @@
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 
 namespace Qalam.Core.Features.Teacher.Sessions;
 
@@ -40,8 +41,8 @@ internal static class TeacherSessionCommandHelpers
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = schedule.Date.ToDateTime(start, DateTimeKind.Utc);
-        var endUtc = schedule.Date.ToDateTime(end, DateTimeKind.Utc);
+        var startUtc = PlatformTime.ToUtc(schedule.Date, start);
+        var endUtc = PlatformTime.ToUtc(schedule.Date, end);
         return utcNow >= startUtc && utcNow <= endUtc;
     }
 }

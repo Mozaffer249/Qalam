@@ -386,7 +386,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             .Select(s =>
             {
                 var start = s.TeacherAvailability?.TimeSlot?.StartTime ?? TimeSpan.Zero;
-                return s.Date.ToDateTime(TimeOnly.FromTimeSpan(start), DateTimeKind.Utc);
+                return PlatformTime.ToUtc(s.Date, start);
             })
             .Where(dt => dt >= utcNow)
             .OrderBy(dt => dt)
@@ -632,8 +632,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = sessionDate.ToDateTime(start, DateTimeKind.Utc);
-        var endUtc = sessionDate.ToDateTime(end, DateTimeKind.Utc);
+        var startUtc = PlatformTime.ToUtc(sessionDate, start);
+        var endUtc = PlatformTime.ToUtc(sessionDate, end);
 
         return utcNow >= startUtc && utcNow <= endUtc;
     }

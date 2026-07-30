@@ -286,7 +286,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     }
 
     /// <summary>
-    /// Sequential date lock: locked when start UTC is strictly after now.
+    /// Sequential date lock: locked when platform-local start (Asia/Riyadh → UTC) is strictly after now.
     /// Completed / InProgress / Cancelled never locked. No date → unlocked.
     /// </summary>
     private static (bool IsLocked, DateTime? UnlockAt) ResolveLock(
@@ -298,9 +298,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         if (status is ScheduleStatus.Completed or ScheduleStatus.InProgress or ScheduleStatus.Cancelled)
             return (false, null);
 
-        var startUtc = date.ToDateTime(
-            TimeOnly.FromTimeSpan(startTime ?? TimeSpan.Zero),
-            DateTimeKind.Utc);
+        var startUtc = PlatformTime.ToUtc(date, startTime ?? TimeSpan.Zero);
 
         if (startUtc <= utcNow)
             return (false, null);

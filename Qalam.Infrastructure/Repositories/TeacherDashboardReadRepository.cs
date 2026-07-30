@@ -220,7 +220,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 .ToList();
 
             var studentsCount = participants.Count > 0 ? participants.Count : 1;
-            var startsAt = courseDetail.Date.ToDateTime(TimeOnly.FromTimeSpan(courseDetail.StartTime), DateTimeKind.Utc);
+            var startsAt = PlatformTime.ToUtc(courseDetail.Date, courseDetail.StartTime);
             var canJoin = SessionJoinRules.CanJoinUtc(
                 courseDetail.EnrollmentStatus,
                 courseDetail.Status,
@@ -494,7 +494,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             SourceLabel = row.SourceLabel,
             SessionNumber = row.SessionNumber,
             SessionTitle = row.SessionTitle,
-            StartsAt = row.Date.ToDateTime(TimeOnly.FromTimeSpan(row.StartTime), DateTimeKind.Utc),
+            StartsAt = PlatformTime.ToUtc(row.Date, row.StartTime),
             DurationMinutes = row.DurationMinutes,
             TeachingMode = row.TeachingModeOnline ? "Online" : "InPerson",
             SessionType = row.SessionTypeGroup ? "Group" : "Individual",
