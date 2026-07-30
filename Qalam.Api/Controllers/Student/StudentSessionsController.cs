@@ -23,7 +23,7 @@ public class StudentSessionsController : AppControllerBase
         => NewResult(await Mediator.Send(new GetStudentSessionByIdQuery { Id = id }));
 
     [HttpPost("{id:int}/Join")]
-    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(StudentSessionJoinDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Join(int id)
         => NewResult(await Mediator.Send(new JoinStudentSessionCommand { Id = id }));
 

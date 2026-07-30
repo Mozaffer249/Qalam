@@ -8,10 +8,13 @@ using Qalam.Data.Commons;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.Entity.Common;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
+using Qalam.Data.DTOs.Teacher;
 
 namespace Qalam.Core.Features.Student.Sessions.Queries.GetStudentSessionById;
 
@@ -22,21 +25,27 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly ISessionReviewService _reviewService;
+    private readonly ITeacherContentService _contentService;
     private readonly SessionSettings _sessionSettings;
+    private readonly LiveSessionSettings _liveSessionSettings;
 
     public GetStudentSessionByIdQueryHandler(
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         ICourseScheduleRepository scheduleRepository,
         ISessionReviewService reviewService,
+        ITeacherContentService contentService,
         IOptions<SessionSettings> sessionSettings,
+        IOptions<LiveSessionSettings> liveSessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _scheduleRepository = scheduleRepository;
         _reviewService = reviewService;
+        _contentService = contentService;
         _sessionSettings = sessionSettings.Value;
+        _liveSessionSettings = liveSessionSettings.Value;
     }
 
     public async Task<Response<StudentSessionDetailDto>> Handle(
@@ -103,6 +112,13 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             reviews = [];
         }
 
+        var contentLinks = await _contentService.GetContentLinksForSessionAsync(
+            schedule.Id, cancellationToken);
+        var isOnline = string.Equals(
+            schedule.TeachingMode?.Code, "online", StringComparison.OrdinalIgnoreCase);
+        var isLive = canJoin || schedule.Status == ScheduleStatus.InProgress;
+        var meetingUrl = ResolveMeetingUrl(isOnline, isLive);
+
         var dto = new StudentSessionDetailDto
         {
             ScheduleId = schedule.Id,
@@ -111,6 +127,7 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Title = title,
             Notes = proposed?.Notes ?? courseSession?.Notes,
             TeacherNote = schedule.TeacherNote,
+            TeacherDisplayName = ResolveTeacherDisplayName(enrollment),
             Date = schedule.Date,
             StartTime = slot?.StartTime,
             EndTime = slot?.EndTime,
@@ -119,12 +136,59 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Status = schedule.Status,
             CanJoin = canJoin,
             AttendanceStatus = attendance?.Status.ToString(),
+            StartedAt = ResolveStartedAt(schedule),
+            MeetingUrl = meetingUrl,
             Units = MapUnits(courseSession?.Units),
+            Attachments = contentLinks.Select(MapAttachment).ToList(),
             Reviews = reviews,
         };
 
         return Success(entity: dto);
     }
+
+    private string? ResolveMeetingUrl(bool isOnline, bool isLive)
+    {
+        if (!isOnline || !isLive)
+            return null;
+
+        var url = _liveSessionSettings.LiveKit?.Url?.Trim();
+        return string.IsNullOrWhiteSpace(url) ? null : url;
+    }
+
+    private static DateTime? ResolveStartedAt(CourseSchedule schedule)
+    {
+        if (schedule.StartedAt.HasValue)
+            return schedule.StartedAt;
+
+        if (schedule.Status is ScheduleStatus.InProgress or ScheduleStatus.Completed
+            && schedule.TeacherJoinedAt.HasValue)
+            return schedule.TeacherJoinedAt;
+
+        return null;
+    }
+
+    private static string? ResolveTeacherDisplayName(Enrollment enrollment)
+    {
+        var user = enrollment.ApprovedByTeacher?.User
+                   ?? enrollment.Course?.Teacher?.User;
+        if (user == null)
+            return null;
+
+        var name = $"{user.FirstName} {user.LastName}".Trim();
+        return string.IsNullOrWhiteSpace(name) ? null : name;
+    }
+
+    private static StudentSessionAttachmentDto MapAttachment(TeacherSessionContentLinkDto link) =>
+        new()
+        {
+            Id = link.Id,
+            ContentItemId = link.ContentItemId,
+            Title = link.Title,
+            Description = link.Description,
+            Kind = link.Kind,
+            FileType = link.FileType,
+            PublicUrl = link.PublicUrl,
+        };
 
     private async Task<HashSet<int>> ResolveOwnedStudentIdsAsync(int userId)
     {
@@ -162,8 +226,12 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
     {
         return _scheduleRepository.GetTableNoTracking()
             .AsSplitQuery()
+            .Include(cs => cs.TeachingMode)
             .Include(cs => cs.Enrollment)
                 .ThenInclude(e => e.Participants)
+            .Include(cs => cs.Enrollment)
+                .ThenInclude(e => e.ApprovedByTeacher!)
+                    .ThenInclude(t => t.User)
             .Include(cs => cs.Enrollment)
                 .ThenInclude(e => e.EnrollmentRequest!)
                     .ThenInclude(r => r.ProposedSessions)
@@ -172,6 +240,10 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
                     .ThenInclude(r => r.SelectedSessionSlots)
             .Include(cs => cs.Enrollment)
                 .ThenInclude(e => e.SelectedSessionSlots)
+            .Include(cs => cs.Enrollment)
+                .ThenInclude(e => e.Course!)
+                    .ThenInclude(c => c.Teacher!)
+                        .ThenInclude(t => t.User)
             .Include(cs => cs.Enrollment)
                 .ThenInclude(e => e.Course!)
                     .ThenInclude(c => c.Sessions)
