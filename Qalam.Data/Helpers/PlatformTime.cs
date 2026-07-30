@@ -30,6 +30,29 @@ public static class PlatformTime
     public static DateTime ToUtc(DateOnly date, TimeSpan time) =>
         ToUtc(date, TimeOnly.FromTimeSpan(time));
 
+    /// <summary>
+    /// Normalizes <paramref name="utcNow"/> to a UTC instant (<see cref="DateTimeKind.Utc"/>).
+    /// Unspecified values are treated as UTC; local values are converted to UTC.
+    /// </summary>
+    public static DateTime ToUtcInstant(DateTime utcNow) =>
+        utcNow.Kind switch
+        {
+            DateTimeKind.Utc => utcNow,
+            DateTimeKind.Local => utcNow.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(utcNow, DateTimeKind.Utc),
+        };
+
+    /// <summary>
+    /// Platform-local calendar date (Asia/Riyadh) for the given UTC instant.
+    /// Use for lifecycle candidate filters so UTC midnight lag cannot skip "today".
+    /// </summary>
+    public static DateOnly ToPlatformDate(DateTime utcNow)
+    {
+        var utc = ToUtcInstant(utcNow);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZone);
+        return DateOnly.FromDateTime(local);
+    }
+
     private static TimeZoneInfo ResolveTimeZone()
     {
         try

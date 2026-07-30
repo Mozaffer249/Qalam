@@ -10,7 +10,7 @@ namespace Qalam.Service.BackgroundServices;
 
 /// <summary>
 /// Sweeps CourseSchedules: auto-starts (Scheduled → InProgress) when start time is reached,
-/// then auto-completes past (end + grace) with default attendance.
+/// then auto-completes when scheduled end is reached (no end grace).
 /// </summary>
 public class SessionLifecycleService : BackgroundService
 {
@@ -32,8 +32,8 @@ public class SessionLifecycleService : BackgroundService
     {
         var interval = Math.Max(1, _settings.LifecycleCheckIntervalMinutes);
         _logger.LogInformation(
-            "SessionLifecycleService started. Check interval: {Minutes} minutes, Grace: {Grace} minutes.",
-            interval, _settings.GraceMinutes);
+            "SessionLifecycleService started. Check interval: {Minutes} minutes.",
+            interval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -57,9 +57,8 @@ public class SessionLifecycleService : BackgroundService
         var lifecycle = scope.ServiceProvider.GetRequiredService<ISessionLifecycleService>();
 
         var now = DateTime.UtcNow;
-        var grace = _settings.GraceMinutes;
 
-        var due = await scheduleRepo.GetDueForAutoStartAsync(now, grace, ct);
+        var due = await scheduleRepo.GetDueForAutoStartAsync(now, ct);
         var started = 0;
         foreach (var schedule in due)
         {
@@ -77,7 +76,7 @@ public class SessionLifecycleService : BackgroundService
         if (started > 0)
             _logger.LogInformation("Auto-started {Count} CourseSchedule(s).", started);
 
-        var overdue = await scheduleRepo.GetOverdueForAutoCompleteAsync(now, grace, ct);
+        var overdue = await scheduleRepo.GetOverdueForAutoCompleteAsync(now, ct);
         var completed = 0;
         foreach (var schedule in overdue)
         {

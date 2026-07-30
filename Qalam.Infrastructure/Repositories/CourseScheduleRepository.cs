@@ -79,11 +79,10 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
 
     public async Task<List<CourseSchedule>> GetOverdueForAutoCompleteAsync(
         DateTime utcNow,
-        int graceMinutes,
         CancellationToken cancellationToken = default)
     {
-        // Rough pre-filter: anything whose calendar date is after "today + tiny buffer" cannot be overdue yet.
-        var maxCandidateDate = DateOnly.FromDateTime(utcNow);
+        var now = PlatformTime.ToUtcInstant(utcNow);
+        var maxCandidateDate = PlatformTime.ToPlatformDate(now);
 
         var candidates = await _context.CourseSchedules
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
@@ -101,18 +100,17 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             {
                 var end = cs.TeacherAvailability.TimeSlot!.EndTime;
                 var endUtc = PlatformTime.ToUtc(cs.Date, end);
-                return endUtc.AddMinutes(graceMinutes) < utcNow;
+                return endUtc <= now;
             })
             .ToList();
     }
 
     public async Task<List<CourseSchedule>> GetDueForAutoStartAsync(
         DateTime utcNow,
-        int graceMinutes,
         CancellationToken cancellationToken = default)
     {
-        // Include today in platform terms; utcNow may be previous calendar day in UTC while AST is already "today".
-        var maxCandidateDate = DateOnly.FromDateTime(utcNow).AddDays(1);
+        var now = PlatformTime.ToUtcInstant(utcNow);
+        var maxCandidateDate = PlatformTime.ToPlatformDate(now);
 
         var candidates = await _context.CourseSchedules
             .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
@@ -129,7 +127,7 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
                 var slot = cs.TeacherAvailability!.TimeSlot!;
                 var startUtc = PlatformTime.ToUtc(cs.Date, slot.StartTime);
                 var endUtc = PlatformTime.ToUtc(cs.Date, slot.EndTime);
-                return startUtc <= utcNow && endUtc.AddMinutes(graceMinutes) >= utcNow;
+                return startUtc <= now && endUtc > now;
             })
             .ToList();
     }

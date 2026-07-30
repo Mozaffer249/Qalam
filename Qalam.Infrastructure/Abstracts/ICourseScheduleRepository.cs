@@ -33,20 +33,18 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
     Task<CourseSchedule?> GetByIdForLifecycleAsync(int id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Schedules still Scheduled/InProgress whose (Date + EndTime + grace) is before <paramref name="utcNow"/>.
-    /// Returned tracked with Participants + Attendances for auto-complete.
+    /// Schedules still Scheduled/InProgress whose platform-local end has been reached
+    /// (<c>endUtc &lt;= utcNow</c>, no end grace). Returned tracked with Participants + Attendances.
     /// </summary>
     Task<List<CourseSchedule>> GetOverdueForAutoCompleteAsync(
         DateTime utcNow,
-        int graceMinutes,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Scheduled sessions whose platform-local start has passed and end+grace has not yet passed.
-    /// Returned tracked for auto InProgress.
+    /// Scheduled sessions whose platform-local start has passed and end has not yet passed
+    /// (<c>startUtc &lt;= utcNow &amp;&amp; endUtc &gt; utcNow</c>). Returned tracked for auto InProgress.
     /// </summary>
     Task<List<CourseSchedule>> GetDueForAutoStartAsync(
         DateTime utcNow,
-        int graceMinutes,
         CancellationToken cancellationToken = default);
 }

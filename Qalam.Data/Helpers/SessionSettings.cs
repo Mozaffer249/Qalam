@@ -4,8 +4,11 @@ public class SessionSettings
 {
     public int LifecycleCheckIntervalMinutes { get; set; } = 5;
 
-    /// <summary>Minutes after scheduled end before auto-complete kicks in.</summary>
-    public int GraceMinutes { get; set; } = 30;
+    /// <summary>
+    /// Reserved / unused for end-time auto-complete (completes at scheduled end).
+    /// Kept for config compatibility; prefer 0.
+    /// </summary>
+    public int GraceMinutes { get; set; } = 0;
 
     /// <summary>
     /// Default attendance when auto-resolving unmarked participants on complete.
