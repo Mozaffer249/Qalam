@@ -24,11 +24,10 @@ public class StudentSessionDetailDto
     public int? ActualDurationMinutes { get; set; }
     public ScheduleStatus Status { get; set; }
     public bool CanJoin { get; set; }
-    /// <summary>Viewing student's attendance (Pending when participant has no row yet).</summary>
-    public string? AttendanceStatus { get; set; }
-    public int? AttendanceLateMinutes { get; set; }
-    public string? TeacherAttendanceStatus { get; set; }
-    public int? TeacherAttendanceLateMinutes { get; set; }
+    /// <summary>Viewing student's attendance (Pending object when participant has no row yet).</summary>
+    public SessionAttendanceInfoDto? Attendance { get; set; }
+    /// <summary>Session-wide teacher attendance.</summary>
+    public SessionAttendanceInfoDto? TeacherAttendance { get; set; }
     /// <summary>True when session completed and viewing student has not submitted a teacher review.</summary>
     public bool CanReview { get; set; }
     public string? ReferenceCode { get; set; }
@@ -57,4 +56,13 @@ public class StudentSessionJoinDto
 {
     public string Message { get; set; } = "Joined.";
     public string? MeetingUrl { get; set; }
+}
+
+/// <summary>Join-based attendance snapshot for student session detail.</summary>
+public class SessionAttendanceInfoDto
+{
+    public string Status { get; set; } = "Pending";
+    public int? LateMinutes { get; set; }
+    public DateTime? JoinedAt { get; set; }
+    public bool IsAutoResolved { get; set; }
 }

@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
@@ -14,16 +13,13 @@ namespace Qalam.Service.Implementations;
 public class SessionLifecycleHelper : ISessionLifecycleService
 {
     private readonly ICourseScheduleRepository _courseScheduleRepository;
-    private readonly SessionSettings _settings;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
         ICourseScheduleRepository courseScheduleRepository,
-        IOptions<SessionSettings> settings,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
-        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -48,13 +44,13 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         schedule.Status = ScheduleStatus.Completed;
         schedule.EndedAt = DateTime.UtcNow;
 
-        var autoStatus = ResolveAutoAttendanceStatus();
-        AutoResolveMissingAttendance(schedule, autoStatus);
+        // Never invent Present for never-joined; Pending + no JoinedAt → Absent.
+        SessionAttendanceRules.AutoResolveMissingAttendance(schedule);
 
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation(
-            "Completed CourseSchedule {ScheduleId}; auto-attendance default={Status}.",
-            schedule.Id, autoStatus);
+            "Completed CourseSchedule {ScheduleId}; auto-attendance default=Absent for never-joined.",
+            schedule.Id);
     }
 
     public async Task MarkInProgressAsync(CourseSchedule schedule, CancellationToken cancellationToken = default)
@@ -71,57 +67,5 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         schedule.Status = ScheduleStatus.InProgress;
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation("Marked CourseSchedule {ScheduleId} InProgress (auto-start).", schedule.Id);
-    }
-
-    private SessionAttendanceStatus ResolveAutoAttendanceStatus()
-    {
-        var value = _settings.DefaultAutoAttendanceStatus;
-        if (Enum.IsDefined(typeof(SessionAttendanceStatus), value)
-            && (SessionAttendanceStatus)value is SessionAttendanceStatus.Present
-                or SessionAttendanceStatus.Absent)
-        {
-            return (SessionAttendanceStatus)value;
-        }
-
-        return SessionAttendanceStatus.Absent;
-    }
-
-    private static void AutoResolveMissingAttendance(CourseSchedule schedule, SessionAttendanceStatus autoStatus)
-    {
-        if (schedule.TeacherAttendanceStatus == SessionAttendanceStatus.Pending)
-        {
-            schedule.TeacherAttendanceStatus = autoStatus;
-        }
-
-        var participants = schedule.Enrollment?.Participants;
-        if (participants == null || participants.Count == 0)
-            return;
-
-        var byStudent = schedule.Attendances
-            .GroupBy(a => a.StudentId)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        foreach (var participant in participants)
-        {
-            if (byStudent.TryGetValue(participant.StudentId, out var existing))
-            {
-                // Still-pending rows left unmarked by the teacher get the auto default.
-                if (existing.Status == SessionAttendanceStatus.Pending)
-                {
-                    existing.Status = autoStatus;
-                    existing.IsAutoResolved = true;
-                }
-
-                continue;
-            }
-
-            schedule.Attendances.Add(new SessionAttendance
-            {
-                CourseScheduleId = schedule.Id,
-                StudentId = participant.StudentId,
-                Status = autoStatus,
-                IsAutoResolved = true,
-            });
-        }
     }
 }

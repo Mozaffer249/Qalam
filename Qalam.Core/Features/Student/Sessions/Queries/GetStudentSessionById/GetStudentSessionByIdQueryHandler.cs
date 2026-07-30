@@ -138,6 +138,18 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
         if (attendanceStatus == null && isViewingParticipant)
             attendanceStatus = SessionAttendanceStatus.Pending.ToString();
 
+        SessionAttendanceInfoDto? attendanceInfo = null;
+        if (isViewingParticipant)
+        {
+            attendanceInfo = new SessionAttendanceInfoDto
+            {
+                Status = attendanceStatus ?? SessionAttendanceStatus.Pending.ToString(),
+                LateMinutes = SessionAttendanceRules.ComputeLateMinutes(attendance?.JoinedAt, startUtc),
+                JoinedAt = attendance?.JoinedAt,
+                IsAutoResolved = attendance?.IsAutoResolved ?? false,
+            };
+        }
+
         var dto = new StudentSessionDetailDto
         {
             ScheduleId = schedule.Id,
@@ -157,10 +169,14 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             ActualDurationMinutes = ResolveActualDurationMinutes(schedule),
             Status = schedule.Status,
             CanJoin = canJoin,
-            AttendanceStatus = attendanceStatus,
-            AttendanceLateMinutes = ComputeLateMinutes(attendance?.JoinedAt, startUtc),
-            TeacherAttendanceStatus = schedule.TeacherAttendanceStatus.ToString(),
-            TeacherAttendanceLateMinutes = ComputeLateMinutes(schedule.TeacherJoinedAt, startUtc),
+            Attendance = attendanceInfo,
+            TeacherAttendance = new SessionAttendanceInfoDto
+            {
+                Status = schedule.TeacherAttendanceStatus.ToString(),
+                LateMinutes = SessionAttendanceRules.ComputeLateMinutes(schedule.TeacherJoinedAt, startUtc),
+                JoinedAt = schedule.TeacherJoinedAt,
+                IsAutoResolved = false,
+            },
             CanReview = canReview,
             ReferenceCode = $"CAL-{schedule.Id}",
             RecordingUrl = null,
@@ -197,24 +213,6 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
         return reviews
             .OrderByDescending(r => r.SubmittedAt)
             .ToList();
-    }
-
-    private static int? ComputeLateMinutes(DateTime? joinedAt, DateTime? startUtc)
-    {
-        if (joinedAt == null || startUtc == null)
-            return null;
-
-        var joined = joinedAt.Value.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(joinedAt.Value, DateTimeKind.Utc)
-            : joinedAt.Value.ToUniversalTime();
-        var start = startUtc.Value.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(startUtc.Value, DateTimeKind.Utc)
-            : startUtc.Value.ToUniversalTime();
-
-        if (joined <= start)
-            return null;
-
-        return (int)Math.Round((joined - start).TotalMinutes);
     }
 
     private string? ResolveMeetingUrl(bool isOnline, bool isLive)

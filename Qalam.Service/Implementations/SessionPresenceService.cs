@@ -55,8 +55,10 @@ public class SessionPresenceService : ISessionPresenceService
             return (false, gate, false, false);
 
         var now = DateTime.UtcNow;
-        schedule.TeacherAttendanceStatus = SessionAttendanceStatus.Present;
-        schedule.TeacherJoinedAt ??= now;
+        var startUtc = SessionAttendanceRules.ResolveStartUtc(schedule);
+        SessionAttendanceRules.ApplyTeacherJoin(
+            schedule, now, startUtc, _sessionSettings.LateGraceMinutes);
+
         schedule.TeacherInRoom = true;
         schedule.TeacherLeftAt = null;
 
@@ -143,23 +145,23 @@ public class SessionPresenceService : ISessionPresenceService
             return (false, gate, false, false);
 
         var now = DateTime.UtcNow;
+        var startUtc = SessionAttendanceRules.ResolveStartUtc(schedule);
         var existing = schedule.Attendances.FirstOrDefault(a => a.StudentId == student.Id);
         if (existing != null)
         {
-            existing.Status = SessionAttendanceStatus.Present;
-            existing.JoinedAt ??= now;
-            existing.IsAutoResolved = false;
+            SessionAttendanceRules.ApplyStudentJoin(
+                existing, now, startUtc, _sessionSettings.LateGraceMinutes);
         }
         else
         {
-            schedule.Attendances.Add(new SessionAttendance
+            var attendance = new SessionAttendance
             {
                 CourseScheduleId = schedule.Id,
                 StudentId = student.Id,
-                Status = SessionAttendanceStatus.Present,
-                JoinedAt = now,
-                IsAutoResolved = false,
-            });
+            };
+            SessionAttendanceRules.ApplyStudentJoin(
+                attendance, now, startUtc, _sessionSettings.LateGraceMinutes);
+            schedule.Attendances.Add(attendance);
         }
 
         AddApiPresenceEvent(

@@ -14,17 +14,20 @@ namespace Qalam.Service.Implementations;
 public class LivePresenceWebhookService : ILivePresenceWebhookService
 {
     private readonly LiveSessionSettings _settings;
+    private readonly SessionSettings _sessionSettings;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly ApplicationDBContext _db;
     private readonly ILogger<LivePresenceWebhookService> _logger;
 
     public LivePresenceWebhookService(
         IOptions<LiveSessionSettings> settings,
+        IOptions<SessionSettings> sessionSettings,
         ICourseScheduleRepository scheduleRepository,
         ApplicationDBContext db,
         ILogger<LivePresenceWebhookService> logger)
     {
         _settings = settings.Value;
+        _sessionSettings = sessionSettings.Value;
         _scheduleRepository = scheduleRepository;
         _db = db;
         _logger = logger;
@@ -169,9 +172,10 @@ public class LivePresenceWebhookService : ILivePresenceWebhookService
         });
 
         if (parsed.Role == LivePresenceRole.Teacher)
-            ApplyTeacherPresence(schedule, eventType, occurredAt);
+            ApplyTeacherPresence(schedule, eventType, occurredAt, _sessionSettings.LateGraceMinutes);
         else
-            ApplyStudentPresence(schedule, parsed.ParticipantId, eventType, occurredAt);
+            ApplyStudentPresence(
+                schedule, parsed.ParticipantId, eventType, occurredAt, _sessionSettings.LateGraceMinutes);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -190,12 +194,13 @@ public class LivePresenceWebhookService : ILivePresenceWebhookService
     private static void ApplyTeacherPresence(
         CourseSchedule schedule,
         LivePresenceEventType eventType,
-        DateTime occurredAt)
+        DateTime occurredAt,
+        int lateGraceMinutes)
     {
         if (eventType == LivePresenceEventType.Joined)
         {
-            schedule.TeacherAttendanceStatus = SessionAttendanceStatus.Present;
-            schedule.TeacherJoinedAt ??= occurredAt;
+            var startUtc = SessionAttendanceRules.ResolveStartUtc(schedule);
+            SessionAttendanceRules.ApplyTeacherJoin(schedule, occurredAt, startUtc, lateGraceMinutes);
             schedule.TeacherInRoom = true;
             schedule.TeacherLeftAt = null;
 
@@ -208,6 +213,7 @@ public class LivePresenceWebhookService : ILivePresenceWebhookService
             return;
         }
 
+        // Leave does not change attendance status (webhook may fail; Join remains authoritative).
         schedule.TeacherInRoom = false;
         schedule.TeacherLeftAt = occurredAt;
     }
@@ -216,28 +222,27 @@ public class LivePresenceWebhookService : ILivePresenceWebhookService
         CourseSchedule schedule,
         int studentId,
         LivePresenceEventType eventType,
-        DateTime occurredAt)
+        DateTime occurredAt,
+        int lateGraceMinutes)
     {
         if (eventType != LivePresenceEventType.Joined)
             return;
 
+        var startUtc = SessionAttendanceRules.ResolveStartUtc(schedule);
         var existing = schedule.Attendances.FirstOrDefault(a => a.StudentId == studentId);
         if (existing != null)
         {
-            existing.Status = SessionAttendanceStatus.Present;
-            existing.JoinedAt ??= occurredAt;
-            existing.IsAutoResolved = false;
+            SessionAttendanceRules.ApplyStudentJoin(existing, occurredAt, startUtc, lateGraceMinutes);
             return;
         }
 
-        schedule.Attendances.Add(new SessionAttendance
+        var attendance = new SessionAttendance
         {
             CourseScheduleId = schedule.Id,
             StudentId = studentId,
-            Status = SessionAttendanceStatus.Present,
-            JoinedAt = occurredAt,
-            IsAutoResolved = false,
-        });
+        };
+        SessionAttendanceRules.ApplyStudentJoin(attendance, occurredAt, startUtc, lateGraceMinutes);
+        schedule.Attendances.Add(attendance);
     }
 
     private static bool ParticipantBelongsToSchedule(CourseSchedule schedule, ParsedLiveIdentity parsed)

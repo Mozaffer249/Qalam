@@ -8,11 +8,16 @@ public class SessionSettings
     public int GraceMinutes { get; set; } = 30;
 
     /// <summary>
-    /// Default attendance when auto-resolving unmarked participants.
-    /// Present = 1, Absent = 3 (SessionAttendanceStatus).
-    /// Unjoined students default to Absent after session complete.
+    /// Default attendance when auto-resolving unmarked participants on complete.
+    /// Must be Absent (3). Present (1) is ignored — never invent Present for never-joined.
     /// </summary>
     public int DefaultAutoAttendanceStatus { get; set; } = 3;
+
+    /// <summary>
+    /// Minutes after scheduled start within which a join still counts as Present.
+    /// Join after start + this grace → Late.
+    /// </summary>
+    public int LateGraceMinutes { get; set; } = 10;
 
     /// <summary>
     /// When true, Join/Start require the scheduled UTC window.
