@@ -209,6 +209,8 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
                 case RegistrationRequirementType.File:
                     if (!input.CustomFilesByCode.TryGetValue(req.Code, out var files) || files.Count < req.MinCount)
                         return $"Requirement '{req.Code}' requires at least {req.MinCount} file(s).";
+                    if (files.Count > req.MaxCount)
+                        return $"At most {req.MaxCount} file(s) allowed for '{req.Code}'.";
                     break;
 
                 case RegistrationRequirementType.Text:
@@ -238,6 +240,14 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
                         return $"'{invalid}' is not a valid option for '{req.Code}'.";
                     break;
             }
+        }
+
+        foreach (var req in active.Where(r => r.RequirementType == RegistrationRequirementType.File))
+        {
+            if (!input.CustomFilesByCode.TryGetValue(req.Code, out var files) || files.Count == 0)
+                continue;
+            if (files.Count > req.MaxCount)
+                return $"At most {req.MaxCount} file(s) allowed for '{req.Code}'.";
         }
 
         return null;

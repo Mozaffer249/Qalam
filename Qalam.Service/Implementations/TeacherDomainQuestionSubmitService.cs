@@ -244,6 +244,9 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
             ? DocumentVerificationStatus.Pending
             : DocumentVerificationStatus.Approved;
 
+        // One submission per question (unique TeacherId+QuestionId). Extra files become
+        // TeacherDocuments only; the submission links to the first document.
+        int? primaryDocumentId = null;
         foreach (var file in files)
         {
             if (!await _fileStorageService.ValidateFileAsync(file, extensions.ToArray(), limit))
@@ -262,8 +265,11 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
 
             await _fileStorageService.QueueTeacherDocUploadAsync(file, teacherId, req.Code, doc.Id);
 
-            await SaveSubmissionAsync(teacherId, req.Id, documentId: doc.Id, status: status);
+            primaryDocumentId ??= doc.Id;
         }
+
+        if (primaryDocumentId.HasValue)
+            await SaveSubmissionAsync(teacherId, req.Id, documentId: primaryDocumentId, status: status);
     }
 
     private async Task SaveSubmissionAsync(
@@ -274,6 +280,12 @@ public class TeacherDomainQuestionSubmitService : ITeacherDomainQuestionSubmitSe
         bool? boolValue = null,
         DocumentVerificationStatus status = DocumentVerificationStatus.Pending)
     {
+        if (await _submissionRepository.ExistsForTeacherAndQuestionAsync(teacherId, questionId))
+        {
+            throw new InvalidOperationException(
+                $"A submission for question {questionId} already exists for this teacher and cannot be created again.");
+        }
+
         await _submissionRepository.AddAsync(new TeacherDomainQuestionSubmission
         {
             TeacherId = teacherId,
