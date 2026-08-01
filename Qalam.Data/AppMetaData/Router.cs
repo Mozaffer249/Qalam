@@ -320,6 +320,18 @@ namespace Qalam.Data.AppMetaData
         public const string StudentOpenSessionRequestAttachments = StudentOpenSessionRequests + "/{id}/Attachments";
         /// <summary>Attachment by id: Api/V1/Student/OpenSessionRequests/{id}/Attachments/{attachmentId}</summary>
         public const string StudentOpenSessionRequestAttachmentById = StudentOpenSessionRequestAttachments + "/{attachmentId}";
+        /// <summary>Update draft: Api/V1/Student/OpenSessionRequests/{id}</summary>
+        public const string StudentOpenSessionRequestUpdateDraft = StudentOpenSessionRequestById;
+        /// <summary>Publish draft: Api/V1/Student/OpenSessionRequests/{id}/Publish</summary>
+        public const string StudentOpenSessionRequestPublish = StudentOpenSessionRequestById + "/Publish";
+        /// <summary>List offers on a request: Api/V1/Student/OpenSessionRequests/{id}/Offers</summary>
+        public const string StudentOpenSessionRequestOffers = StudentOpenSessionRequestById + "/Offers";
+        /// <summary>Offer detail: Api/V1/Student/OpenSessionRequests/{id}/Offers/{offerId}</summary>
+        public const string StudentOpenSessionRequestOfferById = StudentOpenSessionRequestOffers + "/{offerId}";
+        /// <summary>Accept offer: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/Accept</summary>
+        public const string StudentOpenSessionOfferAccept = StudentOpenSessionRequests + "/Offers/{offerId}/Accept";
+        /// <summary>Reject offer: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/Reject</summary>
+        public const string StudentOpenSessionOfferReject = StudentOpenSessionRequests + "/Offers/{offerId}/Reject";
 
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";

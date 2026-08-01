@@ -53,6 +53,57 @@ public class CreateOpenSessionRequestDto
     /// Student.Ids to invite as co-learners. Max 5; allowed only for Group teaching modes.
     /// </summary>
     public List<int> InvitedStudentIds { get; set; } = new();
+
+    /// <summary>
+    /// When true, saves as <c>Draft</c> (no PublishedAt, no matching). Publish via
+    /// <c>POST .../{id}/Publish</c>. Default false keeps one-shot create+publish.
+    /// </summary>
+    public bool AsDraft { get; set; }
+}
+
+/// <summary>Body for PUT Api/V1/Student/OpenSessionRequests/{id} — replace draft contents.</summary>
+public class UpdateOpenSessionRequestDraftDto : CreateOpenSessionRequestDto
+{
+}
+
+/// <summary>Student-facing offer list row.</summary>
+public class StudentOfferListItemDto
+{
+    public int Id { get; set; }
+    public int SessionRequestId { get; set; }
+    public int TeacherId { get; set; }
+    public string? TeacherName { get; set; }
+    public decimal Price { get; set; }
+    public OpenSessionOfferStatus Status { get; set; }
+    public int Version { get; set; }
+    public string? TeacherNotes { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int? ConversationId { get; set; }
+}
+
+/// <summary>Student-facing offer detail.</summary>
+public class StudentOfferDetailDto : StudentOfferListItemDto
+{
+    public DateTime? AcceptedAt { get; set; }
+    public DateTime? RejectedAt { get; set; }
+    public DateTime? WithdrawnAt { get; set; }
+    public DateTime? ExpiredAt { get; set; }
+    public string? RejectionReason { get; set; }
+    public int SubjectId { get; set; }
+    public string? SubjectName { get; set; }
+    public int TotalSessionsCount { get; set; }
+}
+
+/// <summary>Result of accepting an offer (enrollment ready for payment).</summary>
+public class AcceptSessionOfferResultDto
+{
+    public int OfferId { get; set; }
+    public int EnrollmentId { get; set; }
+    public int ParticipantId { get; set; }
+    public decimal AmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+    public OpenSessionRequestStatus RequestStatus { get; set; }
 }
 
 public class CreateOpenSessionRequestSessionDto

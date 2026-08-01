@@ -99,6 +99,7 @@ namespace Qalam.Service
             services.AddTransient<IOpenSessionRequestTargetingService, OpenSessionRequestTargetingService>();
             services.AddTransient<ITargetedOpenSessionRequestValidator, TargetedOpenSessionRequestValidator>();
             services.AddTransient<IOfferConversationService, OfferConversationService>();
+            services.AddTransient<IOpenSessionOfferAcceptanceService, OpenSessionOfferAcceptanceService>();
 
             return services;
         }

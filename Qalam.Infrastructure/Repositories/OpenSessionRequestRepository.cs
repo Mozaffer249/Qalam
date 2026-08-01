@@ -148,4 +148,42 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task<List<int>> ExpireOpenRequestsAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        var expirables = new[]
+        {
+            OpenSessionRequestStatus.Draft,
+            OpenSessionRequestStatus.PendingInvitations,
+            OpenSessionRequestStatus.Active,
+            OpenSessionRequestStatus.ReceivingOffers,
+        };
+
+        var requests = await _context.OpenSessionRequests
+            .Include(r => r.Offers)
+            .Where(r => r.ExpiresAt != null
+                        && r.ExpiresAt < cutoffUtc
+                        && expirables.Contains(r.Status))
+            .ToListAsync(cancellationToken);
+
+        if (requests.Count == 0)
+            return new List<int>();
+
+        var now = DateTime.UtcNow;
+        foreach (var request in requests)
+        {
+            request.Status = OpenSessionRequestStatus.Expired;
+            request.UpdatedAt = now;
+
+            foreach (var offer in request.Offers.Where(o => o.Status == OpenSessionOfferStatus.Pending))
+            {
+                offer.Status = OpenSessionOfferStatus.Withdrawn;
+                offer.WithdrawnAt = now;
+                offer.UpdatedAt = now;
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return requests.Select(r => r.Id).ToList();
+    }
 }

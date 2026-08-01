@@ -86,6 +86,7 @@ builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
 // Background Services
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionOfferExpirationService>();
+builder.Services.AddHostedService<Qalam.Service.BackgroundServices.OpenSessionRequestExpirationService>();
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionLifecycleService>();
 
 // Service Registration

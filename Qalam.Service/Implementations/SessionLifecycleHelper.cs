@@ -13,13 +13,16 @@ namespace Qalam.Service.Implementations;
 public class SessionLifecycleHelper : ISessionLifecycleService
 {
     private readonly ICourseScheduleRepository _courseScheduleRepository;
+    private readonly ILiveSessionProvider _liveSessionProvider;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
         ICourseScheduleRepository courseScheduleRepository,
+        ILiveSessionProvider liveSessionProvider,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
+        _liveSessionProvider = liveSessionProvider;
         _logger = logger;
     }
 
@@ -51,6 +54,10 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         _logger.LogInformation(
             "Completed CourseSchedule {ScheduleId}; auto-attendance default=Absent for never-joined.",
             schedule.Id);
+
+        // Close the LiveKit room so connected clients disconnect (soft-fail inside provider).
+        var roomName = LiveSessionRoomNames.ForSchedule(schedule.Id);
+        await _liveSessionProvider.EndRoomAsync(roomName, cancellationToken);
     }
 
     public async Task MarkInProgressAsync(CourseSchedule schedule, CancellationToken cancellationToken = default)

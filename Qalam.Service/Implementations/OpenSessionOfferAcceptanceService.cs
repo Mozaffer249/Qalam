@@ -1,0 +1,181 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
+using Qalam.Infrastructure.context;
+using Qalam.Service.Abstracts;
+
+namespace Qalam.Service.Implementations;
+
+public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceService
+{
+    private readonly ApplicationDBContext _db;
+    private readonly EnrollmentSettings _settings;
+
+    public OpenSessionOfferAcceptanceService(
+        ApplicationDBContext db,
+        IOptions<EnrollmentSettings> settings)
+    {
+        _db = db;
+        _settings = settings.Value;
+    }
+
+    public async Task<AcceptSessionOfferResultDto> AcceptAsync(
+        int offerId,
+        int actingUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var offer = await _db.OpenSessionOffers
+            .Include(o => o.OpenSessionRequest)
+                .ThenInclude(r => r.Sessions)
+                    .ThenInclude(s => s.Units)
+            .Include(o => o.OpenSessionRequest)
+                .ThenInclude(r => r.Invitations)
+            .Include(o => o.OpenSessionRequest)
+                .ThenInclude(r => r.Offers)
+            .FirstOrDefaultAsync(o => o.Id == offerId, cancellationToken);
+
+        if (offer == null)
+            throw new InvalidOperationException("العرض غير موجود");
+
+        var request = offer.OpenSessionRequest
+            ?? throw new InvalidOperationException("طلب الجلسات غير موجود");
+
+        if (request.Status is not (OpenSessionRequestStatus.Active or OpenSessionRequestStatus.ReceivingOffers))
+            throw new InvalidOperationException($"لا يمكن قبول عرض على طلب في الحالة {request.Status}");
+
+        if (offer.Status != OpenSessionOfferStatus.Pending)
+            throw new InvalidOperationException("العرض ليس معلقاً");
+
+        var now = DateTime.UtcNow;
+        if (offer.ExpiresAt < now)
+            throw new InvalidOperationException("انتهت صلاحية العرض");
+
+        var sessions = request.Sessions.OrderBy(s => s.SequenceNumber).ToList();
+        if (sessions.Count == 0)
+            throw new InvalidOperationException("الطلب لا يحتوي على جلسات");
+
+        // Resolve each request session → TeacherAvailability for the offering teacher.
+        var resolvedSlots = new List<(OpenSessionRequestSession Session, int TeacherAvailabilityId)>();
+        foreach (var session in sessions)
+        {
+            if (!session.PreferredDate.HasValue || !session.TimeSlotId.HasValue)
+                throw new InvalidOperationException(
+                    $"الجلسة {session.SequenceNumber} تفتقد التاريخ أو الفترة الزمنية.");
+
+            var dayOfWeekId = (int)session.PreferredDate.Value.DayOfWeek + 1;
+            var availability = await _db.TeacherAvailabilities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ta =>
+                        ta.TeacherId == offer.TeacherId
+                        && ta.IsActive
+                        && ta.TimeSlotId == session.TimeSlotId.Value
+                        && ta.DayOfWeekId == dayOfWeekId,
+                    cancellationToken);
+
+            if (availability == null)
+                throw new InvalidOperationException(
+                    $"لا يوجد توافر أسبوعي للمعلم يطابق الجلسة {session.SequenceNumber} " +
+                    $"({session.PreferredDate:yyyy-MM-dd}, timeSlotId={session.TimeSlotId}).");
+
+            resolvedSlots.Add((session, availability.Id));
+        }
+
+        await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            offer.Status = OpenSessionOfferStatus.Accepted;
+            offer.AcceptedAt = now;
+            offer.UpdatedAt = now;
+
+            foreach (var sibling in request.Offers.Where(o =>
+                         o.Id != offer.Id && o.Status == OpenSessionOfferStatus.Pending))
+            {
+                sibling.Status = OpenSessionOfferStatus.AutoRejected;
+                sibling.RejectedAt = now;
+                sibling.UpdatedAt = now;
+            }
+
+            request.Status = OpenSessionRequestStatus.OfferAccepted;
+            request.UpdatedAt = now;
+
+            var studentIds = new List<int> { request.StudentId };
+            foreach (var inviteeId in request.Invitations
+                         .Where(i => i.Status == OpenSessionRequestInvitationStatus.Accepted)
+                         .Select(i => i.InvitedStudentId))
+            {
+                if (!studentIds.Contains(inviteeId))
+                    studentIds.Add(inviteeId);
+            }
+
+            var isGroup = studentIds.Count > 1
+                || request.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly;
+
+            var preferredStart = sessions.Min(s => s.PreferredDate!.Value);
+            var preferredEnd = sessions.Max(s => s.PreferredDate!.Value);
+            var paymentDeadline = now.AddHours(_settings.PaymentDeadlineHours);
+
+            var enrollment = new Enrollment
+            {
+                Source = EnrollmentSource.SessionRequest,
+                CourseId = null,
+                SessionRequestId = request.Id,
+                SessionOfferId = offer.Id,
+                Kind = isGroup ? EnrollmentKind.Group : EnrollmentKind.Individual,
+                LeaderStudentId = isGroup ? request.StudentId : null,
+                ApprovedByTeacherId = offer.TeacherId,
+                ApprovedAt = now,
+                PaymentDeadline = paymentDeadline,
+                EnrollmentStatus = EnrollmentStatus.PendingPayment,
+                AmountDue = offer.Price,
+                OwnerUserId = request.RequestedByUserId,
+                PreferredStartDate = preferredStart,
+                PreferredEndDate = preferredEnd,
+                Participants = studentIds.Select(sid => new EnrollmentParticipant
+                {
+                    StudentId = sid,
+                    PaymentStatus = PaymentStatus.Pending
+                }).ToList(),
+                SelectedSessionSlots = resolvedSlots.Select(r => new EnrollmentSelectedSessionSlot
+                {
+                    SessionNumber = r.Session.SequenceNumber,
+                    TeacherAvailabilityId = r.TeacherAvailabilityId,
+                    SessionDate = r.Session.PreferredDate!.Value,
+                    Units = r.Session.Units.Select(u => new EnrollmentSelectedSessionSlotUnit
+                    {
+                        ContentUnitId = u.ContentUnitId,
+                        LessonId = u.LessonId
+                    }).ToList()
+                }).ToList()
+            };
+
+            _db.Enrollments.Add(enrollment);
+
+            request.Status = OpenSessionRequestStatus.PaymentPending;
+            request.UpdatedAt = now;
+
+            await _db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+
+            var primaryParticipant = enrollment.Participants.First(p => p.StudentId == request.StudentId);
+
+            return new AcceptSessionOfferResultDto
+            {
+                OfferId = offer.Id,
+                EnrollmentId = enrollment.Id,
+                ParticipantId = primaryParticipant.Id,
+                AmountDue = enrollment.AmountDue,
+                PaymentDeadline = enrollment.PaymentDeadline,
+                RequestStatus = request.Status
+            };
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}

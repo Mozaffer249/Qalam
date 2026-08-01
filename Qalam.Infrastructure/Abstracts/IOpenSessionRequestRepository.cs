@@ -39,6 +39,12 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
     /// (Active → ReceivingOffers on first offer). Returns true if a row was updated.
     /// </summary>
     Task<bool> UpdateStatusAsync(int requestId, OpenSessionRequestStatus newStatus, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Background expiry: Draft / PendingInvitations / Active / ReceivingOffers with ExpiresAt past cutoff
+    /// → Expired; pending offers on those requests → Withdrawn. Returns expired request ids.
+    /// </summary>
+    Task<List<int>> ExpireOpenRequestsAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Used by availability-match to compute conflicts without loading whole session graphs.</summary>

@@ -2,12 +2,18 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.AcceptSessionOffer;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.CancelOpenSessionRequest;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.CreateOpenSessionRequest;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.DeleteOpenSessionRequestAttachment;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.PublishOpenSessionRequest;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.RejectSessionOffer;
+using Qalam.Core.Features.Student.OpenSessionRequests.Commands.UpdateOpenSessionRequestDraft;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.UploadOpenSessionRequestAttachment;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRequests;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetOpenSessionRequestById;
+using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOfferById;
+using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOffers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
@@ -23,10 +29,9 @@ namespace Qalam.Api.Controllers.Student;
 public class StudentOpenSessionRequestController : AppControllerBase
 {
     /// <summary>
-    /// Create + publish a new open session request. By default the broadcast matching engine
-    /// runs when no invitations are pending; supplying <c>targetedTeacherId</c> sends the request
-    /// to a single teacher instead. Otherwise the request waits in PendingInvitations until all
-    /// invited students respond.
+    /// Create an open session request. By default publishes immediately (matching / targeted notify).
+    /// Set <c>data.asDraft=true</c> to save as Draft without matching; publish later via
+    /// <c>POST .../{id}/Publish</c>.
     /// </summary>
     /// <remarks>
     /// POST Api/V1/Student/OpenSessionRequests
@@ -36,7 +41,7 @@ public class StudentOpenSessionRequestController : AppControllerBase
     /// - Guardian on behalf of minor: `data.studentId` is the child Student.Id; guardian must
     ///   be the linked Guardian. The server stores `createdByGuardianId` for audit.
     ///
-    /// Status transitions on create:
+    /// Status transitions on create (when not draft):
     /// - No invitations → `Active` (dispatch fires immediately — see "Dispatch" below).
     /// - With invitations → `PendingInvitations` (dispatch waits until all invitees respond).
     ///
@@ -54,7 +59,7 @@ public class StudentOpenSessionRequestController : AppControllerBase
     /// - `{ lessonId }` → only that lesson. `includesAllLessons` must be `false`/omitted —
     ///   single-lesson rows can't expand (400 otherwise).
     ///
-    /// `expiresAt` defaults to PublishedAt + 7 days if omitted.
+    /// `expiresAt` defaults to PublishedAt + 7 days if omitted (Draft: still set ExpiresAt for the sweeper).
     ///
     /// ─────────────────────────────────────────────
     /// Request body samples
@@ -146,6 +151,23 @@ public class StudentOpenSessionRequestController : AppControllerBase
     ///   }
     /// }
     /// ```
+    ///
+    /// **Case E — Draft.** No matching until Publish.
+    /// ```json
+    /// {
+    ///   "data": {
+    ///     "asDraft": true,
+    ///     "studentId": 5,
+    ///     "domainId": 1,
+    ///     "subjectId": 12,
+    ///     "teachingModeId": 1,
+    ///     "totalSessionsCount": 1,
+    ///     "sessions": [
+    ///       { "sequenceNumber": 1, "preferredDate": "2026-06-10", "timeSlotId": 3, "durationMinutes": 60, "units": [] }
+    ///     ]
+    ///   }
+    /// }
+    /// ```
     /// </remarks>
     [HttpPost(Router.StudentOpenSessionRequests)]
     [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]
@@ -155,6 +177,33 @@ public class StudentOpenSessionRequestController : AppControllerBase
     public async Task<IActionResult> Create([FromBody] CreateOpenSessionRequestCommand command)
     {
         return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Replace draft contents. Only allowed while status is Draft.
+    /// </summary>
+    [HttpPut(Router.StudentOpenSessionRequestUpdateDraft)]
+    [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDraft(int id, [FromBody] UpdateOpenSessionRequestDraftCommand command)
+    {
+        command.Id = id;
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Publish a Draft → Active or PendingInvitations and run matching / targeted notify.
+    /// </summary>
+    [HttpPost(Router.StudentOpenSessionRequestPublish)]
+    [ProducesResponseType(typeof(OpenSessionRequestDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Publish(int id)
+    {
+        return NewResult(await Mediator.Send(new PublishOpenSessionRequestCommand { Id = id }));
     }
 
     /// <summary>
@@ -190,6 +239,63 @@ public class StudentOpenSessionRequestController : AppControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         return NewResult(await Mediator.Send(new GetOpenSessionRequestByIdQuery { Id = id }));
+    }
+
+    /// <summary>
+    /// List offers on a request owned by the caller (excludes Withdrawn).
+    /// </summary>
+    [HttpGet(Router.StudentOpenSessionRequestOffers)]
+    [ProducesResponseType(typeof(List<StudentOfferListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOffers(int id)
+    {
+        return NewResult(await Mediator.Send(new GetStudentSessionOffersQuery { RequestId = id }));
+    }
+
+    /// <summary>
+    /// Offer detail for a request owned by the caller.
+    /// </summary>
+    [HttpGet(Router.StudentOpenSessionRequestOfferById)]
+    [ProducesResponseType(typeof(StudentOfferDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOfferById(int id, int offerId)
+    {
+        return NewResult(await Mediator.Send(new GetStudentSessionOfferByIdQuery
+        {
+            RequestId = id,
+            OfferId = offerId
+        }));
+    }
+
+    /// <summary>
+    /// Accept a pending offer: creates PendingPayment enrollment, auto-rejects sibling offers.
+    /// Pay via POST /Student/Payments/Participants with the returned participantId.
+    /// </summary>
+    [HttpPost(Router.StudentOpenSessionOfferAccept)]
+    [ProducesResponseType(typeof(AcceptSessionOfferResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AcceptOffer(int offerId)
+    {
+        return NewResult(await Mediator.Send(new AcceptSessionOfferCommand { OfferId = offerId }));
+    }
+
+    /// <summary>
+    /// Reject a single pending offer. Request stays Active/ReceivingOffers if other offers remain.
+    /// </summary>
+    [HttpPost(Router.StudentOpenSessionOfferReject)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RejectOffer(int offerId, [FromBody] RejectSessionOfferCommand? command)
+    {
+        command ??= new RejectSessionOfferCommand();
+        command.OfferId = offerId;
+        return NewResult(await Mediator.Send(command));
     }
 
     /// <summary>

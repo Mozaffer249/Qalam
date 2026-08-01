@@ -97,9 +97,20 @@ public class CreateOpenSessionRequestCommandHandler
 
         // 6. Build the entity
         var now = DateTime.UtcNow;
-        var status = data.InvitedStudentIds.Any()
-            ? OpenSessionRequestStatus.PendingInvitations
-            : OpenSessionRequestStatus.Active;
+        OpenSessionRequestStatus status;
+        DateTime? publishedAt;
+        if (data.AsDraft)
+        {
+            status = OpenSessionRequestStatus.Draft;
+            publishedAt = null;
+        }
+        else
+        {
+            status = data.InvitedStudentIds.Any()
+                ? OpenSessionRequestStatus.PendingInvitations
+                : OpenSessionRequestStatus.Active;
+            publishedAt = now;
+        }
 
         var entity = new OpenSessionRequest
         {
@@ -118,7 +129,7 @@ public class CreateOpenSessionRequestCommandHandler
             TotalSessionsCount = data.TotalSessionsCount,
             StudentNotes = data.StudentNotes,
             Status = status,
-            PublishedAt = now,
+            PublishedAt = publishedAt,
             ExpiresAt = data.ExpiresAt ?? now.AddDays(DefaultExpiryDays),
         };
 

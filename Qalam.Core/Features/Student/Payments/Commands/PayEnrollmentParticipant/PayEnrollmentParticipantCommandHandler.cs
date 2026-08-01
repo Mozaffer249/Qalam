@@ -110,11 +110,18 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
                 TotalAmount = totalAmount,
                 Status = PaymentStatus.Succeeded
             };
+            var isSessionRequest = enrollment.Source == EnrollmentSource.SessionRequest
+                || enrollment.CourseId == null;
+
             payment.PaymentItems.Add(new PaymentItem
             {
                 ItemType = PaymentItemType.CourseEnrollment,
                 ReferenceId = enrollment.Id,
-                Description = enrollment.Course?.Title,
+                Description = isSessionRequest
+                    ? (enrollment.OpenSessionRequest?.Subject?.NameEn
+                       ?? enrollment.OpenSessionRequest?.Subject?.NameAr
+                       ?? "Session request enrollment")
+                    : enrollment.Course?.Title,
                 Amount = totalAmount
             });
             await _paymentRepository.AddAsync(payment);
@@ -180,9 +187,12 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             }
 
             var effectiveStart = preferredStart < today ? today : preferredStart;
+            var teacherId = isSessionRequest
+                ? enrollment.ApprovedByTeacherId
+                : enrollment.Course!.TeacherId;
 
             var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
-                enrollment.Course!.TeacherId,
+                teacherId,
                 effectiveStart,
                 preferredEnd);
 
@@ -192,47 +202,108 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
                 availabilityById.Keys.ToList(),
                 cancellationToken);
 
-            var stubOrRequest = enrollmentRequest ?? new CourseEnrollmentRequest { ProposedSessions = [] };
             ScheduleGenerationResult preview;
+            int teachingModeId;
+            Dictionary<int, int>? courseSessionIdByNumber = null;
 
-            if (selections.Count > 0)
+            if (isSessionRequest)
             {
+                if (selections.Count == 0)
+                {
+                    await _participantRepository.RollBackAsync();
+                    return BadRequest<PaymentResultDto>(
+                        "Enrollment has no selected session slots to schedule.");
+                }
+
+                teachingModeId = enrollment.OpenSessionRequest?.TeachingModeId
+                    ?? throw new InvalidOperationException("Session request enrollment missing OpenSessionRequest.");
+
+                var durationBySession = enrollment.OpenSessionRequest!.Sessions
+                    .ToDictionary(s => s.SequenceNumber, s => s.DurationMinutes);
+
+                var proposed = selections
+                    .Select((sel, idx) =>
+                    {
+                        var sessionNumber = enrollment.SelectedSessionSlots
+                            .OrderBy(s => s.SessionNumber)
+                            .ElementAt(idx).SessionNumber;
+                        var duration = durationBySession.TryGetValue(sessionNumber, out var d)
+                            ? d
+                            : (availabilityById.TryGetValue(sel.TeacherAvailabilityId, out var ta)
+                               && ta.TimeSlot != null
+                                ? ta.TimeSlot.ResolveDurationMinutes()
+                                : 60);
+                        return new CourseRequestProposedSession
+                        {
+                            SessionNumber = sessionNumber,
+                            DurationMinutes = duration
+                        };
+                    })
+                    .ToList();
+
+                var stubCourse = new Course { IsFlexible = true, TeachingModeId = teachingModeId };
+                var stubRequest = new CourseEnrollmentRequest { ProposedSessions = proposed };
+
                 preview = _scheduleGenerator.PreviewExplicit(
-                    enrollment.Course!,
-                    stubOrRequest,
+                    stubCourse,
+                    stubRequest,
                     selections,
                     availabilityById,
                     blockedExceptions,
                     existingScheduledSlots,
                     preferredEnd);
             }
-            else if (enrollmentRequest != null)
-            {
-                var slots = enrollmentRequest.SelectedAvailabilities
-                    .Select(sa => sa.TeacherAvailability)
-                    .Where(ta => ta != null)
-                    .ToList();
-
-                var existingForAvail = await _scheduleRepository.GetScheduledSlotsAsync(
-                    effectiveStart,
-                    preferredEnd,
-                    slots.Select(s => s!.Id).ToList(),
-                    cancellationToken);
-
-                preview = _scheduleGenerator.Preview(
-                    enrollment.Course!,
-                    enrollmentRequest,
-                    slots!,
-                    blockedExceptions,
-                    existingForAvail,
-                    effectiveStart,
-                    preferredEnd);
-            }
             else
             {
-                await _participantRepository.RollBackAsync();
-                return BadRequest<PaymentResultDto>(
-                    "Enrollment has no selected session slots to schedule.");
+                teachingModeId = enrollment.Course!.TeachingModeId;
+                var stubOrRequest = enrollmentRequest ?? new CourseEnrollmentRequest { ProposedSessions = [] };
+
+                if (selections.Count > 0)
+                {
+                    preview = _scheduleGenerator.PreviewExplicit(
+                        enrollment.Course!,
+                        stubOrRequest,
+                        selections,
+                        availabilityById,
+                        blockedExceptions,
+                        existingScheduledSlots,
+                        preferredEnd);
+                }
+                else if (enrollmentRequest != null)
+                {
+                    var slots = enrollmentRequest.SelectedAvailabilities
+                        .Select(sa => sa.TeacherAvailability)
+                        .Where(ta => ta != null)
+                        .ToList();
+
+                    var existingForAvail = await _scheduleRepository.GetScheduledSlotsAsync(
+                        effectiveStart,
+                        preferredEnd,
+                        slots.Select(s => s!.Id).ToList(),
+                        cancellationToken);
+
+                    preview = _scheduleGenerator.Preview(
+                        enrollment.Course!,
+                        enrollmentRequest,
+                        slots!,
+                        blockedExceptions,
+                        existingForAvail,
+                        effectiveStart,
+                        preferredEnd);
+                }
+                else
+                {
+                    await _participantRepository.RollBackAsync();
+                    return BadRequest<PaymentResultDto>(
+                        "Enrollment has no selected session slots to schedule.");
+                }
+
+                if (!enrollment.Course!.IsFlexible && enrollment.Course.Sessions != null)
+                {
+                    courseSessionIdByNumber = enrollment.Course.Sessions
+                        .GroupBy(cs => cs.SessionNumber)
+                        .ToDictionary(g => g.Key, g => g.First().Id);
+                }
             }
 
             if (preview.Conflicts.Count > 0)
@@ -249,14 +320,6 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
                     $"Schedule no longer fits before {preferredEnd:yyyy-MM-dd}. Please re-submit with a longer window.");
             }
 
-            Dictionary<int, int>? courseSessionIdByNumber = null;
-            if (!enrollment.Course!.IsFlexible && enrollment.Course.Sessions != null)
-            {
-                courseSessionIdByNumber = enrollment.Course.Sessions
-                    .GroupBy(cs => cs.SessionNumber)
-                    .ToDictionary(g => g.Key, g => g.First().Id);
-            }
-
             foreach (var s in preview.Slots)
             {
                 int? courseSessionId = null;
@@ -271,7 +334,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
                     Date = s.Date,
                     TeacherAvailabilityId = s.TeacherAvailabilityId,
                     DurationMinutes = s.DurationMinutes,
-                    TeachingModeId = enrollment.Course!.TeachingModeId,
+                    TeachingModeId = teachingModeId,
                     CourseSessionId = courseSessionId,
                     LocationId = null,
                     Status = ScheduleStatus.Scheduled
@@ -279,6 +342,16 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             }
 
             schedulesCreated = preview.Slots.Count;
+
+            if (isSessionRequest && enrollment.OpenSessionRequest != null)
+            {
+                enrollment.OpenSessionRequest.Status = OpenSessionRequestStatus.Paid;
+                enrollment.OpenSessionRequest.UpdatedAt = now;
+                await _participantRepository.SaveChangesAsync();
+
+                enrollment.OpenSessionRequest.Status = OpenSessionRequestStatus.Scheduled;
+                enrollment.OpenSessionRequest.UpdatedAt = DateTime.UtcNow;
+            }
 
             await _participantRepository.SaveChangesAsync();
             await _participantRepository.CommitAsync();

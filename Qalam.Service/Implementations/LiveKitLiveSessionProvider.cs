@@ -8,7 +8,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Service.Implementations;
 
 /// <summary>
-/// LiveKit Cloud / self-hosted token minting. Swap by registering another ILiveSessionProvider.
+/// LiveKit Cloud / self-hosted token minting and room management.
 /// </summary>
 public class LiveKitLiveSessionProvider : ILiveSessionProvider
 {
@@ -33,15 +33,7 @@ public class LiveKitLiveSessionProvider : ILiveSessionProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var lk = _settings.LiveKit;
-        if (string.IsNullOrWhiteSpace(lk.Url)
-            || string.IsNullOrWhiteSpace(lk.ApiKey)
-            || string.IsNullOrWhiteSpace(lk.ApiSecret))
-        {
-            _logger.LogError("LiveKit is not configured (LiveSession:LiveKit Url/ApiKey/ApiSecret).");
-            throw new InvalidOperationException(
-                "Live session provider is not configured. Set LiveSession:LiveKit settings.");
-        }
+        var lk = RequireLiveKitConfig();
 
         var ttl = request.Ttl > TimeSpan.Zero
             ? request.Ttl
@@ -82,5 +74,63 @@ public class LiveKitLiveSessionProvider : ILiveSessionProvider
             Role = isTeacher ? "teacher" : "student",
             ExpiresAt = expiresAt,
         });
+    }
+
+    public async Task EndRoomAsync(string roomName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(roomName))
+            return;
+
+        LiveKitProviderSettings lk;
+        try
+        {
+            lk = RequireLiveKitConfig();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Skipping LiveKit EndRoom for {RoomName}: provider not configured.", roomName);
+            return;
+        }
+
+        try
+        {
+            var host = ToHttpHost(lk.Url);
+            var client = new RoomServiceClient(host, lk.ApiKey, lk.ApiSecret);
+            await client.DeleteRoom(new DeleteRoomRequest { Room = roomName.Trim() });
+            _logger.LogInformation("Deleted LiveKit room {RoomName}.", roomName);
+        }
+        catch (Exception ex)
+        {
+            // Soft-fail: DB complete must still succeed even if LiveKit is down or room already gone.
+            _logger.LogWarning(ex, "Failed to delete LiveKit room {RoomName}.", roomName);
+        }
+    }
+
+    private LiveKitProviderSettings RequireLiveKitConfig()
+    {
+        var lk = _settings.LiveKit;
+        if (string.IsNullOrWhiteSpace(lk.Url)
+            || string.IsNullOrWhiteSpace(lk.ApiKey)
+            || string.IsNullOrWhiteSpace(lk.ApiSecret))
+        {
+            _logger.LogError("LiveKit is not configured (LiveSession:LiveKit Url/ApiKey/ApiSecret).");
+            throw new InvalidOperationException(
+                "Live session provider is not configured. Set LiveSession:LiveKit settings.");
+        }
+
+        return lk;
+    }
+
+    /// <summary>RoomServiceClient expects HTTPS/HTTP, not wss/ws.</summary>
+    internal static string ToHttpHost(string liveKitUrl)
+    {
+        var u = liveKitUrl.Trim().TrimEnd('/');
+        if (u.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
+            return "https://" + u[6..];
+        if (u.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
+            return "http://" + u[5..];
+        return u;
     }
 }

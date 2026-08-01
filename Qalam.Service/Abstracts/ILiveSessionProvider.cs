@@ -13,4 +13,10 @@ public interface ILiveSessionProvider
     Task<LiveSessionAccessDto> CreateAccessAsync(
         LiveSessionAccessRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ends the RTC room so connected clients disconnect.
+    /// Soft-fails (logs) when the vendor is unreachable — callers should still complete DB state.
+    /// </summary>
+    Task EndRoomAsync(string roomName, CancellationToken cancellationToken = default);
 }
