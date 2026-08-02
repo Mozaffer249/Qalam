@@ -7,4 +7,5 @@ namespace Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherProfile;
 public class GetStudentTeacherProfileQuery : IRequest<Response<StudentTeacherProfileDto>>
 {
     public int TeacherId { get; set; }
+    public int Limit { get; set; } = 10;
 }

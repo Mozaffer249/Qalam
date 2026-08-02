@@ -30,6 +30,8 @@ public class TeacherCardSubjectDto
     public string? SubjectNameEn { get; set; }
     public int? DomainId { get; set; }
     public string? DomainCode { get; set; }
+    public string? GradeNameAr { get; set; }
+    public string? GradeNameEn { get; set; }
     public bool CanTeachFullSubject { get; set; }
     public int UnitsCount { get; set; }
 }

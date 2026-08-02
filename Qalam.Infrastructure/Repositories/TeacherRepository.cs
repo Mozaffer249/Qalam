@@ -1,5 +1,7 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
@@ -320,9 +322,13 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
 
     public async Task<StudentTeacherProfileDto?> GetStudentProfileAsync(
         int teacherId,
+        int limit = 10,
         CancellationToken cancellationToken = default)
     {
+        var previewLimit = limit is < 1 or > 20 ? 10 : limit;
         var activeStatuses = new[] { EnrollmentStatus.Active, EnrollmentStatus.Completed };
+        var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
+            .Equals("ar", StringComparison.OrdinalIgnoreCase);
 
         return await ActiveTeachersBaseQuery()
             .Where(t => t.Id == teacherId)
@@ -350,12 +356,15 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                                 && c.IsActive),
                 SubjectsCount = t.TeacherSubjects.Count(ts => ts.IsActive
                     && ts.VerificationStatus == DocumentVerificationStatus.Approved),
+                SessionsCount = _context.Set<Qalam.Data.Entity.Course.CourseSchedule>()
+                    .Count(s => s.Enrollment.ApprovedByTeacherId == teacherId
+                                && s.Status == ScheduleStatus.Completed),
                 Subjects = t.TeacherSubjects
                     .Where(ts => ts.IsActive
                                  && ts.VerificationStatus == DocumentVerificationStatus.Approved
                                  && ts.Subject != null)
                     .OrderBy(ts => ts.Subject!.NameAr)
-                    .Take(5)
+                    .Take(previewLimit)
                     .Select(ts => new TeacherCardSubjectDto
                     {
                         SubjectId = ts.SubjectId,
@@ -363,8 +372,106 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                         SubjectNameEn = ts.Subject.NameEn,
                         DomainId = ts.Subject.DomainId,
                         DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                        GradeNameAr = ts.Subject.Grade != null ? ts.Subject.Grade.NameAr : null,
+                        GradeNameEn = ts.Subject.Grade != null ? ts.Subject.Grade.NameEn : null,
                         CanTeachFullSubject = ts.CanTeachFullSubject,
                         UnitsCount = ts.TeacherSubjectUnits.Count
+                    })
+                    .ToList(),
+                Reviews = t.TeacherReviews
+                    .Where(r => r.IsApproved)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .Take(previewLimit)
+                    .Select(r => new StudentTeacherReviewDto
+                    {
+                        Id = r.Id,
+                        Rating = r.Rating,
+                        Feedback = r.Feedback,
+                        StudentDisplayName = r.Student != null && r.Student.User != null
+                            ? (r.Student.User.FirstName ?? "Student")
+                            : "Student",
+                        CreatedAt = r.CreatedAt
+                    })
+                    .ToList(),
+                Certificates = t.TeacherDocuments
+                    .Where(d => d.DocumentType == TeacherDocumentType.Certificate
+                                && d.VerificationStatus == DocumentVerificationStatus.Approved)
+                    .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue)
+                    .Take(previewLimit)
+                    .Select(d => new StudentTeacherCertificateDto
+                    {
+                        Id = d.Id,
+                        Title = d.CertificateTitle,
+                        Issuer = d.Issuer,
+                        IssueDate = d.IssueDate,
+                        FileUrl = d.FilePath
+                    })
+                    .ToList(),
+                Courses = _context.Set<Qalam.Data.Entity.Course.Course>()
+                    .Where(c => c.TeacherId == teacherId
+                                && c.Status == CourseStatus.Published
+                                && c.IsActive)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Take(previewLimit)
+                    .Select(c => new CourseCatalogIndexItemDto
+                    {
+                        Id = c.Id,
+                        Title = c.Title,
+                        ImageUrl = c.ImageUrl,
+                        Price = c.Price,
+                        TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
+                            ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
+                            : null,
+                        TeacherAverageReview = c.Teacher != null
+                            ? (c.Teacher.TeacherReviews
+                                  .Where(r => r.IsApproved)
+                                  .Select(r => (decimal?)r.Rating)
+                                  .Average() ?? 0m)
+                            : 0m,
+                        DomainName = c.TeacherSubject != null &&
+                                     c.TeacherSubject.Subject != null &&
+                                     c.TeacherSubject.Subject.Domain != null
+                            ? (isAr
+                                ? c.TeacherSubject.Subject.Domain.NameAr
+                                : c.TeacherSubject.Subject.Domain.NameEn)
+                            : null,
+                        SubjectName = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                            ? (isAr
+                                ? c.TeacherSubject.Subject.NameAr
+                                : c.TeacherSubject.Subject.NameEn)
+                            : null,
+                        CurriculumName = c.TeacherSubject != null &&
+                                         c.TeacherSubject.Subject != null &&
+                                         c.TeacherSubject.Subject.Curriculum != null
+                            ? (isAr
+                                ? c.TeacherSubject.Subject.Curriculum.NameAr
+                                : c.TeacherSubject.Subject.Curriculum.NameEn)
+                            : null,
+                        LevelName = c.TeacherSubject != null &&
+                                    c.TeacherSubject.Subject != null &&
+                                    c.TeacherSubject.Subject.Level != null
+                            ? (isAr
+                                ? c.TeacherSubject.Subject.Level.NameAr
+                                : c.TeacherSubject.Subject.Level.NameEn)
+                            : null,
+                        GradeName = c.TeacherSubject != null &&
+                                    c.TeacherSubject.Subject != null &&
+                                    c.TeacherSubject.Subject.Grade != null
+                            ? (isAr
+                                ? c.TeacherSubject.Subject.Grade.NameAr
+                                : c.TeacherSubject.Subject.Grade.NameEn)
+                            : null,
+                        TeachingModeName = c.TeachingMode != null
+                            ? (isAr ? c.TeachingMode.NameAr : c.TeachingMode.NameEn)
+                            : null,
+                        SessionTypeName = c.SessionType != null
+                            ? (isAr ? c.SessionType.NameAr : c.SessionType.NameEn)
+                            : null,
+                        SessionsCount = c.IsFlexible ? null : c.Sessions.Count,
+                        SessionDurationMinutes = c.SessionDurationMinutes,
+                        TotalDurationMinutes = !c.IsFlexible && c.SessionDurationMinutes.HasValue
+                            ? (int?)(c.Sessions.Count * c.SessionDurationMinutes.Value)
+                            : null
                     })
                     .ToList()
             })
@@ -521,6 +628,8 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                     SubjectNameEn = ts.Subject.NameEn,
                     DomainId = ts.Subject.DomainId,
                     DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                    GradeNameAr = ts.Subject.Grade != null ? ts.Subject.Grade.NameAr : null,
+                    GradeNameEn = ts.Subject.Grade != null ? ts.Subject.Grade.NameEn : null,
                     CanTeachFullSubject = ts.CanTeachFullSubject,
                     UnitsCount = ts.TeacherSubjectUnits.Count
                 })

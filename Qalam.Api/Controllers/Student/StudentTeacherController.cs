@@ -44,17 +44,25 @@ public class StudentTeacherController : AppControllerBase
     [HttpGet(Router.StudentTeacherById)]
     [ProducesResponseType(typeof(StudentTeacherProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProfile(int teacherId)
+    public async Task<IActionResult> GetProfile(int teacherId, [FromQuery] int limit = 10)
     {
-        return NewResult(await Mediator.Send(new GetStudentTeacherProfileQuery { TeacherId = teacherId }));
+        return NewResult(await Mediator.Send(new GetStudentTeacherProfileQuery
+        {
+            TeacherId = teacherId,
+            Limit = limit
+        }));
     }
 
     [HttpGet(Router.StudentTeacherSubjects)]
     [ProducesResponseType(typeof(List<StudentTeacherSubjectDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetSubjects(int teacherId)
+    public async Task<IActionResult> GetSubjects(int teacherId, [FromQuery] int limit = 10)
     {
-        return NewResult(await Mediator.Send(new GetStudentTeacherSubjectsQuery { TeacherId = teacherId }));
+        return NewResult(await Mediator.Send(new GetStudentTeacherSubjectsQuery
+        {
+            TeacherId = teacherId,
+            Limit = limit
+        }));
     }
 
     [HttpGet(Router.StudentTeacherReviews)]

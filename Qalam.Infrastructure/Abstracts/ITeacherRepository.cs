@@ -52,9 +52,11 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
         TeacherSearchFilters filters,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Student-facing profile with enrollment/course/subject stats.</summary>
+    /// <summary>Student-facing profile with enrollment/course/subject stats and nested previews.</summary>
+    /// <param name="limit">Max items for subjects/reviews/certificates/courses previews (clamped 1–20).</param>
     Task<StudentTeacherProfileDto?> GetStudentProfileAsync(
         int teacherId,
+        int limit = 10,
         CancellationToken cancellationToken = default);
 
     /// <summary>Approved reviews for a teacher (paginated).</summary>

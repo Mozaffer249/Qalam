@@ -30,31 +30,44 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
         if (teacher is null || teacher.Status != Qalam.Data.Entity.Common.Enums.TeacherStatus.Active || !teacher.IsActive)
             return NotFound<List<StudentTeacherSubjectDto>>("Teacher not found.");
 
+        var limit = request.Limit is < 1 or > 50 ? 10 : request.Limit;
+
         var subjects = await _teacherSubjectRepository
             .GetApprovedActiveSubjectsWithUnitsAsync(request.TeacherId, cancellationToken);
 
-        var dtos = subjects.Select(ts => new StudentTeacherSubjectDto
-        {
-            SubjectId = ts.SubjectId,
-            SubjectNameAr = ts.Subject?.NameAr ?? string.Empty,
-            SubjectNameEn = ts.Subject?.NameEn ?? string.Empty,
-            DomainId = ts.Subject?.DomainId,
-            DomainCode = ts.Subject?.Domain?.Code,
-            CanTeachFullSubject = ts.CanTeachFullSubject,
-            Units = ts.TeacherSubjectUnits.Select(u => new StudentTeacherSubjectUnitDto
+        var dtos = subjects
+            .Take(limit)
+            .Select(ts => new StudentTeacherSubjectDto
             {
-                UnitId = u.UnitId,
-                UnitNameAr = u.Unit?.NameAr ?? string.Empty,
-                UnitNameEn = u.Unit?.NameEn ?? string.Empty,
-                UnitTypeCode = u.Unit?.UnitTypeCode,
-                QuranContentTypeId = u.QuranContentTypeId,
-                QuranContentTypeNameAr = u.QuranContentType?.NameAr,
-                QuranContentTypeNameEn = u.QuranContentType?.NameEn,
-                QuranLevelId = u.QuranLevelId,
-                QuranLevelNameAr = u.QuranLevel?.NameAr,
-                QuranLevelNameEn = u.QuranLevel?.NameEn,
-            }).ToList()
-        }).ToList();
+                SubjectId = ts.SubjectId,
+                SubjectNameAr = ts.Subject?.NameAr ?? string.Empty,
+                SubjectNameEn = ts.Subject?.NameEn ?? string.Empty,
+                DomainId = ts.Subject?.DomainId,
+                DomainCode = ts.Subject?.Domain?.Code,
+                DomainNameAr = ts.Subject?.Domain?.NameAr,
+                DomainNameEn = ts.Subject?.Domain?.NameEn,
+                GradeNameAr = ts.Subject?.Grade?.NameAr,
+                GradeNameEn = ts.Subject?.Grade?.NameEn,
+                LevelNameAr = ts.Subject?.Level?.NameAr,
+                LevelNameEn = ts.Subject?.Level?.NameEn,
+                CurriculumNameAr = ts.Subject?.Curriculum?.NameAr,
+                CurriculumNameEn = ts.Subject?.Curriculum?.NameEn,
+                CanTeachFullSubject = ts.CanTeachFullSubject,
+                UnitsCount = ts.TeacherSubjectUnits.Count,
+                Units = ts.TeacherSubjectUnits.Select(u => new StudentTeacherSubjectUnitDto
+                {
+                    UnitId = u.UnitId,
+                    UnitNameAr = u.Unit?.NameAr ?? string.Empty,
+                    UnitNameEn = u.Unit?.NameEn ?? string.Empty,
+                    UnitTypeCode = u.Unit?.UnitTypeCode,
+                    QuranContentTypeId = u.QuranContentTypeId,
+                    QuranContentTypeNameAr = u.QuranContentType?.NameAr,
+                    QuranContentTypeNameEn = u.QuranContentType?.NameEn,
+                    QuranLevelId = u.QuranLevelId,
+                    QuranLevelNameAr = u.QuranLevel?.NameAr,
+                    QuranLevelNameEn = u.QuranLevel?.NameEn,
+                }).ToList()
+            }).ToList();
 
         return Success(entity: dtos);
     }

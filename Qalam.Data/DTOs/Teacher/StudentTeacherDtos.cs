@@ -1,4 +1,5 @@
-﻿using Qalam.Data.Entity.Common.Enums;
+﻿using Qalam.Data.DTOs.Course;
+using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Teacher;
 
@@ -15,7 +16,11 @@ public class StudentTeacherProfileDto
     public int StudentsCount { get; set; }
     public int CoursesCount { get; set; }
     public int SubjectsCount { get; set; }
+    public int SessionsCount { get; set; }
     public List<TeacherCardSubjectDto> Subjects { get; set; } = new();
+    public List<StudentTeacherReviewDto> Reviews { get; set; } = new();
+    public List<StudentTeacherCertificateDto> Certificates { get; set; } = new();
+    public List<CourseCatalogIndexItemDto> Courses { get; set; } = new();
 }
 
 public class StudentTeacherSubjectDto
@@ -25,7 +30,16 @@ public class StudentTeacherSubjectDto
     public string SubjectNameEn { get; set; } = default!;
     public int? DomainId { get; set; }
     public string? DomainCode { get; set; }
+    public string? DomainNameAr { get; set; }
+    public string? DomainNameEn { get; set; }
+    public string? GradeNameAr { get; set; }
+    public string? GradeNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
+    public string? LevelNameEn { get; set; }
+    public string? CurriculumNameAr { get; set; }
+    public string? CurriculumNameEn { get; set; }
     public bool CanTeachFullSubject { get; set; }
+    public int UnitsCount { get; set; }
     public List<StudentTeacherSubjectUnitDto> Units { get; set; } = new();
 }
 
