@@ -73,6 +73,11 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
         if (filters.Status.HasValue)
             query = query.Where(x => x.Target.Status == filters.Status.Value);
 
+        if (filters.IsTargeted == true)
+            query = query.Where(x => x.Request.TargetedTeacherId != null);
+        else if (filters.IsTargeted == false)
+            query = query.Where(x => x.Request.TargetedTeacherId == null);
+
         if (filters.SubjectId.HasValue)
             query = query.Where(x => x.Request.SubjectId == filters.SubjectId.Value);
 
@@ -113,12 +118,15 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                 LevelId = x.Request.LevelId,
                 LevelNameEn = x.Request.Level != null ? x.Request.Level.NameEn : null,
                 LevelNameAr = x.Request.Level != null ? x.Request.Level.NameAr : null,
+                DomainCode = x.Request.Domain != null ? x.Request.Domain.Code : null,
                 StudentId = x.Student != null ? x.Student.Id : 0,
                 StudentDisplayName =
                     ((x.User.FirstName ?? "") + " " + (x.User.LastName ?? "")).Trim(),
                 SessionsCount = x.Request.TotalSessionsCount,
+                TotalMinutes = x.Request.Sessions.Sum(s => s.DurationMinutes),
                 TeachingModeId = x.Request.TeachingModeId,
                 TeachingModeNameEn = x.Request.TeachingMode != null ? x.Request.TeachingMode.NameEn : null,
+                TeachingModeNameAr = x.Request.TeachingMode != null ? x.Request.TeachingMode.NameAr : null,
                 GroupType = x.Request.GroupType,
                 PreferredDates = x.Request.Sessions
                     .Where(s => s.PreferredDate.HasValue)
@@ -126,10 +134,12 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                     .Select(s => s.PreferredDate!.Value)
                     .ToList(),
                 CurrentOffersCount = x.Request.Offers.Count(o => o.Status != OpenSessionOfferStatus.Withdrawn),
+                AttachmentsCount = x.Request.Attachments.Count,
                 ExpiresAt = x.Request.ExpiresAt ?? DateTime.MinValue,
                 TargetStatus = x.Target.Status,
                 MatchedAt = x.Target.MatchedAt,
                 ViewedAt = x.Target.ViewedAt,
+                IsTargeted = x.Request.TargetedTeacherId != null,
             })
             .ToListAsync(cancellationToken);
 

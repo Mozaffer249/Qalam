@@ -16,18 +16,24 @@ public class TeacherAvailableRequestListItemDto
     public int? LevelId { get; set; }
     public string? LevelNameEn { get; set; }
     public string? LevelNameAr { get; set; }
+    public string? DomainCode { get; set; }
     public int StudentId { get; set; }
     public string? StudentDisplayName { get; set; }
     public int SessionsCount { get; set; }
+    public int TotalMinutes { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeNameAr { get; set; }
     public OfferGroupType? GroupType { get; set; }
     public List<DateOnly> PreferredDates { get; set; } = new();
     public int CurrentOffersCount { get; set; }
+    public int AttachmentsCount { get; set; }
     public DateTime ExpiresAt { get; set; }
     public OpenSessionRequestTargetStatus TargetStatus { get; set; }
     public DateTime MatchedAt { get; set; }
     public DateTime? ViewedAt { get; set; }
+    /// <summary>True when the student sent this request to a specific teacher (<c>TargetedTeacherId</c> set).</summary>
+    public bool IsTargeted { get; set; }
 }
 
 /// <summary>Full detail for GET /Api/V1/Teacher/AvailableRequests/{id}.</summary>
@@ -35,10 +41,15 @@ public class TeacherAvailableRequestDetailDto
 {
     public int Id { get; set; }
     public OpenSessionRequestStatus Status { get; set; }
+    /// <summary>True when the student sent this request to a specific teacher.</summary>
+    public bool IsTargeted { get; set; }
+    /// <summary>The calling teacher's target-row status on this request.</summary>
+    public OpenSessionRequestTargetStatus? TargetStatus { get; set; }
 
     public RequestContentDto Content { get; set; } = new();
     public RequestGeneralSettingsDto GeneralSettings { get; set; } = new();
     public List<TeacherViewSessionDto> Sessions { get; set; } = new();
+    public List<TeacherViewAttachmentDto> Attachments { get; set; } = new();
     public RequestStudentSummaryDto Student { get; set; } = new();
 
     public int CurrentOffersCount { get; set; }
@@ -53,14 +64,18 @@ public class TeacherAvailableRequestDetailDto
 public class RequestContentDto
 {
     public int DomainId { get; set; }
+    public string? DomainCode { get; set; }
     public string? DomainNameEn { get; set; }
     public string? DomainNameAr { get; set; }
     public int? CurriculumId { get; set; }
     public string? CurriculumNameEn { get; set; }
+    public string? CurriculumNameAr { get; set; }
     public int? LevelId { get; set; }
     public string? LevelNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
     public int? GradeId { get; set; }
     public string? GradeNameEn { get; set; }
+    public string? GradeNameAr { get; set; }
     public int SubjectId { get; set; }
     public string? SubjectNameEn { get; set; }
     public string? SubjectNameAr { get; set; }
@@ -72,6 +87,7 @@ public class RequestGeneralSettingsDto
     public int? DefaultDurationMinutes { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeNameAr { get; set; }
     public OfferGroupType? GroupType { get; set; }
     public string? StudentNotes { get; set; }
 }
@@ -83,6 +99,7 @@ public class TeacherViewSessionDto
     public DateOnly? PreferredDate { get; set; }
     public int? TimeSlotId { get; set; }
     public string? TimeSlotLabelEn { get; set; }
+    public string? TimeSlotLabelAr { get; set; }
     public int DurationMinutes { get; set; }
     public string? Notes { get; set; }
     public List<TeacherViewSessionUnitDto> Units { get; set; } = new();
@@ -97,6 +114,17 @@ public class TeacherViewSessionUnitDto
     public int? LessonId { get; set; }
     public string? LessonNameEn { get; set; }
     public string? LessonNameAr { get; set; }
+    public bool IncludesAllLessons { get; set; }
+}
+
+public class TeacherViewAttachmentDto
+{
+    public int Id { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long FileSizeBytes { get; set; }
+    public string? PublicUrl { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class RequestStudentSummaryDto

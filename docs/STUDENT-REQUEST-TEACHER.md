@@ -5,7 +5,7 @@
 > **Base path:** `/Api/V1`  
 > **Source of truth:** controllers + DTOs in this repo (code wins over older BRDs)
 
-**Related:** [S2 flow & endpoints](S2-FLOW-AND-ENDPOINTS.md) · [Scenario 2 user stories](USER-STORIES-Scenario-2.md)
+**Related:** [S2 flow & endpoints](S2-FLOW-AND-ENDPOINTS.md) · [Scenario 2 user stories](USER-STORIES-Scenario-2.md) · [Teacher subject units (FE)](Teacher-Subject-Units-Frontend.md)
 
 ---
 

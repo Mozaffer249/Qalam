@@ -28,24 +28,29 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
 
     public async Task<TeacherAvailableRequestDetailDto?> GetTeacherDetailDtoAsync(int requestId, CancellationToken cancellationToken = default)
     {
-        return await _context.OpenSessionRequests
-            .AsNoTracking()
-            .Where(r => r.Id == requestId)
-            .Select(r => new TeacherAvailableRequestDetailDto
+        return await (
+            from r in _context.OpenSessionRequests.AsNoTracking()
+            where r.Id == requestId
+            select new TeacherAvailableRequestDetailDto
             {
                 Id = r.Id,
                 Status = r.Status,
+                IsTargeted = r.TargetedTeacherId != null,
                 Content = new RequestContentDto
                 {
                     DomainId = r.DomainId,
+                    DomainCode = r.Domain != null ? r.Domain.Code : null,
                     DomainNameEn = r.Domain != null ? r.Domain.NameEn : null,
                     DomainNameAr = r.Domain != null ? r.Domain.NameAr : null,
                     CurriculumId = r.CurriculumId,
                     CurriculumNameEn = r.Curriculum != null ? r.Curriculum.NameEn : null,
+                    CurriculumNameAr = r.Curriculum != null ? r.Curriculum.NameAr : null,
                     LevelId = r.LevelId,
                     LevelNameEn = r.Level != null ? r.Level.NameEn : null,
+                    LevelNameAr = r.Level != null ? r.Level.NameAr : null,
                     GradeId = r.GradeId,
                     GradeNameEn = r.Grade != null ? r.Grade.NameEn : null,
+                    GradeNameAr = r.Grade != null ? r.Grade.NameAr : null,
                     SubjectId = r.SubjectId,
                     SubjectNameEn = r.Subject != null ? r.Subject.NameEn : null,
                     SubjectNameAr = r.Subject != null ? r.Subject.NameAr : null,
@@ -56,6 +61,7 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                     DefaultDurationMinutes = r.Sessions.Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
                     TeachingModeId = r.TeachingModeId,
                     TeachingModeNameEn = r.TeachingMode != null ? r.TeachingMode.NameEn : null,
+                    TeachingModeNameAr = r.TeachingMode != null ? r.TeachingMode.NameAr : null,
                     GroupType = r.GroupType,
                     StudentNotes = r.StudentNotes,
                 },
@@ -68,6 +74,7 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                         PreferredDate = s.PreferredDate,
                         TimeSlotId = s.TimeSlotId,
                         TimeSlotLabelEn = s.TimeSlot != null ? s.TimeSlot.LabelEn : null,
+                        TimeSlotLabelAr = s.TimeSlot != null ? s.TimeSlot.LabelAr : null,
                         DurationMinutes = s.DurationMinutes,
                         Notes = s.Notes,
                         Units = s.Units.Select(u => new TeacherViewSessionUnitDto
@@ -79,11 +86,23 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                             LessonId = u.LessonId,
                             LessonNameEn = u.Lesson != null ? u.Lesson.NameEn : null,
                             LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null,
+                            IncludesAllLessons = u.IncludesAllLessons,
                         }).ToList()
+                    }).ToList(),
+                Attachments = r.Attachments
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Select(a => new TeacherViewAttachmentDto
+                    {
+                        Id = a.Id,
+                        FileName = a.FileName,
+                        ContentType = a.ContentType,
+                        FileSizeBytes = a.FileSizeBytes,
+                        PublicUrl = a.PublicUrl,
+                        CreatedAt = a.CreatedAt,
                     }).ToList(),
                 Student = new RequestStudentSummaryDto
                 {
-                    Id = 0,
+                    Id = r.StudentId,
                     DisplayName = r.RequestedByUser != null
                         ? ((r.RequestedByUser.FirstName ?? "") + " " + (r.RequestedByUser.LastName ?? "")).Trim()
                         : null,

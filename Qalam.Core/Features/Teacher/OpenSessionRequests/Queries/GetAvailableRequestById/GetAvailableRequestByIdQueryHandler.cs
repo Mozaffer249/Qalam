@@ -46,10 +46,13 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
         if (detail == null)
             return NotFound<TeacherAvailableRequestDetailDto>("Request not found.");
 
+        detail.TargetStatus = target.Status;
+
         // Side effect: flip the target row to Viewed on first detail open.
         if (target.Status == OpenSessionRequestTargetStatus.Notified)
         {
             await _targetRepo.SetStatusAsync(request.RequestId, teacher.Id, OpenSessionRequestTargetStatus.Viewed, cancellationToken);
+            detail.TargetStatus = OpenSessionRequestTargetStatus.Viewed;
         }
 
         // Hydrate the caller's own offer state for the UI (button labels + sticky card).

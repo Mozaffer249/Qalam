@@ -46,7 +46,9 @@ public record TeacherInboxFilters(
     DateOnly? DateTo,
     int PageNumber,
     int PageSize,
-    TeacherInboxSort SortBy);
+    TeacherInboxSort SortBy,
+    /// <summary>When true, only requests with <c>TargetedTeacherId</c> set; when false, only broadcast.</summary>
+    bool? IsTargeted = null);
 
 public enum TeacherInboxSort
 {
