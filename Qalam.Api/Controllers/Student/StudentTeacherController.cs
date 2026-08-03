@@ -7,6 +7,7 @@ using Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherCertificates
 using Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherProfile;
 using Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherReviews;
 using Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherSubjects;
+using Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherSubjectUnits;
 using Qalam.Core.Features.Student.Teachers.Queries.GetTeachersList;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
@@ -62,6 +63,21 @@ public class StudentTeacherController : AppControllerBase
         {
             TeacherId = teacherId,
             Limit = limit
+        }));
+    }
+
+    /// <summary>
+    /// Units allowed for a teacher subject (full catalog when canTeachFullSubject, else repertoire rows).
+    /// </summary>
+    [HttpGet(Router.StudentTeacherSubjectUnits)]
+    [ProducesResponseType(typeof(List<TeacherSubjectUnitOptionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSubjectUnits(int teacherId, int teacherSubjectId)
+    {
+        return NewResult(await Mediator.Send(new GetStudentTeacherSubjectUnitsQuery
+        {
+            TeacherId = teacherId,
+            TeacherSubjectId = teacherSubjectId,
         }));
     }
 

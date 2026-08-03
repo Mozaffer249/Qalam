@@ -177,28 +177,50 @@ All routes below require **Student** or **Guardian**.
 
 `GET /Student/Teachers/{teacherId}/Subjects`
 
-**`data`:** `StudentTeacherSubjectDto[]` — **source of truth for create payload**
+**`data`:** `StudentTeacherSubjectDto[]` — subject pick list for create (`subjectId` / `domainId`)
 
 | Field | Type |
 |-------|------|
+| `teacherSubjectId` | int → **Units** endpoint path (TeacherSubject.Id) |
 | `subjectId` | int → create `subjectId` |
 | `subjectNameAr` / `subjectNameEn` | string |
 | `domainId` | int? → create `domainId` |
 | `domainCode` | string? |
 | `canTeachFullSubject` | bool |
-| `units[]` | see below |
+| `units[]` | preview only when partial; may be **empty** when `canTeachFullSubject` |
 
-**Unit (`StudentTeacherSubjectUnitDto`):**
+**Unit preview (`StudentTeacherSubjectUnitDto`) on Subjects:**
 
 | Field | Type |
 |-------|------|
-| `unitId` | int → create `sessions[].units[].contentUnitId` |
+| `unitId` | int |
 | `unitNameAr` / `unitNameEn` | string |
 | `unitTypeCode` | string? |
-| `quranContentTypeId` / names | for Quran sessions |
-| `quranLevelId` / names | for Quran sessions |
+| `quranContentTypeId` / names | for Quran |
+| `quranLevelId` / names | for Quran |
 
 Only **approved + active** teacher subjects are returned.
+
+For session content pickers, always load repertoire via **§4.4b** using `teacherSubjectId` (do not use `GET /Content/Units?subjectId=`).
+
+### 4.4b Teacher subject units (repertoire)
+
+`GET /Student/Teachers/{teacherId}/Subjects/{teacherSubjectId}/Units`
+
+Resolves allowed units through `ITeacherSubjectRepertoireService`:
+
+- `canTeachFullSubject === true` → all active catalog units for that TeacherSubject’s subject
+- otherwise → saved `TeacherSubjectUnits` only
+
+404 if teacher inactive or TeacherSubject missing / not approved for that teacher.
+
+**`data`:** `TeacherSubjectUnitOptionDto[]`
+
+| Field | Type |
+|-------|------|
+| `id` | int → create `sessions[].units[].contentUnitId` |
+| `nameAr` / `nameEn` | string |
+| `quranContentTypeId` / `quranLevelId` | int? (when set on repertoire row) |
 
 ### 4.5 Teacher availability (calendar)
 
@@ -247,8 +269,8 @@ Display only for request-teacher.
 |--------------|--------|
 | `targetedTeacherId` | card/profile `id` |
 | `subjectId` / `domainId` | **Subjects** endpoint (not card preview alone) |
-| `sessions[].units[].contentUnitId` | Subjects `units[].unitId` |
-| `sessions[].quranContentTypeId` / `quranLevelId` | Subjects unit Quran fields when domain is Quran |
+| `sessions[].units[].contentUnitId` | **Units** `id` (`GET .../Subjects/{teacherSubjectId}/Units`) |
+| `sessions[].quranContentTypeId` / `quranLevelId` | Units / Subjects unit Quran fields when domain is Quran |
 | `sessions[].preferredDate` | Availability Free `dates[].date` |
 | `sessions[].timeSlotId` | Availability slot `timeSlotId` |
 | `sessions[].durationMinutes` | Availability `durationMinutes` (create default 60) |

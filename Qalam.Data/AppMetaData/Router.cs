@@ -370,6 +370,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentTeacherById = StudentTeachers + "/{teacherId:int}";
         /// <summary>Approved subjects + units: Api/V1/Student/Teachers/{teacherId}/Subjects</summary>
         public const string StudentTeacherSubjects = StudentTeacherById + "/Subjects";
+        /// <summary>Repertoire units for a teacher subject: Api/V1/Student/Teachers/{teacherId}/Subjects/{teacherSubjectId}/Units</summary>
+        public const string StudentTeacherSubjectUnits = StudentTeacherSubjects + "/{teacherSubjectId:int}/Units";
         /// <summary>Approved reviews: Api/V1/Student/Teachers/{teacherId}/Reviews</summary>
         public const string StudentTeacherReviews = StudentTeacherById + "/Reviews";
         /// <summary>Approved certificates: Api/V1/Student/Teachers/{teacherId}/Certificates</summary>

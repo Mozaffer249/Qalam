@@ -39,6 +39,7 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
             .Take(limit)
             .Select(ts => new StudentTeacherSubjectDto
             {
+                TeacherSubjectId = ts.Id,
                 SubjectId = ts.SubjectId,
                 SubjectNameAr = ts.Subject?.NameAr ?? string.Empty,
                 SubjectNameEn = ts.Subject?.NameEn ?? string.Empty,

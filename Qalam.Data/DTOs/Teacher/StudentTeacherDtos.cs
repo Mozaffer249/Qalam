@@ -25,6 +25,8 @@ public class StudentTeacherProfileDto
 
 public class StudentTeacherSubjectDto
 {
+    /// <summary>TeacherSubject.Id — use with Units endpoint for repertoire-scoped content.</summary>
+    public int TeacherSubjectId { get; set; }
     public int SubjectId { get; set; }
     public string SubjectNameAr { get; set; } = default!;
     public string SubjectNameEn { get; set; } = default!;
