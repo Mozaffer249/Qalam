@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.DismissAvailableRequest;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.MarkAvailableRequestViewed;
+using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.RejectAvailableRequest;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestAvailabilityMatch;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestById;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequests;
@@ -16,8 +17,8 @@ namespace Qalam.Api.Controllers.Teacher;
 
 /// <summary>
 /// Teacher inbox for Scenario 2 (Open Session Requests) — list matched requests, view detail,
-/// mark viewed, dismiss, run availability-match. The target row's status maps to the doc's
-/// status names as: Notified=new, Viewed=viewed, OfferSubmitted=offered, Skipped=dismissed.
+/// mark viewed, dismiss (target Skipped for stats), reject targeted requests, run availability-match.
+/// Target status maps to inbox tabs only: Notified=new, Viewed=viewed, OfferSubmitted=offered, Skipped=dismissed.
 /// </summary>
 [Authorize(Roles = Roles.Teacher)]
 [ApiController]
@@ -50,13 +51,25 @@ public class TeacherAvailableRequestsController : AppControllerBase
     public async Task<IActionResult> MarkViewed(int id)
         => NewResult(await Mediator.Send(new MarkAvailableRequestViewedCommand { RequestId = id }));
 
-    /// <summary>Hide a request from the inbox without rejecting it formally.</summary>
+    /// <summary>Hide a request from the inbox without rejecting it formally (target Skipped for stats).</summary>
     [HttpPost("{id:int}/dismiss")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Dismiss(int id)
         => NewResult(await Mediator.Send(new DismissAvailableRequestCommand { RequestId = id }));
+
+    /// <summary>
+    /// Teacher rejects a targeted request — sets OpenSessionRequest.Status = Rejected.
+    /// Broadcast / non-targeted requests return NOT_TARGETED; use dismiss instead.
+    /// </summary>
+    [HttpPost("{id:int}/reject")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Reject(int id)
+        => NewResult(await Mediator.Send(new RejectAvailableRequestCommand { RequestId = id }));
 
     /// <summary>
     /// Per-session availability + conflict map for the offer screen. For each session in the

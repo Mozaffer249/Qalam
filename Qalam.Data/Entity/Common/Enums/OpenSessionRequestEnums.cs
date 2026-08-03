@@ -13,8 +13,11 @@ public enum OpenSessionRequestStatus
     PaymentPending = 6,
     /// <summary>Terminal success for the request — enrollment owns schedules/progress.</summary>
     Paid = 7,
+    /// <summary>Student (or system) cancelled the request.</summary>
     Cancelled = 11,
-    Expired = 12
+    Expired = 12,
+    /// <summary>Teacher rejected a targeted request.</summary>
+    Rejected = 13
 }
 
 /// <summary>
