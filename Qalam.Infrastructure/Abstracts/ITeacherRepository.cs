@@ -28,6 +28,15 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Aggregate counts by <see cref="TeacherStatus"/> for admin status cards.
+    /// When <paramref name="includeAwaitingPlatformLaunch"/> is true, also counts Active teachers
+    /// who have subjects and active availability (held by the launch gate).
+    /// </summary>
+    Task<AdminTeacherStatusSummaryDto> GetStatusSummaryAsync(
+        bool includeAwaitingPlatformLaunch,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Batch projection used by the targeting service after matching: returns (TeacherId, Email)
     /// pairs for the supplied teacher ids whose User.Email is non-empty. Single query, narrow SELECT.
     /// </summary>

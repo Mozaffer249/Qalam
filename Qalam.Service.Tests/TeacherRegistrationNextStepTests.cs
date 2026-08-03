@@ -56,12 +56,32 @@ public class TeacherRegistrationNextStepTests
             teacherStatus: TeacherStatus.Active,
             hasAvailability: true,
             hasSubjects: true,
-            canActivate: false);
+            canActivate: false,
+            teacherDashboardReady: true);
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
         Assert.Equal("Dashboard", step.NextStepName);
         Assert.True(step.IsRegistrationComplete);
+        Assert.False(step.RequiresAvailabilitySetup);
+        Assert.False(step.AwaitingPlatformLaunch);
+    }
+
+    [Fact]
+    public async Task GetNextStep_ActiveWithAvailability_WhenDashboardNotReady_ReturnsAwaitingPlatformLaunch()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.Active,
+            hasAvailability: true,
+            hasSubjects: true,
+            canActivate: false,
+            teacherDashboardReady: false);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Awaiting Platform Launch", step.NextStepName);
+        Assert.True(step.IsRegistrationComplete);
+        Assert.True(step.AwaitingPlatformLaunch);
         Assert.False(step.RequiresAvailabilitySetup);
     }
 
@@ -593,7 +613,8 @@ public class TeacherRegistrationNextStepTests
         bool hasMissingRequiredRegistration = false,
         bool hasAnyAnswersPendingAdminReview = false,
         bool hasAnyFullyApprovedCatalogDomain = false,
-        bool hasRejectedDomainQuestions = false)
+        bool hasRejectedDomainQuestions = false,
+        bool teacherDashboardReady = true)
     {
         var user = new User { Id = UserId, FirstName = "Test", LastName = "Teacher" };
         var userStore = new Mock<IUserStore<User>>();
@@ -661,6 +682,14 @@ public class TeacherRegistrationNextStepTests
             .Setup(s => s.GetRejectedDomainCorrectionsAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(hasRejectedDomainQuestions ? rejectedDomainCorrections : []);
 
+        var accessSettings = new Mock<ITeacherAccessSettingsProvider>();
+        accessSettings
+            .Setup(p => p.GetSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Qalam.Data.DTOs.Platform.TeacherAccessSettingsDto
+            {
+                TeacherDashboardReady = teacherDashboardReady
+            });
+
         return new TeacherRegistrationService(
             userManager.Object,
             teacherRepo.Object,
@@ -673,7 +702,8 @@ public class TeacherRegistrationNextStepTests
             Mock.Of<ITeacherLifecycleEmailService>(),
             completionService.Object,
             reviewCorrectionService.Object,
-            domainQuestionStatusService.Object);
+            domainQuestionStatusService.Object,
+            accessSettings.Object);
     }
 }
 

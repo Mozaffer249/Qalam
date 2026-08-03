@@ -13,6 +13,7 @@ using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
+using Qalam.Core.Features.Admin.Queries.GetTeacherStatusSummary;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.ActivateTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Commands.InactivateTeacherSubject;
@@ -68,6 +69,16 @@ public class TeacherManagementController : AppControllerBase
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
+	}
+
+	/// <summary>
+	/// Aggregate teacher counts by status for the admin teachers list cards.
+	/// </summary>
+	[HttpGet("StatusSummary")]
+	[ProducesResponseType(typeof(AdminTeacherStatusSummaryDto), StatusCodes.Status200OK)]
+	public async Task<IActionResult> GetStatusSummary()
+	{
+		return NewResult(await _mediator.Send(new GetTeacherStatusSummaryQuery()));
 	}
 
 	/// <summary>

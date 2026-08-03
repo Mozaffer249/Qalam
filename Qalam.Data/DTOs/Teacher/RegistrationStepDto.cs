@@ -21,6 +21,11 @@ public class RegistrationStepDto
     public bool AwaitingFinalApproval { get; set; }
 
     /// <summary>
+    /// True when the teacher is Active and fully set up, but the platform launch gate is still closed.
+    /// </summary>
+    public bool AwaitingPlatformLaunch { get; set; }
+
+    /// <summary>
     /// List of rejected documents (only populated when Status = DocumentsRejected)
     /// </summary>
     public List<RejectedDocumentInfo>? RejectedDocuments { get; set; }

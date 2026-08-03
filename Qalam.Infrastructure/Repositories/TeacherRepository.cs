@@ -150,6 +150,45 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         return new PaginatedResult<AdminTeacherListItemDto>(items, total, filters.PageNumber, filters.PageSize);
     }
 
+    public async Task<AdminTeacherStatusSummaryDto> GetStatusSummaryAsync(
+        bool includeAwaitingPlatformLaunch,
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await _teachers.AsNoTracking()
+            .GroupBy(t => t.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        int CountOf(TeacherStatus status) =>
+            groups.FirstOrDefault(g => g.Status == status)?.Count ?? 0;
+
+        var summary = new AdminTeacherStatusSummaryDto
+        {
+            AwaitingDocuments = CountOf(TeacherStatus.AwaitingDocuments),
+            PendingVerification = CountOf(TeacherStatus.PendingVerification),
+            DocumentsRejected = CountOf(TeacherStatus.DocumentsRejected),
+            Active = CountOf(TeacherStatus.Active),
+            Blocked = CountOf(TeacherStatus.Blocked),
+        };
+        summary.Total = summary.AwaitingDocuments
+            + summary.PendingVerification
+            + summary.DocumentsRejected
+            + summary.Active
+            + summary.Blocked;
+
+        if (includeAwaitingPlatformLaunch)
+        {
+            summary.AwaitingPlatformLaunch = await _teachers.AsNoTracking()
+                .CountAsync(
+                    t => t.Status == TeacherStatus.Active
+                         && t.TeacherSubjects.Any()
+                         && t.TeacherAvailabilities.Any(a => a.IsActive),
+                    cancellationToken);
+        }
+
+        return summary;
+    }
+
     public async Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId)
     {
         return await _teachers

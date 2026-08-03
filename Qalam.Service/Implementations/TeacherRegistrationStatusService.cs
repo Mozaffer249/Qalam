@@ -81,6 +81,8 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
             IsAccountActivated = flags.IsAccountActivated,
             CanBeActivated = flags.CanBeActivated,
             AwaitingFinalApproval = flags.AwaitingFinalApproval,
+            AwaitingPlatformLaunch = nextStep.AwaitingPlatformLaunch
+                || string.Equals(nextStep.NextStepName, "Awaiting Platform Launch", StringComparison.Ordinal),
             RequiresAvailabilitySetup = flags.RequiresAvailabilitySetup,
             HasAcceptedTerms = user?.TermsAcceptedAt != null,
             NextStep = nextStep

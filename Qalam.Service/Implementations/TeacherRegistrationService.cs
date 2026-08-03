@@ -24,6 +24,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ITeacherReviewCorrectionService _reviewCorrectionService;
     private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
+    private readonly ITeacherAccessSettingsProvider _teacherAccessSettingsProvider;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
@@ -37,7 +38,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         ITeacherLifecycleEmailService lifecycleEmailService,
         ITeacherRegistrationCompletionService completionService,
         ITeacherReviewCorrectionService reviewCorrectionService,
-        ITeacherDomainQuestionStatusService domainQuestionStatusService)
+        ITeacherDomainQuestionStatusService domainQuestionStatusService,
+        ITeacherAccessSettingsProvider teacherAccessSettingsProvider)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
@@ -51,6 +53,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _completionService = completionService;
         _reviewCorrectionService = reviewCorrectionService;
         _domainQuestionStatusService = domainQuestionStatusService;
+        _teacherAccessSettingsProvider = teacherAccessSettingsProvider;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(
@@ -326,6 +329,10 @@ public class TeacherRegistrationService : ITeacherRegistrationService
                 if (await ShouldOfferSetAvailabilityStepAsync(teacher.Id))
                     return BuildSetAvailabilityStep();
 
+                var access = await _teacherAccessSettingsProvider.GetSettingsAsync();
+                if (!access.TeacherDashboardReady)
+                    return BuildAwaitingPlatformLaunchStep();
+
                 return new RegistrationStepDto
                 {
                     CurrentStep = 6,
@@ -519,6 +526,18 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             IsRegistrationComplete = false,
             AwaitingFinalApproval = true,
             Message = "Your registration documents and domain answers are approved. Waiting for final account activation by admin."
+        };
+
+    private static RegistrationStepDto BuildAwaitingPlatformLaunchStep() =>
+        new()
+        {
+            CurrentStep = 6,
+            NextStep = 0,
+            NextStepName = "Awaiting Platform Launch",
+            IsRegistrationComplete = true,
+            AwaitingPlatformLaunch = true,
+            RequiresAvailabilitySetup = false,
+            Message = "Your account is ready. The platform will open soon — please check back shortly."
         };
 
 }
