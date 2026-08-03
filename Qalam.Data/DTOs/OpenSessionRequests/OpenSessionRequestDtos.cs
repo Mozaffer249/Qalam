@@ -73,6 +73,11 @@ public class StudentOfferListItemDto
     public int SessionRequestId { get; set; }
     public int TeacherId { get; set; }
     public string? TeacherName { get; set; }
+    public string? ProfilePictureUrl { get; set; }
+    public decimal RatingAverage { get; set; }
+    public int ReviewsCount { get; set; }
+    /// <summary>True when the teacher account is fully verified (<see cref="TeacherStatus.Active"/>).</summary>
+    public bool IsVerified { get; set; }
     public decimal Price { get; set; }
     public OpenSessionOfferStatus Status { get; set; }
     public int Version { get; set; }
@@ -82,7 +87,7 @@ public class StudentOfferListItemDto
     public int? ConversationId { get; set; }
 }
 
-/// <summary>Student-facing offer detail.</summary>
+/// <summary>Student-facing offer detail (Review Request screen).</summary>
 public class StudentOfferDetailDto : StudentOfferListItemDto
 {
     public DateTime? AcceptedAt { get; set; }
@@ -93,6 +98,23 @@ public class StudentOfferDetailDto : StudentOfferListItemDto
     public int SubjectId { get; set; }
     public string? SubjectName { get; set; }
     public int TotalSessionsCount { get; set; }
+    public string? Bio { get; set; }
+    /// <summary>Request subject plus up to two teacher subject names for tag chips.</summary>
+    public List<string> SubjectTags { get; set; } = new();
+    /// <summary>Duration of the first request session (minutes); 0 if unknown.</summary>
+    public int SessionDurationMinutes { get; set; }
+    /// <summary>Top recent approved teacher reviews (preview for the detail screen).</summary>
+    public List<StudentOfferReviewPreviewDto> RecentReviews { get; set; } = new();
+}
+
+/// <summary>Compact review row embedded on offer detail.</summary>
+public class StudentOfferReviewPreviewDto
+{
+    public int Id { get; set; }
+    public int Rating { get; set; }
+    public string? Feedback { get; set; }
+    public string? StudentDisplayName { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>Result of accepting an offer (enrollment ready for payment).</summary>

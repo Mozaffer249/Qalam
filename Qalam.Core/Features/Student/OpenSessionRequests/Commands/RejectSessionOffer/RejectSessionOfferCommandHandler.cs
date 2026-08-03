@@ -41,6 +41,13 @@ public class RejectSessionOfferCommandHandler
         if (offer.Status != OpenSessionOfferStatus.Pending)
             return BadRequest<string>("يمكن رفض العروض المعلقة فقط");
 
+        if (offer.OpenSessionRequest.Status is not (
+                OpenSessionRequestStatus.Active or OpenSessionRequestStatus.ReceivingOffers))
+        {
+            return BadRequest<string>(
+                $"لا يمكن رفض عرض على طلب في الحالة {offer.OpenSessionRequest.Status}");
+        }
+
         var now = DateTime.UtcNow;
         if (offer.ExpiresAt < now)
             return BadRequest<string>("انتهت صلاحية العرض");

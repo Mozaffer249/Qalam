@@ -504,9 +504,11 @@ Adult invitee = invited student; minor = linked guardian.
 
 Owner/guardian only. Excludes `Withdrawn`.
 
-**List item:** `id`, `sessionRequestId`, `teacherId`, `teacherName`, `price`, `status`, `version`, `teacherNotes`, `expiresAt`, `createdAt`, `conversationId`.
+**List item:** `id`, `sessionRequestId`, `teacherId`, `teacherName`, `profilePictureUrl`, `ratingAverage`, `reviewsCount`, `isVerified`, `price`, `status`, `version`, `teacherNotes`, `expiresAt`, `createdAt`, `conversationId`.
 
-**Detail:** list fields + `acceptedAt` / `rejectedAt` / `withdrawnAt` / `expiredAt`, `rejectionReason`, `subjectId`, `subjectName`, `totalSessionsCount`.
+**Detail:** list fields + `acceptedAt` / `rejectedAt` / `withdrawnAt` / `expiredAt`, `rejectionReason`, `subjectId`, `subjectName`, `totalSessionsCount`, `bio`, `subjectTags[]`, `sessionDurationMinutes`, `recentReviews[]` (`id`, `rating`, `feedback`, `studentDisplayName`, `createdAt` — top 2 approved).
+
+Frontend screen map (card + Review Request): [`STUDENT-OFFER-CARD-REVIEW.md`](STUDENT-OFFER-CARD-REVIEW.md).
 
 ### 6.8 Accept / reject offer
 
@@ -515,7 +517,7 @@ Owner/guardian only. Excludes `Withdrawn`.
 | POST | `/Student/OpenSessionRequests/Offers/{offerId}/Accept` | Creates `PendingPayment` enrollment |
 | POST | `/Student/OpenSessionRequests/Offers/{offerId}/Reject` | Rejects one pending offer |
 
-**Accept** guards: offer `Pending` and not past `expiresAt`; request `Active` \| `ReceivingOffers`. Sibling pending offers → `AutoRejected`. Request → `OfferAccepted` then `PaymentPending`.
+**Accept / reject** guards: offer `Pending` and not past `expiresAt`; request `Active` \| `ReceivingOffers`. Sibling pending offers on accept → `AutoRejected`. Request → `OfferAccepted` then `PaymentPending`.
 
 Accept fails with **400** if a session cannot resolve to the teacher's weekly `TeacherAvailability` (same `timeSlotId` + weekday as `preferredDate`).
 

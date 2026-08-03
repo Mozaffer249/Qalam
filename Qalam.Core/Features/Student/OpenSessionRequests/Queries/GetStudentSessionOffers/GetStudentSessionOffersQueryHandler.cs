@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.context;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOffers;
 
@@ -15,14 +16,17 @@ public class GetStudentSessionOffersQueryHandler
 {
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
+    private readonly IMediaUrlResolver _mediaUrlResolver;
 
     public GetStudentSessionOffersQueryHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
-        IOpenSessionRequestAccessGuard accessGuard) : base(sharedLocalizer)
+        IOpenSessionRequestAccessGuard accessGuard,
+        IMediaUrlResolver mediaUrlResolver) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
+        _mediaUrlResolver = mediaUrlResolver;
     }
 
     public async Task<Response<List<StudentOfferListItemDto>>> Handle(
@@ -52,6 +56,14 @@ public class GetStudentSessionOffersQueryHandler
                 TeacherName = o.Teacher != null && o.Teacher.User != null
                     ? ((o.Teacher.User.FirstName ?? "") + " " + (o.Teacher.User.LastName ?? "")).Trim()
                     : null,
+                ProfilePictureUrl = o.Teacher != null && o.Teacher.User != null
+                    ? o.Teacher.User.ProfilePictureUrl
+                    : null,
+                RatingAverage = o.Teacher != null ? o.Teacher.RatingAverage : 0m,
+                ReviewsCount = o.Teacher != null
+                    ? o.Teacher.TeacherReviews.Count(r => r.IsApproved)
+                    : 0,
+                IsVerified = o.Teacher != null && o.Teacher.Status == TeacherStatus.Active,
                 Price = o.Price,
                 Status = o.Status,
                 Version = o.Version,
@@ -61,6 +73,12 @@ public class GetStudentSessionOffersQueryHandler
                 ConversationId = o.Conversation != null ? o.Conversation.Id : null
             })
             .ToListAsync(cancellationToken);
+
+        foreach (var offer in offers)
+        {
+            if (!string.IsNullOrWhiteSpace(offer.ProfilePictureUrl))
+                offer.ProfilePictureUrl = _mediaUrlResolver.ToPublicUrl(offer.ProfilePictureUrl);
+        }
 
         return Success(entity: offers);
     }
