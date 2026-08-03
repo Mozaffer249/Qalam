@@ -93,8 +93,12 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
             query = query.Where(x => x.Request.Sessions.Any(s => s.PreferredDate <= to));
         }
 
-        query = query.Where(x => x.Request.Status == OpenSessionRequestStatus.Active
-                                 || x.Request.Status == OpenSessionRequestStatus.ReceivingOffers);
+        // Inbox history: everything published to teachers except draft / pending invitations.
+        query = query.Where(x => x.Request.Status != OpenSessionRequestStatus.Draft
+                                 && x.Request.Status != OpenSessionRequestStatus.PendingInvitations);
+
+        if (filters.RequestStatus.HasValue)
+            query = query.Where(x => x.Request.Status == filters.RequestStatus.Value);
 
         query = filters.SortBy switch
         {
@@ -140,6 +144,12 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                 MatchedAt = x.Target.MatchedAt,
                 ViewedAt = x.Target.ViewedAt,
                 IsTargeted = x.Request.TargetedTeacherId != null,
+                RequestStatus = x.Request.Status,
+                MyOfferStatus = x.Request.Offers
+                    .Where(o => o.TeacherId == teacherId && o.Status != OpenSessionOfferStatus.Withdrawn)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .Select(o => (OpenSessionOfferStatus?)o.Status)
+                    .FirstOrDefault(),
             })
             .ToListAsync(cancellationToken);
 
@@ -148,13 +158,19 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
 
     public async Task<TeacherInboxCountsDto> GetTeacherInboxCountsAsync(
         int teacherId,
+        bool? isTargeted = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.OpenSessionRequestTargets
             .AsNoTracking()
             .Where(t => t.TeacherId == teacherId)
-            .Where(t => t.OpenSessionRequest.Status == OpenSessionRequestStatus.Active
-                         || t.OpenSessionRequest.Status == OpenSessionRequestStatus.ReceivingOffers);
+            .Where(t => t.OpenSessionRequest.Status != OpenSessionRequestStatus.Draft
+                        && t.OpenSessionRequest.Status != OpenSessionRequestStatus.PendingInvitations);
+
+        if (isTargeted == true)
+            query = query.Where(t => t.OpenSessionRequest.TargetedTeacherId != null);
+        else if (isTargeted == false)
+            query = query.Where(t => t.OpenSessionRequest.TargetedTeacherId == null);
 
         var grouped = await query
             .GroupBy(t => t.Status)

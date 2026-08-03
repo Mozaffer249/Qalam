@@ -34,6 +34,10 @@ public class TeacherAvailableRequestListItemDto
     public DateTime? ViewedAt { get; set; }
     /// <summary>True when the student sent this request to a specific teacher (<c>TargetedTeacherId</c> set).</summary>
     public bool IsTargeted { get; set; }
+    /// <summary>Lifecycle status of the open session request itself.</summary>
+    public OpenSessionRequestStatus RequestStatus { get; set; }
+    /// <summary>This teacher's latest non-withdrawn offer status, if any.</summary>
+    public OpenSessionOfferStatus? MyOfferStatus { get; set; }
 }
 
 /// <summary>Full detail for GET /Api/V1/Teacher/AvailableRequests/{id}.</summary>

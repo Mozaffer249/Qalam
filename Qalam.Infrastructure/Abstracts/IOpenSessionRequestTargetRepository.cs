@@ -36,6 +36,7 @@ public interface IOpenSessionRequestTargetRepository : IGenericRepositoryAsync<O
 
     Task<TeacherInboxCountsDto> GetTeacherInboxCountsAsync(
         int teacherId,
+        bool? isTargeted = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -48,7 +49,8 @@ public record TeacherInboxFilters(
     int PageSize,
     TeacherInboxSort SortBy,
     /// <summary>When true, only requests with <c>TargetedTeacherId</c> set; when false, only broadcast.</summary>
-    bool? IsTargeted = null);
+    bool? IsTargeted = null,
+    OpenSessionRequestStatus? RequestStatus = null);
 
 public enum TeacherInboxSort
 {

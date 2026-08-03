@@ -31,7 +31,8 @@ public class GetAvailableRequestsSummaryQueryHandler : ResponseHandler,
         if (teacher == null || teacher.Status != TeacherStatus.Active)
             return Unauthorized<TeacherInboxSummaryDto>("Teacher account not active.");
 
-        var counts = await _targetRepository.GetTeacherInboxCountsAsync(teacher.Id, cancellationToken);
+        var counts = await _targetRepository.GetTeacherInboxCountsAsync(
+            teacher.Id, request.IsTargeted, cancellationToken);
         return Success(entity: new TeacherInboxSummaryDto { Counts = counts });
     }
 }

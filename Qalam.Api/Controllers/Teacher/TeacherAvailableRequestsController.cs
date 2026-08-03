@@ -32,8 +32,8 @@ public class TeacherAvailableRequestsController : AppControllerBase
 
     [HttpGet("summary")]
     [ProducesResponseType(typeof(TeacherInboxSummaryDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> Summary()
-        => NewResult(await Mediator.Send(new GetAvailableRequestsSummaryQuery()));
+    public async Task<IActionResult> Summary([FromQuery] GetAvailableRequestsSummaryQuery query)
+        => NewResult(await Mediator.Send(query));
 
     /// <summary>Detail view — also flips the target row to Viewed on first call.</summary>
     [HttpGet("{id:int}")]

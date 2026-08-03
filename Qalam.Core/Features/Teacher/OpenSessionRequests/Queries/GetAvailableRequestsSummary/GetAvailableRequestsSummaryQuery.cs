@@ -10,4 +10,7 @@ public class GetAvailableRequestsSummaryQuery : IRequest<Response<TeacherInboxSu
 {
     [BindNever]
     public int UserId { get; set; }
+
+    /// <summary>When true, only targeted counts; when false, only broadcast. Null = both.</summary>
+    public bool? IsTargeted { get; set; }
 }

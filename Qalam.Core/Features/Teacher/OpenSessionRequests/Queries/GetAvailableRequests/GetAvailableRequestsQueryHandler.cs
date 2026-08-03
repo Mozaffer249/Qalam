@@ -43,7 +43,8 @@ public class GetAvailableRequestsQueryHandler : ResponseHandler,
             pageNumber,
             pageSize,
             request.SortBy,
-            request.IsTargeted);
+            request.IsTargeted,
+            request.RequestStatus);
 
         var page = await _targetRepo.GetTeacherInboxAsync(teacher.Id, filters, cancellationToken);
         return Success(entity: page);

@@ -24,6 +24,9 @@ public class GetAvailableRequestsQuery : IRequest<Response<PaginatedResult<Teach
     /// <summary>When true, only targeted (Directed) requests; when false, only broadcast.</summary>
     public bool? IsTargeted { get; set; }
 
+    /// <summary>Optional filter on the request lifecycle status (Cancelled, Expired, …).</summary>
+    public OpenSessionRequestStatus? RequestStatus { get; set; }
+
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
     public TeacherInboxSort SortBy { get; set; } = TeacherInboxSort.Newest;

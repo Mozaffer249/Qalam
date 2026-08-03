@@ -115,7 +115,7 @@ public class TeacherDashboardQueryHandlerTests
 
         var targetRepo = new Mock<IOpenSessionRequestTargetRepository>();
         targetRepo
-            .Setup(r => r.GetTeacherInboxCountsAsync(3, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetTeacherInboxCountsAsync(3, It.IsAny<bool?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(counts);
 
         var handler = new GetAvailableRequestsSummaryQueryHandler(
