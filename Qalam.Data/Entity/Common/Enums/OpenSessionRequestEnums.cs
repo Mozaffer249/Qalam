@@ -11,10 +11,8 @@ public enum OpenSessionRequestStatus
     ReceivingOffers = 4,
     OfferAccepted = 5,
     PaymentPending = 6,
+    /// <summary>Terminal success for the request — enrollment owns schedules/progress.</summary>
     Paid = 7,
-    Scheduled = 8,
-    InProgress = 9,
-    Completed = 10,
     Cancelled = 11,
     Expired = 12
 }

@@ -347,10 +347,6 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             {
                 enrollment.OpenSessionRequest.Status = OpenSessionRequestStatus.Paid;
                 enrollment.OpenSessionRequest.UpdatedAt = now;
-                await _participantRepository.SaveChangesAsync();
-
-                enrollment.OpenSessionRequest.Status = OpenSessionRequestStatus.Scheduled;
-                enrollment.OpenSessionRequest.UpdatedAt = DateTime.UtcNow;
             }
 
             await _participantRepository.SaveChangesAsync();
