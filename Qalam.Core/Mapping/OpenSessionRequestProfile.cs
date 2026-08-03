@@ -33,7 +33,15 @@ public class OpenSessionRequestProfile : Profile
             .ForMember(d => d.OffersCount, opt => opt.MapFrom(s => s.Offers.Count));
 
         CreateMap<OpenSessionRequestSession, OpenSessionRequestSessionDto>();
-        CreateMap<OpenSessionRequestSessionUnit, OpenSessionRequestUnitDto>();
+        CreateMap<OpenSessionRequestSessionUnit, OpenSessionRequestUnitDto>()
+            .ForMember(d => d.ContentUnitNameEn, opt => opt.MapFrom(s =>
+                s.ContentUnit != null ? s.ContentUnit.NameEn : null))
+            .ForMember(d => d.ContentUnitNameAr, opt => opt.MapFrom(s =>
+                s.ContentUnit != null ? s.ContentUnit.NameAr : null))
+            .ForMember(d => d.LessonNameEn, opt => opt.MapFrom(s =>
+                s.Lesson != null ? s.Lesson.NameEn : null))
+            .ForMember(d => d.LessonNameAr, opt => opt.MapFrom(s =>
+                s.Lesson != null ? s.Lesson.NameAr : null));
         CreateMap<OpenSessionRequestAttachment, OpenSessionRequestAttachmentDto>();
 
         CreateMap<OpenSessionRequestInvitation, OpenSessionRequestInvitationDto>()

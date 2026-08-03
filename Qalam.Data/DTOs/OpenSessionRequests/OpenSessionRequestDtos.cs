@@ -215,7 +215,12 @@ public class OpenSessionRequestUnitDto
 {
     public int Id { get; set; }
     public int? ContentUnitId { get; set; }
+    public string? ContentUnitNameEn { get; set; }
+    public string? ContentUnitNameAr { get; set; }
     public int? LessonId { get; set; }
+    public string? LessonNameEn { get; set; }
+    public string? LessonNameAr { get; set; }
+    public bool IncludesAllLessons { get; set; }
 }
 
 public class OpenSessionRequestInvitationDto
