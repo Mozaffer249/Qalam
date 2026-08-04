@@ -18,6 +18,7 @@ public class WithdrawSessionOfferCommandHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepo;
     private readonly IOpenSessionRequestRepository _requestRepo;
     private readonly IOpenSessionOfferRepository _offerRepo;
+    private readonly IOpenSessionRequestTargetRepository _targetRepo;
     private readonly IOfferConversationService _conversationService;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
@@ -28,6 +29,7 @@ public class WithdrawSessionOfferCommandHandler : ResponseHandler,
         ITeacherRepository teacherRepo,
         IOpenSessionRequestRepository requestRepo,
         IOpenSessionOfferRepository offerRepo,
+        IOpenSessionRequestTargetRepository targetRepo,
         IOfferConversationService conversationService,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
@@ -36,6 +38,7 @@ public class WithdrawSessionOfferCommandHandler : ResponseHandler,
         _teacherRepo = teacherRepo;
         _requestRepo = requestRepo;
         _offerRepo = offerRepo;
+        _targetRepo = targetRepo;
         _conversationService = conversationService;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
@@ -63,6 +66,20 @@ public class WithdrawSessionOfferCommandHandler : ResponseHandler,
 
         await _offerRepo.UpdateAsync(offer);
         await _offerRepo.SaveChangesAsync();
+
+        // Return the request to Viewed so it leaves the "Offered" inbox tab and re-offer is discoverable.
+        try
+        {
+            await _targetRepo.SetStatusAsync(
+                offer.SessionRequestId,
+                teacher.Id,
+                OpenSessionRequestTargetStatus.Viewed,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to reset target status after withdrawing offer {OfferId}.", offer.Id);
+        }
 
         var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
         var isOfferScoped = summary?.TargetedTeacherId == null;
