@@ -18,7 +18,9 @@ Other conventions to know upfront:
 - **Currency = SAR.** `OpenSessionOffer.Price` is `decimal(18,2)`, no currency column — values are SAR by convention.
 - **IDs are `int`** everywhere. JSON examples use `1234`, never `"guid"`.
 - **Teacher does NOT propose schedules.** The offer implicitly accepts the student's `OpenSessionRequestSession` timing. `POST /Offers` has `price`, `teacherNotes`, `validityHours`, `commitmentConfirmed` — no `schedules[]`, no `priceMode`, no `currency`.
-- **Conversations are keyed by `(SessionRequestId, TeacherId)`**, not by offer. This supports the preliminary "طلب توضيح" chat (Screen T-2) before any offer exists, and keeps chat history across withdraw + re-offer cycles. The conversation entry endpoint is `GET /Conversations/by-request/{requestId}/teacher/{teacherId}` — there's no `/by-offer/{offerId}` route.
+- **Conversations use a hybrid key:**
+  - **Targeted** (`TargetedTeacherId` set): one thread per `(SessionRequestId, TeacherId)`. Supports preliminary "طلب توضيح" chat before any offer; history survives withdraw + re-offer. Entry: `GET /Conversations/by-request/{requestId}/teacher/{teacherId}`.
+  - **Broadcast**: one thread per **offer**. No pre-offer chat. Entry: `GET /Conversations/by-offer/{offerId}`. Withdraw + re-offer creates a new conversation.
 - **Target-status enum names:** the code uses `Notified / Viewed / OfferSubmitted / Skipped` (this doc uses those names throughout — they map 1:1 to the frontend's "new / viewed / offered / dismissed" labels).
 
 ---
@@ -804,13 +806,15 @@ Other conventions to know upfront:
 
 ### 5.3 المحادثات (Conversations)
 
-> **Base URL:** `/Api/V1/Conversations`
+> **Base URL:** `/Api/V1/Conversations`  
+> Hybrid: targeted = per request+teacher; broadcast = per offer. See [STUDENT-OSR-CHAT.md](STUDENT-OSR-CHAT.md).
 
 #### `GET /by-request/{requestId}/teacher/{teacherId}`
-**الوصف:** إيجاد أو إنشاء محادثة لزوج (طلب، معلم). كلا الطرفين يستدعي نفس الـ endpoint — الـ access guard يقرر دور المتصل من الـ JWT:
+**الوصف:** إيجاد أو إنشاء محادثة **للطلب المستهدف فقط** (targeted). كلا الطرفين يستدعي نفس الـ endpoint — الـ access guard يقرر دور المتصل من الـ JWT:
 - إذا كان المتصل معلماً وُيطابق `teacherId` في الـ URL → `caller = Teacher`.
 - إذا كان المتصل هو `request.RequestedByUserId` (سواء الطالب أو ولي الأمر) → `caller = Student`.
 - غير ذلك → `403 NOT_A_PARTICIPANT`.
+- طلب **broadcast** → `400 BROADCAST_USE_BY_OFFER` (استخدم `by-offer`).
 
 **Response 200:**
 ```json
@@ -819,6 +823,7 @@ Other conventions to know upfront:
   "data": {
     "conversationId": 412,
     "offerId": 892,
+    "isOfferScoped": false,
     "participants": [
       { "userId": 88, "displayName": "سارة محمد", "role": "Student" },
       { "userId": 17, "displayName": "د. أحمد العلي", "role": "Teacher" }
@@ -829,6 +834,12 @@ Other conventions to know upfront:
 }
 ```
 
+#### `GET /by-offer/{offerId}`
+**الوصف:** إيجاد أو إنشاء محادثة للعرض.
+- **Broadcast:** محادثة واحدة لكل عرض (`isOfferScoped: true`).
+- **Targeted:** يُرجع نفس خيط الطلب ويحدّث مؤشر `offerId`.
+
+**Auth:** معلم العرض أو `RequestedByUserId` للطلب.
 > `offerId == 0` يعني لا يوجد عرض بعد — هذه محادثة تمهيدية (شات قبل تقديم العرض). الواجهة تخفي البطاقة الثابتة لملخص العرض في هذه الحالة.
 
 ---

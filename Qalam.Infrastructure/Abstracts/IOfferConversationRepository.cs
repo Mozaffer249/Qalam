@@ -7,23 +7,34 @@ namespace Qalam.Infrastructure.Abstracts;
 
 public interface IOfferConversationRepository : IGenericRepositoryAsync<OfferConversation>
 {
-    /// <summary>Look up the conversation row for a (request, teacher) pair, or null.</summary>
+    /// <summary>Targeted (request-scoped) conversation for a (request, teacher) pair, or null.</summary>
     Task<OfferConversation?> GetByRequestAndTeacherAsync(int requestId, int teacherId, CancellationToken cancellationToken = default);
 
+    /// <summary>Conversation linked to a specific offer (SessionOfferId), or null.</summary>
+    Task<OfferConversation?> GetByOfferIdAsync(int offerId, CancellationToken cancellationToken = default);
+
     /// <summary>
-    /// Find-or-create the conversation row for the (request, teacher) pair. Single transactional path —
-    /// safe under concurrency because the unique index on (SessionRequestId, TeacherId) blocks a second insert.
+    /// Find-or-create the request-scoped conversation (IsOfferScoped=false) for targeted OSR chat.
     /// </summary>
     Task<OfferConversation> EnsureExistsAsync(int requestId, int teacherId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sets the conversation's SessionOfferId pointer (or clears it). Used when an offer is submitted
-    /// or withdrawn — the chat history persists across offer lifecycle.
+    /// Find-or-create the offer-scoped conversation (IsOfferScoped=true) for broadcast OSR chat.
+    /// </summary>
+    Task<OfferConversation> EnsureExistsForOfferAsync(
+        int requestId,
+        int teacherId,
+        int offerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the conversation's SessionOfferId pointer (or clears it). Used for targeted threads
+    /// when an offer is submitted or withdrawn.
     /// </summary>
     Task SetCurrentOfferAsync(int conversationId, int? offerId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Header projection (the GET /Conversations/by-request payload) keyed off conversationId.
+    /// Header projection keyed off conversationId.
     /// Unread count is computed from the caller's per-role LastReadAt.
     /// </summary>
     Task<OfferConversationDto?> GetHeaderDtoAsync(int conversationId, ConversationCaller caller, CancellationToken cancellationToken = default);

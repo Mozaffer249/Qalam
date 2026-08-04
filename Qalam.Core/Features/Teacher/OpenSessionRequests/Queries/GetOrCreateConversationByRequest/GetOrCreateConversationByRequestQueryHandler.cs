@@ -33,13 +33,14 @@ public class GetOrCreateConversationByRequestQueryHandler : ResponseHandler,
         if (summary == null)
             return NotFound<OfferConversationDto>("Request not found.");
 
+        // Broadcast requests use offer-scoped chat — clients must call by-offer.
+        if (summary.TargetedTeacherId == null)
+            return BadRequest<OfferConversationDto>("BROADCAST_USE_BY_OFFER");
+
         var teacher = await _teacherRepo.GetByIdAsync(request.TeacherId);
         if (teacher == null)
             return NotFound<OfferConversationDto>("Teacher not found.");
 
-        // Authorize: caller must be either the teacher in question, or the request submitter
-        // (which covers both the student-acting-for-self and the guardian-on-behalf-of-student cases,
-        // because RequestedByUserId is whoever actually submitted).
         ConversationCaller caller;
         if (teacher.UserId == request.UserId)
             caller = ConversationCaller.Teacher;

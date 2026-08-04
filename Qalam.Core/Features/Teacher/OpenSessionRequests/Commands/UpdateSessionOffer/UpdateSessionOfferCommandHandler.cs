@@ -71,15 +71,18 @@ public class UpdateSessionOfferCommandHandler : ResponseHandler,
             ? $"تم تحديث العرض - السعر الجديد: {offer.Price} ر.س"
             : "تم تحديث العرض";
 
+        var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
+        var isOfferScoped = summary?.TargetedTeacherId == null;
         try
         {
             await _conversationService.RecordOfferLifecycleEventAsync(
                 offer.SessionRequestId,
                 teacher.Id,
                 offer.Id,
+                isOfferScoped,
                 OfferMessageType.OfferUpdate,
                 systemMessage,
-                cancellationToken);
+                cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
@@ -87,7 +90,6 @@ public class UpdateSessionOfferCommandHandler : ResponseHandler,
         }
 
         // Notify the requester.
-        var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
         if (summary != null)
         {
             try

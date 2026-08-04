@@ -5,7 +5,7 @@
 > **Base path:** `/Api/V1`  
 > **Source of truth:** controllers + DTOs in this repo (code wins over older BRDs)
 
-**Related:** [S2 flow & endpoints](S2-FLOW-AND-ENDPOINTS.md) · [Scenario 2 user stories](USER-STORIES-Scenario-2.md) · [Teacher subject units (FE)](Teacher-Subject-Units-Frontend.md)
+**Related:** [S2 flow & endpoints](S2-FLOW-AND-ENDPOINTS.md) · [OSR chat](STUDENT-OSR-CHAT.md) · [Scenario 2 user stories](USER-STORIES-Scenario-2.md) · [Teacher subject units (FE)](Teacher-Subject-Units-Frontend.md)
 
 ---
 
@@ -542,17 +542,25 @@ Reject body (optional): `{ "data": { "reason": "Too expensive" } }`.
 
 ## 7. Conversations (after request exists)
 
+> Full student guide: [STUDENT-OSR-CHAT.md](STUDENT-OSR-CHAT.md) (hybrid: targeted vs broadcast).
+
 Shared namespace: `/Conversations/...`  
 Student may use when they are the request owner (`RequestedByUserId`).
 
+| Mode | Entry | Pre-offer? |
+|------|-------|------------|
+| **Targeted** (`targetedTeacherId` set) | `GET /Conversations/by-request/{requestId}/teacher/{teacherId}` | Yes |
+| **Broadcast** | `GET /Conversations/by-offer/{offerId}` | No — only after an offer exists |
+
 | Method | Path | Notes |
 |--------|------|--------|
-| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` | Find/create conversation for that pair |
+| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` | Targeted only; broadcast → 400 `BROADCAST_USE_BY_OFFER` |
+| GET | `/Conversations/by-offer/{offerId}` | Broadcast (required); targeted resolves to the same OSR thread |
 | GET | `/Conversations/{conversationId}/messages` | Query: `cursor?`, `take=50`, `direction=older\|newer` |
 | POST | `/Conversations/{conversationId}/messages` | `{ "content": "..." }` |
 | POST | `/Conversations/{conversationId}/read` | `{ "upToMessageId": 123 }` optional |
 
-Conversation DTO includes `conversationId`, `offerId` (0 if no offer yet), participants, unread, etc.
+Conversation DTO includes `conversationId`, `offerId` (0 if no offer yet), `isOfferScoped`, participants, unread, etc.
 
 Teacher inbox / create-offer APIs are documented in [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) — not required for the student publish wizard.
 
@@ -653,7 +661,8 @@ Teacher inbox / create-offer APIs are documented in [S2-FLOW-AND-ENDPOINTS.md](S
 
 | Method | Path |
 |--------|------|
-| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` |
+| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` (targeted) |
+| GET | `/Conversations/by-offer/{offerId}` (broadcast; targeted OK) |
 | GET | `/Conversations/{conversationId}/messages` |
 | POST | `/Conversations/{conversationId}/messages` |
 | POST | `/Conversations/{conversationId}/read` |

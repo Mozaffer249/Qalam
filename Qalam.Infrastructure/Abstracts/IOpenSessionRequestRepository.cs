@@ -63,4 +63,5 @@ public record RequestStatusSummary(
     int StudentId,
     int RequestedByUserId,
     int? CreatedByGuardianId,
-    OpenSessionRequestStatus Status);
+    OpenSessionRequestStatus Status,
+    int? TargetedTeacherId = null);

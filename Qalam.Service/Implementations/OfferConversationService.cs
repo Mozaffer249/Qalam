@@ -18,16 +18,35 @@ public class OfferConversationService : IOfferConversationService
         int sessionRequestId,
         int teacherId,
         int? sessionOfferId,
+        bool isOfferScoped,
         OfferMessageType messageType,
         string content,
+        bool clearOfferPointerOnNull = false,
         CancellationToken cancellationToken = default)
     {
-        var conv = await _convRepo.EnsureExistsAsync(sessionRequestId, teacherId, cancellationToken);
-        if (conv.SessionOfferId != sessionOfferId)
+        OfferConversation conv;
+        if (isOfferScoped)
         {
-            await _convRepo.SetCurrentOfferAsync(conv.Id, sessionOfferId, cancellationToken);
+            if (!sessionOfferId.HasValue)
+                throw new ArgumentException("sessionOfferId is required for offer-scoped conversations.", nameof(sessionOfferId));
+
+            conv = await _convRepo.EnsureExistsForOfferAsync(
+                sessionRequestId, teacherId, sessionOfferId.Value, cancellationToken);
         }
-        // System message: senderUserId is null.
+        else
+        {
+            conv = await _convRepo.EnsureExistsAsync(sessionRequestId, teacherId, cancellationToken);
+            if (sessionOfferId.HasValue)
+            {
+                if (conv.SessionOfferId != sessionOfferId)
+                    await _convRepo.SetCurrentOfferAsync(conv.Id, sessionOfferId, cancellationToken);
+            }
+            else if (clearOfferPointerOnNull && conv.SessionOfferId != null)
+            {
+                await _convRepo.SetCurrentOfferAsync(conv.Id, null, cancellationToken);
+            }
+        }
+
         await _convRepo.AppendMessageAsync(conv.Id, senderUserId: null, messageType, content, cancellationToken);
         return conv;
     }

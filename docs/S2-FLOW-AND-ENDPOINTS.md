@@ -78,17 +78,17 @@ flowchart LR
   list --> detail[GET AvailableRequests/id]
   detail --> match[GET availability-match]
   match --> offer[POST Offers]
-  offer --> chat[GET Conversations/by-request]
+  offer --> chat[GET Conversations/by-offer or by-request]
 ```
 
 Target status enum: `Notified` → `Viewed` → `OfferSubmitted` / `Skipped`.
 
 ### 2.4 Chat
 
-- One conversation per `(requestId, teacherId)` — exists **before** any offer.
+- **Targeted:** one conversation per `(requestId, teacherId)` — may exist **before** any offer. Entry: `GET …/by-request/…`.
+- **Broadcast:** one conversation **per offer** — no pre-offer chat. Entry: `GET …/by-offer/{offerId}`.
 - HTTP only; poll `GET …/messages` with cursor pagination.
-- Entry: `GET /Api/V1/Conversations/by-request/{requestId}/teacher/{teacherId}`.
-
+- Details: [STUDENT-OSR-CHAT.md](STUDENT-OSR-CHAT.md).
 ### 2.5 Targeted-teacher wizard (6 screens)
 
 ```mermaid
@@ -187,11 +187,13 @@ Base path: `/Api/V1`. Envelope: `{ "succeeded": true, "data": … }` unless note
 ### 3.5 Shared — conversations
 
 **Controller:** [`OfferConversationsController`](../Qalam.Api/Controllers/Common/OfferConversationsController.cs)  
-**Auth:** JWT (`Student`, `Guardian`, `Teacher`)
+**Auth:** JWT (`Student`, `Guardian`, `Teacher`)  
+**Model:** targeted = per `(request, teacher)`; broadcast = per offer. See [STUDENT-OSR-CHAT.md](STUDENT-OSR-CHAT.md).
 
 | Method | Path | Action | MediatR handler | Story |
 |--------|------|--------|-----------------|-------|
-| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` | `GetOrCreateByRequest` | `GetOrCreateConversationByRequestQueryHandler` | S2-ST-012, S2-TE-009 |
+| GET | `/Conversations/by-request/{requestId}/teacher/{teacherId}` | `GetOrCreateByRequest` | `GetOrCreateConversationByRequestQueryHandler` | S2-ST-012, S2-TE-009 (targeted only) |
+| GET | `/Conversations/by-offer/{offerId}` | `GetOrCreateByOffer` | `GetOrCreateConversationByOfferQueryHandler` | S2-ST-012, S2-TE-009 |
 | GET | `/Conversations/{conversationId}/messages` | `GetMessages` | `GetConversationMessagesQueryHandler` | S2-ST-012, S2-TE-009 |
 | POST | `/Conversations/{conversationId}/messages` | `PostMessage` | `PostConversationMessageCommandHandler` | S2-ST-012, S2-TE-009 |
 | POST | `/Conversations/{conversationId}/read` | `MarkRead` | `MarkConversationReadCommandHandler` | S2-ST-012, S2-TE-009 |

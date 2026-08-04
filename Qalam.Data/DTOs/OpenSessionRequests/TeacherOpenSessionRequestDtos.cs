@@ -243,6 +243,8 @@ public class OfferConversationDto
 {
     public int ConversationId { get; set; }
     public int OfferId { get; set; }
+    /// <summary>True when this thread is keyed by offer (broadcast); false when keyed by request+teacher (targeted).</summary>
+    public bool IsOfferScoped { get; set; }
     public List<ConversationParticipantDto> Participants { get; set; } = new();
     public DateTime? LastMessageAt { get; set; }
     /// <summary>Unread count from the caller's perspective.</summary>

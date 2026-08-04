@@ -64,22 +64,40 @@ public class WithdrawSessionOfferCommandHandler : ResponseHandler,
         await _offerRepo.UpdateAsync(offer);
         await _offerRepo.SaveChangesAsync();
 
+        var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
+        var isOfferScoped = summary?.TargetedTeacherId == null;
         try
         {
-            await _conversationService.RecordOfferLifecycleEventAsync(
-                offer.SessionRequestId,
-                teacher.Id,
-                sessionOfferId: null,
-                OfferMessageType.System,
-                "تم سحب العرض",
-                cancellationToken);
+            if (isOfferScoped)
+            {
+                // Broadcast: keep conversation tied to this (withdrawn) offer; post on that thread.
+                await _conversationService.RecordOfferLifecycleEventAsync(
+                    offer.SessionRequestId,
+                    teacher.Id,
+                    sessionOfferId: offer.Id,
+                    isOfferScoped: true,
+                    OfferMessageType.System,
+                    "تم سحب العرض",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                // Targeted: same thread; clear offer pointer.
+                await _conversationService.RecordOfferLifecycleEventAsync(
+                    offer.SessionRequestId,
+                    teacher.Id,
+                    sessionOfferId: null,
+                    isOfferScoped: false,
+                    OfferMessageType.System,
+                    "تم سحب العرض",
+                    clearOfferPointerOnNull: true,
+                    cancellationToken: cancellationToken);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to post withdraw system message for offer {OfferId}.", offer.Id);
         }
-
-        var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
         if (summary != null)
         {
             try

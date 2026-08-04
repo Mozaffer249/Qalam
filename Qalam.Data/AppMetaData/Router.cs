@@ -263,10 +263,12 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Conversations namespace (shared between teacher + student): Api/V1/Conversations</summary>
         public const string OfferConversations = Rule + "Conversations";
         /// <summary>
-        /// Find-or-create the chat for a (request, teacher) pair. Either party (teacher or student/guardian)
-        /// can call this. Pre-offer chat is supported — the conversation exists independent of any offer.
+        /// Find-or-create the chat for a (request, teacher) pair — targeted OSR only.
+        /// Broadcast requests must use OfferConversationByOffer.
         /// </summary>
         public const string OfferConversationByRequest = OfferConversations + "/by-request/{requestId:int}/teacher/{teacherId:int}";
+        /// <summary>Find-or-create by offer (broadcast; also resolves targeted request thread): Api/V1/Conversations/by-offer/{offerId}</summary>
+        public const string OfferConversationByOffer = OfferConversations + "/by-offer/{offerId:int}";
         /// <summary>Cursor-paginated messages: Api/V1/Conversations/{conversationId}/messages</summary>
         public const string OfferConversationMessages = OfferConversations + "/{conversationId:int}/messages";
         /// <summary>Mark messages as read: Api/V1/Conversations/{conversationId}/read</summary>

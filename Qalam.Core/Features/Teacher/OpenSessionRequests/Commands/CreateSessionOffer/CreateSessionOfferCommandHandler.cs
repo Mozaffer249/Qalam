@@ -103,16 +103,18 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             await _requestRepo.UpdateStatusAsync(request.Data.SessionRequestId, OpenSessionRequestStatus.ReceivingOffers, cancellationToken);
         }
 
-        // Conversation: post the "تم تقديم العرض" system message + set offer pointer.
+        // Conversation: targeted = request-scoped pointer; broadcast = new offer-scoped thread.
+        var isOfferScoped = summary.TargetedTeacherId == null;
         try
         {
             await _conversationService.RecordOfferLifecycleEventAsync(
                 request.Data.SessionRequestId,
                 teacher.Id,
                 offer.Id,
+                isOfferScoped,
                 OfferMessageType.System,
                 "تم تقديم العرض",
-                cancellationToken);
+                cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {

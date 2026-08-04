@@ -12,11 +12,22 @@ public class OfferConversationConfiguration : IEntityTypeConfiguration<OfferConv
 
         builder.HasKey(e => e.Id);
 
-        // One conversation per (request, teacher) pair — supports preliminary chat before any offer
-        // is submitted. SessionOfferId becomes a denormalized pointer set when an offer lands.
-        builder.HasIndex(e => new { e.SessionRequestId, e.TeacherId }).IsUnique();
-        builder.HasIndex(e => e.SessionOfferId);
+        builder.Property(e => e.IsOfferScoped)
+               .IsRequired()
+               .HasDefaultValue(false);
+
+        // Targeted: one conversation per (request, teacher).
+        builder.HasIndex(e => new { e.SessionRequestId, e.TeacherId })
+               .IsUnique()
+               .HasFilter("[IsOfferScoped] = 0");
+
+        // Broadcast (and any offer-linked row): at most one conversation per offer.
+        builder.HasIndex(e => e.SessionOfferId)
+               .IsUnique()
+               .HasFilter("[SessionOfferId] IS NOT NULL");
+
         builder.HasIndex(e => e.LastMessageAt);
+        builder.HasIndex(e => e.TeacherId);
 
         builder.HasOne(e => e.OpenSessionRequest)
                .WithMany()
@@ -27,8 +38,6 @@ public class OfferConversationConfiguration : IEntityTypeConfiguration<OfferConv
                .WithMany()
                .HasForeignKey(e => e.TeacherId)
                .OnDelete(DeleteBehavior.Restrict);
-
-        // Reverse 1:1 to OpenSessionOffer is configured in SessionOfferConfiguration (nullable now).
 
         builder.HasMany(e => e.Messages)
                .WithOne(m => m.OfferConversation)

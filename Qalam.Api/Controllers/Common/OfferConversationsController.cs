@@ -4,6 +4,7 @@ using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.MarkConversationRead;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.PostConversationMessage;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetConversationMessages;
+using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetOrCreateConversationByOffer;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetOrCreateConversationByRequest;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.OpenSessionRequests;
@@ -11,10 +12,9 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 namespace Qalam.Api.Controllers.Common;
 
 /// <summary>
-/// Conversations for Scenario 2 (Open Session Request). One conversation per (request, teacher)
-/// pair — supports preliminary "طلب توضيح" chat before any offer is submitted, and persists
-/// across withdraw + re-offer cycles. Both teacher and student/guardian access through the same
-/// endpoints; the access guard derives the caller's role from the JWT.
+/// Conversations for Scenario 2 (Open Session Request). Hybrid keying:
+/// targeted requests → one thread per (request, teacher); broadcast → one thread per offer.
+/// Both teacher and student/guardian access through the same endpoints.
 /// </summary>
 [Authorize]
 [ApiController]
@@ -22,11 +22,12 @@ namespace Qalam.Api.Controllers.Common;
 public class OfferConversationsController : AppControllerBase
 {
     /// <summary>
-    /// Find-or-create the (request, teacher) conversation and return its header. Either party
-    /// can call this. The conversation exists independent of any offer.
+    /// Find-or-create the request-scoped conversation (targeted OSR only).
+    /// Broadcast requests must use <see cref="GetOrCreateByOffer"/>.
     /// </summary>
     [HttpGet("by-request/{requestId:int}/teacher/{teacherId:int}")]
     [ProducesResponseType(typeof(OfferConversationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrCreateByRequest(int requestId, int teacherId)
@@ -34,6 +35,20 @@ public class OfferConversationsController : AppControllerBase
         {
             RequestId = requestId,
             TeacherId = teacherId
+        }));
+
+    /// <summary>
+    /// Find-or-create the conversation for an offer.
+    /// Broadcast: offer-scoped thread. Targeted: resolves to the single request-scoped thread.
+    /// </summary>
+    [HttpGet("by-offer/{offerId:int}")]
+    [ProducesResponseType(typeof(OfferConversationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOrCreateByOffer(int offerId)
+        => NewResult(await Mediator.Send(new GetOrCreateConversationByOfferQuery
+        {
+            OfferId = offerId
         }));
 
     /// <summary>

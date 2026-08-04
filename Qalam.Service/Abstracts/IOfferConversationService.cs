@@ -4,21 +4,29 @@ using Qalam.Data.Entity.OpenSessionRequests;
 namespace Qalam.Service.Abstracts;
 
 /// <summary>
-/// Cross-cutting helper used by the P4 offer handlers (and P5 conversation handlers) to
-/// post system messages and keep the (request, teacher) conversation in sync with the offer
-/// lifecycle. Keeps "POST offer → 'تم تقديم العرض' system message" in one place.
+/// Cross-cutting helper used by offer handlers to post system messages and keep
+/// conversations in sync with the offer lifecycle (hybrid: targeted vs broadcast).
 /// </summary>
 public interface IOfferConversationService
 {
     /// <summary>
-    /// Find-or-create the (request, teacher) conversation, sets its SessionOfferId pointer (or null
-    /// to clear), and appends a system message. Returns the conversation row.
+    /// Find-or-create the appropriate conversation for the request mode, optionally update
+    /// the SessionOfferId pointer (targeted only), and append a system message.
     /// </summary>
+    /// <param name="isOfferScoped">
+    /// True for broadcast (one conversation per offer). False for targeted (one per request+teacher).
+    /// </param>
+    /// <param name="clearOfferPointerOnNull">
+    /// When <paramref name="sessionOfferId"/> is null and this is true (targeted withdraw),
+    /// clears the request-scoped conversation's offer pointer. Broadcast withdraws leave the pointer.
+    /// </param>
     Task<OfferConversation> RecordOfferLifecycleEventAsync(
         int sessionRequestId,
         int teacherId,
         int? sessionOfferId,
+        bool isOfferScoped,
         OfferMessageType messageType,
         string content,
+        bool clearOfferPointerOnNull = false,
         CancellationToken cancellationToken = default);
 }

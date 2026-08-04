@@ -20,7 +20,17 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
     public async Task<OfferConversation?> GetByRequestAndTeacherAsync(int requestId, int teacherId, CancellationToken cancellationToken = default)
     {
         return await _context.OfferConversations
-            .FirstOrDefaultAsync(c => c.SessionRequestId == requestId && c.TeacherId == teacherId, cancellationToken);
+            .FirstOrDefaultAsync(
+                c => c.SessionRequestId == requestId
+                     && c.TeacherId == teacherId
+                     && !c.IsOfferScoped,
+                cancellationToken);
+    }
+
+    public async Task<OfferConversation?> GetByOfferIdAsync(int offerId, CancellationToken cancellationToken = default)
+    {
+        return await _context.OfferConversations
+            .FirstOrDefaultAsync(c => c.SessionOfferId == offerId, cancellationToken);
     }
 
     public async Task<OfferConversation> EnsureExistsAsync(int requestId, int teacherId, CancellationToken cancellationToken = default)
@@ -33,6 +43,30 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
         {
             SessionRequestId = requestId,
             TeacherId = teacherId,
+            IsOfferScoped = false,
+            CreatedAt = now
+        };
+        await _context.OfferConversations.AddAsync(conv, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+        return conv;
+    }
+
+    public async Task<OfferConversation> EnsureExistsForOfferAsync(
+        int requestId,
+        int teacherId,
+        int offerId,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await GetByOfferIdAsync(offerId, cancellationToken);
+        if (existing != null) return existing;
+
+        var now = DateTime.UtcNow;
+        var conv = new OfferConversation
+        {
+            SessionRequestId = requestId,
+            TeacherId = teacherId,
+            SessionOfferId = offerId,
+            IsOfferScoped = true,
             CreatedAt = now
         };
         await _context.OfferConversations.AddAsync(conv, cancellationToken);
@@ -59,6 +93,7 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
                 c.Id,
                 c.SessionRequestId,
                 c.SessionOfferId,
+                c.IsOfferScoped,
                 c.LastMessageAt,
                 c.StudentLastReadAt,
                 c.TeacherLastReadAt,
@@ -106,6 +141,7 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
         {
             ConversationId = row.Id,
             OfferId = row.SessionOfferId ?? 0,
+            IsOfferScoped = row.IsOfferScoped,
             LastMessageAt = row.LastMessageAt,
             UnreadCount = row.UnreadCount,
             Participants = participants
@@ -144,6 +180,19 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
         bool olderDirection,
         CancellationToken cancellationToken = default)
     {
+        var participants = await _context.OfferConversations
+            .AsNoTracking()
+            .Where(c => c.Id == conversationId)
+            .Select(c => new
+            {
+                TeacherUserId = (int?)c.Teacher.UserId,
+                StudentUserId = (int?)c.OpenSessionRequest.RequestedByUserId,
+                GuardianUserId = c.OpenSessionRequest.CreatedByGuardian != null
+                    ? (int?)c.OpenSessionRequest.CreatedByGuardian.UserId
+                    : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         var query = _context.OfferMessages
             .AsNoTracking()
             .Where(m => m.OfferConversationId == conversationId);
@@ -173,6 +222,24 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
                 SentAt = m.SentAt
             })
             .ToListAsync(cancellationToken);
+
+        if (participants != null)
+        {
+            foreach (var msg in page)
+            {
+                if (msg.SenderUserId == null || msg.Type == OfferMessageType.System)
+                {
+                    msg.SenderRole = null;
+                    continue;
+                }
+
+                if (msg.SenderUserId == participants.TeacherUserId)
+                    msg.SenderRole = "Teacher";
+                else if (msg.SenderUserId == participants.StudentUserId
+                         || msg.SenderUserId == participants.GuardianUserId)
+                    msg.SenderRole = "Student";
+            }
+        }
 
         var hasMore = page.Count > pageSize;
         if (hasMore) page.RemoveAt(page.Count - 1);

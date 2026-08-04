@@ -153,7 +153,8 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 student != null ? student.Id : 0,
                 r.RequestedByUserId,
                 null,
-                r.Status))
+                r.Status,
+                r.TargetedTeacherId))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
