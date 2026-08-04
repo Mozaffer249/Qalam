@@ -18,7 +18,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
     private readonly ISubjectService _subjectService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
-    private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
@@ -27,7 +26,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         ISubjectService subjectService,
         ITeacherRegistrationService teacherRegistrationService,
         ITeacherDomainQuestionStatusService domainQuestionStatusService,
-        ITeacherRegistrationCompletionService completionService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -36,7 +34,6 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         _subjectService = subjectService;
         _teacherRegistrationService = teacherRegistrationService;
         _domainQuestionStatusService = domainQuestionStatusService;
-        _completionService = completionService;
         _mapper = mapper;
     }
 
@@ -61,16 +58,10 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
                 $"Subjects not found: {string.Join(", ", invalidSubjectIds)}");
         }
 
-        if (teacher.Status is not (TeacherStatus.Active or TeacherStatus.PendingVerification))
+        if (teacher.Status != TeacherStatus.Active)
         {
             return BadRequest<TeacherSubjectsResponseDto>(
-                "Complete registration and domain verification before adding teaching subjects.");
-        }
-
-        if (await _completionService.HasPendingRequiredRegistrationReviewAsync(teacher.Id, cancellationToken))
-        {
-            return BadRequest<TeacherSubjectsResponseDto>(
-                "Identity and certificate documents are still under review. Please wait for admin approval before adding teaching subjects.");
+                "Teaching subjects can be added only after your account is activated by admin.");
         }
 
         var domainQuestionError = await _domainQuestionStatusService.ValidateSubjectsDomainQuestionsAsync(

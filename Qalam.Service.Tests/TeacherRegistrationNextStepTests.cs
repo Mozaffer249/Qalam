@@ -86,7 +86,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWhenCanActivate_ReturnsSetAvailabilityBeforeFinalApproval()
+    public async Task GetNextStep_PendingVerificationWhenCanActivate_ReturnsAwaitingFinalApprovalEvenWithoutAvailability()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -96,8 +96,9 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Set Your Availability", step.NextStepName);
-        Assert.True(step.RequiresAvailabilitySetup);
+        Assert.Equal("Awaiting Final Approval", step.NextStepName);
+        Assert.True(step.AwaitingFinalApproval);
+        Assert.False(step.RequiresAvailabilitySetup);
         Assert.False(step.IsRegistrationComplete);
     }
 
@@ -311,8 +312,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Set Your Availability", step.NextStepName);
-        Assert.True(step.RequiresAvailabilitySetup);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.NotEqual("Set Your Availability", step.NextStepName);
     }
 
     [Fact]
@@ -375,7 +376,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_PendingVerificationWithApprovedDomainAndNoPendingAnswers_ReturnsAddSubjects()
+    public async Task GetNextStep_PendingVerificationWithApprovedDomainAndNoPendingAnswers_ReturnsAwaitingDomainVerification()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -389,7 +390,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
     }
 
     [Fact]
@@ -413,7 +415,7 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
-    public async Task GetNextStep_AfterOneDomainApprovedAndOthersIncomplete_ReturnsAddSubjects()
+    public async Task GetNextStep_AfterOneDomainApprovedAndOthersIncomplete_ReturnsAwaitingDomainVerificationNotSubjects()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -428,12 +430,13 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
         Assert.NotEqual("Complete Domain Questions", step.NextStepName);
     }
 
     [Fact]
-    public async Task GetNextStep_AfterResubmitApproved_NoRejectedLatest_ReturnsAddSubjectsNotFixDomain()
+    public async Task GetNextStep_AfterResubmitApproved_NoRejectedLatest_ReturnsAwaitingNotSubjects()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
@@ -448,12 +451,13 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
         Assert.NotEqual("Fix Domain Verification", step.NextStepName);
     }
 
     [Fact]
-    public async Task GetNextStep_DocumentsRejectedWithNoRejectedLatest_ReturnsAddSubjects()
+    public async Task GetNextStep_DocumentsRejectedWithNoRejectedLatest_ReturnsAwaitingNotSubjects()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.DocumentsRejected,
@@ -468,7 +472,8 @@ public class TeacherRegistrationNextStepTests
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
-        Assert.Equal("Add Teaching Subjects and Units", step.NextStepName);
+        Assert.Equal("Awaiting Domain Verification", step.NextStepName);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
     }
 
     [Fact]
@@ -529,12 +534,14 @@ public class TeacherRegistrationNextStepTests
             hasSubjects: false,
             canActivate: true,
             catalogDomainIds: [1, 2],
-            allCatalogDomainsApproved: true);
+            allCatalogDomainsApproved: true,
+            hasAnyFullyApprovedCatalogDomain: true);
 
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
         Assert.Equal("Awaiting Final Approval", step.NextStepName);
         Assert.True(step.AwaitingFinalApproval);
+        Assert.NotEqual("Add Teaching Subjects and Units", step.NextStepName);
     }
 
     [Fact]
@@ -941,8 +948,9 @@ public class TeacherAccountStatusServiceTests
 
         var nextStep = new RegistrationStepDto
         {
-            NextStepName = "Add Teaching Subjects and Units",
-            IsRegistrationComplete = false
+            NextStepName = "Awaiting Final Approval",
+            IsRegistrationComplete = false,
+            AwaitingFinalApproval = true
         };
 
         var service = BuildAccountStatusServiceWithCompletion(
@@ -955,7 +963,8 @@ public class TeacherAccountStatusServiceTests
         var status = await service.GetAccountStatusForTeacherAsync(TeacherId, UserId);
 
         Assert.Equal(TeacherStatus.PendingVerification, status.TeacherStatus);
-        Assert.Equal("Add Teaching Subjects and Units", status.NextStep.NextStepName);
+        Assert.Equal("Awaiting Final Approval", status.NextStep.NextStepName);
+        Assert.True(status.AwaitingFinalApproval);
     }
 
     private static TeacherRegistrationStatusService BuildAccountStatusService(

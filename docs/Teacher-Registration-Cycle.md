@@ -1,6 +1,6 @@
 # Teacher registration — full cycle
 
-Single reference for the end-to-end teacher onboarding cycle: auth → documents → **domain questions** → admin domain review → **subjects** → admin activation → availability.
+Single reference for the end-to-end teacher onboarding cycle: auth → documents → **domain questions** → admin domain review → **Awaiting Final Approval** → admin activation → **subjects** → availability.
 
 Related docs:
 
@@ -19,13 +19,13 @@ Related docs:
 | 1 | Personal info | Teacher | `AwaitingDocuments` | Upload Documents |
 | 2 | Registration requirements | Teacher | `PendingVerification` | **Complete Domain Questions** |
 | 3 | Domain questions (all catalog domains) | Teacher | `PendingVerification` | Complete Domain Questions → Awaiting Domain Verification |
-| 4 | Domain admin review | Admin | `PendingVerification` / `DocumentsRejected` | **Awaiting Domain Verification** (teacher waits) |
-| 5 | Add subjects | Teacher | `PendingVerification` | **Add Teaching Subjects and Units** |
-| 6 | Document + account review | Admin | `PendingVerification` | Awaiting Admin Verification / Awaiting Final Approval |
-| 7 | Activate account | Admin | `Active` | Dashboard |
-| 8 | Set availability | Teacher | `Active` | Dashboard (`requiresAvailabilitySetup` if empty) |
+| 4 | Domain + document admin review | Admin | `PendingVerification` / `DocumentsRejected` | **Awaiting Domain Verification** / **Awaiting Admin Verification** |
+| 5 | Ready for authorize | Teacher | `PendingVerification` | **Awaiting Final Approval** (`canBeActivated`) |
+| 6 | Activate account | Admin | `Active` | — |
+| 7 | Add subjects | Teacher | `Active` | **Add Teaching Subjects and Units** |
+| 8 | Set availability | Teacher | `Active` | **Set Your Availability** / Dashboard |
 
-**Core rule:** domain verification is **before** subjects. Admin reviews **domain question submissions**, not individual subject rows during registration.
+**Core rule:** domain verification and **final account activation** happen **before** subjects. Subjects unlock only when `TeacherStatus === Active`.
 
 ---
 
@@ -38,11 +38,10 @@ flowchart TD
     A1[Personal info]
     A2[Upload docs]
     A3[Domain questions per catalog domain]
-    A4[Wait domain approval]
+    A4[Wait domain and final approval]
     A5[Add subjects + units]
-    A6[Wait account approval]
-    A7[Set availability]
-    A0 --> A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7
+    A6[Set availability]
+    A0 --> A1 --> A2 --> A3 --> A4 --> A5 --> A6
   end
 
   subgraph admin [Admin]
@@ -54,10 +53,8 @@ flowchart TD
 
   A3 -->|submit| B1
   A4 -->|poll AccountStatus| A4
-  B1 -->|all catalog domains approved| A5
-  A5 --> B2
-  A6 --> B3
-  B3 --> A7
+  B1 -->|all catalog domains approved| A4
+  B3 -->|Active| A5
 ```
 
 ---
@@ -69,7 +66,7 @@ Login is tied to registration progress through **`nextStep`**, not by denying ac
 | `TeacherStatus` | OTP / JWT | Notes |
 |-----------------|-----------|--------|
 | `AwaitingDocuments` | Allowed | Route to upload requirements |
-| `PendingVerification` | Allowed | Route by `nextStep` (domain Q, wait, subjects, etc.) |
+| `PendingVerification` | Allowed | Route by `nextStep` (domain Q, wait final, etc.) |
 | `DocumentsRejected` | Allowed | Re-upload docs and/or fix domain Q |
 | `Active` | Allowed | Dashboard (+ availability flag if needed) |
 | `Blocked` | **Denied** | 403 on all authenticated APIs |
@@ -96,18 +93,18 @@ flowchart TD
   fix[Fix Domain Verification]
   complete[Complete Domain Questions]
   waitDomain[Awaiting Domain Verification]
-  addSubjects[Add Teaching Subjects and Units]
   waitAccount[Awaiting Admin Verification]
   final[Awaiting Final Approval]
 
   start -->|rejected domain Q| fix
   start -->|missing catalog domain answers| complete
-  start -->|submitted pending admin no subjects| waitDomain
-  start -->|all catalog domains approved no subjects| addSubjects
-  start -->|has subjects not canBeActivated| waitAccount
-  start -->|has subjects canBeActivated| final
+  start -->|answers or docs pending admin| waitDomain
+  start -->|identity docs pending| waitAccount
+  start -->|canBeActivated true| final
   fix -->|resubmit domain Q| waitDomain
 ```
+
+Subjects (`Add Teaching Subjects and Units`) and availability are offered only when `TeacherStatus === Active` (not in this PendingVerification graph).
 
 ### Full matrix
 
@@ -118,11 +115,12 @@ flowchart TD
 | `PendingVerification` or `DocumentsRejected` | Any catalog domain answer **Rejected** | **Fix Domain Verification** | Domain questions + `pendingCorrections[]` |
 | Same | Required domain answers **missing** | **Complete Domain Questions** | Domain questions checklist |
 | Same | All submitted; admin review **pending** | **Awaiting Domain Verification** | Waiting / poll `AccountStatus` |
-| Same | All catalog domains **approved**; no subjects | **Add Teaching Subjects and Units** | Subject wizard |
-| `PendingVerification` | Has subjects; review in progress | **Awaiting Admin Verification** | Waiting |
-| `PendingVerification` | Has subjects; `canBeActivated` | **Awaiting Final Approval** | Waiting (final approval banner) |
+| Same | Identity/certs still pending | **Awaiting Admin Verification** | Waiting |
+| Same | `canBeActivated` (docs + domain Q approved) | **Awaiting Final Approval** | Waiting (final approval banner) |
 | `DocumentsRejected` | Rejected registration **documents** | **Re-upload Rejected Documents** | Documents list (priority over domain routing) |
-| `Active` | — | **Dashboard** | Dashboard (`requiresAvailabilitySetup` if no availability) |
+| `Active` | No subject offerings | **Add Teaching Subjects and Units** | Subject wizard |
+| `Active` | Has subjects; no availability | **Set Your Availability** | Availability survey |
+| `Active` | Subjects + availability done | **Dashboard** | Dashboard (`Awaiting Platform Launch` if gated) |
 | `Blocked` | — | Login **denied** | Support message |
 
 ---
@@ -163,7 +161,7 @@ sequenceDiagram
   API-->>T: nextStep Awaiting Domain Verification
   A->>API: Approve all required Q in domain
   Note over API: Cascade approves subjects in domain if any
-  API-->>T: nextStep Add Teaching Subjects when all catalog domains approved
+  API-->>T: nextStep Awaiting Final Approval when canBeActivated
 ```
 
 **On domain reject:**
@@ -183,9 +181,9 @@ sequenceDiagram
 
 ### When subjects can be added
 
+- Teacher must be **`Active`**
 - `nextStepName === "Add Teaching Subjects and Units"`
-- **All** catalog domains with required questions are fully **approved**
-- `POST /Api/V1/Teacher/TeacherSubject` returns `400` otherwise
+- `POST /Api/V1/Teacher/TeacherSubject` returns `400` if not Active
 
 ### New subject rows
 
@@ -362,4 +360,4 @@ Branch on `nextStep.nextStepName` from **VerifyOtp**, **AccountStatus**, and **D
 
 ## Empty catalog fallback
 
-If no education domain has active **required** domain questions, steps 3–4 (domain Q + domain wait) are skipped and the teacher goes directly to **Add Teaching Subjects and Units** after document upload.
+If no education domain has active **required** domain questions, steps 3–4 (domain Q + domain wait) are skipped and the teacher goes to **Awaiting Final Approval** after document approval (`canBeActivated`), then **Add Teaching Subjects** after admin activates.

@@ -382,39 +382,17 @@ public class TeacherRegistrationService : ITeacherRegistrationService
             && await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId))
             return BuildAwaitingDomainVerificationStep();
 
-        // Identity / certificates still under admin review — do not unlock subjects or availability.
+        // Identity / certificates still under admin review — subjects unlock only after Active.
         if (await _completionService.HasPendingRequiredRegistrationReviewAsync(teacherId))
             return BuildAwaitingAdminVerificationStep();
 
-        var hasPendingDomain = catalogDomainIds.Count > 0
-            && await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId);
-        if (hasPendingDomain)
-        {
-            if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
-                return BuildAddSubjectsStep();
-
-            if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
-                return BuildSetAvailabilityStep();
-
+        if (catalogDomainIds.Count > 0
+            && await _domainQuestionStatusService.HasCatalogDomainsPendingAdminReviewAsync(teacherId))
             return BuildAwaitingDomainVerificationStep();
-        }
 
+        // Docs + domain Q ready for admin authorize — do not unlock subjects/availability yet.
         if (await _completionService.CanActivateTeacherAccountAsync(teacherId))
-        {
-            if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
-                return BuildAddSubjectsStep();
-
-            if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
-                return BuildSetAvailabilityStep();
-
             return BuildAwaitingFinalApprovalStep();
-        }
-
-        if (await ShouldOfferAddSubjectsStepAsync(teacherId, CancellationToken.None))
-            return BuildAddSubjectsStep();
-
-        if (await ShouldOfferSetAvailabilityStepAsync(teacherId))
-            return BuildSetAvailabilityStep();
 
         return BuildAwaitingDomainVerificationStep();
     }
@@ -423,11 +401,6 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacherId)
         || await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId)
         || await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId);
-
-    private async Task<bool> ShouldOfferAddSubjectsStepAsync(int teacherId, CancellationToken cancellationToken) =>
-        !await NeedsRegistrationActionBeforeSubjectsAsync(teacherId)
-        && await _domainQuestionStatusService.HasAnyFullyApprovedCatalogDomainAsync(teacherId, cancellationToken)
-        && !await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId);
 
     private async Task<bool> ShouldOfferSetAvailabilityStepAsync(int teacherId) =>
         await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId)
