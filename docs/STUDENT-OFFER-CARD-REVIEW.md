@@ -19,7 +19,7 @@ Lean contract for implementing the student **offer card** (list) and **Review Re
 | Reject | `POST` | `/Api/V1/Student/OpenSessionRequests/Offers/{offerId}/Reject` |
 | View all reviews | `GET` | `/Api/V1/Student/Teachers/{teacherId}/Reviews` |
 
-Owner/guardian only. List/detail **exclude** `Withdrawn` offers.
+Owner/guardian only. List/detail return **all** offer statuses, including `Withdrawn`.
 
 Accept/reject allowed only while the parent request is `Active` or `ReceivingOffers` (blocked for `Rejected` / `Cancelled` / `Expired` / `Paid` / etc.).
 

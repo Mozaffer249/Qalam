@@ -502,7 +502,7 @@ Adult invitee = invited student; minor = linked guardian.
 | GET | `/Student/OpenSessionRequests/{id}/Offers` |
 | GET | `/Student/OpenSessionRequests/{id}/Offers/{offerId}` |
 
-Owner/guardian only. Excludes `Withdrawn`.
+Owner/guardian only. Returns **all** offer statuses (`Pending`, `Accepted`, `Rejected`, `AutoRejected`, `Withdrawn`, `Expired`).
 
 **List item:** `id`, `sessionRequestId`, `teacherId`, `teacherName`, `profilePictureUrl`, `ratingAverage`, `reviewsCount`, `isVerified`, `price`, `status`, `version`, `teacherNotes`, `expiresAt`, `createdAt`, `conversationId`.
 

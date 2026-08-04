@@ -45,8 +45,7 @@ public class GetStudentSessionOffersQueryHandler
 
         var offers = await _db.OpenSessionOffers
             .AsNoTracking()
-            .Where(o => o.SessionRequestId == request.RequestId
-                        && o.Status != OpenSessionOfferStatus.Withdrawn)
+            .Where(o => o.SessionRequestId == request.RequestId)
             .OrderByDescending(o => o.CreatedAt)
             .Select(o => new StudentOfferListItemDto
             {

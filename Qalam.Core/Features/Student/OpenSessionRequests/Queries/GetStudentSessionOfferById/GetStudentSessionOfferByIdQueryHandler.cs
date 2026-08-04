@@ -46,8 +46,7 @@ public class GetStudentSessionOfferByIdQueryHandler
         var offer = await _db.OpenSessionOffers
             .AsNoTracking()
             .Where(o => o.Id == request.OfferId
-                        && o.SessionRequestId == request.RequestId
-                        && o.Status != OpenSessionOfferStatus.Withdrawn)
+                        && o.SessionRequestId == request.RequestId)
             .Select(o => new StudentOfferDetailDto
             {
                 Id = o.Id,

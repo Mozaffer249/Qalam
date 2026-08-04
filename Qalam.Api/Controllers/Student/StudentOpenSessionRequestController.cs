@@ -242,7 +242,7 @@ public class StudentOpenSessionRequestController : AppControllerBase
     }
 
     /// <summary>
-    /// List offers on a request owned by the caller (excludes Withdrawn).
+    /// List all offers on a request owned by the caller (every status, including Withdrawn).
     /// </summary>
     [HttpGet(Router.StudentOpenSessionRequestOffers)]
     [ProducesResponseType(typeof(List<StudentOfferListItemDto>), StatusCodes.Status200OK)]
