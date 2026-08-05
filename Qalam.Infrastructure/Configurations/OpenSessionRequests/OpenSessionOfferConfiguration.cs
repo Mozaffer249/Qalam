@@ -13,11 +13,12 @@ public class OpenSessionOfferConfiguration : IEntityTypeConfiguration<OpenSessio
 
         builder.HasKey(e => e.Id);
 
-        // One ACTIVE offer per teacher per request. Withdrawn offers are kept for history,
-        // so the unique index is filtered to exclude Withdrawn.
+        // One ACTIVE offer per teacher per request. Terminal statuses are history and
+        // allow re-offer, so the unique index only covers Pending + Accepted.
         builder.HasIndex(e => new { e.SessionRequestId, e.TeacherId })
                .IsUnique()
-               .HasFilter($"[Status] <> {(int)OpenSessionOfferStatus.Withdrawn}");
+               .HasFilter(
+                   $"[Status] IN ({(int)OpenSessionOfferStatus.Pending},{(int)OpenSessionOfferStatus.Accepted})");
 
         builder.HasIndex(e => e.TeacherId);
         builder.HasIndex(e => e.Status);

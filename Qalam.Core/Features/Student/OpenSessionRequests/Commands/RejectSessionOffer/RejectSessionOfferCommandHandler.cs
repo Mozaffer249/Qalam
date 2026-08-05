@@ -59,6 +59,17 @@ public class RejectSessionOfferCommandHandler
             : request.Data!.Reason.Trim();
         offer.UpdatedAt = now;
 
+        // Return target to Viewed so the request leaves the "Offered" inbox tab and re-offer is discoverable.
+        var target = await _db.OpenSessionRequestTargets
+            .FirstOrDefaultAsync(
+                t => t.SessionRequestId == offer.SessionRequestId && t.TeacherId == offer.TeacherId,
+                cancellationToken);
+        if (target is { Status: OpenSessionRequestTargetStatus.OfferSubmitted })
+        {
+            target.Status = OpenSessionRequestTargetStatus.Viewed;
+            target.UpdatedAt = now;
+        }
+
         // Request stays Active / ReceivingOffers while other pending offers remain.
         var remainingPending = await _db.OpenSessionOffers
             .CountAsync(o => o.SessionRequestId == offer.SessionRequestId

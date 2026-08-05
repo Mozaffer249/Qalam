@@ -9,8 +9,9 @@ namespace Qalam.Infrastructure.Abstracts;
 public interface IOpenSessionOfferRepository : IGenericRepositoryAsync<OpenSessionOffer>
 {
     /// <summary>
-    /// Returns the existing non-Withdrawn offer's (id, status) for the (request, teacher) pair, or null.
-    /// Used by POST /Offers to either reject as 409 or allow re-creation after a previous withdraw.
+    /// Returns the existing Pending/Accepted offer's (id, status) for the (request, teacher) pair, or null.
+    /// Used by POST /Offers to reject as 409 when an active offer already exists. Terminal statuses
+    /// (Rejected, AutoRejected, Withdrawn, Expired) do not block re-offer.
     /// </summary>
     Task<(int OfferId, OpenSessionOfferStatus Status)?> GetExistingActiveOfferAsync(int requestId, int teacherId, CancellationToken cancellationToken = default);
 

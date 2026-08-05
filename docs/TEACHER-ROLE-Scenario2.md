@@ -138,7 +138,7 @@ Other conventions to know upfront:
 | **المدخلات** | `price` (إجمالي بالـ SAR، رقم واحد) — `teacherNotes` اختياري (≤1000 حرف) — `validityHours` (افتراضي 48) — `commitmentConfirmed=true` إجباري |
 | **ملاحظة** | المعلم **لا يقترح مواعيد** — العرض يقبل ضمنياً تواريخ الطالب المخزّنة على `OpenSessionRequestSession`. لذا لا يوجد `schedules[]` في جسم الطلب. |
 | **التحقق** | السعر موجب، مدة الصلاحية بين 24 ساعة و 168 ساعة (7 أيام)، `commitmentConfirmed == true` |
-| **القاعدة الحاسمة** | **معلم واحد = عرض واحد فعّال لكل طلب** (Status ≠ Withdrawn). محاولة إنشاء عرض ثانٍ → 409 Conflict مع `data.existingOfferId` |
+| **القاعدة الحاسمة** | **معلم واحد = عرض واحد فعّال لكل طلب** (`Pending` أو `Accepted` فقط). الحالات النهائية (Rejected / AutoRejected / Withdrawn / Expired) تاريخ ويمكن إعادة التقديم. محاولة إنشاء عرض ثانٍ فعّال → 409 Conflict مع `meta.existingOfferId` |
 
 ### FR-T-006: عرض عروضي
 | الحقل | القيمة |
@@ -739,7 +739,7 @@ Other conventions to know upfront:
 
 **القواعد:**
 - مسموح فقط إذا `status == Pending` → غير ذلك `409 OFFER_NOT_PENDING`.
-- بعد السحب، يمكن للمعلم تقديم عرض جديد على نفس الطلب (الـ unique index مفلتر على `Status != Withdrawn`).
+- بعد السحب (أو الرفض / انتهاء الصلاحية)، يمكن للمعلم تقديم عرض جديد على نفس الطلب (الـ unique index مفلتر على `Status IN (Pending, Accepted)`).
 - بريد إلكتروني للطالب + رسالة System في الشات: "تم سحب العرض".
 
 ---
@@ -1065,7 +1065,7 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
 1. **`POST /Offers`:**
    - وجود `OpenSessionRequestTarget` row لزوج (الطلب، المعلم) — غير ذلك → `403 NOT_MATCHED`.
    - حالة الطلب `Active` أو `ReceivingOffers` — غير ذلك → `409 REQUEST_NOT_ACTIVE`.
-   - لا يوجد عرض سابق غير منسحب (`Status != Withdrawn`) — غير ذلك → `409 DUPLICATE_OFFER` مع `meta.existingOfferId`.
+   - لا يوجد عرض فعّال (`Pending` أو `Accepted`) لنفس المعلم على نفس الطلب — غير ذلك → `409 DUPLICATE_OFFER` مع `meta.existingOfferId`. الحالات النهائية (Rejected / AutoRejected / Withdrawn / Expired) تسمح بإعادة التقديم.
 
 2. **`PUT /Offers/{id}` و `POST /Offers/{id}/withdraw`:**
    - الـ offer مملوك للمعلم — مفروض داخل `IOpenSessionOfferRepository.GetByIdForOwnerActionAsync(offerId, teacherId)` الذي يرشّح `o.TeacherId == teacher.Id` — غير ذلك → `404 Offer not found`.
@@ -1092,7 +1092,7 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
 |------|---------|-------------|---------|
 | `NOT_MATCHED` | المعلم ليس له `OpenSessionRequestTarget` row على هذا الطلب | 403 | كل endpoints الـ AvailableRequests + `POST /Offers` |
 | `NOT_A_PARTICIPANT` | المستخدم ليس طرفاً في المحادثة (لا معلم العرض ولا الطالب/الولي) | 403 | كل endpoints الـ Conversations |
-| `DUPLICATE_OFFER` | يوجد عرض سابق غير منسحب من نفس المعلم على نفس الطلب — الـ response يتضمن `meta.existingOfferId` و `meta.existingOfferStatus` | 409 | `POST /Offers` |
+| `DUPLICATE_OFFER` | يوجد عرض فعّال (`Pending` / `Accepted`) من نفس المعلم على نفس الطلب — الـ response يتضمن `meta.existingOfferId` و `meta.existingOfferStatus` | 409 | `POST /Offers` |
 | `REQUEST_NOT_ACTIVE` | الطلب ليس في حالة Active/ReceivingOffers (مثلاً Cancelled، OfferAccepted، Expired) | 409 | `POST /Offers` |
 | `OFFER_NOT_PENDING` | العرض ليس في حالة Pending — يحدث للعروض المنسحبة، المنتهية، المقبولة، المرفوضة | 409 | `PUT /Offers/{id}` + `POST /Offers/{id}/withdraw` |
 | `OFFER_ALREADY_SUBMITTED` | محاولة dismiss طلب سبق تقديم عرض عليه | 400 | `POST /AvailableRequests/{id}/dismiss` |
@@ -1161,7 +1161,7 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
 |---|---|---|
 | `OpenSessionRequest` | `sr.SessionRequests` | — |
 | `OpenSessionRequestTarget` | `sr.SessionRequestTargets` | `(SessionRequestId, TeacherId)` |
-| `OpenSessionOffer` | `sr.SessionOffers` | `(SessionRequestId, TeacherId) WHERE Status != Withdrawn` (فلترّ) |
+| `OpenSessionOffer` | `sr.SessionOffers` | `(SessionRequestId, TeacherId) WHERE Status IN (Pending, Accepted)` (فلترّ) |
 | `OfferConversation` | `sr.OfferConversations` | `(SessionRequestId, TeacherId)` |
 | `OfferMessage` | `sr.OfferMessages` | — |
 

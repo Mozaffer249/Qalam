@@ -20,11 +20,14 @@ public class OpenSessionOfferRepository : GenericRepositoryAsync<OpenSessionOffe
 
     public async Task<(int OfferId, OpenSessionOfferStatus Status)?> GetExistingActiveOfferAsync(int requestId, int teacherId, CancellationToken cancellationToken = default)
     {
+        // Only Pending/Accepted occupy the "one active offer" slot. Terminal statuses
+        // (Rejected, AutoRejected, Withdrawn, Expired) are history and allow re-offer.
         var row = await _context.OpenSessionOffers
             .AsNoTracking()
             .Where(o => o.SessionRequestId == requestId
                         && o.TeacherId == teacherId
-                        && o.Status != OpenSessionOfferStatus.Withdrawn)
+                        && (o.Status == OpenSessionOfferStatus.Pending
+                            || o.Status == OpenSessionOfferStatus.Accepted))
             .Select(o => new { o.Id, o.Status })
             .FirstOrDefaultAsync(cancellationToken);
 
