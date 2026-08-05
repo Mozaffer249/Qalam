@@ -235,6 +235,22 @@ public class DuplicateOfferMetaDto
     public OpenSessionOfferStatus ExistingOfferStatus { get; set; }
 }
 
+/// <summary>
+/// Meta when POST /Offers is blocked because sessions are outside weekly slots and/or overlap CourseSchedule.
+/// </summary>
+public class OfferAvailabilityBlockMetaDto
+{
+    public List<OfferAvailabilityBlockSessionDto> Sessions { get; set; } = new();
+}
+
+public class OfferAvailabilityBlockSessionDto
+{
+    public int SessionId { get; set; }
+    public int SequenceNumber { get; set; }
+    public SessionAvailabilityStatus Status { get; set; }
+    public string? ConflictWith { get; set; }
+}
+
 // ============================================================================
 // CONVERSATIONS (chat between the offering teacher and the requesting student/guardian)
 // ============================================================================

@@ -21,6 +21,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
     private readonly IOpenSessionRequestRepository _requestRepo;
     private readonly IOpenSessionRequestTargetRepository _targetRepo;
     private readonly IOpenSessionOfferRepository _offerRepo;
+    private readonly ISessionAvailabilityMatchService _availabilityMatch;
     private readonly IOfferConversationService _conversationService;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
@@ -32,6 +33,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         IOpenSessionRequestRepository requestRepo,
         IOpenSessionRequestTargetRepository targetRepo,
         IOpenSessionOfferRepository offerRepo,
+        ISessionAvailabilityMatchService availabilityMatch,
         IOfferConversationService conversationService,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
@@ -41,6 +43,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         _requestRepo = requestRepo;
         _targetRepo = targetRepo;
         _offerRepo = offerRepo;
+        _availabilityMatch = availabilityMatch;
         _conversationService = conversationService;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
@@ -75,6 +78,29 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
                 {
                     ExistingOfferId = existing.Value.OfferId,
                     ExistingOfferStatus = existing.Value.Status
+                });
+        }
+
+        var match = await _availabilityMatch.MatchAsync(
+            teacher.Id, request.Data.SessionRequestId, cancellationToken);
+        var blocked = match
+            .Where(m => m.Status != SessionAvailabilityStatus.Available)
+            .ToList();
+        if (blocked.Count > 0)
+        {
+            var hasScheduleConflict = blocked.Any(m => m.Status == SessionAvailabilityStatus.Conflict);
+            var code = hasScheduleConflict ? "SCHEDULE_CONFLICT" : "OUTSIDE_AVAILABILITY";
+            return Conflict<TeacherOfferDetailDto>(
+                code,
+                Meta: new OfferAvailabilityBlockMetaDto
+                {
+                    Sessions = blocked.Select(m => new OfferAvailabilityBlockSessionDto
+                    {
+                        SessionId = m.SessionId,
+                        SequenceNumber = m.SequenceNumber,
+                        Status = m.Status,
+                        ConflictWith = m.ConflictWith,
+                    }).ToList(),
                 });
         }
 

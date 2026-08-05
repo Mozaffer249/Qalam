@@ -1066,6 +1066,7 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
    - وجود `OpenSessionRequestTarget` row لزوج (الطلب، المعلم) — غير ذلك → `403 NOT_MATCHED`.
    - حالة الطلب `Active` أو `ReceivingOffers` — غير ذلك → `409 REQUEST_NOT_ACTIVE`.
    - لا يوجد عرض فعّال (`Pending` أو `Accepted`) لنفس المعلم على نفس الطلب — غير ذلك → `409 DUPLICATE_OFFER` مع `meta.existingOfferId`. الحالات النهائية (Rejected / AutoRejected / Withdrawn / Expired) تسمح بإعادة التقديم.
+   - كل جلسات الطلب يجب أن تكون ضمن Availability المعلم وبدون تعارض مع `CourseSchedule` — غير ذلك → `409 OUTSIDE_AVAILABILITY` أو `409 SCHEDULE_CONFLICT` مع `meta.sessions[]`.
 
 2. **`PUT /Offers/{id}` و `POST /Offers/{id}/withdraw`:**
    - الـ offer مملوك للمعلم — مفروض داخل `IOpenSessionOfferRepository.GetByIdForOwnerActionAsync(offerId, teacherId)` الذي يرشّح `o.TeacherId == teacher.Id` — غير ذلك → `404 Offer not found`.
@@ -1093,6 +1094,8 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
 | `NOT_MATCHED` | المعلم ليس له `OpenSessionRequestTarget` row على هذا الطلب | 403 | كل endpoints الـ AvailableRequests + `POST /Offers` |
 | `NOT_A_PARTICIPANT` | المستخدم ليس طرفاً في المحادثة (لا معلم العرض ولا الطالب/الولي) | 403 | كل endpoints الـ Conversations |
 | `DUPLICATE_OFFER` | يوجد عرض فعّال (`Pending` / `Accepted`) من نفس المعلم على نفس الطلب — الـ response يتضمن `meta.existingOfferId` و `meta.existingOfferStatus` | 409 | `POST /Offers` |
+| `OUTSIDE_AVAILABILITY` | جلسة أو أكثر خارج الجدول الأسبوعي للمعلم (`TeacherAvailability`) — `meta.sessions[]` | 409 | `POST /Offers` |
+| `SCHEDULE_CONFLICT` | جلسة أو أكثر تتعارض مع حجز قائم (`CourseSchedule`) — أولوية على Outside إن وُجد كلاهما؛ `meta.sessions[]` | 409 | `POST /Offers` |
 | `REQUEST_NOT_ACTIVE` | الطلب ليس في حالة Active/ReceivingOffers (مثلاً Cancelled، OfferAccepted، Expired) | 409 | `POST /Offers` |
 | `OFFER_NOT_PENDING` | العرض ليس في حالة Pending — يحدث للعروض المنسحبة، المنتهية، المقبولة، المرفوضة | 409 | `PUT /Offers/{id}` + `POST /Offers/{id}/withdraw` |
 | `OFFER_ALREADY_SUBMITTED` | محاولة dismiss طلب سبق تقديم عرض عليه | 400 | `POST /AvailableRequests/{id}/dismiss` |
