@@ -63,7 +63,8 @@ public class SessionAvailabilityMatchService : ISessionAvailabilityMatchService
                 continue;
             }
 
-            var dayOfWeekIndex = (int)slot.PreferredDate.Value.DayOfWeek;
+            // DayOfWeekMaster.OrderIndex is 1=Sunday … 7=Saturday; .NET DayOfWeek is 0=Sunday … 6=Saturday.
+            var dayOfWeekIndex = (int)slot.PreferredDate.Value.DayOfWeek + 1;
             var inAvailability = availabilityKeys.Contains(
                 (dayOfWeekIndex, slot.TimeSlotStart.Value, slot.TimeSlotEnd.Value));
             if (!inAvailability)

@@ -75,6 +75,8 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                         TimeSlotId = s.TimeSlotId,
                         TimeSlotLabelEn = s.TimeSlot != null ? s.TimeSlot.LabelEn : null,
                         TimeSlotLabelAr = s.TimeSlot != null ? s.TimeSlot.LabelAr : null,
+                        StartTime = s.TimeSlot != null ? s.TimeSlot.StartTime : null,
+                        EndTime = s.TimeSlot != null ? s.TimeSlot.EndTime : null,
                         DurationMinutes = s.DurationMinutes,
                         Notes = s.Notes,
                         Units = s.Units.Select(u => new TeacherViewSessionUnitDto

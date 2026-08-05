@@ -104,6 +104,10 @@ public class TeacherViewSessionDto
     public int? TimeSlotId { get; set; }
     public string? TimeSlotLabelEn { get; set; }
     public string? TimeSlotLabelAr { get; set; }
+    /// <summary>Catalog TimeSlot start (platform local Asia/Riyadh).</summary>
+    public TimeSpan? StartTime { get; set; }
+    /// <summary>Catalog TimeSlot end (platform local Asia/Riyadh).</summary>
+    public TimeSpan? EndTime { get; set; }
     public int DurationMinutes { get; set; }
     public string? Notes { get; set; }
     public List<TeacherViewSessionUnitDto> Units { get; set; } = new();
