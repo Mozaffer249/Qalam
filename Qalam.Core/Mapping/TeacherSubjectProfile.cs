@@ -24,16 +24,14 @@ public class TeacherSubjectProfile : Profile
             .ForMember(dest => dest.GradeId, opt => opt.MapFrom(src => src.Subject != null ? src.Subject.GradeId : null))
             .ForMember(dest => dest.GradeNameAr, opt => opt.MapFrom(src => src.Subject != null && src.Subject.Grade != null ? src.Subject.Grade.NameAr : null))
             .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src => src.Subject != null && src.Subject.Grade != null ? src.Subject.Grade.NameEn : null))
+            .ForMember(dest => dest.QuranContentTypeIds, opt => opt.MapFrom(src => src.QuranContentTypes.Select(c => c.QuranContentTypeId).ToList()))
+            .ForMember(dest => dest.QuranLevelIds, opt => opt.MapFrom(src => src.QuranLevels.Select(l => l.QuranLevelId).ToList()))
             .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits));
 
         // TeacherSubjectUnit -> TeacherSubjectUnitResponseDto
         CreateMap<TeacherSubjectUnit, TeacherSubjectUnitResponseDto>()
             .ForMember(dest => dest.UnitNameAr, opt => opt.MapFrom(src => src.Unit != null ? src.Unit.NameAr : ""))
             .ForMember(dest => dest.UnitNameEn, opt => opt.MapFrom(src => src.Unit != null ? src.Unit.NameEn : ""))
-            .ForMember(dest => dest.UnitTypeCode, opt => opt.MapFrom(src => src.Unit != null ? src.Unit.UnitTypeCode : null))
-            .ForMember(dest => dest.QuranContentTypeNameAr, opt => opt.MapFrom(src => src.QuranContentType != null ? src.QuranContentType.NameAr : null))
-            .ForMember(dest => dest.QuranContentTypeNameEn, opt => opt.MapFrom(src => src.QuranContentType != null ? src.QuranContentType.NameEn : null))
-            .ForMember(dest => dest.QuranLevelNameAr, opt => opt.MapFrom(src => src.QuranLevel != null ? src.QuranLevel.NameAr : null))
-            .ForMember(dest => dest.QuranLevelNameEn, opt => opt.MapFrom(src => src.QuranLevel != null ? src.QuranLevel.NameEn : null));
+            .ForMember(dest => dest.UnitTypeCode, opt => opt.MapFrom(src => src.Unit != null ? src.Unit.UnitTypeCode : null));
     }
 }

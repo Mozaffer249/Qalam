@@ -22,20 +22,14 @@ public class UpdateTeacherSubjectCommandValidator : AbstractValidator<UpdateTeac
             unit.RuleFor(u => u.UnitId)
                 .GreaterThan(0)
                 .WithMessage("Unit ID must be greater than 0");
-
-            unit.When(u => u.QuranContentTypeId.HasValue, () =>
-            {
-                unit.RuleFor(u => u.QuranContentTypeId)
-                    .InclusiveBetween(1, 10)
-                    .WithMessage("Invalid Quran Content Type ID");
-            });
-
-            unit.When(u => u.QuranLevelId.HasValue, () =>
-            {
-                unit.RuleFor(u => u.QuranLevelId)
-                    .InclusiveBetween(1, 10)
-                    .WithMessage("Invalid Quran Level ID");
-            });
         });
+
+        RuleForEach(x => x.QuranContentTypeIds)
+            .GreaterThan(0)
+            .WithMessage("Quran content type ID must be greater than 0");
+
+        RuleForEach(x => x.QuranLevelIds)
+            .GreaterThan(0)
+            .WithMessage("Quran level ID must be greater than 0");
     }
 }

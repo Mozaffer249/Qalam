@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations;
 using Qalam.Data.Commons;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Education;
 
 namespace Qalam.Data.Entity.Teacher;
@@ -23,19 +21,10 @@ public class TeacherSubject : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    public DocumentVerificationStatus VerificationStatus { get; set; } = DocumentVerificationStatus.Pending;
-
-    [MaxLength(500)]
-    public string? RejectionReason { get; set; }
-
-    public int? ReviewedByAdminId { get; set; }
-
-    public DateTime? ReviewedAt { get; set; }
-
-    public TeacherSubjectRejectionSource? RejectionSource { get; set; }
-
     // Navigation Properties
     public Teacher Teacher { get; set; } = null!;
     public Subject Subject { get; set; } = null!;
     public ICollection<TeacherSubjectUnit> TeacherSubjectUnits { get; set; } = new List<TeacherSubjectUnit>();
+    public ICollection<TeacherSubjectQuranContentType> QuranContentTypes { get; set; } = new List<TeacherSubjectQuranContentType>();
+    public ICollection<TeacherSubjectQuranLevel> QuranLevels { get; set; } = new List<TeacherSubjectQuranLevel>();
 }

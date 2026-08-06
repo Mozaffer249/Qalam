@@ -1,6 +1,5 @@
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -9,118 +8,89 @@ namespace Qalam.Infrastructure.Abstracts;
 
 public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubject>
 {
-    /// <summary>
-    /// Get all teacher subjects with their units
-    /// </summary>
     Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId);
-    
-    /// <summary>
-    /// Get a specific teacher subject with units
-    /// </summary>
+
     Task<TeacherSubject?> GetTeacherSubjectWithUnitsAsync(int teacherSubjectId);
-    
-    /// <summary>
-    /// Save teacher subjects (replaces existing)
-    /// </summary>
+
     Task<List<TeacherSubject>> SaveTeacherSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjects);
-    
-    /// <summary>
-    /// Check if teacher has a specific subject
-    /// </summary>
+
     Task<bool> TeacherHasSubjectAsync(int teacherId, int subjectId);
-    
-    /// <summary>
-    /// Check if teacher has any approved active subjects (optimized - doesn't retrieve data)
-    /// </summary>
+
+    /// <summary>Check if teacher has any active subjects.</summary>
     Task<bool> HasAnySubjectsAsync(int teacherId);
 
-    /// <summary>
-    /// Check if teacher has any subject offerings (any verification status)
-    /// </summary>
+    /// <summary>Check if teacher has any subject offerings (active or inactive).</summary>
     Task<bool> HasAnySubjectOfferingsAsync(int teacherId);
 
-    /// <summary>
-    /// Counts by verification status for activation gating
-    /// </summary>
     Task<TeacherSubjectActivationSnapshot> GetSubjectActivationSnapshotAsync(int teacherId);
-    
-    /// <summary>
-    /// Remove all subjects for a teacher
-    /// </summary>
+
     Task RemoveAllTeacherSubjectsAsync(int teacherId);
-    
-    /// <summary>
-    /// Get only SubjectIds for a teacher (optimized - no full data)
-    /// </summary>
+
     Task<HashSet<int>> GetExistingSubjectIdsAsync(int teacherId);
-    
+
     /// <summary>
-    /// Add only new subjects (skip existing ones)
+    /// Add new subjects or update existing rows for the same SubjectId (unique per teacher).
+    /// Returns the saved subjects (new or updated).
     /// </summary>
     Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjects);
 
     /// <summary>
-    /// Matching engine: return the IDs of teachers who teach <paramref name="subjectId"/> via an
-    /// active TeacherSubject and whose own Teacher.Status is Active. Distinct, no duplicates.
+    /// Matching engine: active TeacherSubject + Active teacher, optionally filtered by Quran coverage.
+    /// Empty required type/level sets mean no Quran filter.
     /// </summary>
-    Task<List<int>> GetActiveTeacherIdsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default);
+    Task<List<int>> GetActiveTeacherIdsBySubjectAsync(
+        int subjectId,
+        IReadOnlyCollection<int>? requiredQuranContentTypeIds = null,
+        IReadOnlyCollection<int>? requiredQuranLevelIds = null,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>All subjects for a teacher (active, inactive, rejected) with units.</summary>
     Task<List<TeacherSubject>> GetAllByTeacherIdForAdminAsync(int teacherId, CancellationToken cancellationToken = default);
 
-    /// <summary>Owned teacher subject with units, or null.</summary>
     Task<TeacherSubject?> GetByIdForTeacherAsync(int teacherId, int teacherSubjectId, CancellationToken cancellationToken = default);
 
-    /// <summary>Delete an owned teacher subject and its units. Returns false if not found.</summary>
+    Task<TeacherSubject?> GetBySubjectIdForTeacherAsync(int teacherId, int subjectId, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteOwnedAsync(int teacherId, int teacherSubjectId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Replace units / CanTeachFullSubject for an owned subject and reset verification to Pending.
-    /// Returns the reloaded subject with navigation props, or null if not found.
-    /// </summary>
+    /// <summary>Replace units / CanTeachFullSubject / Quran coverage for an owned subject.</summary>
     Task<TeacherSubject?> ReplaceUnitsAsync(
         int teacherId,
         int teacherSubjectId,
         bool canTeachFullSubject,
         List<TeacherSubjectUnitItemDto> units,
+        IReadOnlyList<int>? quranContentTypeIds = null,
+        IReadOnlyList<int>? quranLevelIds = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Paginated cross-teacher list for admin.</summary>
     Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(
         int pageNumber,
         int pageSize,
         int? teacherId = null,
         int? subjectId = null,
         bool? isActive = null,
-        DocumentVerificationStatus? verificationStatus = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Distinct education domain IDs from the teacher's subject offerings.</summary>
     Task<List<int>> GetDistinctDomainIdsForTeacherAsync(int teacherId, CancellationToken cancellationToken = default);
 
-    /// <summary>All teacher subject rows in an education domain.</summary>
     Task<List<TeacherSubject>> GetTeacherSubjectsInDomainAsync(
         int teacherId,
         int domainId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Subjects in a domain that are not yet rejected (for cascade reject).</summary>
-    Task<List<TeacherSubject>> GetSubjectsInDomainForCascadeRejectAsync(
+    /// <summary>Active subjects in a domain (for cascade deactivate).</summary>
+    Task<List<TeacherSubject>> GetActiveSubjectsInDomainAsync(
         int teacherId,
         int domainId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Cascade-rejected subjects in a domain (for restore after domain approval).</summary>
-    Task<List<TeacherSubject>> GetCascadeRejectedSubjectsInDomainAsync(
+    /// <summary>Inactive subjects in a domain (for cascade reactivate).</summary>
+    Task<List<TeacherSubject>> GetInactiveSubjectsInDomainAsync(
         int teacherId,
         int domainId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Subjects rejected directly by admin (teacher may resubmit).</summary>
-    Task<List<TeacherSubject>> GetDirectRejectedSubjectsAsync(int teacherId, CancellationToken cancellationToken = default);
-
-    /// <summary>Approved + active subjects with units for student teacher profile / wizard.</summary>
-    Task<List<TeacherSubject>> GetApprovedActiveSubjectsWithUnitsAsync(
+    /// <summary>Active subjects with units for student teacher profile / wizard.</summary>
+    Task<List<TeacherSubject>> GetActiveSubjectsWithUnitsAsync(
         int teacherId,
         CancellationToken cancellationToken = default);
 }

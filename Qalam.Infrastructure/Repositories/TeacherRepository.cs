@@ -338,9 +338,13 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             var qContent = filters.QuranContentTypeId;
             var qLevel = filters.QuranLevelId;
             query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive && ts.TeacherSubjectUnits.Any(u =>
-                    (!qContent.HasValue || u.QuranContentTypeId == qContent.Value) &&
-                    (!qLevel.HasValue   || u.QuranLevelId == qLevel.Value))));
+                ts.IsActive
+                && (!qContent.HasValue
+                    || !ts.QuranContentTypes.Any()
+                    || ts.QuranContentTypes.Any(c => c.QuranContentTypeId == qContent.Value))
+                && (!qLevel.HasValue
+                    || !ts.QuranLevels.Any()
+                    || ts.QuranLevels.Any(l => l.QuranLevelId == qLevel.Value))));
         }
         if (filters.Location.HasValue)
         {
@@ -413,14 +417,12 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                     .Count(c => c.TeacherId == teacherId
                                 && c.Status == CourseStatus.Published
                                 && c.IsActive),
-                SubjectsCount = t.TeacherSubjects.Count(ts => ts.IsActive
-                    && ts.VerificationStatus == DocumentVerificationStatus.Approved),
+                SubjectsCount = t.TeacherSubjects.Count(ts => ts.IsActive),
                 SessionsCount = _context.Set<Qalam.Data.Entity.Course.CourseSchedule>()
                     .Count(s => s.Enrollment.ApprovedByTeacherId == teacherId
                                 && s.Status == ScheduleStatus.Completed),
                 Subjects = t.TeacherSubjects
                     .Where(ts => ts.IsActive
-                                 && ts.VerificationStatus == DocumentVerificationStatus.Approved
                                  && ts.Subject != null)
                     .OrderBy(ts => ts.Subject!.NameAr)
                     .Take(previewLimit)

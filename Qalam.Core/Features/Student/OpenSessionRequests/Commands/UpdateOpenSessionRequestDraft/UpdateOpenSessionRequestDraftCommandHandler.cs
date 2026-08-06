@@ -64,6 +64,14 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         if (!await _db.TeachingModes.AnyAsync(x => x.Id == data.TeachingModeId, cancellationToken))
             return NotFound<OpenSessionRequestDetailDto>("طريقة التدريس غير موجودة");
 
+        var domainName = await _db.EducationDomains
+            .Where(x => x.Id == data.DomainId)
+            .Select(x => x.NameEn ?? x.Code ?? string.Empty)
+            .FirstOrDefaultAsync(cancellationToken);
+        var isQuran = (domainName ?? string.Empty).Contains("quran", StringComparison.OrdinalIgnoreCase);
+        if (isQuran && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
+            return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
+
         if (data.TargetedTeacherId.HasValue)
         {
             var err = await _targetedValidator.ValidateAsync(

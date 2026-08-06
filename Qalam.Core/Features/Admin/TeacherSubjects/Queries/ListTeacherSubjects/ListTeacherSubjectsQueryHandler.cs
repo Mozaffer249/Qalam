@@ -29,7 +29,6 @@ public class ListTeacherSubjectsQueryHandler : ResponseHandler,
             request.TeacherId,
             request.SubjectId,
             request.IsActive,
-            request.VerificationStatus,
             cancellationToken);
 
         return Success(

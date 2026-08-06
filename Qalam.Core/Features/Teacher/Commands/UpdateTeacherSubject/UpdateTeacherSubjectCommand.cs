@@ -7,7 +7,7 @@ using Qalam.Data.DTOs.Teacher;
 namespace Qalam.Core.Features.Teacher.Commands.UpdateTeacherSubject;
 
 /// <summary>
-/// Command to update units / CanTeachFullSubject for an owned teacher subject.
+/// Command to update units / CanTeachFullSubject / Quran coverage for an owned teacher subject.
 /// </summary>
 public class UpdateTeacherSubjectCommand : IRequest<Response<TeacherSubjectResponseDto>>, IAuthenticatedRequest
 {
@@ -25,4 +25,8 @@ public class UpdateTeacherSubjectCommand : IRequest<Response<TeacherSubjectRespo
     public bool CanTeachFullSubject { get; set; }
 
     public List<TeacherSubjectUnitItemDto> Units { get; set; } = new();
+
+    public List<int> QuranContentTypeIds { get; set; } = new();
+
+    public List<int> QuranLevelIds { get; set; } = new();
 }

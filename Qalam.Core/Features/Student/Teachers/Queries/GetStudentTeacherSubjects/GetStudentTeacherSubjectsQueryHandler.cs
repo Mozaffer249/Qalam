@@ -33,7 +33,7 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
         var limit = request.Limit is < 1 or > 50 ? 10 : request.Limit;
 
         var subjects = await _teacherSubjectRepository
-            .GetApprovedActiveSubjectsWithUnitsAsync(request.TeacherId, cancellationToken);
+            .GetActiveSubjectsWithUnitsAsync(request.TeacherId, cancellationToken);
 
         var dtos = subjects
             .Take(limit)
@@ -61,12 +61,6 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
                     UnitNameAr = u.Unit?.NameAr ?? string.Empty,
                     UnitNameEn = u.Unit?.NameEn ?? string.Empty,
                     UnitTypeCode = u.Unit?.UnitTypeCode,
-                    QuranContentTypeId = u.QuranContentTypeId,
-                    QuranContentTypeNameAr = u.QuranContentType?.NameAr,
-                    QuranContentTypeNameEn = u.QuranContentType?.NameEn,
-                    QuranLevelId = u.QuranLevelId,
-                    QuranLevelNameAr = u.QuranLevel?.NameAr,
-                    QuranLevelNameEn = u.QuranLevel?.NameEn,
                 }).ToList()
             }).ToList();
 

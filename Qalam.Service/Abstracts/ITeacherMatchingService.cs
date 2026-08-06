@@ -8,7 +8,8 @@ namespace Qalam.Service.Abstracts;
 public interface ITeacherMatchingService
 {
     /// <summary>
-    /// Returns the IDs of active teachers whose TeacherSubject covers the request's SubjectId.
+    /// Returns the IDs of active teachers whose TeacherSubject covers the request's SubjectId
+    /// and any Quran type/level requirements from the request sessions.
     /// Skips teachers already targeted on this request (idempotent — safe to call multiple times).
     /// </summary>
     Task<List<int>> FindMatchingTeacherIdsAsync(int requestId, CancellationToken cancellationToken = default);

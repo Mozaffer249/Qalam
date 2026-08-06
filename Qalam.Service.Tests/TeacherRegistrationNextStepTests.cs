@@ -725,7 +725,7 @@ public class TeacherRegistrationStatusServiceTests
             TeacherStatus.PendingVerification,
             canActivate: true,
             hasAvailability: false,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 2, Approved = 2 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 2, Active = 2 });
 
         var status = await service.GetStatusForTeacherAsync(TeacherId);
 
@@ -744,7 +744,7 @@ public class TeacherRegistrationStatusServiceTests
             TeacherStatus.Active,
             canActivate: false,
             hasAvailability: false,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 });
 
         var status = await service.GetStatusForTeacherAsync(TeacherId);
 

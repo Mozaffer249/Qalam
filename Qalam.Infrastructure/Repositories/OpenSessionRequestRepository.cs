@@ -26,6 +26,30 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<(List<int> ContentTypeIds, List<int> LevelIds)> GetSessionQuranRequirementIdsAsync(
+        int requestId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _context.OpenSessionRequestSessions
+            .AsNoTracking()
+            .Where(s => s.SessionRequestId == requestId)
+            .Select(s => new { s.QuranContentTypeId, s.QuranLevelId })
+            .ToListAsync(cancellationToken);
+
+        var contentTypeIds = rows
+            .Where(r => r.QuranContentTypeId.HasValue)
+            .Select(r => r.QuranContentTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var levelIds = rows
+            .Where(r => r.QuranLevelId.HasValue)
+            .Select(r => r.QuranLevelId!.Value)
+            .Distinct()
+            .ToList();
+
+        return (contentTypeIds, levelIds);
+    }
+
     public async Task<List<int>> GetOpenBroadcastRequestIdsBySubjectIdsAsync(
         IReadOnlyCollection<int> subjectIds,
         CancellationToken cancellationToken = default)

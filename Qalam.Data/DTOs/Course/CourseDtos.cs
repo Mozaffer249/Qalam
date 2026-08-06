@@ -29,6 +29,8 @@ public class CourseSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
     public List<CourseSessionUnitDto> Units { get; set; } = new();
 }
 
@@ -53,6 +55,8 @@ public class CreateCourseSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
     public List<CreateCourseSessionUnitDto>? Units { get; set; }
 }
 

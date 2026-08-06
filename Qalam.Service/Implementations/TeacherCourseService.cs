@@ -104,9 +104,7 @@ public class TeacherCourseService : ITeacherCourseService
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
             teacher.Id, dto.TeacherSubjectId, cancellationToken);
-        if (teacherSubject == null
-            || !teacherSubject.IsActive
-            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
+        if (teacherSubject == null || !teacherSubject.IsActive)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
         var teachingMode = await _teachingModeRepository.GetByIdAsync(dto.TeachingModeId);
@@ -135,6 +133,10 @@ public class TeacherCourseService : ITeacherCourseService
             teacherSubject, dto.Sessions, cancellationToken);
         if (repertoireError != null)
             throw new InvalidOperationException(repertoireError);
+
+        var quranError = ValidateSessionsQuranCoverage(teacherSubject, dto.Sessions);
+        if (quranError != null)
+            throw new InvalidOperationException(quranError);
 
         var course = new Course
         {
@@ -166,6 +168,8 @@ public class TeacherCourseService : ITeacherCourseService
                         DurationMinutes = s.DurationMinutes,
                         Title = s.Title,
                         Notes = s.Notes,
+                        QuranContentTypeId = s.QuranContentTypeId,
+                        QuranLevelId = s.QuranLevelId,
                         CreatedAt = DateTime.UtcNow
                     };
                     if (s.Units != null)
@@ -217,8 +221,7 @@ public class TeacherCourseService : ITeacherCourseService
         var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
         if (teacherSubject == null
             || teacherSubject.TeacherId != teacher.Id
-            || !teacherSubject.IsActive
-            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
+            || !teacherSubject.IsActive)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
         var teachingMode = await _teachingModeRepository.GetByIdAsync(dto.TeachingModeId);
@@ -282,9 +285,7 @@ public class TeacherCourseService : ITeacherCourseService
 
         var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
             teacher.Id, course.TeacherSubjectId, cancellationToken);
-        if (teacherSubject == null
-            || !teacherSubject.IsActive
-            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
+        if (teacherSubject == null || !teacherSubject.IsActive)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
         // Subject-consistency check is delegated to the repo (single batched read per FK kind).
@@ -370,6 +371,45 @@ public class TeacherCourseService : ITeacherCourseService
             .ToList();
 
         await _courseSessionUnitRepository.ValidateUnitsBelongToSubjectAsync(contentUnitIds, lessonIds, subjectId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Empty teacher Quran coverage sets mean all types/levels are allowed.
+    /// </summary>
+    private static string? ValidateSessionsQuranCoverage(
+        Data.Entity.Teacher.TeacherSubject teacherSubject,
+        List<CreateCourseSessionDto>? sessions)
+    {
+        if (sessions == null) return null;
+
+        var coveredTypes = teacherSubject.QuranContentTypes
+            .Select(c => c.QuranContentTypeId)
+            .ToHashSet();
+        var coveredLevels = teacherSubject.QuranLevels
+            .Select(l => l.QuranLevelId)
+            .ToHashSet();
+
+        for (var i = 0; i < sessions.Count; i++)
+        {
+            var session = sessions[i];
+            var label = $"Session {i + 1}";
+
+            if (session.QuranContentTypeId is int typeId
+                && coveredTypes.Count > 0
+                && !coveredTypes.Contains(typeId))
+            {
+                return $"{label}: Quran content type {typeId} is outside this teacher's coverage.";
+            }
+
+            if (session.QuranLevelId is int levelId
+                && coveredLevels.Count > 0
+                && !coveredLevels.Contains(levelId))
+            {
+                return $"{label}: Quran level {levelId} is outside this teacher's coverage.";
+            }
+        }
+
+        return null;
     }
 
     private CourseDetailDto WithPublicImageUrl(CourseDetailDto dto)

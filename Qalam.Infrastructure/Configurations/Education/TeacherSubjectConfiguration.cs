@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 
 namespace Qalam.Infrastructure.Configurations.Education;
@@ -13,8 +12,7 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
 
         builder.HasKey(e => e.Id);
 
-        // Index for performance (not unique - allows multiple TeacherSubjects for same subject with different units)
-        builder.HasIndex(e => new { e.TeacherId, e.SubjectId });
+        builder.HasIndex(e => new { e.TeacherId, e.SubjectId }).IsUnique();
 
         builder.HasOne(e => e.Teacher)
                .WithMany(t => t.TeacherSubjects)
@@ -25,15 +23,5 @@ public class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubje
                .WithMany(s => s.TeacherSubjects)
                .HasForeignKey(e => e.SubjectId)
                .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Property(e => e.VerificationStatus)
-               .HasDefaultValue(DocumentVerificationStatus.Pending);
-
-        builder.Property(e => e.RejectionReason)
-               .HasMaxLength(500);
-
-        builder.Property(e => e.RejectionSource)
-               .HasConversion<int?>();
     }
 }
-

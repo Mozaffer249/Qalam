@@ -1,5 +1,3 @@
-using Qalam.Data.Entity.Common.Enums;
-
 namespace Qalam.Data.DTOs.Teacher;
 
 #region Input DTOs
@@ -29,26 +27,24 @@ public class TeacherSubjectItemDto
     /// الوحدات المحددة (مطلوبة إذا CanTeachFullSubject = false)
     /// </summary>
     public List<TeacherSubjectUnitItemDto> Units { get; set; } = new();
+
+    /// <summary>
+    /// Quran content types covered. Empty = all types.
+    /// </summary>
+    public List<int> QuranContentTypeIds { get; set; } = new();
+
+    /// <summary>
+    /// Quran levels covered. Empty = all levels.
+    /// </summary>
+    public List<int> QuranLevelIds { get; set; } = new();
 }
 
 /// <summary>
-/// DTO لوحدة واحدة مع تخصصات القرآن
+/// DTO لوحدة واحدة
 /// </summary>
 public class TeacherSubjectUnitItemDto
 {
     public int UnitId { get; set; }
-    
-    /// <summary>
-    /// نوع المحتوى للقرآن (1=حفظ، 2=تلاوة، 3=تجويد)
-    /// null = كل الأنواع
-    /// </summary>
-    public int? QuranContentTypeId { get; set; }
-    
-    /// <summary>
-    /// مستوى القرآن (1=نوراني، 2=مبتدئ، 3=متوسط، 4=متقدم)
-    /// null = كل المستويات
-    /// </summary>
-    public int? QuranLevelId { get; set; }
 }
 
 /// <summary>
@@ -59,6 +55,10 @@ public class UpdateTeacherSubjectDto
     public bool CanTeachFullSubject { get; set; }
 
     public List<TeacherSubjectUnitItemDto> Units { get; set; } = new();
+
+    public List<int> QuranContentTypeIds { get; set; } = new();
+
+    public List<int> QuranLevelIds { get; set; } = new();
 }
 
 #endregion
@@ -102,9 +102,9 @@ public class TeacherSubjectResponseDto
 
     public bool CanTeachFullSubject { get; set; }
     public bool IsActive { get; set; }
-    public DocumentVerificationStatus VerificationStatus { get; set; }
-    public string? RejectionReason { get; set; }
-    public DateTime? ReviewedAt { get; set; }
+
+    public List<int> QuranContentTypeIds { get; set; } = new();
+    public List<int> QuranLevelIds { get; set; } = new();
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 }
@@ -119,14 +119,6 @@ public class TeacherSubjectUnitResponseDto
     public string UnitNameAr { get; set; } = default!;
     public string UnitNameEn { get; set; } = default!;
     public string? UnitTypeCode { get; set; }
-    
-    public int? QuranContentTypeId { get; set; }
-    public string? QuranContentTypeNameAr { get; set; }
-    public string? QuranContentTypeNameEn { get; set; }
-    
-    public int? QuranLevelId { get; set; }
-    public string? QuranLevelNameAr { get; set; }
-    public string? QuranLevelNameEn { get; set; }
 }
 
 /// <summary>
@@ -137,8 +129,17 @@ public class TeacherSubjectUnitOptionDto
     public int Id { get; set; }
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;
-    public int? QuranContentTypeId { get; set; }
-    public int? QuranLevelId { get; set; }
+}
+
+/// <summary>
+/// Full-catalog unit option for the profile edit drawer (with selection state).
+/// </summary>
+public class TeacherSubjectUnitPickerDto
+{
+    public int Id { get; set; }
+    public string NameAr { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public bool IsSelected { get; set; }
 }
 
 #endregion

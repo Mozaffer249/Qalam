@@ -50,7 +50,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Pending = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Inactive = 1 },
             domainIds: [1],
             domainQuestions: [domainQuestion],
             domainSubmissions: [domainSubmission]);
@@ -64,7 +64,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 2, Approved = 2 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 2, Active = 2 });
 
         Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
@@ -77,7 +77,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             onStatusUpdate: status => updatedStatus = status,
             lifecycleEmail: lifecycleEmail.Object);
 
@@ -98,7 +98,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.Active,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             lifecycleEmail: lifecycleEmail.Object);
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
@@ -116,7 +116,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.Blocked,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 });
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 
@@ -130,7 +130,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: false,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 });
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 
@@ -145,7 +145,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             onStatusUpdate: status => updatedStatus = status);
 
         await service.RefreshTeacherStatusAfterReviewAsync(TeacherId);
@@ -182,7 +182,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             domainIds: [1],
             domainQuestions: [domainQuestion],
             domainSubmissions: [domainSubmission]);
@@ -219,7 +219,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.PendingVerification,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 },
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             domainIds: [1],
             domainQuestions: [domainQuestion],
             domainSubmissions: [domainSubmission]);
@@ -326,7 +326,7 @@ public class TeacherRegistrationCompletionServiceTests
         var service = BuildService(
             teacherStatus: TeacherStatus.DocumentsRejected,
             requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Approved = 1 });
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 });
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 

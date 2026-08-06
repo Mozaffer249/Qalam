@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -32,14 +31,38 @@ public class TeacherSubjectRepertoireService : ITeacherSubjectRepertoireService
         var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
             teacherId, teacherSubjectId, cancellationToken);
 
-        if (teacherSubject == null
-            || !teacherSubject.IsActive
-            || teacherSubject.VerificationStatus != DocumentVerificationStatus.Approved)
-        {
+        if (teacherSubject == null || !teacherSubject.IsActive)
             return null;
-        }
 
         return await MapAllowedUnitsAsync(teacherSubject, cancellationToken);
+    }
+
+    public async Task<List<TeacherSubjectUnitPickerDto>?> GetUnitPickerForTeacherSubjectAsync(
+        int teacherId,
+        int teacherSubjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
+            teacherId, teacherSubjectId, cancellationToken);
+
+        if (teacherSubject == null)
+            return null;
+
+        return await MapUnitPickerAsync(teacherSubject, cancellationToken);
+    }
+
+    public async Task<List<TeacherSubjectUnitPickerDto>?> GetUnitPickerBySubjectIdAsync(
+        int teacherId,
+        int subjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacherSubject = await _teacherSubjectRepository.GetBySubjectIdForTeacherAsync(
+            teacherId, subjectId, cancellationToken);
+
+        if (teacherSubject == null)
+            return null;
+
+        return await MapUnitPickerAsync(teacherSubject, cancellationToken);
     }
 
     public async Task<HashSet<int>> GetAllowedUnitIdsAsync(
@@ -126,13 +149,35 @@ public class TeacherSubjectRepertoireService : ITeacherSubjectRepertoireService
                     Id = first.UnitId,
                     NameAr = first.Unit?.NameAr ?? string.Empty,
                     NameEn = first.Unit?.NameEn ?? string.Empty,
-                    QuranContentTypeId = first.QuranContentTypeId,
-                    QuranLevelId = first.QuranLevelId,
                 };
             })
             .OrderBy(u => u.NameAr)
             .ThenBy(u => u.NameEn)
             .ToList();
+    }
+
+    private async Task<List<TeacherSubjectUnitPickerDto>> MapUnitPickerAsync(
+        TeacherSubject teacherSubject,
+        CancellationToken cancellationToken)
+    {
+        var selectedIds = teacherSubject.CanTeachFullSubject
+            ? null
+            : teacherSubject.TeacherSubjectUnits.Select(u => u.UnitId).ToHashSet();
+
+        var catalog = await _contentUnitRepository
+            .GetContentUnitsBySubjectId(teacherSubject.SubjectId)
+            .Where(cu => cu.IsActive)
+            .OrderBy(cu => cu.OrderIndex)
+            .Select(cu => new { cu.Id, cu.NameAr, cu.NameEn })
+            .ToListAsync(cancellationToken);
+
+        return catalog.Select(cu => new TeacherSubjectUnitPickerDto
+        {
+            Id = cu.Id,
+            NameAr = cu.NameAr,
+            NameEn = cu.NameEn,
+            IsSelected = selectedIds == null || selectedIds.Contains(cu.Id)
+        }).ToList();
     }
 
     private async Task<string?> ValidateUnitRowsAsync(

@@ -51,12 +51,6 @@ public class StudentTeacherSubjectUnitDto
     public string UnitNameAr { get; set; } = default!;
     public string UnitNameEn { get; set; } = default!;
     public string? UnitTypeCode { get; set; }
-    public int? QuranContentTypeId { get; set; }
-    public string? QuranContentTypeNameAr { get; set; }
-    public string? QuranContentTypeNameEn { get; set; }
-    public int? QuranLevelId { get; set; }
-    public string? QuranLevelNameAr { get; set; }
-    public string? QuranLevelNameEn { get; set; }
 }
 
 public class StudentTeacherReviewDto

@@ -25,7 +25,14 @@ public class TeacherMatchingService : ITeacherMatchingService
         if (subjectId == null)
             return new List<int>();
 
-        var candidates = await _teacherSubjectRepo.GetActiveTeacherIdsBySubjectAsync(subjectId.Value, cancellationToken);
+        var (contentTypeIds, levelIds) = await _requestRepo.GetSessionQuranRequirementIdsAsync(
+            requestId, cancellationToken);
+
+        var candidates = await _teacherSubjectRepo.GetActiveTeacherIdsBySubjectAsync(
+            subjectId.Value,
+            contentTypeIds.Count > 0 ? contentTypeIds : null,
+            levelIds.Count > 0 ? levelIds : null,
+            cancellationToken);
         if (candidates.Count == 0)
             return new List<int>();
 

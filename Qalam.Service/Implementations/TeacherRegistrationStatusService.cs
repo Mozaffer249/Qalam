@@ -175,9 +175,8 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
         new()
         {
             TotalSubjects = snapshot.Total,
-            PendingSubjects = snapshot.Pending,
-            RejectedSubjects = snapshot.Rejected,
-            ActiveSubjects = snapshot.Approved
+            ActiveSubjects = snapshot.Active,
+            InactiveSubjects = snapshot.Inactive
         };
 
     /// <summary>

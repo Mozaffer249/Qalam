@@ -34,15 +34,6 @@ public enum TeacherStatus
 }
 
 /// <summary>
-/// Why a teacher subject was rejected.
-/// </summary>
-public enum TeacherSubjectRejectionSource
-{
-    DirectAdmin = 1,
-    DomainQuestionCascade = 2
-}
-
-/// <summary>
 /// Document verification status by admin
 /// </summary>
 public enum DocumentVerificationStatus

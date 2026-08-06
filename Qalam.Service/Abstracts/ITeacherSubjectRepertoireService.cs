@@ -11,6 +11,22 @@ public interface ITeacherSubjectRepertoireService
         int teacherSubjectId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Full active catalog for the subject with IsSelected flags. Owner-only; no IsActive gate.
+    /// </summary>
+    Task<List<TeacherSubjectUnitPickerDto>?> GetUnitPickerForTeacherSubjectAsync(
+        int teacherId,
+        int teacherSubjectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Same as <see cref="GetUnitPickerForTeacherSubjectAsync"/> but resolved via SubjectId.
+    /// </summary>
+    Task<List<TeacherSubjectUnitPickerDto>?> GetUnitPickerBySubjectIdAsync(
+        int teacherId,
+        int subjectId,
+        CancellationToken cancellationToken = default);
+
     Task<HashSet<int>> GetAllowedUnitIdsAsync(
         TeacherSubject teacherSubject,
         CancellationToken cancellationToken = default);

@@ -21,11 +21,10 @@ using Qalam.Core.Features.Admin.TeacherSubjects.Commands.RestoreTeacherSubject;
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.GetTeacherSubjectByIdForAdmin;
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.GetTeacherSubjectsForAdmin;
 using Qalam.Core.Features.Admin.TeacherSubjects.Queries.ListTeacherSubjects;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
-
 namespace Qalam.Api.Controllers.Admin;
 
 /// <summary>
@@ -268,8 +267,7 @@ public class TeacherManagementController : AppControllerBase
 		int pageSize = 10,
 		int? teacherId = null,
 		int? subjectId = null,
-		bool? isActive = null,
-		DocumentVerificationStatus? verificationStatus = null)
+		bool? isActive = null)
 	{
 		var query = new ListTeacherSubjectsQuery
 		{
@@ -277,8 +275,7 @@ public class TeacherManagementController : AppControllerBase
 			PageSize = pageSize,
 			TeacherId = teacherId,
 			SubjectId = subjectId,
-			IsActive = isActive,
-			VerificationStatus = verificationStatus
+			IsActive = isActive
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);

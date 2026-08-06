@@ -62,6 +62,8 @@ public static class CourseDtoMapper
                     DurationMinutes = s.DurationMinutes,
                     Title = s.Title,
                     Notes = s.Notes,
+                    QuranContentTypeId = s.QuranContentTypeId,
+                    QuranLevelId = s.QuranLevelId,
                     Units = s.Units != null
                         ? s.Units.Select(MapCourseSessionUnitToDto).ToList()
                         : new List<CourseSessionUnitDto>()
@@ -94,13 +96,7 @@ public static class CourseDtoMapper
             UnitId = tsu.UnitId,
             UnitNameAr = tsu.Unit?.NameAr ?? "",
             UnitNameEn = tsu.Unit?.NameEn ?? "",
-            UnitTypeCode = tsu.Unit?.UnitTypeCode,
-            QuranContentTypeId = tsu.QuranContentTypeId,
-            QuranContentTypeNameAr = tsu.QuranContentType?.NameAr,
-            QuranContentTypeNameEn = tsu.QuranContentType?.NameEn,
-            QuranLevelId = tsu.QuranLevelId,
-            QuranLevelNameAr = tsu.QuranLevel?.NameAr,
-            QuranLevelNameEn = tsu.QuranLevel?.NameEn
+            UnitTypeCode = tsu.Unit?.UnitTypeCode
         };
     }
 

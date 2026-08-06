@@ -42,11 +42,28 @@ public class TargetedOpenSessionRequestValidator : ITargetedOpenSessionRequestVa
 
         var allowedUnitIds = await _repertoireService.GetAllowedUnitIdsAsync(match, cancellationToken);
 
+        var coveredTypes = match.QuranContentTypes.Select(c => c.QuranContentTypeId).ToHashSet();
+        var coveredLevels = match.QuranLevels.Select(l => l.QuranLevelId).ToHashSet();
+
         // 3. Per-session, per-row validation
         for (var i = 0; i < sessions.Count; i++)
         {
             var s = sessions[i];
             var label = $"Session {s.SequenceNumber}";
+
+            if (s.QuranContentTypeId is int typeId
+                && coveredTypes.Count > 0
+                && !coveredTypes.Contains(typeId))
+            {
+                return $"{label}: Quran content type {typeId} is outside this teacher's coverage.";
+            }
+
+            if (s.QuranLevelId is int levelId
+                && coveredLevels.Count > 0
+                && !coveredLevels.Contains(levelId))
+            {
+                return $"{label}: Quran level {levelId} is outside this teacher's coverage.";
+            }
 
             foreach (var u in s.Units)
             {

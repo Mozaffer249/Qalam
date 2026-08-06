@@ -23,11 +23,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         _teacherSubjectUnits = context.Set<TeacherSubjectUnit>();
     }
 
-    public async Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId)
-    {
-        return await _teacherSubjects
-            .AsNoTracking()
-            .Where(ts => ts.TeacherId == teacherId)
+    private static IQueryable<TeacherSubject> IncludeSubjectGraph(IQueryable<TeacherSubject> query) =>
+        query
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
             .Include(ts => ts.Subject)
@@ -38,82 +35,35 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .ThenInclude(s => s.Grade)
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+            .Include(ts => ts.QuranContentTypes)
+            .Include(ts => ts.QuranLevels);
+
+    public async Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId)
+    {
+        return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
+            .Where(ts => ts.TeacherId == teacherId)
             .OrderBy(ts => ts.Subject.NameAr)
             .ToListAsync();
     }
 
     public async Task<TeacherSubject?> GetTeacherSubjectWithUnitsAsync(int teacherSubjectId)
     {
-        return await _teacherSubjects
-            .AsNoTracking()
+        return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
             .Where(ts => ts.Id == teacherSubjectId)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Curriculum)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Level)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Grade)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
             .FirstOrDefaultAsync();
     }
 
     public async Task<List<TeacherSubject>> SaveTeacherSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjectDtos)
     {
-        // Remove existing subjects and their units
         await RemoveAllTeacherSubjectsAsync(teacherId);
-
-        var newSubjects = new List<TeacherSubject>();
 
         foreach (var subjectDto in subjectDtos)
         {
-            var teacherSubject = new TeacherSubject
-            {
-                TeacherId = teacherId,
-                SubjectId = subjectDto.SubjectId,
-                CanTeachFullSubject = subjectDto.CanTeachFullSubject,
-                IsActive = true,
-                VerificationStatus = DocumentVerificationStatus.Pending,
-                RejectionReason = null,
-                ReviewedByAdminId = null,
-                ReviewedAt = null,
-                CreatedAt = DateTime.UtcNow
-            };
-
+            var teacherSubject = BuildTeacherSubject(teacherId, subjectDto);
             await _teacherSubjects.AddAsync(teacherSubject);
-            await _context.SaveChangesAsync(); // Save to get the ID
-
-            // Add units if not teaching full subject
-            if (!subjectDto.CanTeachFullSubject && subjectDto.Units.Any())
-            {
-                var units = subjectDto.Units.Select(u => new TeacherSubjectUnit
-                {
-                    TeacherSubjectId = teacherSubject.Id,
-                    UnitId = u.UnitId,
-                    QuranContentTypeId = u.QuranContentTypeId,
-                    QuranLevelId = u.QuranLevelId,
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
-
-                await _teacherSubjectUnits.AddRangeAsync(units);
-            }
-
-            newSubjects.Add(teacherSubject);
         }
 
         await _context.SaveChangesAsync();
-
-        // Return with full data
         return await GetTeacherSubjectsWithUnitsAsync(teacherId);
     }
 
@@ -122,16 +72,13 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         return await _teacherSubjects
             .AnyAsync(ts => ts.TeacherId == teacherId
                             && ts.SubjectId == subjectId
-                            && ts.IsActive
-                            && ts.VerificationStatus == DocumentVerificationStatus.Approved);
+                            && ts.IsActive);
     }
 
     public async Task<bool> HasAnySubjectsAsync(int teacherId)
     {
         return await _teacherSubjects
-            .AnyAsync(ts => ts.TeacherId == teacherId
-                            && ts.IsActive
-                            && ts.VerificationStatus == DocumentVerificationStatus.Approved);
+            .AnyAsync(ts => ts.TeacherId == teacherId && ts.IsActive);
     }
 
     public async Task<bool> HasAnySubjectOfferingsAsync(int teacherId)
@@ -147,9 +94,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Select(g => new TeacherSubjectActivationSnapshot
             {
                 Total = g.Count(),
-                Pending = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Pending),
-                Approved = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Approved),
-                Rejected = g.Count(ts => ts.VerificationStatus == DocumentVerificationStatus.Rejected)
+                Active = g.Count(ts => ts.IsActive),
+                Inactive = g.Count(ts => !ts.IsActive)
             })
             .FirstOrDefaultAsync();
 
@@ -161,12 +107,15 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         var existingSubjects = await _teacherSubjects
             .Where(ts => ts.TeacherId == teacherId)
             .Include(ts => ts.TeacherSubjectUnits)
+            .Include(ts => ts.QuranContentTypes)
+            .Include(ts => ts.QuranLevels)
             .ToListAsync();
 
         foreach (var subject in existingSubjects)
         {
-            // Units are cascade deleted, but let's be explicit
             _teacherSubjectUnits.RemoveRange(subject.TeacherSubjectUnits);
+            _context.TeacherSubjectQuranContentTypes.RemoveRange(subject.QuranContentTypes);
+            _context.TeacherSubjectQuranLevels.RemoveRange(subject.QuranLevels);
         }
 
         _teacherSubjects.RemoveRange(existingSubjects);
@@ -176,10 +125,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     public async Task<HashSet<int>> GetExistingSubjectIdsAsync(int teacherId)
     {
         var subjectIds = await _teacherSubjects
-            .Where(ts => ts.TeacherId == teacherId
-                         && ts.IsActive
-                         && ts.VerificationStatus == DocumentVerificationStatus.Approved)
-            .Select(ts => ts.SubjectId)  // Only select SubjectId - optimized
+            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Select(ts => ts.SubjectId)
             .ToListAsync();
 
         return subjectIds.ToHashSet();
@@ -187,132 +134,81 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
     public async Task<List<TeacherSubject>> AddNewSubjectsAsync(int teacherId, List<TeacherSubjectItemDto> subjectDtos)
     {
-        // Load existing subjects WITH units
+        if (subjectDtos.Count == 0)
+            return new List<TeacherSubject>();
+
         var existingSubjects = await _teacherSubjects
-            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .Where(ts => ts.TeacherId == teacherId)
             .Include(ts => ts.TeacherSubjectUnits)
+            .Include(ts => ts.QuranContentTypes)
+            .Include(ts => ts.QuranLevels)
             .ToListAsync();
 
-        // Generate signatures for existing subjects
-        var existingSignatures = existingSubjects
-            .Select(ts => GetTeacherSubjectSignature(ts))
-            .ToHashSet();
+        var existingBySubjectId = existingSubjects.ToDictionary(ts => ts.SubjectId);
+        var savedIds = new List<int>();
 
-        // Filter to truly new offerings
-        var newSubjects = subjectDtos
-            .Where(dto => !existingSignatures.Contains(GetSignatureFromDto(dto)))
-            .ToList();
-
-        // If nothing new, return empty list
-        if (!newSubjects.Any())
+        foreach (var dto in subjectDtos)
         {
-            return new List<TeacherSubject>();
-        }
-
-        // Track newly added subjects
-        var addedSubjects = new List<TeacherSubject>();
-
-        // Add new teaching offerings
-        foreach (var dto in newSubjects)
-        {
-            var teacherSubject = new TeacherSubject
+            if (existingBySubjectId.TryGetValue(dto.SubjectId, out var existing))
             {
-                TeacherId = teacherId,
-                SubjectId = dto.SubjectId,
-                CanTeachFullSubject = dto.CanTeachFullSubject,
-                IsActive = true,
-                VerificationStatus = DocumentVerificationStatus.Approved,
-                RejectionReason = null,
-                RejectionSource = null,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            // Add units directly to the TeacherSubject collection
-            // EF Core will automatically set the foreign key when saved
-            if (!dto.CanTeachFullSubject && dto.Units.Any())
-            {
-                foreach (var unitDto in dto.Units)
-                {
-                    teacherSubject.TeacherSubjectUnits.Add(new TeacherSubjectUnit
-                    {
-                        UnitId = unitDto.UnitId,
-                        QuranContentTypeId = unitDto.QuranContentTypeId,
-                        QuranLevelId = unitDto.QuranLevelId,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
+                ApplySubjectDto(existing, dto);
+                existing.IsActive = true;
+                existing.UpdatedAt = DateTime.UtcNow;
+                savedIds.Add(existing.Id);
             }
-
-            await _teacherSubjects.AddAsync(teacherSubject);
-            addedSubjects.Add(teacherSubject);
+            else
+            {
+                var teacherSubject = BuildTeacherSubject(teacherId, dto);
+                await _teacherSubjects.AddAsync(teacherSubject);
+                // Id assigned after SaveChanges; track via subjectId later
+                existingBySubjectId[dto.SubjectId] = teacherSubject;
+            }
         }
 
-        // Save everything in a single transaction
         await _context.SaveChangesAsync();
 
-        // Reload added subjects with full navigation properties
-        var addedIds = addedSubjects.Select(s => s.Id).ToList();
-        return await _teacherSubjects
-            .AsNoTracking()
-            .Where(ts => addedIds.Contains(ts.Id))
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+        var subjectIds = subjectDtos.Select(d => d.SubjectId).Distinct().ToList();
+        return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
+            .Where(ts => ts.TeacherId == teacherId && subjectIds.Contains(ts.SubjectId))
             .ToListAsync();
     }
 
-    private string GetTeacherSubjectSignature(TeacherSubject ts)
+    public async Task<List<int>> GetActiveTeacherIdsBySubjectAsync(
+        int subjectId,
+        IReadOnlyCollection<int>? requiredQuranContentTypeIds = null,
+        IReadOnlyCollection<int>? requiredQuranLevelIds = null,
+        CancellationToken cancellationToken = default)
     {
-        var parts = new List<string> { ts.SubjectId.ToString() };
-
-        parts.Add(ts.CanTeachFullSubject ? "FULL" : "PARTIAL");
-
-        if (ts.TeacherSubjectUnits?.Any() == true)
-        {
-            var unitSigs = ts.TeacherSubjectUnits
-                .OrderBy(u => u.UnitId)
-                .ThenBy(u => u.QuranContentTypeId ?? 0)
-                .ThenBy(u => u.QuranLevelId ?? 0)
-                .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
-            parts.Add($"[{string.Join(",", unitSigs)}]");
-        }
-
-        return string.Join("_", parts);
-    }
-
-    private string GetSignatureFromDto(TeacherSubjectItemDto dto)
-    {
-        var parts = new List<string> { dto.SubjectId.ToString() };
-
-        parts.Add(dto.CanTeachFullSubject ? "FULL" : "PARTIAL");
-
-        if (dto.Units?.Any() == true)
-        {
-            var unitSigs = dto.Units
-                .OrderBy(u => u.UnitId)
-                .ThenBy(u => u.QuranContentTypeId ?? 0)
-                .ThenBy(u => u.QuranLevelId ?? 0)
-                .Select(u => $"{u.UnitId}:{u.QuranContentTypeId}:{u.QuranLevelId}");
-            parts.Add($"[{string.Join(",", unitSigs)}]");
-        }
-
-        return string.Join("_", parts);
-    }
-
-    public async Task<List<int>> GetActiveTeacherIdsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default)
-    {
-        return await _teacherSubjects
+        var query = _teacherSubjects
             .AsNoTracking()
             .Where(ts => ts.SubjectId == subjectId
                          && ts.IsActive
-                         && ts.VerificationStatus == DocumentVerificationStatus.Approved
                          && ts.Teacher != null
-                         && ts.Teacher.Status == TeacherStatus.Active)
+                         && ts.Teacher.Status == TeacherStatus.Active);
+
+        if (requiredQuranContentTypeIds is { Count: > 0 })
+        {
+            foreach (var typeId in requiredQuranContentTypeIds.Distinct())
+            {
+                var captured = typeId;
+                query = query.Where(ts =>
+                    !ts.QuranContentTypes.Any()
+                    || ts.QuranContentTypes.Any(c => c.QuranContentTypeId == captured));
+            }
+        }
+
+        if (requiredQuranLevelIds is { Count: > 0 })
+        {
+            foreach (var levelId in requiredQuranLevelIds.Distinct())
+            {
+                var captured = levelId;
+                query = query.Where(ts =>
+                    !ts.QuranLevels.Any()
+                    || ts.QuranLevels.Any(l => l.QuranLevelId == captured));
+            }
+        }
+
+        return await query
             .Select(ts => ts.TeacherId)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -322,19 +218,10 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         int teacherId,
         CancellationToken cancellationToken = default)
     {
-        return await _teacherSubjects
-            .AsNoTracking()
-            .Where(ts => ts.TeacherId == teacherId)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
+        return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
             .Include(ts => ts.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+            .Where(ts => ts.TeacherId == teacherId)
             .OrderBy(ts => ts.Subject.NameAr)
             .ToListAsync(cancellationToken);
     }
@@ -344,24 +231,22 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         int teacherSubjectId,
         CancellationToken cancellationToken = default)
     {
-        return await _teacherSubjects
-            .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Curriculum)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Level)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Grade)
+        return await IncludeSubjectGraph(_teacherSubjects)
             .Include(ts => ts.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+            .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<TeacherSubject?> GetBySubjectIdForTeacherAsync(
+        int teacherId,
+        int subjectId,
+        CancellationToken cancellationToken = default)
+    {
+        return await IncludeSubjectGraph(_teacherSubjects)
+            .Include(ts => ts.Teacher)
+                .ThenInclude(t => t.User)
+            .Where(ts => ts.TeacherId == teacherId && ts.SubjectId == subjectId)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -373,12 +258,16 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         var teacherSubject = await _teacherSubjects
             .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
             .Include(ts => ts.TeacherSubjectUnits)
+            .Include(ts => ts.QuranContentTypes)
+            .Include(ts => ts.QuranLevels)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (teacherSubject == null)
             return false;
 
         _teacherSubjectUnits.RemoveRange(teacherSubject.TeacherSubjectUnits);
+        _context.TeacherSubjectQuranContentTypes.RemoveRange(teacherSubject.QuranContentTypes);
+        _context.TeacherSubjectQuranLevels.RemoveRange(teacherSubject.QuranLevels);
         _teacherSubjects.Remove(teacherSubject);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
@@ -389,22 +278,21 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         int teacherSubjectId,
         bool canTeachFullSubject,
         List<TeacherSubjectUnitItemDto> units,
+        IReadOnlyList<int>? quranContentTypeIds = null,
+        IReadOnlyList<int>? quranLevelIds = null,
         CancellationToken cancellationToken = default)
     {
         var teacherSubject = await _teacherSubjects
             .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
             .Include(ts => ts.TeacherSubjectUnits)
+            .Include(ts => ts.QuranContentTypes)
+            .Include(ts => ts.QuranLevels)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (teacherSubject == null)
             return null;
 
         teacherSubject.CanTeachFullSubject = canTeachFullSubject;
-        teacherSubject.VerificationStatus = DocumentVerificationStatus.Pending;
-        teacherSubject.RejectionReason = null;
-        teacherSubject.RejectionSource = null;
-        teacherSubject.ReviewedByAdminId = null;
-        teacherSubject.ReviewedAt = null;
         teacherSubject.UpdatedAt = DateTime.UtcNow;
 
         _teacherSubjectUnits.RemoveRange(teacherSubject.TeacherSubjectUnits);
@@ -412,18 +300,18 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         if (!canTeachFullSubject && units.Count > 0)
         {
-            foreach (var unitDto in units)
+            foreach (var unitId in units.Select(u => u.UnitId).Distinct())
             {
                 teacherSubject.TeacherSubjectUnits.Add(new TeacherSubjectUnit
                 {
                     TeacherSubjectId = teacherSubject.Id,
-                    UnitId = unitDto.UnitId,
-                    QuranContentTypeId = unitDto.QuranContentTypeId,
-                    QuranLevelId = unitDto.QuranLevelId,
+                    UnitId = unitId,
                     CreatedAt = DateTime.UtcNow
                 });
             }
         }
+
+        ReplaceQuranCoverage(teacherSubject, quranContentTypeIds ?? Array.Empty<int>(), quranLevelIds ?? Array.Empty<int>());
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -436,21 +324,11 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         int? teacherId = null,
         int? subjectId = null,
         bool? isActive = null,
-        DocumentVerificationStatus? verificationStatus = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _teacherSubjects
-            .AsNoTracking()
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
+        var query = IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
             .Include(ts => ts.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
             .AsQueryable();
 
         if (teacherId.HasValue)
@@ -459,8 +337,6 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             query = query.Where(ts => ts.SubjectId == subjectId.Value);
         if (isActive.HasValue)
             query = query.Where(ts => ts.IsActive == isActive.Value);
-        if (verificationStatus.HasValue)
-            query = query.Where(ts => ts.VerificationStatus == verificationStatus.Value);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
@@ -489,7 +365,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.TeacherId == teacherId && ts.Subject!.DomainId == domainId)
             .ToListAsync(cancellationToken);
 
-    public Task<List<TeacherSubject>> GetSubjectsInDomainForCascadeRejectAsync(
+    public Task<List<TeacherSubject>> GetActiveSubjectsInDomainAsync(
         int teacherId,
         int domainId,
         CancellationToken cancellationToken = default) =>
@@ -497,10 +373,10 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.Subject)
             .Where(ts => ts.TeacherId == teacherId
                          && ts.Subject!.DomainId == domainId
-                         && ts.VerificationStatus != DocumentVerificationStatus.Rejected)
+                         && ts.IsActive)
             .ToListAsync(cancellationToken);
 
-    public Task<List<TeacherSubject>> GetCascadeRejectedSubjectsInDomainAsync(
+    public Task<List<TeacherSubject>> GetInactiveSubjectsInDomainAsync(
         int teacherId,
         int domainId,
         CancellationToken cancellationToken = default) =>
@@ -508,44 +384,107 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.Subject)
             .Where(ts => ts.TeacherId == teacherId
                          && ts.Subject!.DomainId == domainId
-                         && ts.VerificationStatus == DocumentVerificationStatus.Rejected
-                         && ts.RejectionSource == TeacherSubjectRejectionSource.DomainQuestionCascade)
+                         && !ts.IsActive)
             .ToListAsync(cancellationToken);
 
-    public Task<List<TeacherSubject>> GetDirectRejectedSubjectsAsync(int teacherId, CancellationToken cancellationToken = default) =>
-        _teacherSubjects
-            .AsNoTracking()
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
-            .Where(ts => ts.TeacherId == teacherId
-                         && ts.VerificationStatus == DocumentVerificationStatus.Rejected
-                         && ts.RejectionSource != TeacherSubjectRejectionSource.DomainQuestionCascade)
-            .ToListAsync(cancellationToken);
-
-    public async Task<List<TeacherSubject>> GetApprovedActiveSubjectsWithUnitsAsync(
+    public async Task<List<TeacherSubject>> GetActiveSubjectsWithUnitsAsync(
         int teacherId,
         CancellationToken cancellationToken = default)
     {
-        return await _teacherSubjects
-            .AsNoTracking()
-            .Where(ts => ts.TeacherId == teacherId
-                         && ts.IsActive
-                         && ts.VerificationStatus == DocumentVerificationStatus.Approved)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s.Domain)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Grade)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Level)
-            .Include(ts => ts.Subject)
-                .ThenInclude(s => s!.Curriculum)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.Unit)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(ts => ts.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+        return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
+            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
             .OrderBy(ts => ts.Subject.NameAr)
             .ToListAsync(cancellationToken);
+    }
+
+    private static TeacherSubject BuildTeacherSubject(int teacherId, TeacherSubjectItemDto dto)
+    {
+        var teacherSubject = new TeacherSubject
+        {
+            TeacherId = teacherId,
+            SubjectId = dto.SubjectId,
+            CanTeachFullSubject = dto.CanTeachFullSubject,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        if (!dto.CanTeachFullSubject && dto.Units.Count > 0)
+        {
+            foreach (var unitId in dto.Units.Select(u => u.UnitId).Distinct())
+            {
+                teacherSubject.TeacherSubjectUnits.Add(new TeacherSubjectUnit
+                {
+                    UnitId = unitId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        ApplyQuranCoverage(teacherSubject, dto.QuranContentTypeIds, dto.QuranLevelIds);
+        return teacherSubject;
+    }
+
+    private void ApplySubjectDto(TeacherSubject existing, TeacherSubjectItemDto dto)
+    {
+        existing.CanTeachFullSubject = dto.CanTeachFullSubject;
+
+        _teacherSubjectUnits.RemoveRange(existing.TeacherSubjectUnits);
+        existing.TeacherSubjectUnits.Clear();
+
+        if (!dto.CanTeachFullSubject && dto.Units.Count > 0)
+        {
+            foreach (var unitId in dto.Units.Select(u => u.UnitId).Distinct())
+            {
+                existing.TeacherSubjectUnits.Add(new TeacherSubjectUnit
+                {
+                    TeacherSubjectId = existing.Id,
+                    UnitId = unitId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        ReplaceQuranCoverage(existing, dto.QuranContentTypeIds, dto.QuranLevelIds);
+    }
+
+    private static void ApplyQuranCoverage(
+        TeacherSubject teacherSubject,
+        IEnumerable<int>? contentTypeIds,
+        IEnumerable<int>? levelIds)
+    {
+        foreach (var typeId in (contentTypeIds ?? Array.Empty<int>()).Distinct())
+        {
+            teacherSubject.QuranContentTypes.Add(new TeacherSubjectQuranContentType
+            {
+                QuranContentTypeId = typeId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        foreach (var levelId in (levelIds ?? Array.Empty<int>()).Distinct())
+        {
+            teacherSubject.QuranLevels.Add(new TeacherSubjectQuranLevel
+            {
+                QuranLevelId = levelId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private void ReplaceQuranCoverage(
+        TeacherSubject teacherSubject,
+        IReadOnlyList<int> contentTypeIds,
+        IReadOnlyList<int> levelIds)
+    {
+        _context.TeacherSubjectQuranContentTypes.RemoveRange(teacherSubject.QuranContentTypes);
+        teacherSubject.QuranContentTypes.Clear();
+        _context.TeacherSubjectQuranLevels.RemoveRange(teacherSubject.QuranLevels);
+        teacherSubject.QuranLevels.Clear();
+
+        ApplyQuranCoverage(teacherSubject, contentTypeIds, levelIds);
+        foreach (var row in teacherSubject.QuranContentTypes)
+            row.TeacherSubjectId = teacherSubject.Id;
+        foreach (var row in teacherSubject.QuranLevels)
+            row.TeacherSubjectId = teacherSubject.Id;
     }
 }

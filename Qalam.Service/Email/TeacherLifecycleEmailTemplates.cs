@@ -13,9 +13,6 @@ public static class TeacherLifecycleEmailTemplates
     public static string BuildDocumentRejectedSubject(string documentLabel) =>
         $"{BrandName} | Document rejected: {documentLabel} | تم رفض مستند";
 
-    public static string BuildSubjectRejectedSubject(string subjectName) =>
-        $"{BrandName} | Subject rejected: {subjectName} | تم رفض مادة";
-
     public static string BuildAccountActivatedSubject() =>
         $"{BrandName} | Your teacher account is active | تم تفعيل حسابك";
 
@@ -69,31 +66,6 @@ public static class TeacherLifecycleEmailTemplates
             loginUrl,
             hintEn: "Sign in to re-upload the rejected document.",
             hintAr: "سجّل الدخول لإعادة رفع المستند المرفوض.",
-            includeLoginCta: true);
-
-    public static string BuildSubjectRejectedHtml(string loginUrl, string subjectName, string reason) =>
-        BuildEmailShell(
-            titleEn: "Teaching subject rejected",
-            titleAr: "تم رفض مادة تعليمية",
-            bodyEn: $"""
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#444;">
-                  Your teaching subject <strong>{WebUtility.HtmlEncode(subjectName)}</strong> was rejected during review.
-                </p>
-                <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#555;background:#fff5f5;border-left:4px solid #dc3545;padding:12px 16px;border-radius:4px;">
-                  <strong>Reason:</strong> {WebUtility.HtmlEncode(reason)}
-                </p>
-                """,
-            bodyAr: $"""
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#444;text-align:right;">
-                  تم رفض المادة التعليمية <strong>{WebUtility.HtmlEncode(subjectName)}</strong> أثناء المراجعة.
-                </p>
-                <p style="margin:0 0 16px;font-size:14px;line-height:1.8;color:#555;background:#fff5f5;border-right:4px solid #dc3545;padding:12px 16px;border-radius:4px;text-align:right;">
-                  <strong>السبب:</strong> {WebUtility.HtmlEncode(reason)}
-                </p>
-                """,
-            loginUrl,
-            hintEn: "Sign in to update your teaching subjects.",
-            hintAr: "سجّل الدخول لتحديث المواد التعليمية.",
             includeLoginCta: true);
 
     public static string BuildAccountActivatedHtml(string loginUrl) =>

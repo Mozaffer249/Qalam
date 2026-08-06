@@ -32,22 +32,15 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         string reason,
         CancellationToken cancellationToken = default)
     {
-        var subjects = await _teacherSubjectRepository.GetSubjectsInDomainForCascadeRejectAsync(
+        var subjects = await _teacherSubjectRepository.GetActiveSubjectsInDomainAsync(
             teacherId, domainId, cancellationToken);
 
         if (subjects.Count == 0)
             return;
 
-        var cascadeReason = $"Domain verification failed: {reason.Trim()}";
-
         foreach (var subject in subjects)
         {
-            subject.VerificationStatus = DocumentVerificationStatus.Rejected;
-            subject.RejectionReason = cascadeReason;
-            subject.RejectionSource = TeacherSubjectRejectionSource.DomainQuestionCascade;
             subject.IsActive = false;
-            subject.ReviewedByAdminId = adminId;
-            subject.ReviewedAt = DateTime.UtcNow;
             subject.UpdatedAt = DateTime.UtcNow;
             subject.UpdatedBy = adminId;
 
@@ -57,10 +50,11 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         await _teacherSubjectRepository.SaveChangesAsync();
 
         _logger.LogInformation(
-            "Cascade-rejected {Count} subject(s) for teacher {TeacherId} in domain {DomainId}",
+            "Cascade-deactivated {Count} subject(s) for teacher {TeacherId} in domain {DomainId} (reason: {Reason})",
             subjects.Count,
             teacherId,
-            domainId);
+            domainId,
+            reason);
     }
 
     public async Task ApproveSubjectsInDomainAsync(
@@ -71,7 +65,7 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         if (!await IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
             return;
 
-        var subjects = await _teacherSubjectRepository.GetTeacherSubjectsInDomainAsync(
+        var subjects = await _teacherSubjectRepository.GetInactiveSubjectsInDomainAsync(
             teacherId, domainId, cancellationToken);
 
         if (subjects.Count == 0)
@@ -79,12 +73,7 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
 
         foreach (var subject in subjects)
         {
-            subject.VerificationStatus = DocumentVerificationStatus.Approved;
-            subject.RejectionReason = null;
-            subject.RejectionSource = null;
             subject.IsActive = true;
-            subject.ReviewedByAdminId = null;
-            subject.ReviewedAt = null;
             subject.UpdatedAt = DateTime.UtcNow;
 
             await _teacherSubjectRepository.UpdateAsync(subject);
@@ -93,7 +82,7 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         await _teacherSubjectRepository.SaveChangesAsync();
 
         _logger.LogInformation(
-            "Approved {Count} subject(s) in domain {DomainId} for teacher {TeacherId}",
+            "Cascade-reactivated {Count} subject(s) in domain {DomainId} for teacher {TeacherId}",
             subjects.Count,
             domainId,
             teacherId);

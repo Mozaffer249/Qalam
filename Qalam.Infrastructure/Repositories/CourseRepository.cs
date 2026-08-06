@@ -29,10 +29,8 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.TeacherSubject.Subject.Grade)
             .Include(c => c.TeacherSubject.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
-            .Include(c => c.TeacherSubject.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranContentType)
-            .Include(c => c.TeacherSubject.TeacherSubjectUnits)
-                .ThenInclude(tsu => tsu.QuranLevel)
+            .Include(c => c.TeacherSubject.QuranContentTypes)
+            .Include(c => c.TeacherSubject.QuranLevels)
             .Include(c => c.TeachingMode)
             .Include(c => c.SessionType)
             .Include(c => c.Teacher)
@@ -44,6 +42,10 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.Sessions)
                 .ThenInclude(s => s.Units)
                     .ThenInclude(u => u.Lesson)
+            .Include(c => c.Sessions)
+                .ThenInclude(s => s.QuranContentType)
+            .Include(c => c.Sessions)
+                .ThenInclude(s => s.QuranLevel)
             .FirstOrDefaultAsync(c => c.Id == courseId);
     }
 

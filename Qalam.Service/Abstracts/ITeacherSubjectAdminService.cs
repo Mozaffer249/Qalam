@@ -1,5 +1,4 @@
 using Qalam.Data.DTOs.Admin;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Results;
 
 namespace Qalam.Service.Abstracts;
@@ -14,7 +13,6 @@ public interface ITeacherSubjectAdminService
         int? teacherId = null,
         int? subjectId = null,
         bool? isActive = null,
-        DocumentVerificationStatus? verificationStatus = null,
         CancellationToken cancellationToken = default);
     Task<TeacherSubjectSummaryDto> GetSubjectSummaryAsync(int teacherId, CancellationToken cancellationToken = default);
     Task<bool> InactivateSubjectAsync(int teacherId, int teacherSubjectId, int adminId, CancellationToken cancellationToken = default);

@@ -22,5 +22,15 @@ public class CourseSessionConfiguration : IEntityTypeConfiguration<CourseSession
                .WithMany(c => c.Sessions)
                .HasForeignKey(e => e.CourseId)
                .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(e => e.QuranContentType)
+               .WithMany()
+               .HasForeignKey(e => e.QuranContentTypeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.QuranLevel)
+               .WithMany()
+               .HasForeignKey(e => e.QuranLevelId)
+               .OnDelete(DeleteBehavior.Restrict);
     }
 }

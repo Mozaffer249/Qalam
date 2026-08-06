@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -14,7 +13,6 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
-    private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly ILogger<TeacherSubjectAdminService> _logger;
 
@@ -22,14 +20,12 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherRepository teacherRepository,
         ITeacherRegistrationCompletionService completionService,
-        ITeacherLifecycleEmailService lifecycleEmailService,
         IOpenSessionRequestTargetingService targetingService,
         ILogger<TeacherSubjectAdminService> logger)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
         _completionService = completionService;
-        _lifecycleEmailService = lifecycleEmailService;
         _targetingService = targetingService;
         _logger = logger;
     }
@@ -60,11 +56,10 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         int? teacherId = null,
         int? subjectId = null,
         bool? isActive = null,
-        DocumentVerificationStatus? verificationStatus = null,
         CancellationToken cancellationToken = default)
     {
         var page = await _teacherSubjectRepository.GetPagedForAdminAsync(
-            pageNumber, pageSize, teacherId, subjectId, isActive, verificationStatus, cancellationToken);
+            pageNumber, pageSize, teacherId, subjectId, isActive, cancellationToken);
 
         return new PaginatedResult<AdminTeacherSubjectDto>(
             page.Items.Select(MapToAdminDto).ToList(),
@@ -115,9 +110,6 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         if (subject == null)
             return false;
 
-        if (subject.VerificationStatus == DocumentVerificationStatus.Rejected)
-            throw new InvalidOperationException("Rejected subjects must be restored before activation.");
-
         subject.IsActive = true;
         subject.UpdatedAt = DateTime.UtcNow;
         subject.UpdatedBy = adminId;
@@ -129,11 +121,8 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             "Teacher subject {TeacherSubjectId} activated by admin {AdminId}",
             teacherSubjectId, adminId);
 
-        if (subject.VerificationStatus == DocumentVerificationStatus.Approved)
-        {
-            await _targetingService.RematchTeacherForSubjectsAsync(
-                teacherId, new[] { subject.SubjectId }, cancellationToken);
-        }
+        await _targetingService.RematchTeacherForSubjectsAsync(
+            teacherId, new[] { subject.SubjectId }, cancellationToken);
 
         return true;
     }
@@ -148,11 +137,6 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         if (subject == null)
             return false;
 
-        subject.VerificationStatus = DocumentVerificationStatus.Approved;
-        subject.RejectionReason = null;
-        subject.RejectionSource = null;
-        subject.ReviewedByAdminId = adminId;
-        subject.ReviewedAt = DateTime.UtcNow;
         subject.IsActive = true;
         subject.UpdatedAt = DateTime.UtcNow;
         subject.UpdatedBy = adminId;
@@ -200,10 +184,9 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             DomainCode = subject.Subject?.Domain?.Code,
             CanTeachFullSubject = subject.CanTeachFullSubject,
             IsActive = subject.IsActive,
-            VerificationStatus = subject.VerificationStatus,
-            RejectionReason = subject.RejectionReason,
-            ReviewedAt = subject.ReviewedAt,
             CreatedAt = subject.CreatedAt,
+            QuranContentTypeIds = subject.QuranContentTypes.Select(c => c.QuranContentTypeId).ToList(),
+            QuranLevelIds = subject.QuranLevels.Select(l => l.QuranLevelId).ToList(),
             Units = subject.TeacherSubjectUnits.Select(MapUnitToDto).ToList()
         };
     }
@@ -216,13 +199,7 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             UnitId = unit.UnitId,
             UnitNameAr = unit.Unit?.NameAr ?? "",
             UnitNameEn = unit.Unit?.NameEn ?? "",
-            UnitTypeCode = unit.Unit?.UnitTypeCode,
-            QuranContentTypeId = unit.QuranContentTypeId,
-            QuranContentTypeNameAr = unit.QuranContentType?.NameAr,
-            QuranContentTypeNameEn = unit.QuranContentType?.NameEn,
-            QuranLevelId = unit.QuranLevelId,
-            QuranLevelNameAr = unit.QuranLevel?.NameAr,
-            QuranLevelNameEn = unit.QuranLevel?.NameEn
+            UnitTypeCode = unit.Unit?.UnitTypeCode
         };
     }
 
@@ -231,10 +208,8 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         return new TeacherSubjectSummaryDto
         {
             TotalSubjects = subjects.Count,
-            ActiveSubjects = subjects.Count(s => s.IsActive && s.VerificationStatus == DocumentVerificationStatus.Approved),
-            PendingSubjects = subjects.Count(s => s.VerificationStatus == DocumentVerificationStatus.Pending),
-            InactiveSubjects = subjects.Count(s => !s.IsActive && s.VerificationStatus != DocumentVerificationStatus.Rejected),
-            RejectedSubjects = subjects.Count(s => s.VerificationStatus == DocumentVerificationStatus.Rejected)
+            ActiveSubjects = subjects.Count(s => s.IsActive),
+            InactiveSubjects = subjects.Count(s => !s.IsActive)
         };
     }
 }

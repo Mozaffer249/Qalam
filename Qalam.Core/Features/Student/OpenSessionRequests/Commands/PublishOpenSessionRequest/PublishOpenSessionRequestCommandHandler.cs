@@ -60,6 +60,14 @@ public class PublishOpenSessionRequestCommandHandler
         if (entity.TotalSessionsCount != entity.Sessions.Count)
             return BadRequest<OpenSessionRequestDetailDto>("عدد الجلسات غير متطابق.");
 
+        var domainName = await _db.EducationDomains
+            .Where(x => x.Id == entity.DomainId)
+            .Select(x => x.NameEn ?? x.Code ?? string.Empty)
+            .FirstOrDefaultAsync(cancellationToken);
+        var isQuran = (domainName ?? string.Empty).Contains("quran", StringComparison.OrdinalIgnoreCase);
+        if (isQuran && entity.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
+            return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
+
         if (entity.TargetedTeacherId.HasValue)
         {
             var sessionDtos = entity.Sessions.Select(s => new CreateOpenSessionRequestSessionDto

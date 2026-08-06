@@ -26,18 +26,6 @@ public class TeacherLifecycleEmailTemplatesTests
         Assert.Contains("Log in to Qalam", html);
     }
 
-    [Fact]
-    public void SubjectRejectedHtml_IncludesSubjectName()
-    {
-        var html = TeacherLifecycleEmailTemplates.BuildSubjectRejectedHtml(
-            "https://qalam.net.sa/",
-            "Mathematics",
-            "Missing certificate");
-
-        Assert.Contains("Mathematics", html);
-        Assert.Contains("Missing certificate", html);
-    }
-
     private static bool ShouldSendRegistrationEmail(Qalam.Data.Entity.Common.Enums.TeacherStatus previousStatus) =>
         previousStatus == Qalam.Data.Entity.Common.Enums.TeacherStatus.AwaitingDocuments;
 }

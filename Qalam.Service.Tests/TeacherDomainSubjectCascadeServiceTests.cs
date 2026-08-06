@@ -16,21 +16,20 @@ public class TeacherDomainSubjectCascadeServiceTests
     private const int AdminId = 9;
 
     [Fact]
-    public async Task RejectSubjectsInDomain_SetsCascadeRejectionOnNonRejectedSubjects()
+    public async Task RejectSubjectsInDomain_DeactivatesActiveSubjects()
     {
         var subject = new TeacherSubject
         {
             Id = 10,
             TeacherId = TeacherId,
             SubjectId = 12,
-            VerificationStatus = DocumentVerificationStatus.Pending,
             IsActive = true,
             Subject = new Subject { DomainId = DomainId, NameEn = "Math", NameAr = "رياضيات" }
         };
 
         var teacherSubjectRepo = new Mock<ITeacherSubjectRepository>();
         teacherSubjectRepo
-            .Setup(r => r.GetSubjectsInDomainForCascadeRejectAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSubjectsInDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([subject]);
 
         var service = new TeacherDomainSubjectCascadeService(
@@ -41,14 +40,13 @@ public class TeacherDomainSubjectCascadeServiceTests
 
         await service.RejectSubjectsInDomainAsync(TeacherId, DomainId, AdminId, "Invalid license");
 
-        Assert.Equal(DocumentVerificationStatus.Rejected, subject.VerificationStatus);
-        Assert.Equal(TeacherSubjectRejectionSource.DomainQuestionCascade, subject.RejectionSource);
         Assert.False(subject.IsActive);
+        Assert.Equal(AdminId, subject.UpdatedBy);
         teacherSubjectRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
     [Fact]
-    public async Task ApproveSubjectsInDomain_SetsApproved_WhenDomainFullyApproved()
+    public async Task ApproveSubjectsInDomain_ReactivatesInactiveSubjects_WhenDomainFullyApproved()
     {
         var question = new TeacherDomainQuestion
         {
@@ -63,8 +61,6 @@ public class TeacherDomainSubjectCascadeServiceTests
         {
             Id = 10,
             TeacherId = TeacherId,
-            VerificationStatus = DocumentVerificationStatus.Rejected,
-            RejectionSource = TeacherSubjectRejectionSource.DomainQuestionCascade,
             IsActive = false,
             Subject = new Subject { DomainId = DomainId }
         };
@@ -88,7 +84,7 @@ public class TeacherDomainSubjectCascadeServiceTests
 
         var teacherSubjectRepo = new Mock<ITeacherSubjectRepository>();
         teacherSubjectRepo
-            .Setup(r => r.GetTeacherSubjectsInDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInactiveSubjectsInDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([subject]);
 
         var service = new TeacherDomainSubjectCascadeService(
@@ -99,8 +95,6 @@ public class TeacherDomainSubjectCascadeServiceTests
 
         await service.ApproveSubjectsInDomainAsync(TeacherId, DomainId);
 
-        Assert.Equal(DocumentVerificationStatus.Approved, subject.VerificationStatus);
-        Assert.Null(subject.RejectionSource);
         Assert.True(subject.IsActive);
     }
 
