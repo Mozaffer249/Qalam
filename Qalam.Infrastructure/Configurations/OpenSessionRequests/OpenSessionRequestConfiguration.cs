@@ -67,6 +67,26 @@ public class OpenSessionRequestConfiguration : IEntityTypeConfiguration<OpenSess
                .HasForeignKey(e => e.TermId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.University)
+               .WithMany()
+               .HasForeignKey(e => e.UniversityId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.College)
+               .WithMany()
+               .HasForeignKey(e => e.CollegeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.Department)
+               .WithMany()
+               .HasForeignKey(e => e.DepartmentId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.AcademicProgram)
+               .WithMany()
+               .HasForeignKey(e => e.AcademicProgramId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(e => e.Subject)
                .WithMany()
                .HasForeignKey(e => e.SubjectId)

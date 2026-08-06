@@ -23,6 +23,10 @@ public class CreateOpenSessionRequestDto
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
     public int? TermId { get; set; }
+    public int? UniversityId { get; set; }
+    public int? CollegeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? AcademicProgramId { get; set; }
     public int TeachingModeId { get; set; }
 
     /// <summary>
@@ -195,9 +199,21 @@ public class OpenSessionRequestDetailDto
     public int SubjectId { get; set; }
     public string? SubjectName { get; set; }
     public int? CurriculumId { get; set; }
+    public string? CurriculumName { get; set; }
     public int? LevelId { get; set; }
+    public string? LevelName { get; set; }
     public int? GradeId { get; set; }
+    public string? GradeName { get; set; }
     public int? TermId { get; set; }
+    public string? TermName { get; set; }
+    public int? UniversityId { get; set; }
+    public string? UniversityName { get; set; }
+    public int? CollegeId { get; set; }
+    public string? CollegeName { get; set; }
+    public int? DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
+    public int? AcademicProgramId { get; set; }
+    public string? AcademicProgramName { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeName { get; set; }
     public OfferGroupType? GroupType { get; set; }
@@ -228,7 +244,9 @@ public class OpenSessionRequestSessionDto
     public int? TimeSlotId { get; set; }
     public int DurationMinutes { get; set; }
     public int? QuranContentTypeId { get; set; }
+    public string? QuranContentTypeName { get; set; }
     public int? QuranLevelId { get; set; }
+    public string? QuranLevelName { get; set; }
     public string? Notes { get; set; }
     public List<OpenSessionRequestUnitDto> Units { get; set; } = new();
 }

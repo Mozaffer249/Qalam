@@ -43,6 +43,12 @@ public class OpenSessionRequest : AuditableEntity
     public int? GradeId { get; set; }
     public int? TermId { get; set; }
 
+    /// <summary>University institution path (university domain). Null for other domains.</summary>
+    public int? UniversityId { get; set; }
+    public int? CollegeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? AcademicProgramId { get; set; }
+
     /// <summary>
     /// المادة المطلوبة.
     /// </summary>
@@ -94,6 +100,10 @@ public class OpenSessionRequest : AuditableEntity
     public EducationLevel? Level { get; set; }
     public Grade? Grade { get; set; }
     public AcademicTerm? Term { get; set; }
+    public University? University { get; set; }
+    public College? College { get; set; }
+    public Department? Department { get; set; }
+    public AcademicProgram? AcademicProgram { get; set; }
     public Subject Subject { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
     public Teacher.Teacher? TargetedTeacher { get; set; }

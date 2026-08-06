@@ -311,10 +311,14 @@ Body: `{ "data": { ...CreateOpenSessionRequestDto } }`
 | `studentId` | int | **Yes** | Learner `Student.Id` (> 0) |
 | `domainId` | int | **Yes** | |
 | `subjectId` | int | **Yes** | |
-| `curriculumId` | int? | No | |
+| `curriculumId` | int? | No | school |
 | `levelId` | int? | No | |
-| `gradeId` | int? | No | |
+| `gradeId` | int? | No | school |
 | `termId` | int? | No | |
+| `universityId` | int? | No | university path |
+| `collegeId` | int? | No | university path |
+| `departmentId` | int? | No | university path |
+| `academicProgramId` | int? | No | university path |
 | `teachingModeId` | int | **Yes** | From `/Teaching/Modes` |
 | `targetedTeacherId` | int? | No | Targeted path |
 | `groupType` | `OpenGroup` \| `InviteOnly`? | No | Not strictly validated today |
@@ -426,9 +430,11 @@ Draft → `Active` or `PendingInvitations`, sets `PublishedAt`, runs matching / 
 
 ### 6.3 Detail
 
-`GET /Student/OpenSessionRequests/{id}`
+`GET /Student/OpenSessionRequests/{id}?lang=ar|en`
 
 Accessible to owner/guardian or invitee.
+
+Hierarchy Id+Name pairs (name null when ID null): see [`OSR-HIERARCHY-DETAIL.md`](OSR-HIERARCHY-DETAIL.md).
 
 **`data`:** `OpenSessionRequestDetailDto` — list fields plus:
 
@@ -437,11 +443,18 @@ Accessible to owner/guardian or invitee.
 | `requestedByUserId` | |
 | `createdByGuardianId` / `createdByGuardianName` | |
 | `domainId` / `domainName` | |
-| `curriculumId`, `levelId`, `gradeId`, `termId` | |
+| `curriculumId` / `curriculumName` | |
+| `levelId` / `levelName` | |
+| `gradeId` / `gradeName` | |
+| `termId` / `termName` | |
+| `universityId` / `universityName` | university domain |
+| `collegeId` / `collegeName` | university domain |
+| `departmentId` / `departmentName` | university domain |
+| `academicProgramId` / `academicProgramName` | university domain |
 | `cancelledAt`, `cancellationReason` | |
 | `studentNotes` | |
-| `sessions[]` | `id`, `sequenceNumber`, `preferredDate`, `timeSlotId`, `durationMinutes`, Quran ids, `notes`, `units[]` |
-| `units[]` on session | `id`, `contentUnitId`, `lessonId` only |
+| `sessions[]` | `id`, `sequenceNumber`, `preferredDate`, `timeSlotId`, `durationMinutes`, `quranContentTypeId`/`Name`, `quranLevelId`/`Name`, `notes`, `units[]` |
+| `units[]` on session | `id`, `contentUnitId`, names Ar/En, `lessonId`, names Ar/En, `includesAllLessons` |
 | `invitations[]` | `id`, `invitedStudentId`, names, `status`, `respondedAt` |
 | `attachments[]` | see §6.5 |
 | `offersCount` | count only — use §6.7 for offer cards |

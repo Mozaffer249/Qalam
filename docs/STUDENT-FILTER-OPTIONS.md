@@ -122,9 +122,12 @@ flowchart TB
 | `skills` | Domain + Subject | Same | + units / lessons |
 | `quran` | Domain + Subject | + `QuranContentTypeId`, `QuranLevelId` | sessions: quran fields + units |
 
-### Gap — university institution ids
+### University institution ids (OSR)
 
-Wizard collects `universityId` / `collegeId` / `departmentId` / `academicProgramId`. **List and create APIs do not accept them.** Pass `domainId` + `levelId` + `subjectId` only; keep institution ids client-side if needed for UI.
+Wizard collects `universityId` / `collegeId` / `departmentId` / `academicProgramId`.  
+**OSR create / update draft / detail** accept and return these fields (with localized names on detail).  
+Teacher/course list filters still use `domainId` + `levelId` + `subjectId` only; keep institution ids client-side for those surfaces if needed.  
+Full hierarchy matrix: [`OSR-HIERARCHY-DETAIL.md`](OSR-HIERARCHY-DETAIL.md).
 
 ---
 

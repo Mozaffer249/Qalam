@@ -122,6 +122,10 @@ public class CreateOpenSessionRequestCommandHandler
             LevelId = data.LevelId,
             GradeId = data.GradeId,
             TermId = data.TermId,
+            UniversityId = data.UniversityId,
+            CollegeId = data.CollegeId,
+            DepartmentId = data.DepartmentId,
+            AcademicProgramId = data.AcademicProgramId,
             SubjectId = data.SubjectId,
             TeachingModeId = data.TeachingModeId,
             TargetedTeacherId = data.TargetedTeacherId,
@@ -199,8 +203,18 @@ public class CreateOpenSessionRequestCommandHandler
             .Include(r => r.Student).ThenInclude(s => s!.User)
             .Include(r => r.CreatedByGuardian).ThenInclude(g => g!.User)
             .Include(r => r.Domain)
+            .Include(r => r.Curriculum)
+            .Include(r => r.Level)
+            .Include(r => r.Grade)
+            .Include(r => r.Term)
+            .Include(r => r.University)
+            .Include(r => r.College)
+            .Include(r => r.Department)
+            .Include(r => r.AcademicProgram)
             .Include(r => r.Subject)
             .Include(r => r.TeachingMode)
+            .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
+            .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
