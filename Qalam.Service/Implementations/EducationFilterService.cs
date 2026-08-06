@@ -16,8 +16,6 @@ public class EducationFilterService : IEducationFilterService
     private readonly ISubjectRepository _subjectRepository;
     private readonly IContentUnitRepository _contentUnitRepository;
     private readonly ILessonRepository _lessonRepository;
-    private readonly IQuranContentTypeRepository _quranContentTypeRepository;
-    private readonly IQuranLevelRepository _quranLevelRepository;
     private readonly IUniversityRepository _universityRepository;
     private readonly ICollegeRepository _collegeRepository;
     private readonly IDepartmentRepository _departmentRepository;
@@ -32,8 +30,6 @@ public class EducationFilterService : IEducationFilterService
         ISubjectRepository subjectRepository,
         IContentUnitRepository contentUnitRepository,
         ILessonRepository lessonRepository,
-        IQuranContentTypeRepository quranContentTypeRepository,
-        IQuranLevelRepository quranLevelRepository,
         IUniversityRepository universityRepository,
         ICollegeRepository collegeRepository,
         IDepartmentRepository departmentRepository,
@@ -47,8 +43,6 @@ public class EducationFilterService : IEducationFilterService
         _subjectRepository = subjectRepository;
         _contentUnitRepository = contentUnitRepository;
         _lessonRepository = lessonRepository;
-        _quranContentTypeRepository = quranContentTypeRepository;
-        _quranLevelRepository = quranLevelRepository;
         _universityRepository = universityRepository;
         _collegeRepository = collegeRepository;
         _departmentRepository = departmentRepository;
@@ -96,9 +90,6 @@ public class EducationFilterService : IEducationFilterService
         response.PageNumber = result.PageNumber;
         response.PageSize = result.PageSize;
         response.TotalPages = result.TotalPages;
-        response.QuranContentTypes = result.QuranContentTypes;
-        response.QuranLevels = result.QuranLevels;
-
         // For Quran domain, expose auto-selected subject for clients that display it
         if (domain.Code?.ToLowerInvariant() == "quran" && state.SubjectId.HasValue)
         {
@@ -127,7 +118,8 @@ public class EducationFilterService : IEducationFilterService
 
         // ========================================
         // QURAN DOMAIN FLOW
-        // Subject → QuranContentType → QuranLevel → UnitType → Units
+        // Subject (auto) → Unit → Lesson → Done
+        // Content type / level are session-scoped catalogs (Quran/ContentTypes, Quran/Levels), not filter steps.
         // ========================================
         if (isQuranDomain)
         {
@@ -153,12 +145,11 @@ public class EducationFilterService : IEducationFilterService
         public int? PageNumber { get; set; }
         public int? PageSize { get; set; }
         public int? TotalPages { get; set; }
-        public List<FilterOptionDto>? QuranContentTypes { get; set; }
-        public List<FilterOptionDto>? QuranLevels { get; set; }
     }
 
     /// <summary>
-    /// Quran domain flow: Subject → QuranContentType → QuranLevel → Unit → Lesson → Done
+    /// Quran domain flow: Subject (auto) → Unit → Lesson → Done.
+    /// Content type / level are not filter wizard steps.
     /// </summary>
     private async Task<FilterStepResult> DetermineQuranNextStepAsync(
         FilterStateDto state,
@@ -180,31 +171,6 @@ public class EducationFilterService : IEducationFilterService
 
         if (!state.SubjectId.HasValue)
             state.SubjectId = quranSubject.Id;
-
-        var contentTypes = await _quranContentTypeRepository.GetQuranContentTypesAsOptionsAsync();
-        var quranLevels = await _quranLevelRepository.GetQuranLevelsAsOptionsAsync();
-
-        if (rule.RequiresQuranContentType && !state.QuranContentTypeId.HasValue)
-        {
-            return new FilterStepResult
-            {
-                NextStep = "QuranContentType",
-                Options = contentTypes,
-                QuranContentTypes = contentTypes,
-                QuranLevels = quranLevels
-            };
-        }
-
-        if (rule.RequiresQuranLevel && !state.QuranLevelId.HasValue)
-        {
-            return new FilterStepResult
-            {
-                NextStep = "QuranLevel",
-                Options = quranLevels,
-                QuranContentTypes = contentTypes,
-                QuranLevels = quranLevels
-            };
-        }
 
         if (!state.ContentUnitId.HasValue)
         {
@@ -228,9 +194,7 @@ public class EducationFilterService : IEducationFilterService
                 TotalCount = totalCount,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                TotalPages = totalPages,
-                QuranContentTypes = contentTypes,
-                QuranLevels = quranLevels
+                TotalPages = totalPages
             };
         }
 
@@ -248,18 +212,14 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult
             {
                 NextStep = "Lesson",
-                Options = lessons,
-                QuranContentTypes = contentTypes,
-                QuranLevels = quranLevels
+                Options = lessons
             };
         }
 
         return new FilterStepResult
         {
             NextStep = "Done",
-            Options = new List<FilterOptionDto>(),
-            QuranContentTypes = contentTypes,
-            QuranLevels = quranLevels
+            Options = new List<FilterOptionDto>()
         };
     }
 

@@ -62,7 +62,8 @@ public sealed class EducationFilterOptionsOpenApiOperationFilter : IOperationFil
 
             ### Quran domain (`code = quran`)
 
-            Single response: auto-selected subject + `contentTypes` + `levels` + paginated `unit[]`. Use `unitTypeCode` (`QuranPart` default, or `QuranSurah`).
+            Auto-selected subject + paginated `unit[]` (`nextStep` = `Unit`). Use `unitTypeCode` (`QuranPart` default, or `QuranSurah`).
+            Content type and level are **not** filter steps — load them from `GET /Api/V1/Education/Quran/ContentTypes` and `GET /Api/V1/Education/Quran/Levels` when picking a session.
 
             **Full guide:** `{Guide}`
             """);

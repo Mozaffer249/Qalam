@@ -55,43 +55,34 @@ public class EducationFilterServiceRuleTests
   }
 
   [Fact]
-  public async Task GetFilterOptionsAsync_QuranDomain_ReturnsQuranContentTypeAsNextStep()
+  public async Task GetFilterOptionsAsync_QuranDomain_ReturnsUnitAsNextStep()
   {
     const int domainId = 2;
     const int subjectId = 100;
     var rule = CreateQuranRule(domainId);
-    var service = CreateQuranService(domainId, rule, subjectId);
+    var contentUnitRepo = new Mock<IContentUnitRepository>();
+    contentUnitRepo
+      .Setup(r => r.GetContentUnitsAsOptionsAsync(subjectId, "QuranPart", 1, 20, null))
+      .ReturnsAsync((
+        new List<FilterOptionDto> { new() { Id = 50, NameEn = "Juz 1", NameAr = "الجزء 1" } },
+        1));
+
+    var service = CreateQuranService(domainId, rule, subjectId, contentUnitRepo: contentUnitRepo.Object);
 
     var response = await service.GetFilterOptionsAsync(new FilterStateDto { DomainId = domainId });
 
-    Assert.Equal("QuranContentType", response.NextStep);
-    Assert.Equal(2, response.Options.Count);
+    Assert.Equal("Unit", response.NextStep);
+    Assert.Empty(response.Options);
+    Assert.Single(response.Unit!);
     Assert.Equal(subjectId, response.CurrentState.SubjectId);
     Assert.NotNull(response.SelectedSubject);
+    Assert.Null(response.QuranContentTypes);
+    Assert.Null(response.QuranLevels);
     Assert.True(response.Rule.HasLessons);
   }
 
   [Fact]
-  public async Task GetFilterOptionsAsync_QuranWithContentType_ReturnsQuranLevelAsNextStep()
-  {
-    const int domainId = 2;
-    const int subjectId = 100;
-    var rule = CreateQuranRule(domainId);
-    var service = CreateQuranService(domainId, rule, subjectId);
-
-    var response = await service.GetFilterOptionsAsync(new FilterStateDto
-    {
-      DomainId = domainId,
-      SubjectId = subjectId,
-      QuranContentTypeId = 1,
-    });
-
-    Assert.Equal("QuranLevel", response.NextStep);
-    Assert.Equal(2, response.Options.Count);
-  }
-
-  [Fact]
-  public async Task GetFilterOptionsAsync_QuranWithTypeAndLevel_ReturnsUnitAsNextStep()
+  public async Task GetFilterOptionsAsync_QuranIgnoresContentTypeAndLevelQuery_StillReturnsUnit()
   {
     const int domainId = 2;
     const int subjectId = 100;
@@ -230,29 +221,11 @@ public class EducationFilterServiceRuleTests
         It.IsAny<int?>()))
       .ReturnsAsync([new FilterOptionDto { Id = subjectId, NameEn = "Holy Quran", NameAr = "القرآن الكريم" }]);
 
-    var quranContentTypeRepo = new Mock<IQuranContentTypeRepository>();
-    quranContentTypeRepo
-      .Setup(r => r.GetQuranContentTypesAsOptionsAsync())
-      .ReturnsAsync([
-        new FilterOptionDto { Id = 1, NameEn = "Memorization", NameAr = "حفظ" },
-        new FilterOptionDto { Id = 2, NameEn = "Recitation", NameAr = "تلاوة" },
-      ]);
-
-    var quranLevelRepo = new Mock<IQuranLevelRepository>();
-    quranLevelRepo
-      .Setup(r => r.GetQuranLevelsAsOptionsAsync())
-      .ReturnsAsync([
-        new FilterOptionDto { Id = 10, NameEn = "Beginner", NameAr = "مبتدئ" },
-        new FilterOptionDto { Id = 11, NameEn = "Advanced", NameAr = "متقدم" },
-      ]);
-
     return CreateService(
       domainRepo: domainRepo.Object,
       subjectRepo: subjectRepo.Object,
       contentUnitRepo: contentUnitRepo ?? Mock.Of<IContentUnitRepository>(),
-      lessonRepo: lessonRepo ?? Mock.Of<ILessonRepository>(),
-      quranContentTypeRepo: quranContentTypeRepo.Object,
-      quranLevelRepo: quranLevelRepo.Object);
+      lessonRepo: lessonRepo ?? Mock.Of<ILessonRepository>());
   }
 
   private static EducationFilterService CreateService(
@@ -263,9 +236,7 @@ public class EducationFilterServiceRuleTests
     IAcademicTermRepository? termRepo = null,
     ISubjectRepository? subjectRepo = null,
     IContentUnitRepository? contentUnitRepo = null,
-    ILessonRepository? lessonRepo = null,
-    IQuranContentTypeRepository? quranContentTypeRepo = null,
-    IQuranLevelRepository? quranLevelRepo = null)
+    ILessonRepository? lessonRepo = null)
   {
     return new EducationFilterService(
       domainRepo ?? Mock.Of<IEducationDomainRepository>(),
@@ -276,8 +247,6 @@ public class EducationFilterServiceRuleTests
       subjectRepo ?? Mock.Of<ISubjectRepository>(),
       contentUnitRepo ?? Mock.Of<IContentUnitRepository>(),
       lessonRepo ?? Mock.Of<ILessonRepository>(),
-      quranContentTypeRepo ?? Mock.Of<IQuranContentTypeRepository>(),
-      quranLevelRepo ?? Mock.Of<IQuranLevelRepository>(),
       Mock.Of<IUniversityRepository>(),
       Mock.Of<ICollegeRepository>(),
       Mock.Of<IDepartmentRepository>(),
