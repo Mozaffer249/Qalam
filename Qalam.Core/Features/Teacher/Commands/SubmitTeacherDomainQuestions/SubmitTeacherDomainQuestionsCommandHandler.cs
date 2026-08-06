@@ -133,11 +133,24 @@ public class SubmitTeacherDomainQuestionsCommandHandler : ResponseHandler,
             var requiresAnswer = await _statusService.DomainRequiresAnswerAsync(teacher.Id, request.DomainId, cancellationToken);
             var nextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(request.UserId);
 
-            var message = requiresAnswer
-                ? "Some required questions are still unanswered."
-                : nextStep.NextStepName == "Awaiting Domain Verification"
-                    ? "Answers submitted. Waiting for admin approval."
-                    : "Domain questions submitted successfully.";
+            string message;
+            if (requiresAnswer)
+            {
+                message = "Some required questions are still unanswered.";
+            }
+            else if (teacher.Status == TeacherStatus.Active
+                     && (nextStep.NextStepName is "Dashboard" or "Add Teaching Subjects and Units" or "Set Availability"))
+            {
+                message = "Domain answers submitted. They will be reviewed for that domain; your account stays active.";
+            }
+            else if (nextStep.NextStepName == "Awaiting Domain Verification")
+            {
+                message = "Answers submitted. Waiting for admin approval.";
+            }
+            else
+            {
+                message = "Domain questions submitted successfully.";
+            }
 
             return Success(
                 entity: new TeacherDomainQuestionSubmitResponseDto

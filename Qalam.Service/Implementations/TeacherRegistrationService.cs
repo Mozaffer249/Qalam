@@ -319,7 +319,9 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
             case TeacherStatus.Active:
             {
-                if (await NeedsRegistrationActionBeforeSubjectsAsync(teacher.Id))
+                // Pending/incomplete domain answers must not hold an already-Active account.
+                // Rejected domain answers still surface Fix Domain Verification (profile handles UX).
+                if (await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacher.Id))
                     return await BuildPostRegistrationStepAsync(teacher.Id);
 
                 var hasSubjects = await _subjectRepository.HasAnySubjectOfferingsAsync(teacher.Id);
@@ -396,11 +398,6 @@ public class TeacherRegistrationService : ITeacherRegistrationService
 
         return BuildAwaitingDomainVerificationStep();
     }
-
-    private async Task<bool> NeedsRegistrationActionBeforeSubjectsAsync(int teacherId) =>
-        await _domainQuestionStatusService.HasRejectedDomainQuestionsAsync(teacherId)
-        || await _domainQuestionStatusService.HasIncompleteCatalogDomainAnswersAsync(teacherId)
-        || await _domainQuestionStatusService.HasAnyAnswersPendingAdminReviewAsync(teacherId);
 
     private async Task<bool> ShouldOfferSetAvailabilityStepAsync(int teacherId) =>
         await _subjectRepository.HasAnySubjectOfferingsAsync(teacherId)

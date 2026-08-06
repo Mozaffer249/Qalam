@@ -231,6 +231,24 @@ public class TeacherRegistrationNextStepTests
     }
 
     [Fact]
+    public async Task GetNextStep_ActiveWithPendingDomainAnswers_ReturnsDashboard()
+    {
+        var service = BuildService(
+            teacherStatus: TeacherStatus.Active,
+            hasAvailability: true,
+            hasSubjects: true,
+            canActivate: false,
+            teacherDashboardReady: true,
+            hasAnyAnswersPendingAdminReview: true,
+            hasIncompleteCatalogAnswers: true);
+
+        var step = await service.GetNextRegistrationStepAsync(UserId);
+
+        Assert.Equal("Dashboard", step.NextStepName);
+        Assert.True(step.IsRegistrationComplete);
+    }
+
+    [Fact]
     public async Task GetNextStep_ActiveWithRejectedDomain_ReturnsFixDomainNotAddSubjects()
     {
         var corrections = new List<TeacherReviewCorrectionDto>
@@ -257,6 +275,9 @@ public class TeacherRegistrationNextStepTests
         var step = await service.GetNextRegistrationStepAsync(UserId);
 
         Assert.Equal("Fix Domain Verification", step.NextStepName);
+        Assert.NotNull(step.PendingCorrections);
+        Assert.Single(step.PendingCorrections!);
+        Assert.Equal("Rejected", step.PendingCorrections![0].RejectionReason);
     }
 
     [Fact]
