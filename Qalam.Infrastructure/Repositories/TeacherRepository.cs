@@ -249,6 +249,26 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         return rows.Select(r => (r.Id, r.Email)).ToList();
     }
 
+    public async Task<List<(int TeacherId, string? Email, string? PhoneNumber)>> GetContactInfoByTeacherIdsAsync(
+        IReadOnlyCollection<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (teacherIds.Count == 0) return new List<(int, string?, string?)>();
+
+        var rows = await _teachers
+            .AsNoTracking()
+            .Where(t => teacherIds.Contains(t.Id) && t.User != null)
+            .Select(t => new
+            {
+                t.Id,
+                Email = t.User!.Email,
+                PhoneNumber = t.User.PhoneNumber
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Id, (string?)r.Email, (string?)r.PhoneNumber)).ToList();
+    }
+
     public async Task<List<TeacherCardDto>> GetRecommendedForStudentAsync(
         StudentEntity student,
         int take,

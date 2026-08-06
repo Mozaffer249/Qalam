@@ -20,4 +20,13 @@ public interface IOpenSessionRequestTargetingService
     /// returns 0 if a Target row for this teacher already exists.
     /// </summary>
     Task<int> NotifyTargetedTeacherAsync(int requestId, int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// When a teacher gains or reactivates subjects, attach them to existing open broadcast OSRs
+    /// for those subject ids (idempotent). Returns the count of new target rows created.
+    /// </summary>
+    Task<int> RematchTeacherForSubjectsAsync(
+        int teacherId,
+        IReadOnlyList<int> subjectIds,
+        CancellationToken cancellationToken = default);
 }

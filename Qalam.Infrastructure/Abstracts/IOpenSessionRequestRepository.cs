@@ -14,6 +14,14 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
     Task<int?> GetSubjectIdAsync(int requestId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Open broadcast OSRs for the given subjects (Active / ReceivingOffers, not expired, no TargetedTeacherId).
+    /// Used when a teacher gains a subject and needs rematch into existing requests.
+    /// </summary>
+    Task<List<int>> GetOpenBroadcastRequestIdsBySubjectIdsAsync(
+        IReadOnlyCollection<int> subjectIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Teacher inbox detail — projected directly to the response DTO so EF generates a narrow SELECT.
     /// </summary>
     Task<TeacherAvailableRequestDetailDto?> GetTeacherDetailDtoAsync(int requestId, CancellationToken cancellationToken = default);

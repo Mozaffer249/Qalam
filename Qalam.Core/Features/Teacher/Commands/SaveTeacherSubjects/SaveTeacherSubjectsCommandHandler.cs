@@ -18,6 +18,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
     private readonly ISubjectService _subjectService;
     private readonly ITeacherRegistrationService _teacherRegistrationService;
     private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
+    private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly IMapper _mapper;
 
     public SaveTeacherSubjectsCommandHandler(
@@ -26,6 +27,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         ISubjectService subjectService,
         ITeacherRegistrationService teacherRegistrationService,
         ITeacherDomainQuestionStatusService domainQuestionStatusService,
+        IOpenSessionRequestTargetingService targetingService,
         IMapper mapper,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -34,6 +36,7 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         _subjectService = subjectService;
         _teacherRegistrationService = teacherRegistrationService;
         _domainQuestionStatusService = domainQuestionStatusService;
+        _targetingService = targetingService;
         _mapper = mapper;
     }
 
@@ -87,6 +90,13 @@ public class SaveTeacherSubjectsCommandHandler : ResponseHandler,
         var savedSubjects = await _teacherSubjectRepository.AddNewSubjectsAsync(
             teacher.Id,
             request.Subjects);
+
+        if (savedSubjects.Count > 0)
+        {
+            var rematchSubjectIds = savedSubjects.Select(s => s.SubjectId).Distinct().ToList();
+            await _targetingService.RematchTeacherForSubjectsAsync(
+                teacher.Id, rematchSubjectIds, cancellationToken);
+        }
 
         // Map to response DTO using AutoMapper
         var response = new TeacherSubjectsResponseDto

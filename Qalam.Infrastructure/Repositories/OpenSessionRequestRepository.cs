@@ -26,6 +26,24 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<List<int>> GetOpenBroadcastRequestIdsBySubjectIdsAsync(
+        IReadOnlyCollection<int> subjectIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (subjectIds.Count == 0) return new List<int>();
+
+        var now = DateTime.UtcNow;
+        return await _context.OpenSessionRequests
+            .AsNoTracking()
+            .Where(r => subjectIds.Contains(r.SubjectId)
+                        && r.TargetedTeacherId == null
+                        && (r.Status == OpenSessionRequestStatus.Active
+                            || r.Status == OpenSessionRequestStatus.ReceivingOffers)
+                        && (r.ExpiresAt == null || r.ExpiresAt > now))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<TeacherAvailableRequestDetailDto?> GetTeacherDetailDtoAsync(int requestId, CancellationToken cancellationToken = default)
     {
         return await (

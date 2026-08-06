@@ -15,6 +15,7 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
+    private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly ILogger<TeacherSubjectAdminService> _logger;
 
     public TeacherSubjectAdminService(
@@ -22,12 +23,14 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
         ITeacherRepository teacherRepository,
         ITeacherRegistrationCompletionService completionService,
         ITeacherLifecycleEmailService lifecycleEmailService,
+        IOpenSessionRequestTargetingService targetingService,
         ILogger<TeacherSubjectAdminService> logger)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _teacherRepository = teacherRepository;
         _completionService = completionService;
         _lifecycleEmailService = lifecycleEmailService;
+        _targetingService = targetingService;
         _logger = logger;
     }
 
@@ -126,6 +129,12 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             "Teacher subject {TeacherSubjectId} activated by admin {AdminId}",
             teacherSubjectId, adminId);
 
+        if (subject.VerificationStatus == DocumentVerificationStatus.Approved)
+        {
+            await _targetingService.RematchTeacherForSubjectsAsync(
+                teacherId, new[] { subject.SubjectId }, cancellationToken);
+        }
+
         return true;
     }
 
@@ -156,6 +165,9 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             teacherSubjectId, adminId);
 
         await _completionService.RefreshTeacherStatusAfterReviewAsync(teacherId, cancellationToken);
+
+        await _targetingService.RematchTeacherForSubjectsAsync(
+            teacherId, new[] { subject.SubjectId }, cancellationToken);
 
         return true;
     }

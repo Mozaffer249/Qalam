@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Commands.UpdateAuthSettings;
+using Qalam.Core.Features.Admin.Commands.UpdateOsrNotificationSettings;
 using Qalam.Core.Features.Admin.Commands.UpdateTeacherAccessSettings;
 using Qalam.Core.Features.Admin.Queries.GetAuthSettings;
+using Qalam.Core.Features.Admin.Queries.GetOsrNotificationSettings;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAccessSettings;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Auth;
@@ -56,5 +58,26 @@ public class SystemSettingsController : AppControllerBase
     public async Task<IActionResult> UpdateTeacherAccessSettings([FromBody] TeacherAccessSettingsDto settings)
     {
         return NewResult(await Mediator.Send(new UpdateTeacherAccessSettingsCommand { Settings = settings }));
+    }
+
+    /// <summary>
+    /// Get OSR match/target notification channel toggles (email, SMS, push).
+    /// </summary>
+    [HttpGet("OsrNotifications")]
+    [ProducesResponseType(typeof(OsrNotificationSettingsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOsrNotificationSettings()
+    {
+        return NewResult(await Mediator.Send(new GetOsrNotificationSettingsQuery()));
+    }
+
+    /// <summary>
+    /// Update OSR notification channels. Target rows are always created; outbound channels respect these flags.
+    /// Push requires device tokens (not registered yet) — enabling it is a no-op until tokens exist.
+    /// </summary>
+    [HttpPut("OsrNotifications")]
+    [ProducesResponseType(typeof(OsrNotificationSettingsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateOsrNotificationSettings([FromBody] OsrNotificationSettingsDto settings)
+    {
+        return NewResult(await Mediator.Send(new UpdateOsrNotificationSettingsCommand { Settings = settings }));
     }
 }

@@ -43,6 +43,14 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<List<(int TeacherId, string Email)>> GetEmailsByTeacherIdsAsync(IReadOnlyCollection<int> teacherIds, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Batch projection for OSR notifications: (TeacherId, Email, PhoneNumber) for the given ids.
+    /// Email/Phone may be null/empty when missing on the linked user.
+    /// </summary>
+    Task<List<(int TeacherId, string? Email, string? PhoneNumber)>> GetContactInfoByTeacherIdsAsync(
+        IReadOnlyCollection<int> teacherIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Student-facing recommendation: top <paramref name="take"/> teachers narrowed by the student's
     /// profile (DomainId / LevelId / GradeId, when present). Filters: Teacher.Status == Active and
     /// IsActive. Ordered by RatingAverage DESC, approved-reviews count DESC, CreatedAt DESC.

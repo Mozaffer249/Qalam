@@ -31,6 +31,7 @@ namespace Qalam.Service
             services.AddTransient<IAuthLoginOtpHelper, AuthLoginOtpHelper>();
             services.AddScoped<IAuthSettingsProvider, AuthSettingsProvider>();
             services.AddScoped<ITeacherAccessSettingsProvider, TeacherAccessSettingsProvider>();
+            services.AddScoped<IOsrNotificationSettingsProvider, OsrNotificationSettingsProvider>();
             services.AddTransient<IFileStorageService, FileStorageService>();
             services.AddSingleton<IMediaUrlResolver, MediaUrlResolver>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
