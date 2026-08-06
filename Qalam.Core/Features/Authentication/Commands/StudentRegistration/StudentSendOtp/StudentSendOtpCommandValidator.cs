@@ -17,5 +17,11 @@ public class StudentSendOtpCommandValidator : AbstractValidator<StudentSendOtpCo
             .WithMessage("Phone number is required")
             .Matches(@"^[0-9]{9,15}$")
             .WithMessage("Phone number must be 9-15 digits");
+
+        When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
+        {
+            RuleFor(x => x.Email!)
+                .EmailAddress().WithMessage("Email format is invalid");
+        });
     }
 }

@@ -13,5 +13,11 @@ public class SendPhoneOtpCommandValidator : AbstractValidator<SendPhoneOtpComman
         RuleFor(x => x.CountryCode)
             .NotEmpty().WithMessage("Country code is required")
             .Matches(@"^\+[0-9]{1,4}$").WithMessage("Country code must start with + and be 1-4 digits");
+
+        When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
+        {
+            RuleFor(x => x.Email!)
+                .EmailAddress().WithMessage("Email format is invalid");
+        });
     }
 }

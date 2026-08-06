@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.MessagingApi.Models.Entities;
 
 namespace Qalam.MessagingApi.Data;
 
@@ -10,6 +11,7 @@ public class MessagingDbContext : DbContext
     }
 
     public DbSet<MessageLog> MessageLogs { get; set; } = null!;
+    public DbSet<EmailSuppression> EmailSuppressions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +44,16 @@ public class MessagingDbContext : DbContext
             entity.HasIndex(e => e.MessageId).IsUnique();
             entity.HasIndex(e => e.QueuedAt);
             entity.HasIndex(e => e.Status);
+        });
+
+        modelBuilder.Entity<EmailSuppression>(entity =>
+        {
+            entity.ToTable("EmailSuppressions", "messaging");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Diagnostic).HasMaxLength(2000);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.LastBounceAt);
         });
     }
 }

@@ -25,6 +25,8 @@ namespace Qalam.Service
             services.AddTransient<ISmsService, SmsService>();
             services.AddTransient<IPushNotificationService, PushNotificationService>();
             services.AddTransient<IMessageTrackingService, MessageTrackingService>();
+            services.AddSingleton<IEmailDeliverabilityChecker, EmailDeliverabilityChecker>();
+            services.AddScoped<IEmailSuppressionService, EmailSuppressionService>();
 
             // Teacher Registration Services
             services.AddTransient<IOtpService, OtpService>();

@@ -18,16 +18,19 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
     private readonly IOtpService _otpService;
     private readonly UserManager<User> _userManager;
     private readonly IAuthSettingsProvider _authSettingsProvider;
+    private readonly IEmailDeliverabilityChecker _emailDeliverabilityChecker;
 
     public StudentSendOtpCommandHandler(
         IOtpService otpService,
         UserManager<User> userManager,
         IAuthSettingsProvider authSettingsProvider,
+        IEmailDeliverabilityChecker emailDeliverabilityChecker,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
         _userManager = userManager;
         _authSettingsProvider = authSettingsProvider;
+        _emailDeliverabilityChecker = emailDeliverabilityChecker;
     }
 
     public async Task<Response<StudentSendOtpResponseDto>> Handle(
@@ -61,6 +64,10 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
 
         if (!string.IsNullOrWhiteSpace(request.Email))
         {
+            var deliverability = await _emailDeliverabilityChecker.CheckAsync(request.Email, cancellationToken);
+            if (!deliverability.IsDeliverable)
+                return BadRequest<StudentSendOtpResponseDto>(deliverability.ErrorMessage ?? "Email domain is invalid.");
+
             User? emailOwner;
             try
             {

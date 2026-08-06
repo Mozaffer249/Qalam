@@ -22,23 +22,30 @@ namespace Qalam.Core.Features.Authentication.Commands.Register
         private readonly IEmailService _emailService;
         private readonly ILogger<RegisterCommandHandler> _logger;
         private readonly ApplicationDBContext _context;
+        private readonly IEmailDeliverabilityChecker _emailDeliverabilityChecker;
 
         public RegisterCommandHandler(
             UserManager<User> userManager,
             IStringLocalizer<AuthenticationResources> authLocalizer,
             IEmailService emailService,
             ILogger<RegisterCommandHandler> logger,
-            ApplicationDBContext context) : base(authLocalizer)
+            ApplicationDBContext context,
+            IEmailDeliverabilityChecker emailDeliverabilityChecker) : base(authLocalizer)
         {
             _userManager = userManager;
             _authLocalizer = authLocalizer;
             _emailService = emailService;
             _logger = logger;
             _context = context;
+            _emailDeliverabilityChecker = emailDeliverabilityChecker;
         }
 
         public async Task<Response<object>> Handle(RegisterCommand request, CancellationToken cancellationToken)
         {
+            var deliverability = await _emailDeliverabilityChecker.CheckAsync(request.Email, cancellationToken);
+            if (!deliverability.IsDeliverable)
+                return BadRequest<object>(deliverability.ErrorMessage ?? "Email domain is invalid.");
+
             var validationResult = await ValidateUserDoesNotExist(request);
             if (validationResult != null)
                 return validationResult;

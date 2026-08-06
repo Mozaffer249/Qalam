@@ -195,8 +195,9 @@ public class OtpService : IOtpService
         {
             Channel = channel,
             OtpSentTo = channel == LoginOtpChannel.Email ? "email" : "sms",
+            // Show full email so the user can confirm the destination; keep phone masked.
             MaskedDestination = channel == LoginOtpChannel.Email
-                ? _authLoginOtpHelper.MaskEmail(deliveryEmail!)
+                ? deliveryEmail!
                 : _authLoginOtpHelper.MaskPhone(phone)
         };
     }

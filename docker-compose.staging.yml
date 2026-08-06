@@ -66,6 +66,14 @@ services:
       - EmailSettings__EnableSsl=true
       - EmailSettings__SecureSocketMode=${EMAIL_SECURE_SOCKET_MODE:-SslOnConnect}
       - EmailSettings__DefaultStrategy=Queued
+      - BounceIngestSettings__Enabled=${EMAIL_IMAP_ENABLED:-false}
+      - BounceIngestSettings__Host=${EMAIL_IMAP_HOST:-}
+      - BounceIngestSettings__Port=${EMAIL_IMAP_PORT:-993}
+      - BounceIngestSettings__UseSsl=${EMAIL_IMAP_SSL:-true}
+      - BounceIngestSettings__UserName=${EMAIL_IMAP_USERNAME:-}
+      - BounceIngestSettings__Password=${EMAIL_IMAP_PASSWORD:-}
+      - BounceIngestSettings__ProcessedFolder=${EMAIL_IMAP_PROCESSED_FOLDER:-}
+      - BounceIngestSettings__PollIntervalMinutes=${EMAIL_IMAP_POLL_MINUTES:-5}
       - SmsSettings__AccountSid=${TWILIO_ACCOUNT_SID:-}
       - SmsSettings__AuthToken=${TWILIO_AUTH_TOKEN:-}
       - SmsSettings__FromNumber=${TWILIO_FROM_NUMBER:-}

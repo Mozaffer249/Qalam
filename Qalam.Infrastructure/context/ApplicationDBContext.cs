@@ -160,6 +160,7 @@ namespace Qalam.Infrastructure.context
 
         // Messaging Schema DbSets
         public DbSet<MessageLog> MessageLogs { get; set; }
+        public DbSet<EmailSuppression> EmailSuppressions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

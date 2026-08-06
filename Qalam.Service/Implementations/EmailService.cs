@@ -17,15 +17,18 @@ namespace Qalam.Service.Implementations
         private readonly EmailSettings _emailSettings;
         private readonly ILogger<EmailService> _logger;
         private readonly IRabbitMQService _rabbitMQService;
+        private readonly IEmailSuppressionService _suppressionService;
 
         public EmailService(
             IOptions<EmailSettings> emailSettings,
             ILogger<EmailService> logger,
-            IRabbitMQService rabbitMQService)
+            IRabbitMQService rabbitMQService,
+            IEmailSuppressionService suppressionService)
         {
             _emailSettings = emailSettings.Value;
             _logger = logger;
             _rabbitMQService = rabbitMQService;
+            _suppressionService = suppressionService;
         }
 
         public async Task SendEmailAsync(string email, string subject, string message)
@@ -36,6 +39,12 @@ namespace Qalam.Service.Implementations
         public async Task SendEmailAsync(string email, string subject, string message, SendingStrategy strategy)
         {
             EnsureValidEmailAddress(email);
+
+            if (await _suppressionService.IsSuppressedAsync(email))
+            {
+                _logger.LogWarning("Skipping email to suppressed address: {Email}", email);
+                return;
+            }
 
             switch (strategy)
             {

@@ -15,15 +15,18 @@ public class EmailService : IEmailService
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<EmailService> _logger;
     private readonly IMessageQueueService _messageQueueService;
+    private readonly IEmailSuppressionService _suppressionService;
 
     public EmailService(
         IOptions<EmailSettings> emailSettings,
         ILogger<EmailService> logger,
-        IMessageQueueService messageQueueService)
+        IMessageQueueService messageQueueService,
+        IEmailSuppressionService suppressionService)
     {
         _emailSettings = emailSettings.Value;
         _logger = logger;
         _messageQueueService = messageQueueService;
+        _suppressionService = suppressionService;
     }
 
     public async Task SendEmailAsync(string email, string subject, string message)
@@ -34,6 +37,12 @@ public class EmailService : IEmailService
     public async Task SendEmailAsync(string email, string subject, string message, SendingStrategy strategy)
     {
         EnsureValidEmailAddress(email);
+
+        if (await _suppressionService.IsSuppressedAsync(email))
+        {
+            _logger.LogWarning("Skipping email to suppressed address: {Email}", email);
+            return;
+        }
 
         switch (strategy)
         {

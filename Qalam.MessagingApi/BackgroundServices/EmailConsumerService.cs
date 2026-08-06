@@ -148,6 +148,25 @@ public class EmailConsumerService : BackgroundService
                             "Moving email to DLQ (permanent={Permanent}, retry={Retry}/{Max}, to={To}, messageId={MessageId})",
                             permanent, retryCount, maxRetries, emailMessage?.To, messageId);
 
+                        if (!string.IsNullOrWhiteSpace(emailMessage?.To) && (permanent || retryCount >= maxRetries))
+                        {
+                            try
+                            {
+                                using var scope = _scopeFactory.CreateScope();
+                                var suppression = scope.ServiceProvider.GetRequiredService<IEmailSuppressionService>();
+                                await suppression.SuppressAsync(
+                                    emailMessage.To,
+                                    ClassifyPermanentReason(ex),
+                                    EmailSuppressionSource.SmtpSend,
+                                    Truncate(ex.Message, 2000));
+                            }
+                            catch (Exception suppressEx)
+                            {
+                                _logger.LogWarning(suppressEx,
+                                    "Failed to suppress address after permanent failure: {To}", emailMessage?.To);
+                            }
+                        }
+
                         await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
                         await _channel.BasicAckAsync(ea.DeliveryTag, false);
                     }
@@ -297,6 +316,28 @@ public class EmailConsumerService : BackgroundService
 
         return false;
     }
+
+    private static EmailSuppressionReason ClassifyPermanentReason(Exception ex)
+    {
+        var message = ex.ToString();
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is SmtpCommandException smtpEx)
+                message = $"{(int)smtpEx.StatusCode} {smtpEx.Message} {message}";
+        }
+
+        var hay = message.ToLowerInvariant();
+        if (hay.Contains("5.1.1") || hay.Contains("does not exist") || hay.Contains("nosuchuser"))
+            return EmailSuppressionReason.NoSuchUser;
+        if (hay.Contains("5.2.2") || hay.Contains("overquota") || hay.Contains("out of storage"))
+            return EmailSuppressionReason.OverQuota;
+        if (hay.Contains("parse") || hay.Contains("invalid"))
+            return EmailSuppressionReason.InvalidDomain;
+        return EmailSuppressionReason.HardBounce;
+    }
+
+    private static string Truncate(string value, int max)
+        => value.Length <= max ? value : value[..max];
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {

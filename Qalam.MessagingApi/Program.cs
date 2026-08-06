@@ -28,6 +28,7 @@ builder.Services.AddDbContext<MessagingDbContext>(options =>
 
 // Configuration
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<BounceIngestSettings>(builder.Configuration.GetSection("BounceIngestSettings"));
 builder.Services.Configure<SmsSettings>(builder.Configuration.GetSection("SmsSettings"));
 builder.Services.Configure<PushSettings>(builder.Configuration.GetSection("PushNotificationSettings"));
 builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("RabbitMQSettings"));
@@ -39,6 +40,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<IMessageTrackingService, MessageTrackingService>();
+builder.Services.AddScoped<IEmailSuppressionService, EmailSuppressionService>();
 builder.Services.AddScoped<IObjectStorageService, OssStorageService>();
 
 // Background consumers
@@ -50,6 +52,7 @@ builder.Services.AddHostedService<ProfilePicUploadConsumer>();
 builder.Services.AddHostedService<OpenSessionRequestAttachmentConsumer>();
 builder.Services.AddHostedService<TeacherContentFileUploadConsumer>();
 builder.Services.AddHostedService<CourseImageUploadConsumer>();
+builder.Services.AddHostedService<BounceIngestionService>();
 
 // Controllers + Swagger 
 builder.Services.AddControllers()
