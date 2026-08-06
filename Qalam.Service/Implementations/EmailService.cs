@@ -68,11 +68,12 @@ namespace Qalam.Service.Implementations
             emailMessage.From.Add(new MailboxAddress(_emailSettings.FromName, _emailSettings.FromEmail));
             emailMessage.To.Add(MailboxAddress.Parse(email));
             emailMessage.Subject = subject;
+            SystemEmailMime.ApplySystemMailHeaders(emailMessage, _emailSettings);
 
             var bodyBuilder = new BodyBuilder
             {
-                HtmlBody = message,
-                TextBody = message
+                HtmlBody = SystemEmailMime.EnsureDoNotReplyHtmlFooter(message),
+                TextBody = SystemEmailMime.EnsureDoNotReplyTextFooter(message)
             };
             emailMessage.Body = bodyBuilder.ToMessageBody();
 

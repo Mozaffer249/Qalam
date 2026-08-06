@@ -213,12 +213,13 @@ public class EmailConsumerService : BackgroundService
         mimeMessage.From.Add(new MailboxAddress(_emailSettings.FromName, _emailSettings.FromEmail));
         mimeMessage.To.Add(MailboxAddress.Parse(emailMessage.To));
         mimeMessage.Subject = emailMessage.Subject;
+        SystemEmailMime.ApplySystemMailHeaders(mimeMessage, _emailSettings);
 
         var builder = new BodyBuilder();
         if (emailMessage.IsHtml)
-            builder.HtmlBody = emailMessage.Body;
+            builder.HtmlBody = SystemEmailMime.EnsureDoNotReplyHtmlFooter(emailMessage.Body);
         else
-            builder.TextBody = emailMessage.Body;
+            builder.TextBody = SystemEmailMime.EnsureDoNotReplyTextFooter(emailMessage.Body);
         mimeMessage.Body = builder.ToMessageBody();
 
         using var smtp = new SmtpClient();

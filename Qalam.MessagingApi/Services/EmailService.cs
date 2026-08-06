@@ -68,8 +68,12 @@ public class EmailService : IEmailService
             mimeMessage.From.Add(new MailboxAddress(_emailSettings.FromName, _emailSettings.FromEmail));
             mimeMessage.To.Add(MailboxAddress.Parse(email));
             mimeMessage.Subject = subject;
+            SystemEmailMime.ApplySystemMailHeaders(mimeMessage, _emailSettings);
 
-            var builder = new BodyBuilder { HtmlBody = body };
+            var builder = new BodyBuilder
+            {
+                HtmlBody = SystemEmailMime.EnsureDoNotReplyHtmlFooter(body)
+            };
             mimeMessage.Body = builder.ToMessageBody();
 
             using var smtp = new SmtpClient();

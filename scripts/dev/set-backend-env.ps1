@@ -17,6 +17,7 @@ if ($env:EMAIL_HOST) { $env:EmailSettings__Host = $env:EMAIL_HOST }
 if ($env:EMAIL_PORT) { $env:EmailSettings__Port = $env:EMAIL_PORT }
 if ($env:EMAIL_FROM_NAME) { $env:EmailSettings__FromName = $env:EMAIL_FROM_NAME }
 if ($env:EMAIL_FROM_EMAIL) { $env:EmailSettings__FromEmail = $env:EMAIL_FROM_EMAIL }
+if ($env:EMAIL_REPLY_TO) { $env:EmailSettings__ReplyToEmail = $env:EMAIL_REPLY_TO }
 if ($env:EMAIL_USERNAME) { $env:EmailSettings__UserName = $env:EMAIL_USERNAME }
 if ($env:EMAIL_PASSWORD) { $env:EmailSettings__Password = $env:EMAIL_PASSWORD }
 
