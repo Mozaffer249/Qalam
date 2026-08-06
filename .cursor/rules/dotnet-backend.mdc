@@ -1,0 +1,96 @@
+---
+description: .NET clean architecture — CQRS, repositories, enhanced queries, services
+globs: "{Qalam.Api/**,Qalam.Core/**,Qalam.Service/**,Qalam.Data/**,Qalam.Infrastructure/**,Qalam.MessagingApi/**,Qalam.Service.Tests/**}"
+alwaysApply: false
+---
+
+# .NET Backend — Clean Architecture + CQRS
+
+**Always use clean architecture.** Dependencies flow inward: Api → Core → Service/Data ← Infrastructure.
+
+```
+Qalam.Api           → Controllers (thin, MediatR only)
+Qalam.Core          → CQRS Handlers, Validators, Mappings
+Qalam.Service       → Domain services (complex reusable logic)
+Qalam.Data          → Entities, DTOs, Router constants
+Qalam.Infrastructure → Repositories, EF Core, Migrations
+```
+
+## CQRS (mandatory)
+
+Every API action = **Command** (write) or **Query** (read) dispatched via MediatR.
+
+```
+Qalam.Core/Features/{Role}/{Feature}/{Commands|Queries}/{Action}/
+  {Action}Command.cs | {Action}Query.cs
+  {Action}CommandHandler.cs | {Action}QueryHandler.cs
+  {Action}CommandValidator.cs   ← FluentValidation for commands
+```
+
+```csharp
+// Controller — no business logic
+[HttpPost(Router.StudentOpenSessionRequests)]
+public async Task<IActionResult> Create([FromBody] CreateOpenSessionRequestCommand cmd)
+    => NewResult(await Mediator.Send(cmd));
+```
+
+Handlers: `IRequestHandler<TRequest, Response<T>>`, extend `ResponseHandler`.
+
+## Repository pattern (mandatory for data access)
+
+- Interface → `Qalam.Infrastructure/Abstracts/I{Entity}Repository.cs`
+- Impl → `Qalam.Infrastructure/Repositories/{Entity}Repository.cs`
+- Extend `IGenericRepositoryAsync<T>` for CRUD; add **domain-specific methods**
+- Register in `ModuleInfrastructureDependencies.cs`
+
+```csharp
+public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSessionRequest>
+{
+    Task<TeacherAvailableRequestDetailDto?> GetTeacherDetailDtoAsync(int id, CancellationToken ct);
+    Task<int?> GetSubjectIdAsync(int id, CancellationToken ct);
+}
+```
+
+**Handlers inject repositories** — prefer over raw `ApplicationDBContext` in new code:
+
+```csharp
+// ✅ GOOD — query handler uses repository projections
+var detail = await _requestRepo.GetTeacherDetailDtoAsync(id, ct);
+
+// ❌ BAD — fat Include() chains in handler when a repository projection exists
+var entity = await _db.OpenSessionRequests.Include(r => r.Student)...FirstOrDefaultAsync();
+```
+
+## Enhanced queries
+
+Optimize reads — project to DTOs, narrow SELECTs, no over-fetching:
+
+- `AsNoTracking()` on all read queries
+- Project directly to DTO in repository (`Select` / LINQ → DTO)
+- Lightweight summary records for guards (`RequestStatusSummary`, `RequestSessionScheduleSlot`)
+- Pagination/filtering in repository methods, not in-memory after full load
+
+## Services (Qalam.Service)
+
+Use `Qalam.Service` when logic is **reused across handlers** or too complex for one handler:
+
+- Auth, OTP, matching, targeting, file storage, messaging
+- Interface in `Qalam.Service/Abstracts/` → impl in `Implementations/`
+- Register in `ModuleServiceDependencies.cs`
+- Handlers orchestrate: Repository + Service + Validator
+
+## Adding an endpoint checklist
+
+1. `Router.cs` constant → DTO → Command/Query + Handler + Validator
+2. Repository method if new data access pattern needed
+3. Service method if cross-cutting domain logic
+4. Controller dispatches MediatR → returns `Response<T>`
+5. EF migration if schema changes
+
+## Do not
+
+- Business logic in controllers
+- Direct DbContext in handlers when a repository method fits
+- Full entity graphs for list/detail reads — use projections
+- Hardcode routes — use `Router.*`
+- Skip FluentValidation on commands

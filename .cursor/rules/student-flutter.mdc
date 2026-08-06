@@ -1,0 +1,41 @@
+---
+description: Student Flutter app — Thkel architecture, rules, and docs
+globs: apps/Qalam/**/*
+alwaysApply: false
+---
+
+# Student Flutter App (Thkel Architecture)
+
+App path: `apps/Qalam/` — **always use Thkel architecture** for all mobile code.
+
+## Cursor rules (apps/Qalam/.cursor/rules/)
+
+| Rule | Scope |
+|------|-------|
+| `thkel-architecture.mdc` | **Always on** — services, no hardcoding, layering |
+| `qalam-core.mdc` | Always on — stack, principles |
+| `flutter-architecture.mdc` | Feature folders, separated widgets/files |
+| `riverpod-patterns.mdc` | Provider wiring |
+| `localization.mdc` | ar/en strings |
+| `navigation.mdc` | GoRouter routes |
+| `api-networking.mdc` | Repository + INetworkServices |
+
+## Thkel essentials
+
+- **Features:** `data/` → `domain/` → `presentation/` (screens, providers, widgets/)
+- **Services:** `INetworkServices`, storage, logging via `core/di/locator_providers.dart`
+- **Separate files:** one widget per file, grouped in `widgets/{detail,offers,...}/`
+- **No hardcoding:** `ApiEndpoints`, `AppStrings`, `AppColor`, domain `code` from API
+- **Reference:** `lib/features/open_session_requests/`
+
+## Key paths
+
+- Router: `lib/core/navigation/routes_sercives.dart`
+- Endpoints: `lib/core/constants/api_endpoints.dart`
+- Network: `lib/core/services/network/inetwork_services.dart`
+- Strings: `assets/translations/{ar,en}.json`
+
+## Docs
+
+- `apps/Qalam/AGENTS.md`, `apps/Qalam/docs/ARCHITECTURE.md`
+- API: `docs/STUDENT-FILTER-OPTIONS.md`, `docs/S2-FLOW-AND-ENDPOINTS.md`

@@ -71,6 +71,20 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     /// <summary>Owned teacher subject with units, or null.</summary>
     Task<TeacherSubject?> GetByIdForTeacherAsync(int teacherId, int teacherSubjectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Delete an owned teacher subject and its units. Returns false if not found.</summary>
+    Task<bool> DeleteOwnedAsync(int teacherId, int teacherSubjectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replace units / CanTeachFullSubject for an owned subject and reset verification to Pending.
+    /// Returns the reloaded subject with navigation props, or null if not found.
+    /// </summary>
+    Task<TeacherSubject?> ReplaceUnitsAsync(
+        int teacherId,
+        int teacherSubjectId,
+        bool canTeachFullSubject,
+        List<TeacherSubjectUnitItemDto> units,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Paginated cross-teacher list for admin.</summary>
     Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(
         int pageNumber,

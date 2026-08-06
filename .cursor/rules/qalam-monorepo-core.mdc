@@ -1,0 +1,44 @@
+---
+description: Qalam monorepo context — backend, frontends, submodules, global conventions
+alwaysApply: true
+---
+
+# Qalam Monorepo — Core
+
+Qalam is an education platform monorepo: .NET 8 backend at root, three frontends under `apps/`.
+
+## Layout
+
+| Path | Stack | Role |
+|------|-------|------|
+| `Qalam.Api/` | ASP.NET Core | HTTP API entry |
+| `Qalam.Core/` | MediatR CQRS | Commands, queries, handlers |
+| `Qalam.Service/` | .NET | Domain services |
+| `Qalam.Data/` | .NET | Entities, DTOs, `Router.cs` |
+| `Qalam.Infrastructure/` | EF Core | DbContext, migrations, seeders |
+| `Qalam.MessagingApi/` | .NET | Email/SMS/push via RabbitMQ |
+| `apps/admin/` | Next.js 16 | Admin web (submodule) |
+| `apps/teacher/` | Vite + TanStack | Teacher web (submodule) |
+| `apps/Qalam/` | Flutter | Student app |
+
+## Principles
+
+1. **Smallest correct diff** — no drive-by refactors across layers or apps.
+2. **Backend: clean architecture + CQRS** — repositories, enhanced query projections, services.
+3. **Mobile: Thkel architecture always** — see `apps/Qalam/.cursor/rules/thkel-architecture.mdc`.
+4. **Business docs are authoritative** — `BUSINESS_LOGIC.md`, `docs/USER-STORIES-Scenarios-1-and-2.md`.
+5. **Education domains use `code`** — never hardcode DB ids.
+
+## Submodules
+
+`apps/admin` and `apps/teacher` are git submodules with independent repos. Commit/push inside each app directory for frontend changes; bump submodule SHA in monorepo when integrating.
+
+## Where to look
+
+| Topic | Doc |
+|-------|-----|
+| Architecture | `docs/ARCHITECTURE.md` |
+| Contributing | `docs/CONTRIBUTING.md` |
+| Business rules | `BUSINESS_LOGIC.md` |
+| Deployment | `DEPLOYMENT.md`, `docs/deployment/` |
+| Student Flutter rules | `apps/Qalam/.cursor/rules/` |

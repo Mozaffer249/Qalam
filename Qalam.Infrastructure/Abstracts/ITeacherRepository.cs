@@ -80,6 +80,11 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
         int teacherId,
         int take,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Lightweight students/sessions counts for teacher self-profile.</summary>
+    Task<(int StudentsCount, int SessionsCount)> GetMyProfileStatsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Filter + paging + sort inputs for <see cref="ITeacherRepository.SearchAsync"/>.</summary>

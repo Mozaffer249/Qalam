@@ -2,6 +2,19 @@
 
 This repository is the entry point for the Qalam platform. The backend (.NET 8) lives at the root; the frontend apps live under `apps/` as **git submodules** so each one keeps its own GitHub repo, its own commits, and its own release cadence.
 
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | System overview, backend/frontend layout |
+| [Contributing](docs/CONTRIBUTING.md) | Setup, conventions, checklists |
+| [Agent instructions](AGENTS.md) | Cursor/AI agent quick reference |
+| [Cursor rules prompt](docs/CURSOR-RULES-PROMPT.md) | Reusable prompt to generate rules for any project |
+| [Business logic](BUSINESS_LOGIC.md) | Domain rules and entity flows |
+| [Deployment](DEPLOYMENT.md) | Staging/production deploy |
+
+Cursor AI rules: [`.cursor/rules/`](.cursor/rules/) (monorepo) · [`apps/Qalam/.cursor/rules/`](apps/Qalam/.cursor/rules/) (student app)
+
 ## Layout
 
 | Path | Tech | Source | Dev port |

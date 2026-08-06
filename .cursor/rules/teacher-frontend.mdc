@@ -1,0 +1,45 @@
+---
+description: Teacher Vite/TanStack app conventions (apps/teacher submodule)
+globs: apps/teacher/**/*
+alwaysApply: false
+---
+
+# Teacher Frontend (Vite + TanStack)
+
+App path: `apps/teacher/` — independent git submodule (`qalam-teacher`).
+
+## Stack
+
+React 19 · Vite 7 · TanStack Start/Router/Query/Form · Tailwind 4 · Zod · Arabic-first RTL
+
+## API
+
+- Base URL env: `VITE_API_URL` (e.g. `http://localhost:8080` or `62900`)
+- Routes under `/Api/V1/Teacher/...`, `/Api/V1/Authentication/Teacher/...`
+- JWT auth — follow `TEACHER_AUTH_FRONTEND_GUIDE copy.md` at repo root
+
+## Structure
+
+```
+apps/teacher/src/
+  routes/           # File-based TanStack routes
+  routes/*-components/
+  routes/*-queries/
+  routes/*-api/
+```
+
+## Conventions
+
+- Colocate route-specific components, queries, and API calls with the route file
+- Teacher registration flow: OTP → personal info → documents → domain questions → subjects/availability
+- Live sessions use LiveKit tokens from API
+- Dev port: **3000** (`npm run dev`)
+
+## Submodule workflow
+
+Commit/push from `apps/teacher/` to `qalam-teacher` repo. Bump submodule in monorepo after merging.
+
+## Do not
+
+- Put shared API logic duplicated across routes — extract to route-local `-api/` or shared modules
+- Skip Zod validation on form submissions that map to API commands

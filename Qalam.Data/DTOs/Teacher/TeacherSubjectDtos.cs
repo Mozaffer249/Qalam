@@ -51,6 +51,16 @@ public class TeacherSubjectUnitItemDto
     public int? QuranLevelId { get; set; }
 }
 
+/// <summary>
+/// DTO لتحديث وحدات مادة معلم واحدة
+/// </summary>
+public class UpdateTeacherSubjectDto
+{
+    public bool CanTeachFullSubject { get; set; }
+
+    public List<TeacherSubjectUnitItemDto> Units { get; set; } = new();
+}
+
 #endregion
 
 #region Response DTOs

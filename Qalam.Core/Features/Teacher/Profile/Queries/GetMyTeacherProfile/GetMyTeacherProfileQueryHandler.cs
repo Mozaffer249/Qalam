@@ -40,6 +40,10 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
         var lastName = user?.LastName ?? "";
         var fullName = $"{firstName} {lastName}".Trim();
 
+        var (studentsCount, sessionsCount) = await _teacherRepository.GetMyProfileStatsAsync(
+            teacher.Id,
+            cancellationToken);
+
         return Success(entity: new TeacherMyProfileDto
         {
             TeacherId = teacher.Id,
@@ -53,6 +57,14 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
             Nationality = user?.Nationality,
             Address = user?.Address,
             Bio = teacher.Bio,
+            JobTitle = teacher.JobTitle,
+            YearsOfExperience = teacher.YearsOfExperience,
+            OffersOnline = teacher.OffersOnline,
+            OffersInPerson = teacher.OffersInPerson,
+            OffersIndividual = teacher.OffersIndividual,
+            OffersGroup = teacher.OffersGroup,
+            StudentsCount = studentsCount,
+            SessionsCount = sessionsCount,
             Location = teacher.Location,
             Status = teacher.Status,
             RatingAverage = teacher.RatingAverage,

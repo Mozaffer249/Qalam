@@ -1,0 +1,54 @@
+---
+description: Docker, env files, deployment, and local dev scripts
+globs: "{docker-compose*.yml,.env.example,.env.staging.example,scripts/**,deploy*.sh,DEPLOYMENT.md,DOCKER_README.md}"
+alwaysApply: false
+---
+
+# Deployment & Environment
+
+## Env files (root)
+
+| File | Purpose |
+|------|---------|
+| `.env.example` | Local dev template |
+| `.env.staging.example` | Staging template |
+| `.env` / `.env.staging` | **Not committed** — secrets |
+
+Required vars: `DB_CONNECTION_STRING`, `ENCRYPTION_KEY`, `JWT_SECRET`, `RABBITMQ_PASS`, `EMAIL_*`, `CORS_ALLOWED_ORIGINS`
+
+## Docker Compose
+
+| File | Use |
+|------|-----|
+| `docker-compose.yml` | Local full stack |
+| `docker-compose.staging.yml` | VPS staging |
+| `docker-compose.override.yml` | Local overrides |
+
+Services: `qalam-api` (8080), `messaging-api`, `rabbitmq`, `qalam-admin`, `qalam-teacher`
+
+## Local dev (PowerShell, from root)
+
+```powershell
+.\scripts\dev\run-rabbitmq.ps1
+.\scripts\dev\run-messaging-api.ps1   # :62901
+.\scripts\dev\run-api.ps1             # :62900
+.\scripts\dev\run-admin.ps1           # :3005
+.\scripts\dev\run-teacher.ps1         # :3000
+```
+
+Scripts load root `.env`.
+
+## Migrations
+
+- Staging: `MIGRATE_ON_STARTUP=true` allowed
+- Production: manual migration gate — see `docs/OPERATIONS_RUNBOOK.md`
+
+## CI
+
+GitHub Actions must use `submodules: recursive` to build frontends.
+
+## Do not
+
+- Commit `.env`, `.env.staging`, or production credentials
+- Force-push to main/master without explicit approval
+- Run prod migrations without following `docs/OPERATIONS_RUNBOOK.md`

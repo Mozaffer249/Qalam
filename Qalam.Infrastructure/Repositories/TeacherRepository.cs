@@ -582,6 +582,28 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(int StudentsCount, int SessionsCount)> GetMyProfileStatsAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeStatuses = new[] { EnrollmentStatus.Active, EnrollmentStatus.Completed };
+
+        var studentsCount = await _context.Set<Qalam.Data.Entity.Course.EnrollmentParticipant>()
+            .AsNoTracking()
+            .Where(p => activeStatuses.Contains(p.Enrollment.EnrollmentStatus)
+                        && p.Enrollment.ApprovedByTeacherId == teacherId)
+            .Select(p => p.StudentId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        var sessionsCount = await _context.Set<Qalam.Data.Entity.Course.CourseSchedule>()
+            .AsNoTracking()
+            .CountAsync(s => s.Enrollment.ApprovedByTeacherId == teacherId
+                             && s.Status == ScheduleStatus.Completed, cancellationToken);
+
+        return (studentsCount, sessionsCount);
+    }
+
     private IQueryable<Teacher> ActiveTeachersBaseQuery() =>
         _teachers.AsNoTracking().Where(t => t.Status == TeacherStatus.Active && t.IsActive);
 

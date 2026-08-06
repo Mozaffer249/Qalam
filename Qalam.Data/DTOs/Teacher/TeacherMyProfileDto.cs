@@ -15,6 +15,14 @@ public class TeacherMyProfileDto
     public string? Nationality { get; set; }
     public string? Address { get; set; }
     public string? Bio { get; set; }
+    public string? JobTitle { get; set; }
+    public int YearsOfExperience { get; set; }
+    public bool OffersOnline { get; set; }
+    public bool OffersInPerson { get; set; }
+    public bool OffersIndividual { get; set; }
+    public bool OffersGroup { get; set; }
+    public int StudentsCount { get; set; }
+    public int SessionsCount { get; set; }
     public TeacherLocation? Location { get; set; }
     public TeacherStatus Status { get; set; }
     public decimal RatingAverage { get; set; }

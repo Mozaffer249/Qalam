@@ -1,0 +1,49 @@
+---
+description: Admin Next.js app conventions (apps/admin submodule)
+globs: apps/admin/**/*
+alwaysApply: false
+---
+
+# Admin Frontend (Next.js)
+
+App path: `apps/admin/` — independent git submodule (`qalam-admin`).
+
+## Stack
+
+Next.js 16 App Router · React 19 · TanStack Query/DB/Form/Table · Tailwind 4 · Radix UI
+
+## API
+
+- Base URL env: `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:8080` or `62900`)
+- All calls use `/Api/V1/Admin/...` and `/Api/V1/Education/...`
+- Check `Response<T>` wrapper: `succeeded`, `data`, `message`
+
+## Structure
+
+```
+apps/admin/
+  app/              # App Router pages
+  collections/      # TanStack DB API wrappers
+  components/       # Shared UI
+```
+
+## Conventions
+
+- Education CRUD follows hierarchy in `docs/Education-Management-CRUD.md`
+- Use existing collection patterns in `collections/` for new admin resources
+- Arabic-first RTL where the app already applies it
+- Dev port: **3005** (`npm run dev`)
+
+## Submodule workflow
+
+Commit and push from `apps/admin/` to `qalam-admin` repo. Bump submodule pointer in monorepo when integrating:
+
+```bash
+cd apps/admin && git pull origin main && cd ../..
+git add apps/admin && git commit -m "chore: bump admin submodule"
+```
+
+## Do not
+
+- Change API route prefixes — backend uses `/Api/V1/`
+- Hardcode education entity ids — use domain `code` and API-driven options

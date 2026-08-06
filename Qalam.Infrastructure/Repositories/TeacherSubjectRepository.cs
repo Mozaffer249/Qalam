@@ -348,6 +348,12 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Domain)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s!.Curriculum)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s!.Level)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s!.Grade)
             .Include(ts => ts.Teacher)
                 .ThenInclude(t => t.User)
             .Include(ts => ts.TeacherSubjectUnits)
@@ -357,6 +363,71 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.QuranLevel)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> DeleteOwnedAsync(
+        int teacherId,
+        int teacherSubjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacherSubject = await _teacherSubjects
+            .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
+            .Include(ts => ts.TeacherSubjectUnits)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (teacherSubject == null)
+            return false;
+
+        _teacherSubjectUnits.RemoveRange(teacherSubject.TeacherSubjectUnits);
+        _teacherSubjects.Remove(teacherSubject);
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<TeacherSubject?> ReplaceUnitsAsync(
+        int teacherId,
+        int teacherSubjectId,
+        bool canTeachFullSubject,
+        List<TeacherSubjectUnitItemDto> units,
+        CancellationToken cancellationToken = default)
+    {
+        var teacherSubject = await _teacherSubjects
+            .Where(ts => ts.Id == teacherSubjectId && ts.TeacherId == teacherId)
+            .Include(ts => ts.TeacherSubjectUnits)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (teacherSubject == null)
+            return null;
+
+        teacherSubject.CanTeachFullSubject = canTeachFullSubject;
+        teacherSubject.VerificationStatus = DocumentVerificationStatus.Pending;
+        teacherSubject.RejectionReason = null;
+        teacherSubject.RejectionSource = null;
+        teacherSubject.ReviewedByAdminId = null;
+        teacherSubject.ReviewedAt = null;
+        teacherSubject.UpdatedAt = DateTime.UtcNow;
+
+        _teacherSubjectUnits.RemoveRange(teacherSubject.TeacherSubjectUnits);
+        teacherSubject.TeacherSubjectUnits.Clear();
+
+        if (!canTeachFullSubject && units.Count > 0)
+        {
+            foreach (var unitDto in units)
+            {
+                teacherSubject.TeacherSubjectUnits.Add(new TeacherSubjectUnit
+                {
+                    TeacherSubjectId = teacherSubject.Id,
+                    UnitId = unitDto.UnitId,
+                    QuranContentTypeId = unitDto.QuranContentTypeId,
+                    QuranLevelId = unitDto.QuranLevelId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return await GetByIdForTeacherAsync(teacherId, teacherSubjectId, cancellationToken);
     }
 
     public async Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(

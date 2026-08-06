@@ -200,6 +200,13 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Teacher profile: Api/V1/Teacher/Profile/me</summary>
         public const string TeacherProfileMe = Rule + "Teacher/Profile/me";
 
+        /// <summary>Teacher teaching preferences: Api/V1/Teacher/TeachingPreferences</summary>
+        public const string TeacherTeachingPreferences = Rule + "Teacher/TeachingPreferences";
+
+        /// <summary>Teacher service areas: Api/V1/Teacher/TeacherArea</summary>
+        public const string TeacherArea = Rule + "Teacher/TeacherArea";
+        public const string TeacherAreaById = TeacherArea + "/{id:int}";
+
         /// <summary>Teacher scheduled sessions: Api/V1/Teacher/MySessions</summary>
         public const string TeacherMySessions = Rule + "Teacher/MySessions";
         public const string TeacherMySessionById = TeacherMySessions + "/{id:int}";

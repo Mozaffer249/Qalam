@@ -36,6 +36,23 @@ public class Teacher : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Whether the teacher offers online sessions.</summary>
+    public bool OffersOnline { get; set; } = true;
+
+    /// <summary>Whether the teacher offers in-person sessions.</summary>
+    public bool OffersInPerson { get; set; } = false;
+
+    /// <summary>Whether the teacher offers individual (1:1) sessions.</summary>
+    public bool OffersIndividual { get; set; } = true;
+
+    /// <summary>Whether the teacher offers group sessions.</summary>
+    public bool OffersGroup { get; set; } = false;
+
+    [MaxLength(200)]
+    public string? JobTitle { get; set; }
+
+    public int YearsOfExperience { get; set; }
+
     // Navigation Properties
     public User? User { get; set; }
     public ICollection<TeacherDocument> TeacherDocuments { get; set; } = new List<TeacherDocument>();

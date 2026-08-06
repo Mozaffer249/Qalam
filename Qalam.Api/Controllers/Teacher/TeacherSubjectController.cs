@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Teacher.Commands.DeleteTeacherSubject;
 using Qalam.Core.Features.Teacher.Commands.SaveTeacherSubjects;
+using Qalam.Core.Features.Teacher.Commands.UpdateTeacherSubject;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjects;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjectUnits;
 using Qalam.Data.AppMetaData;
@@ -92,17 +94,36 @@ public class TeacherSubjectController : AppControllerBase
     }
 
     /// <summary>
+    /// Update units / CanTeachFullSubject for a specific teacher subject (resets verification to Pending).
+    /// </summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(typeof(TeacherSubjectResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTeacherSubject(int id, [FromBody] UpdateTeacherSubjectDto dto)
+    {
+        var command = new UpdateTeacherSubjectCommand
+        {
+            Id = id,
+            CanTeachFullSubject = dto.CanTeachFullSubject,
+            Units = dto.Units
+        };
+
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
     /// Delete a specific teacher subject
     /// </summary>
     /// <param name="id">Teacher subject ID</param>
     /// <returns>Success or error</returns>
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteTeacherSubject(int id)
     {
-        // TODO: Implement delete single subject command
-        return Ok(new { message = "Not implemented yet" });
+        return NewResult(await Mediator.Send(new DeleteTeacherSubjectCommand { Id = id }));
     }
 }
