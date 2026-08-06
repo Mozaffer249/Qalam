@@ -93,21 +93,26 @@ namespace Qalam.Infrastructure.Migrations
                 });
 
             // --- 2. Merge duplicate (TeacherId, SubjectId) rows onto lowest Id ---
+            // CTEs only apply to the next statement in SQL Server; materialize into temp tables
+            // so survivors/dupes can be reused across UPDATE/DELETE/repoint steps.
             migrationBuilder.Sql(@"
+IF OBJECT_ID('tempdb..#survivors') IS NOT NULL DROP TABLE #survivors;
+IF OBJECT_ID('tempdb..#dupes') IS NOT NULL DROP TABLE #dupes;
+
 -- Survivor = lowest Id per (TeacherId, SubjectId)
-;WITH survivors AS (
-    SELECT TeacherId, SubjectId, MIN(Id) AS SurvivorId
-    FROM education.TeacherSubjects
-    GROUP BY TeacherId, SubjectId
-    HAVING COUNT(*) > 1
-),
-dupes AS (
-    SELECT ts.Id AS DupeId, s.SurvivorId
-    FROM education.TeacherSubjects ts
-    INNER JOIN survivors s ON ts.TeacherId = s.TeacherId AND ts.SubjectId = s.SubjectId
-    WHERE ts.Id <> s.SurvivorId
-)
--- Activate survivor if any row in the group is active
+SELECT TeacherId, SubjectId, MIN(Id) AS SurvivorId
+INTO #survivors
+FROM education.TeacherSubjects
+GROUP BY TeacherId, SubjectId
+HAVING COUNT(*) > 1;
+
+SELECT ts.Id AS DupeId, s.SurvivorId
+INTO #dupes
+FROM education.TeacherSubjects ts
+INNER JOIN #survivors s ON ts.TeacherId = s.TeacherId AND ts.SubjectId = s.SubjectId
+WHERE ts.Id <> s.SurvivorId;
+
+-- Activate survivor if any row in the group is active / FULL
 UPDATE ts
 SET IsActive = 1,
     CanTeachFullSubject = CASE
@@ -116,19 +121,19 @@ SET IsActive = 1,
             WHERE x.TeacherId = ts.TeacherId AND x.SubjectId = ts.SubjectId AND x.CanTeachFullSubject = 1
         ) THEN 1 ELSE ts.CanTeachFullSubject END
 FROM education.TeacherSubjects ts
-INNER JOIN survivors s ON ts.Id = s.SurvivorId;
+INNER JOIN #survivors s ON ts.Id = s.SurvivorId;
 
 -- If survivor is FULL, drop its unit rows (FULL = all catalog units)
 DELETE tsu
 FROM teacher.TeacherSubjectUnits tsu
 INNER JOIN education.TeacherSubjects ts ON tsu.TeacherSubjectId = ts.Id
-INNER JOIN survivors s ON ts.Id = s.SurvivorId
+INNER JOIN #survivors s ON ts.Id = s.SurvivorId
 WHERE ts.CanTeachFullSubject = 1;
 
 -- Delete dupe units that would collide with survivor on (UnitId, Type, Level)
 DELETE tsu
 FROM teacher.TeacherSubjectUnits tsu
-INNER JOIN dupes d ON tsu.TeacherSubjectId = d.DupeId
+INNER JOIN #dupes d ON tsu.TeacherSubjectId = d.DupeId
 INNER JOIN education.TeacherSubjects survivor ON survivor.Id = d.SurvivorId
 WHERE survivor.CanTeachFullSubject = 0
   AND EXISTS (
@@ -143,14 +148,14 @@ WHERE survivor.CanTeachFullSubject = 0
 UPDATE tsu
 SET TeacherSubjectId = d.SurvivorId
 FROM teacher.TeacherSubjectUnits tsu
-INNER JOIN dupes d ON tsu.TeacherSubjectId = d.DupeId
+INNER JOIN #dupes d ON tsu.TeacherSubjectId = d.DupeId
 INNER JOIN education.TeacherSubjects survivor ON survivor.Id = d.SurvivorId
 WHERE survivor.CanTeachFullSubject = 0;
 
 -- Delete units that belonged to FULL survivors' dupes (already covered by FULL)
 DELETE tsu
 FROM teacher.TeacherSubjectUnits tsu
-INNER JOIN dupes d ON tsu.TeacherSubjectId = d.DupeId
+INNER JOIN #dupes d ON tsu.TeacherSubjectId = d.DupeId
 INNER JOIN education.TeacherSubjects survivor ON survivor.Id = d.SurvivorId
 WHERE survivor.CanTeachFullSubject = 1;
 
@@ -158,12 +163,15 @@ WHERE survivor.CanTeachFullSubject = 1;
 UPDATE c
 SET TeacherSubjectId = d.SurvivorId
 FROM course.Courses c
-INNER JOIN dupes d ON c.TeacherSubjectId = d.DupeId;
+INNER JOIN #dupes d ON c.TeacherSubjectId = d.DupeId;
 
 -- Delete losing TeacherSubject rows
 DELETE ts
 FROM education.TeacherSubjects ts
-INNER JOIN dupes d ON ts.Id = d.DupeId;
+INNER JOIN #dupes d ON ts.Id = d.DupeId;
+
+DROP TABLE #dupes;
+DROP TABLE #survivors;
 ");
 
             // --- 3. Backfill Quran coverage sets from unit rows (before dropping columns) ---
