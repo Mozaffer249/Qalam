@@ -6,6 +6,7 @@ using Qalam.Core.Features.Teacher.Commands.SaveTeacherSubjects;
 using Qalam.Core.Features.Teacher.Commands.UpdateTeacherSubject;
 using Qalam.Core.Features.Teacher.Commands.UpdateTeacherSubjectBySubject;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjects;
+using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjectUnitOptions;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjectUnitOptionsBySubject;
 using Qalam.Core.Features.Teacher.Queries.GetTeacherSubjectUnits;
 using Qalam.Data.AppMetaData;
@@ -34,7 +35,8 @@ public class TeacherSubjectController : AppControllerBase
     }
 
     /// <summary>
-    /// Get content units allowed for a specific teacher subject (course-create picker).
+    /// Active repertoire units for a teacher subject (course-create picker).
+    /// Prefer <c>unit-options</c> for profile editing (full catalog + IsSelected).
     /// </summary>
     [HttpGet("{teacherSubjectId:int}/units")]
     [ProducesResponseType(typeof(List<TeacherSubjectUnitOptionDto>), StatusCodes.Status200OK)]
@@ -49,8 +51,24 @@ public class TeacherSubjectController : AppControllerBase
     }
 
     /// <summary>
+    /// Full active catalog with IsSelected flags for profile edit (owner-only; any verification status).
+    /// </summary>
+    [HttpGet("{teacherSubjectId:int}/unit-options")]
+    [ProducesResponseType(typeof(List<TeacherSubjectUnitPickerDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTeacherSubjectUnitOptions(int teacherSubjectId)
+    {
+        return NewResult(await Mediator.Send(new GetTeacherSubjectUnitOptionsQuery
+        {
+            TeacherSubjectId = teacherSubjectId,
+        }));
+    }
+
+    /// <summary>
     /// Full active catalog for a subject with IsSelected flags (profile edit drawer).
-    /// Keyed by catalog SubjectId (unique per teacher).
+    /// Keyed by catalog SubjectId (unique per teacher). Same semantics as
+    /// <see cref="GetTeacherSubjectUnitOptions"/> but resolved via SubjectId.
     /// </summary>
     [HttpGet("Subject/{subjectId:int}/unit-options")]
     [ProducesResponseType(typeof(List<TeacherSubjectUnitPickerDto>), StatusCodes.Status200OK)]

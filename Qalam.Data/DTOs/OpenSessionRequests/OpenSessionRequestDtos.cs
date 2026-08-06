@@ -138,7 +138,9 @@ public class CreateOpenSessionRequestSessionDto
     public DateOnly PreferredDate { get; set; }
     public int TimeSlotId { get; set; }
     public int DurationMinutes { get; set; } = 60;
+    /// <summary>Required when DomainId is Quran; must be null otherwise.</summary>
     public int? QuranContentTypeId { get; set; }
+    /// <summary>Required when DomainId is Quran; must be null otherwise.</summary>
     public int? QuranLevelId { get; set; }
     public string? Notes { get; set; }
     public List<CreateOpenSessionRequestUnitDto> Units { get; set; } = new();

@@ -160,9 +160,9 @@ public class TeacherSubjectRepertoireService : ITeacherSubjectRepertoireService
         TeacherSubject teacherSubject,
         CancellationToken cancellationToken)
     {
-        var selectedIds = teacherSubject.CanTeachFullSubject
-            ? null
-            : teacherSubject.TeacherSubjectUnits.Select(u => u.UnitId).ToHashSet();
+        var selectedIds = teacherSubject.TeacherSubjectUnits
+            .Select(u => u.UnitId)
+            .ToHashSet();
 
         var catalog = await _contentUnitRepository
             .GetContentUnitsBySubjectId(teacherSubject.SubjectId)
@@ -176,7 +176,10 @@ public class TeacherSubjectRepertoireService : ITeacherSubjectRepertoireService
             Id = cu.Id,
             NameAr = cu.NameAr,
             NameEn = cu.NameEn,
-            IsSelected = selectedIds == null || selectedIds.Contains(cu.Id)
+            IsSelected = teacherSubject.CanTeachFullSubject || selectedIds.Contains(cu.Id),
+            // Per-unit Quran type/level removed in coverage redesign; subject-level sets apply instead.
+            QuranContentTypeId = null,
+            QuranLevelId = null,
         }).ToList();
     }
 

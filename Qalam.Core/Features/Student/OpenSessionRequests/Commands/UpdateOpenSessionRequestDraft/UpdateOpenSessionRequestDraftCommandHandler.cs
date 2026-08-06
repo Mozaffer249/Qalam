@@ -9,6 +9,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Infrastructure.context;
+using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.UpdateOpenSessionRequestDraft;
@@ -64,12 +65,12 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         if (!await _db.TeachingModes.AnyAsync(x => x.Id == data.TeachingModeId, cancellationToken))
             return NotFound<OpenSessionRequestDetailDto>("طريقة التدريس غير موجودة");
 
-        var domainName = await _db.EducationDomains
+        var domain = await _db.EducationDomains
             .Where(x => x.Id == data.DomainId)
-            .Select(x => x.NameEn ?? x.Code ?? string.Empty)
+            .Select(x => new { x.Code, x.NameEn })
             .FirstOrDefaultAsync(cancellationToken);
-        var isQuran = (domainName ?? string.Empty).Contains("quran", StringComparison.OrdinalIgnoreCase);
-        if (isQuran && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
+        if (QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn)
+            && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
             return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
 
         if (data.TargetedTeacherId.HasValue)

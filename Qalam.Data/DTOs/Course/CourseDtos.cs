@@ -55,7 +55,9 @@ public class CreateCourseSessionDto
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
     public string? Notes { get; set; }
+    /// <summary>Required when the course subject is in the Quran domain; must be null otherwise.</summary>
     public int? QuranContentTypeId { get; set; }
+    /// <summary>Required when the course subject is in the Quran domain; must be null otherwise.</summary>
     public int? QuranLevelId { get; set; }
     public List<CreateCourseSessionUnitDto>? Units { get; set; }
 }

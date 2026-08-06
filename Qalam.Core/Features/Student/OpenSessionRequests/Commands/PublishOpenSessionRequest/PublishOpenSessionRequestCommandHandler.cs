@@ -8,6 +8,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.context;
+using Qalam.Service;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.PublishOpenSessionRequest;
@@ -60,12 +61,12 @@ public class PublishOpenSessionRequestCommandHandler
         if (entity.TotalSessionsCount != entity.Sessions.Count)
             return BadRequest<OpenSessionRequestDetailDto>("عدد الجلسات غير متطابق.");
 
-        var domainName = await _db.EducationDomains
+        var domain = await _db.EducationDomains
             .Where(x => x.Id == entity.DomainId)
-            .Select(x => x.NameEn ?? x.Code ?? string.Empty)
+            .Select(x => new { x.Code, x.NameEn })
             .FirstOrDefaultAsync(cancellationToken);
-        var isQuran = (domainName ?? string.Empty).Contains("quran", StringComparison.OrdinalIgnoreCase);
-        if (isQuran && entity.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
+        if (QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn)
+            && entity.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
             return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
 
         if (entity.TargetedTeacherId.HasValue)

@@ -140,6 +140,8 @@ public class TeacherSubjectUnitPickerDto
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;
     public bool IsSelected { get; set; }
+    public int? QuranContentTypeId { get; set; }
+    public int? QuranLevelId { get; set; }
 }
 
 #endregion

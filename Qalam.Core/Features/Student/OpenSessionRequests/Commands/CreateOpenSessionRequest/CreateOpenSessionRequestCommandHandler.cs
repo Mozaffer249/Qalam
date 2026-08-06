@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Infrastructure.context;
+using Qalam.Service;
 using Qalam.Service.Abstracts;
 using Microsoft.Extensions.Localization;
 
@@ -83,13 +84,13 @@ public class CreateOpenSessionRequestCommandHandler
         }
 
         // 4. Quran-domain sessions require Quran content type + level
-        var domainName = await _db.EducationDomains
+        var domain = await _db.EducationDomains
             .Where(x => x.Id == data.DomainId)
-            .Select(x => x.NameEn ?? string.Empty)
+            .Select(x => new { x.Code, x.NameEn })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var isQuran = (domainName ?? string.Empty).Contains("quran", StringComparison.OrdinalIgnoreCase);
-        if (isQuran && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
+        if (QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn)
+            && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
             return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
 
         // 5. Resolve invited-by student id (the learner's own Student.Id is the inviter)

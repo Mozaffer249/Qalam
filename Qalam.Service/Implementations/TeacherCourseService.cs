@@ -134,6 +134,10 @@ public class TeacherCourseService : ITeacherCourseService
         if (repertoireError != null)
             throw new InvalidOperationException(repertoireError);
 
+        var quranRequiredError = ValidateSessionsQuranRequired(teacherSubject, dto.Sessions);
+        if (quranRequiredError != null)
+            throw new InvalidOperationException(quranRequiredError);
+
         var quranError = ValidateSessionsQuranCoverage(teacherSubject, dto.Sessions);
         if (quranError != null)
             throw new InvalidOperationException(quranError);
@@ -371,6 +375,39 @@ public class TeacherCourseService : ITeacherCourseService
             .ToList();
 
         await _courseSessionUnitRepository.ValidateUnitsBelongToSubjectAsync(contentUnitIds, lessonIds, subjectId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Quran domain: every session must include type + level.
+    /// Non-Quran: both must be null.
+    /// </summary>
+    private static string? ValidateSessionsQuranRequired(
+        Data.Entity.Teacher.TeacherSubject teacherSubject,
+        List<CreateCourseSessionDto>? sessions)
+    {
+        if (sessions == null || sessions.Count == 0) return null;
+
+        var domain = teacherSubject.Subject?.Domain;
+        var isQuran = QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn);
+
+        for (var i = 0; i < sessions.Count; i++)
+        {
+            var session = sessions[i];
+            var hasType = session.QuranContentTypeId.HasValue;
+            var hasLevel = session.QuranLevelId.HasValue;
+
+            if (isQuran)
+            {
+                if (!hasType || !hasLevel)
+                    return "جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId";
+            }
+            else if (hasType || hasLevel)
+            {
+                return $"Session {i + 1}: QuranContentTypeId and QuranLevelId are only allowed for Quran domain subjects.";
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
