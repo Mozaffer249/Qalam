@@ -15,9 +15,7 @@ public class UpdateSessionOfferCommandValidator : AbstractValidator<UpdateSessio
                 .WithMessage("MUST_BE_POSITIVE");
             RuleFor(x => x.Data.TeacherNotes)
                 .MaximumLength(1000).When(x => x.Data.TeacherNotes != null);
-            RuleFor(x => x.Data.ValidityHours)
-                .InclusiveBetween(24, 168).When(x => x.Data.ValidityHours.HasValue)
-                .WithMessage("INVALID_VALIDITY_HOURS");
+            // ValidityHours is ignored; offer expiry is not rewritten on update.
         });
     }
 }

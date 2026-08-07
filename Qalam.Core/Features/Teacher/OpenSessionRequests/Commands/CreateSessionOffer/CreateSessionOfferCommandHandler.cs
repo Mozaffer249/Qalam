@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
@@ -26,6 +27,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
     private readonly IOfferConversationService _conversationService;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
+    private readonly OpenSessionRequestSettings _osrSettings;
     private readonly ILogger<CreateSessionOfferCommandHandler> _logger;
 
     public CreateSessionOfferCommandHandler(
@@ -38,6 +40,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         IOfferConversationService conversationService,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
+        IOptions<OpenSessionRequestSettings> osrSettings,
         ILogger<CreateSessionOfferCommandHandler> logger) : base(localizer)
     {
         _teacherRepo = teacherRepo;
@@ -48,6 +51,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         _conversationService = conversationService;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
+        _osrSettings = osrSettings.Value;
         _logger = logger;
     }
 
@@ -121,7 +125,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             Status = OpenSessionOfferStatus.Pending,
             Version = 1,
             ExpiresAt = OpenSessionRequestExpiry.ResolveOfferExpiry(
-                now, request.Data.ValidityHours, requestExpiresAt),
+                now, _osrSettings.DefaultOfferValidityHours, requestExpiresAt),
             CreatedAt = now
         };
 

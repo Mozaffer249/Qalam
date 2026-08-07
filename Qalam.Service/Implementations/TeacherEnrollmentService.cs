@@ -9,7 +9,6 @@ using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Identity;
-using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Helpers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -25,7 +24,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IEnrollmentConversationRepository _conversationRepository;
     private readonly UserManager<User> _userManager;
-    private readonly IRabbitMQService _rabbitMq;
+    private readonly IChatEmailNotifier _chatEmail;
     private readonly PaymentSettings _paymentSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<TeacherEnrollmentService> _logger;
@@ -36,7 +35,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         IEnrollmentRepository enrollmentRepository,
         IEnrollmentConversationRepository conversationRepository,
         UserManager<User> userManager,
-        IRabbitMQService rabbitMq,
+        IChatEmailNotifier chatEmail,
         IOptions<PaymentSettings> paymentSettings,
         IOptions<SessionSettings> sessionSettings,
         ILogger<TeacherEnrollmentService> logger)
@@ -46,7 +45,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         _enrollmentRepository = enrollmentRepository;
         _conversationRepository = conversationRepository;
         _userManager = userManager;
-        _rabbitMq = rabbitMq;
+        _chatEmail = chatEmail;
         _paymentSettings = paymentSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -540,33 +539,16 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             trimmed,
             cancellationToken);
 
-        try
-        {
-            var otherUserId = participant.CallerRole == EnrollmentConversationCaller.Teacher
-                ? participant.StudentUserId
-                : participant.TeacherUserId;
+        var otherUserId = participant.CallerRole == EnrollmentConversationCaller.Teacher
+            ? participant.StudentUserId
+            : participant.TeacherUserId;
 
-            if (otherUserId > 0)
-            {
-                var user = await _userManager.FindByIdAsync(otherUserId.ToString());
-                if (user?.Email != null)
-                {
-                    await _rabbitMq.QueueEmailAsync(new EmailMessage
-                    {
-                        To = user.Email,
-                        Subject = "رسالة جديدة على محادثة التسجيل",
-                        Body = "وصلتك رسالة جديدة. افتح المحادثة لقراءتها والرد عليها.",
-                        QueuedAt = DateTime.UtcNow
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to email the other party in enrollment conversation {ConversationId}.",
-                conversationId);
-        }
+        await _chatEmail.TryNotifyAsync(
+            conversationId,
+            otherUserId,
+            subject: "رسالة جديدة على محادثة التسجيل",
+            body: "وصلتك رسالة جديدة. افتح المحادثة لقراءتها والرد عليها.",
+            cancellationToken);
 
         var sender = await _userManager.FindByIdAsync(userId.ToString());
         var dto = new EnrollmentConversationMessageDto

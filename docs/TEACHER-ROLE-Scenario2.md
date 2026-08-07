@@ -917,7 +917,7 @@ Other conventions to know upfront:
 
 **Side Effects:**
 - زيادة `lastMessageAt` على المحادثة (لـ sort الـ list).
-- بريد إلكتروني للطرف الآخر: "رسالة جديدة على محادثة عرضك" — يستخدم `IRabbitMQService.QueueEmailAsync`.
+- بريد إلكتروني للطرف الآخر: "رسالة جديدة على محادثة عرضك" — يستخدم `IChatEmailNotifier` / `IRabbitMQService.QueueEmailAsync`، بحد أقصى مرة واحدة لكل مستلم في نفس المحادثة خلال نافذة التهدئة (`ChatEmailSettings.CooldownMinutes`، الافتراضي 10 دقائق). الرسائل داخل النافذة تُحفظ دون إيميل إضافي.
 - ⚠️ لا يوجد SignalR — الطرف الآخر يجلب الرسائل عند Polling.
 
 ---
@@ -1029,9 +1029,10 @@ Other conventions to know upfront:
 - إيميل للمعلم: "انتهت صلاحية عرضك"
 - إيميل للطالب: "انتهت صلاحية عرض على طلب جلساتك"
 
-**6. رسالة شات جديدة (`PostConversationMessageCommandHandler`):**
+**6. رسالة شات جديدة (`PostConversationMessageCommandHandler` عبر `IChatEmailNotifier`):**
 - **Subject:** "رسالة جديدة على محادثة عرضك"
 - **Body:** "وصلتك رسالة جديدة. افتح المحادثة لقراءتها والرد عليها."
+- تهدئة: بريد واحد كحد أقصى لكل مستلم في المحادثة خلال `ChatEmailSettings.CooldownMinutes` (افتراضي 10).
 
 > ⚠️ قوالب القبول والرفض التلقائي للعرض (`OfferAccepted`, `OfferAutoRejected`) ستُضاف عند تنفيذ P6.
 

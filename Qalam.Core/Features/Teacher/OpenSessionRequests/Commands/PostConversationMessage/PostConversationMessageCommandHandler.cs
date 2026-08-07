@@ -1,13 +1,11 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
-using Qalam.Data.Entity.Messaging;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -17,21 +15,18 @@ public class PostConversationMessageCommandHandler : ResponseHandler,
     IRequestHandler<PostConversationMessageCommand, Response<OfferConversationMessageDto>>
 {
     private readonly IOfferConversationRepository _convRepo;
-    private readonly IRabbitMQService _rabbitMq;
+    private readonly IChatEmailNotifier _chatEmail;
     private readonly UserManager<User> _userManager;
-    private readonly ILogger<PostConversationMessageCommandHandler> _logger;
 
     public PostConversationMessageCommandHandler(
         IStringLocalizer<SharedResources> localizer,
         IOfferConversationRepository convRepo,
-        IRabbitMQService rabbitMq,
-        UserManager<User> userManager,
-        ILogger<PostConversationMessageCommandHandler> logger) : base(localizer)
+        IChatEmailNotifier chatEmail,
+        UserManager<User> userManager) : base(localizer)
     {
         _convRepo = convRepo;
-        _rabbitMq = rabbitMq;
+        _chatEmail = chatEmail;
         _userManager = userManager;
-        _logger = logger;
     }
 
     public async Task<Response<OfferConversationMessageDto>> Handle(
@@ -49,32 +44,16 @@ public class PostConversationMessageCommandHandler : ResponseHandler,
             request.Data.Content,
             cancellationToken);
 
-        // Email the other party.
-        try
-        {
-            var otherUserId = participant.CallerRole == ConversationCaller.Teacher
-                ? participant.StudentUserId
-                : participant.TeacherUserId;
+        var otherUserId = participant.CallerRole == ConversationCaller.Teacher
+            ? participant.StudentUserId
+            : participant.TeacherUserId;
 
-            if (otherUserId > 0)
-            {
-                var user = await _userManager.FindByIdAsync(otherUserId.ToString());
-                if (user?.Email != null)
-                {
-                    await _rabbitMq.QueueEmailAsync(new EmailMessage
-                    {
-                        To = user.Email,
-                        Subject = "رسالة جديدة على محادثة عرضك",
-                        Body = "وصلتك رسالة جديدة. افتح المحادثة لقراءتها والرد عليها.",
-                        QueuedAt = DateTime.UtcNow
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to email the other party in conversation {ConversationId}.", request.ConversationId);
-        }
+        await _chatEmail.TryNotifyAsync(
+            request.ConversationId,
+            otherUserId,
+            subject: "رسالة جديدة على محادثة عرضك",
+            body: "وصلتك رسالة جديدة. افتح المحادثة لقراءتها والرد عليها.",
+            cancellationToken);
 
         var sender = await _userManager.FindByIdAsync(request.UserId.ToString());
         var dto = new OfferConversationMessageDto

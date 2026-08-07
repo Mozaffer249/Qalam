@@ -80,6 +80,8 @@ builder.Services.Configure<Qalam.Data.Helpers.OpenSessionOfferSettings>(
     builder.Configuration.GetSection("OpenSessionOfferSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.OpenSessionRequestSettings>(
     builder.Configuration.GetSection("OpenSessionRequestSettings"));
+builder.Services.Configure<Qalam.Data.Helpers.ChatEmailSettings>(
+    builder.Configuration.GetSection(Qalam.Data.Helpers.ChatEmailSettings.SectionName));
 builder.Services.Configure<Qalam.Data.Helpers.SessionSettings>(
     builder.Configuration.GetSection("SessionSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
