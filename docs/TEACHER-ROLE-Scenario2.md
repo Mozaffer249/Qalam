@@ -1025,7 +1025,7 @@ Other conventions to know upfront:
 - **Subject:** "تم سحب عرض على طلب جلساتك"
 - **Body:** "قام أحد المعلمين بسحب عرضه. افتح قائمة العروض لرؤية ما تبقى من عروض."
 
-**5. انتهاء صلاحية عرض (`SessionOfferExpirationService` background sweep):**
+**5. انتهاء صلاحية عرض (`OpenSessionRequestLifecycleService` phase 2):**
 - إيميل للمعلم: "انتهت صلاحية عرضك"
 - إيميل للطالب: "انتهت صلاحية عرض على طلب جلساتك"
 
@@ -1145,7 +1145,7 @@ public class TeacherAvailableRequestsController : AppControllerBase { ... }
 
 ### 10.4 Background Jobs المتعلقة بالمعلم
 
-- ✅ **`SessionOfferExpirationService`** (منفّذ): يُشغَّل كل 15 دقيقة (configurable عبر `OpenSessionOfferSettings:ExpirationCheckIntervalMinutes` في `appsettings.json`). يحوّل العروض المنتهية صلاحياً (`Status == Pending && ExpiresAt < UtcNow`) إلى `Expired`، ويُرسل إيميل للمعلم + للطالب.
+- ✅ **`OpenSessionRequestLifecycleService`** (منفّذ): يُشغَّل كل 5 دقائق (configurable عبر `OpenSessionRequestSettings:SweepIntervalMinutes`). يغلّق الطلبات بعد cutoff الجلسة الأولى، يُنهي العروض اليتيمة، يُعيد `ReceivingOffers` الفارغة إلى `Active`، يُغلق `PaymentPending` المتروكة، ويُرسل تذكيرات انتهاء الصلاحية.
 - 🚧 **`SessionOfferExpiryReminderService`** `[v1.5]`: لتنبيه ما قبل الانتهاء (انظر 10.3).
 
 ### 10.5 إعدادات appsettings.json

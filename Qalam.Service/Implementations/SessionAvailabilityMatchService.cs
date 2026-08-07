@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -59,6 +60,14 @@ public class SessionAvailabilityMatchService : ISessionAvailabilityMatchService
             if (slot.PreferredDate == null || slot.TimeSlotStart == null || slot.TimeSlotEnd == null)
             {
                 dto.Status = SessionAvailabilityStatus.OutsideAvailability;
+                result.Add(dto);
+                continue;
+            }
+
+            var sessionStartUtc = PlatformTime.ToUtc(slot.PreferredDate.Value, slot.TimeSlotStart.Value);
+            if (sessionStartUtc <= DateTime.UtcNow)
+            {
+                dto.Status = SessionAvailabilityStatus.Past;
                 result.Add(dto);
                 continue;
             }

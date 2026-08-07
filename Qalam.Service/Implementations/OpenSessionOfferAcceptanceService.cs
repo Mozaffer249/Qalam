@@ -13,14 +13,17 @@ namespace Qalam.Service.Implementations;
 public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceService
 {
     private readonly ApplicationDBContext _db;
-    private readonly EnrollmentSettings _settings;
+    private readonly EnrollmentSettings _enrollmentSettings;
+    private readonly OpenSessionRequestSettings _osrSettings;
 
     public OpenSessionOfferAcceptanceService(
         ApplicationDBContext db,
-        IOptions<EnrollmentSettings> settings)
+        IOptions<EnrollmentSettings> enrollmentSettings,
+        IOptions<OpenSessionRequestSettings> osrSettings)
     {
         _db = db;
-        _settings = settings.Value;
+        _enrollmentSettings = enrollmentSettings.Value;
+        _osrSettings = osrSettings.Value;
     }
 
     public async Task<AcceptSessionOfferResultDto> AcceptAsync(
@@ -32,6 +35,9 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             .Include(o => o.OpenSessionRequest)
                 .ThenInclude(r => r.Sessions)
                     .ThenInclude(s => s.Units)
+            .Include(o => o.OpenSessionRequest)
+                .ThenInclude(r => r.Sessions)
+                    .ThenInclude(s => s.TimeSlot)
             .Include(o => o.OpenSessionRequest)
                 .ThenInclude(r => r.Invitations)
             .Include(o => o.OpenSessionRequest)
@@ -58,7 +64,6 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
         if (sessions.Count == 0)
             throw new InvalidOperationException("الطلب لا يحتوي على جلسات");
 
-        // Resolve each request session → TeacherAvailability for the offering teacher.
         var resolvedSlots = new List<(OpenSessionRequestSession Session, int TeacherAvailabilityId)>();
         foreach (var session in sessions)
         {
@@ -84,6 +89,9 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             resolvedSlots.Add((session, availability.Id));
         }
 
+        var firstSessionStartUtc = OpenSessionRequestExpiry.FirstSessionStartUtc(
+            sessions.Select(s => (s.PreferredDate, s.TimeSlot != null ? (TimeSpan?)s.TimeSlot.StartTime : null)));
+
         await using var tx = await _db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -99,9 +107,6 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 sibling.UpdatedAt = now;
             }
 
-            request.Status = OpenSessionRequestStatus.OfferAccepted;
-            request.UpdatedAt = now;
-
             var studentIds = new List<int> { request.StudentId };
             foreach (var inviteeId in request.Invitations
                          .Where(i => i.Status == OpenSessionRequestInvitationStatus.Accepted)
@@ -116,7 +121,11 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
 
             var preferredStart = sessions.Min(s => s.PreferredDate!.Value);
             var preferredEnd = sessions.Max(s => s.PreferredDate!.Value);
-            var paymentDeadline = now.AddHours(_settings.PaymentDeadlineHours);
+            var paymentDeadline = OpenSessionRequestExpiry.ResolvePaymentDeadline(
+                now,
+                _enrollmentSettings.PaymentDeadlineHours,
+                firstSessionStartUtc,
+                _osrSettings);
 
             var enrollment = new Enrollment
             {

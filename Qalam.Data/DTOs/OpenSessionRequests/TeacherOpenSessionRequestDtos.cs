@@ -152,7 +152,9 @@ public enum SessionAvailabilityStatus
     /// <summary>Session is in availability but the teacher already has a ScheduledSession or CourseSchedule at that time.</summary>
     Conflict = 2,
     /// <summary>Session is outside the teacher's TeacherAvailability (DayOfWeek + TimeSlot not covered).</summary>
-    OutsideAvailability = 3
+    OutsideAvailability = 3,
+    /// <summary>Preferred session start is at or before now (cannot offer).</summary>
+    Past = 4
 }
 
 public class SessionAvailabilityMatchDto

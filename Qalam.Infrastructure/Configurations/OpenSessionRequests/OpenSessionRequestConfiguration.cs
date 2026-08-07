@@ -25,6 +25,7 @@ public class OpenSessionRequestConfiguration : IEntityTypeConfiguration<OpenSess
         // Properties
         builder.Property(e => e.Status).IsRequired();
         builder.Property(e => e.TotalSessionsCount).IsRequired();
+        builder.Property(e => e.ExpiryNudgeStage).HasDefaultValue((byte)0);
 
         // Relationships
         builder.HasOne(e => e.Student)

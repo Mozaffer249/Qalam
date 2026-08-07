@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.context;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRequests;
@@ -42,7 +43,21 @@ public class GetMyOpenSessionRequestsQueryHandler
             .Where(r => r.RequestedByUserId == request.UserId);
 
         if (request.Status.HasValue)
+        {
             query = query.Where(r => r.Status == request.Status.Value);
+        }
+        else
+        {
+            var open = OpenSessionRequestStatusSets.StudentOpen;
+            query = request.Scope switch
+            {
+                OpenSessionRequestScope.Active =>
+                    query.Where(r => open.Contains(r.Status)),
+                OpenSessionRequestScope.Archived =>
+                    query.Where(r => !open.Contains(r.Status)),
+                _ => query,
+            };
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 

@@ -78,6 +78,8 @@ builder.Services.Configure<Qalam.Data.Helpers.PaymentSettings>(
     builder.Configuration.GetSection("PaymentSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.OpenSessionOfferSettings>(
     builder.Configuration.GetSection("OpenSessionOfferSettings"));
+builder.Services.Configure<Qalam.Data.Helpers.OpenSessionRequestSettings>(
+    builder.Configuration.GetSection("OpenSessionRequestSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.SessionSettings>(
     builder.Configuration.GetSection("SessionSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
@@ -85,8 +87,7 @@ builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
 
 // Background Services
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();
-builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionOfferExpirationService>();
-builder.Services.AddHostedService<Qalam.Service.BackgroundServices.OpenSessionRequestExpirationService>();
+builder.Services.AddHostedService<Qalam.Service.BackgroundServices.OpenSessionRequestLifecycleService>();
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionLifecycleService>();
 
 // Service Registration

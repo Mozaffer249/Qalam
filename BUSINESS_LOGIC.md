@@ -1399,6 +1399,35 @@ var sessions = await _context.TeachingSessions
 
 ---
 
+## Open Session Request lifecycle (Scenario 2)
+
+All OSR deadlines anchor on the first session start (PreferredDate + TimeSlot.StartTime in Asia/Riyadh, converted via `PlatformTime`):
+
+```
+RequestExpiresAt = min(publishedAt + 7d, firstSessionStart − OfferCutoff)
+OfferExpiresAt   = min(now + ValidityHours, RequestExpiresAt)
+PaymentDeadline  = min(acceptedAt + PaymentDeadlineHours, firstSessionStart − 2h)
+```
+
+Lead / cutoff hours differ by request kind (`OpenSessionRequestSettings`):
+
+| Kind | Min lead | Offer cutoff |
+|------|----------|--------------|
+| Broadcast | 24h | 12h |
+| Targeted | 6h | 3h |
+
+Single background service: `OpenSessionRequestLifecycleService` (every 5 minutes):
+
+1. Expire past-cutoff requests (and withdraw pending offers)
+2. Expire orphaned pending offers
+3. Demote empty `ReceivingOffers` → `Active`
+4. Settle abandoned `PaymentPending` (cancelled enrollment) → `Expired`
+5. Expiry nudges at 24h / 6h before `ExpiresAt`
+
+Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student: includes PaymentPending). Use `Scope=Archived` for history.
+
+---
+
 ## المصطلحات
 
 | المصطلح | الترجمة | الشرح |

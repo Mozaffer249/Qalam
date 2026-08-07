@@ -2,11 +2,13 @@ using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service;
 using Qalam.Service.Abstracts;
@@ -20,6 +22,7 @@ public class PublishOpenSessionRequestCommandHandler
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
+    private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
 
     public PublishOpenSessionRequestCommandHandler(
@@ -28,12 +31,14 @@ public class PublishOpenSessionRequestCommandHandler
         IOpenSessionRequestAccessGuard accessGuard,
         IOpenSessionRequestTargetingService targetingService,
         ITargetedOpenSessionRequestValidator targetedValidator,
+        IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _targetingService = targetingService;
         _targetedValidator = targetedValidator;
+        _osrSettings = osrSettings.Value;
         _mapper = mapper;
     }
 
@@ -95,6 +100,17 @@ public class PublishOpenSessionRequestCommandHandler
         }
 
         var now = DateTime.UtcNow;
+        var isTargeted = entity.TargetedTeacherId.HasValue;
+        var firstSessionStartUtc = await OpenSessionRequestDeadlineResolver.ResolveFirstSessionStartUtcAsync(
+            _db,
+            entity.Sessions.Select(s => (s.PreferredDate, s.TimeSlotId)),
+            cancellationToken);
+
+        var leadError = OpenSessionRequestDeadlineResolver.ValidateMinimumLead(
+            now, firstSessionStartUtc, _osrSettings, isTargeted);
+        if (leadError != null)
+            return BadRequest<OpenSessionRequestDetailDto>(leadError);
+
         // Any invitation rows → PendingInvitations until resolved; else Active
         var status = entity.Invitations.Count > 0
             ? OpenSessionRequestStatus.PendingInvitations
@@ -102,7 +118,8 @@ public class PublishOpenSessionRequestCommandHandler
 
         entity.Status = status;
         entity.PublishedAt = now;
-        entity.ExpiresAt ??= now.AddDays(7);
+        entity.ExpiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
+            now, entity.ExpiresAt, firstSessionStartUtc, _osrSettings, isTargeted);
 
         await _db.SaveChangesAsync(cancellationToken);
 

@@ -625,7 +625,7 @@ Teacher inbox / create-offer APIs are documented in [S2-FLOW-AND-ENDPOINTS.md](S
 | Auto-reject other offers on accept | **Done** |
 | Payment after accept (S2) | **Done** — reuse `POST /Student/Payments/Participants` |
 | Create enrollment + schedules from offer | **Done** |
-| Request auto-expiry → `Expired` | **Done** — `OpenSessionRequestExpirationService` |
+| Request auto-expiry → `Expired` | **Done** — `OpenSessionRequestLifecycleService` (phase 1; also settles abandoned `PaymentPending`, demotes empty `ReceivingOffers`, nudges) |
 | Server-side wizard draft API | **Done** — `asDraft` + PUT + Publish |
 
 ---

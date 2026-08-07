@@ -9,6 +9,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -88,8 +89,13 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             .ToList();
         if (blocked.Count > 0)
         {
+            var hasPast = blocked.Any(m => m.Status == SessionAvailabilityStatus.Past);
             var hasScheduleConflict = blocked.Any(m => m.Status == SessionAvailabilityStatus.Conflict);
-            var code = hasScheduleConflict ? "SCHEDULE_CONFLICT" : "OUTSIDE_AVAILABILITY";
+            var code = hasPast
+                ? "SESSION_DATE_PAST"
+                : hasScheduleConflict
+                    ? "SCHEDULE_CONFLICT"
+                    : "OUTSIDE_AVAILABILITY";
             return Conflict<TeacherOfferDetailDto>(
                 code,
                 Meta: new OfferAvailabilityBlockMetaDto
@@ -105,6 +111,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         }
 
         var now = DateTime.UtcNow;
+        var requestExpiresAt = await _requestRepo.GetExpiresAtAsync(request.Data.SessionRequestId, cancellationToken);
         var offer = new OpenSessionOffer
         {
             SessionRequestId = request.Data.SessionRequestId,
@@ -113,23 +120,21 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             TeacherNotes = request.Data.TeacherNotes,
             Status = OpenSessionOfferStatus.Pending,
             Version = 1,
-            ExpiresAt = now.AddHours(request.Data.ValidityHours),
+            ExpiresAt = OpenSessionRequestExpiry.ResolveOfferExpiry(
+                now, request.Data.ValidityHours, requestExpiresAt),
             CreatedAt = now
         };
 
         await _offerRepo.AddAsync(offer);
         await _offerRepo.SaveChangesAsync();
 
-        // Flip the target row to OfferSubmitted (idempotent).
         await _targetRepo.SetStatusAsync(request.Data.SessionRequestId, teacher.Id, OpenSessionRequestTargetStatus.OfferSubmitted, cancellationToken);
 
-        // First offer on this request? Flip request status Active → ReceivingOffers.
         if (summary.Status == OpenSessionRequestStatus.Active)
         {
             await _requestRepo.UpdateStatusAsync(request.Data.SessionRequestId, OpenSessionRequestStatus.ReceivingOffers, cancellationToken);
         }
 
-        // Conversation: targeted = request-scoped pointer; broadcast = new offer-scoped thread.
         var isOfferScoped = summary.TargetedTeacherId == null;
         try
         {
@@ -147,14 +152,13 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             _logger.LogWarning(ex, "Failed to post system message for new offer {OfferId}.", offer.Id);
         }
 
-        // Email the requester (could be the student or the guardian — RequestedByUserId is whoever submitted).
-        await TryNotifyRequesterAsync(summary.RequestedByUserId, summary.CreatedByGuardianId);
+        await TryNotifyRequesterAsync(summary.RequestedByUserId);
 
         var detail = await _offerRepo.GetTeacherDetailDtoAsync(offer.Id, teacher.Id, cancellationToken);
         return Created(entity: detail!);
     }
 
-    private async Task TryNotifyRequesterAsync(int requestedByUserId, int? createdByGuardianId)
+    private async Task TryNotifyRequesterAsync(int requestedByUserId)
     {
         try
         {

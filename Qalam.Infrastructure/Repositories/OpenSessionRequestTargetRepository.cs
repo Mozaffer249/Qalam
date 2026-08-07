@@ -98,7 +98,23 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                                  && x.Request.Status != OpenSessionRequestStatus.PendingInvitations);
 
         if (filters.RequestStatus.HasValue)
+        {
             query = query.Where(x => x.Request.Status == filters.RequestStatus.Value);
+        }
+        else
+        {
+            var actionable = OpenSessionRequestStatusSets.TeacherActionable;
+            query = filters.Scope switch
+            {
+                OpenSessionRequestScope.Active =>
+                    query.Where(x => actionable.Contains(x.Request.Status)),
+                OpenSessionRequestScope.Archived =>
+                    query.Where(x => !actionable.Contains(x.Request.Status)
+                                     && x.Request.Status != OpenSessionRequestStatus.Draft
+                                     && x.Request.Status != OpenSessionRequestStatus.PendingInvitations),
+                _ => query,
+            };
+        }
 
         query = filters.SortBy switch
         {
@@ -159,13 +175,24 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
     public async Task<TeacherInboxCountsDto> GetTeacherInboxCountsAsync(
         int teacherId,
         bool? isTargeted = null,
+        OpenSessionRequestScope scope = OpenSessionRequestScope.Active,
         CancellationToken cancellationToken = default)
     {
+        var actionable = OpenSessionRequestStatusSets.TeacherActionable;
         var query = _context.OpenSessionRequestTargets
             .AsNoTracking()
             .Where(t => t.TeacherId == teacherId)
             .Where(t => t.OpenSessionRequest.Status != OpenSessionRequestStatus.Draft
                         && t.OpenSessionRequest.Status != OpenSessionRequestStatus.PendingInvitations);
+
+        query = scope switch
+        {
+            OpenSessionRequestScope.Active =>
+                query.Where(t => actionable.Contains(t.OpenSessionRequest.Status)),
+            OpenSessionRequestScope.Archived =>
+                query.Where(t => !actionable.Contains(t.OpenSessionRequest.Status)),
+            _ => query,
+        };
 
         if (isTargeted == true)
             query = query.Where(t => t.OpenSessionRequest.TargetedTeacherId != null);

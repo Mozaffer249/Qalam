@@ -83,6 +83,12 @@ public class OpenSessionRequest : AuditableEntity
 
     public DateTime? ExpiresAt { get; set; }
 
+    /// <summary>
+    /// Idempotent expiry-nudge stage: 0 = none sent; N = first N entries of
+    /// <c>OpenSessionRequestSettings.ExpiryNudgeHours</c> have been sent.
+    /// </summary>
+    public byte ExpiryNudgeStage { get; set; }
+
     [MaxLength(1000)]
     public string? StudentNotes { get; set; }
 

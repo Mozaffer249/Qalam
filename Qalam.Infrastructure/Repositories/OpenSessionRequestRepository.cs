@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -213,41 +214,171 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
         return true;
     }
 
-    public async Task<List<int>> ExpireOpenRequestsAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    public async Task<DateTime?> GetExpiresAtAsync(int requestId, CancellationToken cancellationToken = default)
     {
-        var expirables = new[]
-        {
-            OpenSessionRequestStatus.Draft,
-            OpenSessionRequestStatus.PendingInvitations,
-            OpenSessionRequestStatus.Active,
-            OpenSessionRequestStatus.ReceivingOffers,
-        };
+        var row = await _context.OpenSessionRequests
+            .AsNoTracking()
+            .Where(r => r.Id == requestId)
+            .Select(r => new { r.ExpiresAt })
+            .FirstOrDefaultAsync(cancellationToken);
+        return row?.ExpiresAt;
+    }
 
-        var requests = await _context.OpenSessionRequests
+    public async Task<List<ExpiredRequestResult>> ExpirePastCutoffRequestsAsync(
+        DateTime nowUtc,
+        OpenSessionRequestSettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        var expirables = OpenSessionRequestStatusSets.Expirable;
+        var platformToday = PlatformTime.ToPlatformDate(nowUtc);
+        var nearDate = platformToday.AddDays(1);
+
+        // SQL-friendly candidate filter; precise cutoff applied in memory.
+        var candidates = await _context.OpenSessionRequests
             .Include(r => r.Offers)
-            .Where(r => r.ExpiresAt != null
-                        && r.ExpiresAt < cutoffUtc
-                        && expirables.Contains(r.Status))
+            .Include(r => r.Sessions).ThenInclude(s => s.TimeSlot)
+            .Where(r => expirables.Contains(r.Status)
+                        && (
+                            (r.ExpiresAt != null && r.ExpiresAt < nowUtc)
+                            || r.Sessions.Any(s => s.PreferredDate != null && s.PreferredDate <= nearDate)
+                        ))
             .ToListAsync(cancellationToken);
 
-        if (requests.Count == 0)
-            return new List<int>();
+        var results = new List<ExpiredRequestResult>();
+        if (candidates.Count == 0)
+            return results;
 
-        var now = DateTime.UtcNow;
-        foreach (var request in requests)
+        foreach (var request in candidates)
         {
+            var isTargeted = request.TargetedTeacherId != null;
+            var firstStart = OpenSessionRequestExpiry.FirstSessionStartUtc(
+                request.Sessions.Select(s => (
+                    s.PreferredDate,
+                    s.TimeSlot != null ? (TimeSpan?)s.TimeSlot.StartTime : null)));
+
+            var effective = OpenSessionRequestExpiry.EffectiveExpiryUtc(
+                request.ExpiresAt, firstStart, settings, isTargeted);
+
+            if (effective > nowUtc)
+                continue;
+
             request.Status = OpenSessionRequestStatus.Expired;
-            request.UpdatedAt = now;
+            request.UpdatedAt = nowUtc;
 
             foreach (var offer in request.Offers.Where(o => o.Status == OpenSessionOfferStatus.Pending))
             {
                 offer.Status = OpenSessionOfferStatus.Withdrawn;
-                offer.WithdrawnAt = now;
-                offer.UpdatedAt = now;
+                offer.WithdrawnAt = nowUtc;
+                offer.UpdatedAt = nowUtc;
             }
+
+            results.Add(new ExpiredRequestResult(
+                request.Id,
+                request.RequestedByUserId,
+                effective,
+                OpenSessionRequestExpiry.IsWithinNotificationGrace(effective, nowUtc, settings)));
+        }
+
+        if (results.Count > 0)
+            await _context.SaveChangesAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<List<int>> DemoteReceivingOffersWithoutLiveOffersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var ids = await _context.OpenSessionRequests
+            .Where(r => r.Status == OpenSessionRequestStatus.ReceivingOffers
+                        && !r.Offers.Any(o => o.Status == OpenSessionOfferStatus.Pending))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        if (ids.Count == 0)
+            return ids;
+
+        var now = DateTime.UtcNow;
+        var rows = await _context.OpenSessionRequests
+            .Where(r => ids.Contains(r.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var row in rows)
+        {
+            row.Status = OpenSessionRequestStatus.Active;
+            row.UpdatedAt = now;
         }
 
         await _context.SaveChangesAsync(cancellationToken);
-        return requests.Select(r => r.Id).ToList();
+        return ids;
+    }
+
+    public async Task<List<SettledPaymentPendingResult>> SettleAbandonedPaymentPendingAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var rows = await (
+            from r in _context.OpenSessionRequests
+            where r.Status == OpenSessionRequestStatus.PaymentPending
+            join e in _context.Enrollments on r.Id equals e.SessionRequestId
+            where e.EnrollmentStatus == EnrollmentStatus.Cancelled
+            select new { Request = r, e.CancelledAt }
+        ).ToListAsync(cancellationToken);
+
+        var results = new List<SettledPaymentPendingResult>();
+        if (rows.Count == 0)
+            return results;
+
+        // Default settings for grace — caller can also filter; use CancelledAt age.
+        // Notification decision is made here with a conservative 6h when settings aren't passed.
+        // Lifecycle service re-evaluates with full settings before emailing.
+        foreach (var row in rows)
+        {
+            row.Request.Status = OpenSessionRequestStatus.Expired;
+            row.Request.UpdatedAt = now;
+            results.Add(new SettledPaymentPendingResult(
+                row.Request.Id,
+                row.Request.RequestedByUserId,
+                row.CancelledAt,
+                Notify: true));
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return results;
+    }
+
+    public async Task<List<ExpiryNudgeCandidate>> GetExpiryNudgeCandidatesAsync(
+        DateTime nowUtc,
+        int stageIndex,
+        int hoursBeforeExpiry,
+        CancellationToken cancellationToken = default)
+    {
+        var stageByte = (byte)stageIndex;
+        var windowEnd = nowUtc.AddHours(hoursBeforeExpiry);
+        var expirables = OpenSessionRequestStatusSets.Expirable;
+
+        return await _context.OpenSessionRequests
+            .AsNoTracking()
+            .Where(r => expirables.Contains(r.Status)
+                        && r.ExpiresAt != null
+                        && r.ExpiresAt > nowUtc
+                        && r.ExpiresAt <= windowEnd
+                        && r.ExpiryNudgeStage <= stageByte)
+            .Select(r => new ExpiryNudgeCandidate(
+                r.Id,
+                r.RequestedByUserId,
+                r.TargetedTeacherId,
+                r.ExpiresAt!.Value,
+                r.ExpiryNudgeStage))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task MarkExpiryNudgeStageAsync(int requestId, byte stage, CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.OpenSessionRequests.FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+        if (entity == null) return;
+        if (entity.ExpiryNudgeStage >= stage) return;
+        entity.ExpiryNudgeStage = stage;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

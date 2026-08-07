@@ -13,8 +13,11 @@ public class GetMyOpenSessionRequestsQuery
     [BindNever]
     public int UserId { get; set; }
 
-    /// <summary>Optional status filter.</summary>
+    /// <summary>Optional exact status filter. When set, wins over Scope.</summary>
     public OpenSessionRequestStatus? Status { get; set; }
+
+    /// <summary>Active (default) = still open for the student; Archived = terminal; All = no scope filter.</summary>
+    public OpenSessionRequestScope Scope { get; set; } = OpenSessionRequestScope.Active;
 
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;

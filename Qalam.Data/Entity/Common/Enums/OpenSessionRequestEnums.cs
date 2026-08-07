@@ -73,3 +73,44 @@ public enum OfferMessageType
     System = 2,
     OfferUpdate = 3
 }
+
+/// <summary>
+/// Inbox / list scope for open session requests (Active = still actionable for the audience).
+/// </summary>
+public enum OpenSessionRequestScope
+{
+    Active = 1,
+    Archived = 2,
+    All = 3
+}
+
+/// <summary>
+/// Status sets used by Active/Archived scope filters. Teacher and student audiences differ.
+/// </summary>
+public static class OpenSessionRequestStatusSets
+{
+    /// <summary>Teacher can still offer / act.</summary>
+    public static readonly OpenSessionRequestStatus[] TeacherActionable =
+    [
+        OpenSessionRequestStatus.Active,
+        OpenSessionRequestStatus.ReceivingOffers,
+    ];
+
+    /// <summary>Student still has work to do (including pay).</summary>
+    public static readonly OpenSessionRequestStatus[] StudentOpen =
+    [
+        OpenSessionRequestStatus.Draft,
+        OpenSessionRequestStatus.PendingInvitations,
+        OpenSessionRequestStatus.Active,
+        OpenSessionRequestStatus.ReceivingOffers,
+        OpenSessionRequestStatus.PaymentPending,
+    ];
+
+    public static readonly OpenSessionRequestStatus[] Expirable =
+    [
+        OpenSessionRequestStatus.Draft,
+        OpenSessionRequestStatus.PendingInvitations,
+        OpenSessionRequestStatus.Active,
+        OpenSessionRequestStatus.ReceivingOffers,
+    ];
+}

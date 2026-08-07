@@ -27,6 +27,9 @@ public class GetAvailableRequestsQuery : IRequest<Response<PaginatedResult<Teach
     /// <summary>Optional filter on the request lifecycle status (Cancelled, Expired, …).</summary>
     public OpenSessionRequestStatus? RequestStatus { get; set; }
 
+    /// <summary>Active (default) = still actionable; Archived = terminal; All = no scope filter.</summary>
+    public OpenSessionRequestScope Scope { get; set; } = OpenSessionRequestScope.Active;
+
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
     public TeacherInboxSort SortBy { get; set; } = TeacherInboxSort.Newest;

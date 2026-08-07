@@ -1,28 +1,29 @@
 using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service;
 using Qalam.Service.Abstracts;
-using Microsoft.Extensions.Localization;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.CreateOpenSessionRequest;
 
 public class CreateOpenSessionRequestCommandHandler
     : ResponseHandler, IRequestHandler<CreateOpenSessionRequestCommand, Response<OpenSessionRequestDetailDto>>
 {
-    private const int DefaultExpiryDays = 7;
-
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
+    private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
 
     public CreateOpenSessionRequestCommandHandler(
@@ -31,12 +32,14 @@ public class CreateOpenSessionRequestCommandHandler
         IOpenSessionRequestAccessGuard accessGuard,
         IOpenSessionRequestTargetingService targetingService,
         ITargetedOpenSessionRequestValidator targetedValidator,
+        IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _targetingService = targetingService;
         _targetedValidator = targetedValidator;
+        _osrSettings = osrSettings.Value;
         _mapper = mapper;
     }
 
@@ -96,8 +99,21 @@ public class CreateOpenSessionRequestCommandHandler
         // 5. Resolve invited-by student id (the learner's own Student.Id is the inviter)
         var inviterStudentId = data.StudentId;
 
-        // 6. Build the entity
+        // 5b. First-session start + minimum lead (skipped for drafts — rechecked at publish)
         var now = DateTime.UtcNow;
+        var isTargeted = data.TargetedTeacherId.HasValue;
+        var firstSessionStartUtc = await OpenSessionRequestDeadlineResolver
+            .ResolveFirstSessionStartUtcFromDtosAsync(_db, data.Sessions, cancellationToken);
+
+        if (!data.AsDraft)
+        {
+            var leadError = OpenSessionRequestDeadlineResolver.ValidateMinimumLead(
+                now, firstSessionStartUtc, _osrSettings, isTargeted);
+            if (leadError != null)
+                return BadRequest<OpenSessionRequestDetailDto>(leadError);
+        }
+
+        // 6. Build the entity
         OpenSessionRequestStatus status;
         DateTime? publishedAt;
         if (data.AsDraft)
@@ -112,6 +128,9 @@ public class CreateOpenSessionRequestCommandHandler
                 : OpenSessionRequestStatus.Active;
             publishedAt = now;
         }
+
+        var expiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
+            now, data.ExpiresAt, firstSessionStartUtc, _osrSettings, isTargeted);
 
         var entity = new OpenSessionRequest
         {
@@ -135,7 +154,7 @@ public class CreateOpenSessionRequestCommandHandler
             StudentNotes = data.StudentNotes,
             Status = status,
             PublishedAt = publishedAt,
-            ExpiresAt = data.ExpiresAt ?? now.AddDays(DefaultExpiryDays),
+            ExpiresAt = expiresAt,
         };
 
         foreach (var s in data.Sessions)

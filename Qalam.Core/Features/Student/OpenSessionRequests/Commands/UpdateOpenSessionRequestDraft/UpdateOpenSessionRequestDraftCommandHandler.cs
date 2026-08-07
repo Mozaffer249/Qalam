@@ -2,12 +2,14 @@ using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service;
 using Qalam.Service.Abstracts;
@@ -20,6 +22,7 @@ public class UpdateOpenSessionRequestDraftCommandHandler
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
+    private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
 
     public UpdateOpenSessionRequestDraftCommandHandler(
@@ -27,11 +30,13 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
         ITargetedOpenSessionRequestValidator targetedValidator,
+        IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _targetedValidator = targetedValidator;
+        _osrSettings = osrSettings.Value;
         _mapper = mapper;
     }
 
@@ -101,8 +106,6 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         entity.GroupType = data.GroupType;
         entity.TotalSessionsCount = data.TotalSessionsCount;
         entity.StudentNotes = data.StudentNotes;
-        if (data.ExpiresAt.HasValue)
-            entity.ExpiresAt = data.ExpiresAt;
 
         _db.RemoveRange(entity.Sessions.SelectMany(s => s.Units));
         _db.RemoveRange(entity.Sessions);
@@ -141,6 +144,17 @@ public class UpdateOpenSessionRequestDraftCommandHandler
                 Status = OpenSessionRequestInvitationStatus.Pending,
             });
         }
+
+        // Recompute expiry from (possibly moved) session dates; drafts skip min-lead until publish.
+        var now = DateTime.UtcNow;
+        var firstSessionStartUtc = await OpenSessionRequestDeadlineResolver
+            .ResolveFirstSessionStartUtcFromDtosAsync(_db, data.Sessions, cancellationToken);
+        entity.ExpiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
+            now,
+            data.ExpiresAt ?? entity.ExpiresAt,
+            firstSessionStartUtc,
+            _osrSettings,
+            data.TargetedTeacherId.HasValue);
 
         await _db.SaveChangesAsync(cancellationToken);
 

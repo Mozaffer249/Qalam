@@ -1,6 +1,7 @@
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.InfrastructureBases;
 
 namespace Qalam.Infrastructure.Abstracts;
@@ -56,11 +57,38 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
     /// </summary>
     Task<bool> UpdateStatusAsync(int requestId, OpenSessionRequestStatus newStatus, CancellationToken cancellationToken = default);
 
+    Task<DateTime?> GetExpiresAtAsync(int requestId, CancellationToken cancellationToken = default);
+
     /// <summary>
-    /// Background expiry: Draft / PendingInvitations / Active / ReceivingOffers with ExpiresAt past cutoff
-    /// → Expired; pending offers on those requests → Withdrawn. Returns expired request ids.
+    /// Phase 1: expire Draft / PendingInvitations / Active / ReceivingOffers past ExpiresAt or past
+    /// the session-derived offer cutoff. Pending offers → Withdrawn.
     /// </summary>
-    Task<List<int>> ExpireOpenRequestsAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
+    Task<List<ExpiredRequestResult>> ExpirePastCutoffRequestsAsync(
+        DateTime nowUtc,
+        OpenSessionRequestSettings settings,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 3: ReceivingOffers with zero Pending offers → Active.
+    /// </summary>
+    Task<List<int>> DemoteReceivingOffersWithoutLiveOffersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 4: PaymentPending whose linked enrollment is Cancelled → Expired.
+    /// </summary>
+    Task<List<SettledPaymentPendingResult>> SettleAbandonedPaymentPendingAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phase 5: candidates for expiry-soon nudges that have not yet reached the given stage.
+    /// </summary>
+    Task<List<ExpiryNudgeCandidate>> GetExpiryNudgeCandidatesAsync(
+        DateTime nowUtc,
+        int stageIndex,
+        int hoursBeforeExpiry,
+        CancellationToken cancellationToken = default);
+
+    Task MarkExpiryNudgeStageAsync(int requestId, byte stage, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Used by availability-match to compute conflicts without loading whole session graphs.</summary>
@@ -81,3 +109,22 @@ public record RequestStatusSummary(
     int? CreatedByGuardianId,
     OpenSessionRequestStatus Status,
     int? TargetedTeacherId = null);
+
+public record ExpiredRequestResult(
+    int RequestId,
+    int RequestedByUserId,
+    DateTime EffectiveExpiryUtc,
+    bool Notify);
+
+public record SettledPaymentPendingResult(
+    int RequestId,
+    int RequestedByUserId,
+    DateTime? EnrollmentCancelledAt,
+    bool Notify);
+
+public record ExpiryNudgeCandidate(
+    int RequestId,
+    int RequestedByUserId,
+    int? TargetedTeacherId,
+    DateTime ExpiresAt,
+    byte CurrentStage);

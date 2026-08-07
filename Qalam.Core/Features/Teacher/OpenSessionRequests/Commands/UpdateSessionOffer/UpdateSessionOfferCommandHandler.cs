@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Messaging;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -60,7 +61,12 @@ public class UpdateSessionOfferCommandHandler : ResponseHandler,
         var now = DateTime.UtcNow;
         if (request.Data.Price.HasValue) offer.Price = request.Data.Price.Value;
         if (request.Data.TeacherNotes != null) offer.TeacherNotes = request.Data.TeacherNotes;
-        if (request.Data.ValidityHours.HasValue) offer.ExpiresAt = now.AddHours(request.Data.ValidityHours.Value);
+        if (request.Data.ValidityHours.HasValue)
+        {
+            var requestExpiresAt = await _requestRepo.GetExpiresAtAsync(offer.SessionRequestId, cancellationToken);
+            offer.ExpiresAt = OpenSessionRequestExpiry.ResolveOfferExpiry(
+                now, request.Data.ValidityHours.Value, requestExpiresAt);
+        }
         offer.Version += 1;
         offer.UpdatedAt = now;
 
