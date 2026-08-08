@@ -1,4 +1,5 @@
 using FluentValidation;
+using Qalam.Data.Entity.Common;
 
 namespace Qalam.Core.Features.Contact.Commands.SubmitContactMessage;
 
@@ -18,6 +19,11 @@ public class SubmitContactMessageCommandValidator : AbstractValidator<SubmitCont
             .MaximumLength(200).WithMessage("Email cannot exceed 200 characters")
             .EmailAddress().WithMessage("Invalid email address")
             .When(x => !string.IsNullOrWhiteSpace(x.Email));
+
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Reason is required")
+            .Must(ContactReason.IsValid)
+            .WithMessage("Invalid contact reason");
 
         RuleFor(x => x.Message)
             .NotEmpty().WithMessage("Message is required")

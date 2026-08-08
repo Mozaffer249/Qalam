@@ -47,6 +47,11 @@ namespace Qalam.Data.AppMetaData
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
         public const string Nationalities = Rule + "Nationalities";
         public const string Contact = Rule + "Contact";
+        public const string AdminContactMessages = Rule + "Admin/ContactMessages";
+        public const string AdminContactMessageById = Rule + "Admin/ContactMessages/{id}";
+        public const string AdminContactMessageClose = Rule + "Admin/ContactMessages/{id}/close";
+        public const string AdminContactMessageReopen = Rule + "Admin/ContactMessages/{id}/reopen";
+        public const string AdminContactMessageInProgress = Rule + "Admin/ContactMessages/{id}/in-progress";
         public const string TeacherDomainQuestionsSubmit = Rule + "Teacher/DomainQuestions/submit";
 
         // Student / Parent Authentication & Registration

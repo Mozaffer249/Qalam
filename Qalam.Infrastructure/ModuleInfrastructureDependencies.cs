@@ -23,6 +23,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<ITeacherRepository, TeacherRepository>();
             services.AddTransient<ITeacherDocumentRepository, TeacherDocumentRepository>();
             services.AddTransient<INationalityRepository, NationalityRepository>();
+            services.AddTransient<IContactMessageRepository, ContactMessageRepository>();
             services.AddTransient<ITeacherRegistrationRequirementRepository, TeacherRegistrationRequirementRepository>();
             services.AddTransient<ITeacherRegistrationSubmissionRepository, TeacherRegistrationSubmissionRepository>();
             services.AddTransient<ITeacherDomainQuestionRepository, TeacherDomainQuestionRepository>();
