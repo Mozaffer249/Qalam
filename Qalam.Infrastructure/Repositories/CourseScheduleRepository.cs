@@ -51,8 +51,8 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             .Where(cs => cs.Status == ScheduleStatus.Scheduled
                          && cs.Date >= fromDate
                          && cs.Date <= toDate
-                         && cs.Enrollment.Course != null
-                         && cs.Enrollment.Course.TeacherId == teacherId
+                         && ((cs.Enrollment.Course != null && cs.Enrollment.Course.TeacherId == teacherId)
+                             || (cs.Enrollment.Course == null && cs.Enrollment.ApprovedByTeacherId == teacherId))
                          && cs.TeacherAvailability != null
                          && cs.TeacherAvailability.TimeSlot != null)
             .Select(cs => new

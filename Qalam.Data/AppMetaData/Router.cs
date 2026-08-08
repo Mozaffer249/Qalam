@@ -349,6 +349,9 @@ namespace Qalam.Data.AppMetaData
         public const string StudentOpenSessionOfferAccept = StudentOpenSessionRequests + "/Offers/{offerId}/Accept";
         /// <summary>Reject offer: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/Reject</summary>
         public const string StudentOpenSessionOfferReject = StudentOpenSessionRequests + "/Offers/{offerId}/Reject";
+        /// <summary>Availability pre-check: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/availability-check</summary>
+        public const string StudentOpenSessionOfferAvailabilityCheck =
+            StudentOpenSessionRequests + "/Offers/{offerId}/availability-check";
 
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";

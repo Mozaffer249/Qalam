@@ -27,6 +27,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
+    private readonly IOpenSessionRequestReleaseService _releaseService;
     private readonly PaymentSettings _settings;
 
     public PayEnrollmentParticipantCommandHandler(
@@ -36,6 +37,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
+        IOpenSessionRequestReleaseService releaseService,
         IOptions<PaymentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -45,6 +47,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
+        _releaseService = releaseService;
         _settings = settings.Value;
     }
 
@@ -309,8 +312,14 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             if (preview.Conflicts.Count > 0)
             {
                 await _participantRepository.RollBackAsync();
-                return BadRequest<PaymentResultDto>(
-                    "Some of your scheduled dates were just booked by another student. Please re-submit with different dates.");
+
+                if (isSessionRequest && enrollment.Id > 0)
+                {
+                    await _releaseService.ReleaseAfterPaymentConflictAsync(
+                        enrollment.Id, cancellationToken);
+                }
+
+                return BadRequest<PaymentResultDto>("SCHEDULE_CONFLICT_RELEASED");
             }
 
             if (!preview.FitsInWindow)

@@ -10,6 +10,7 @@ using Qalam.Core.Features.Student.OpenSessionRequests.Commands.PublishOpenSessio
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.RejectSessionOffer;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.UpdateOpenSessionRequestDraft;
 using Qalam.Core.Features.Student.OpenSessionRequests.Commands.UploadOpenSessionRequestAttachment;
+using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetOfferAvailabilityCheck;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRequests;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetOpenSessionRequestById;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOfferById;
@@ -278,9 +279,22 @@ public class StudentOpenSessionRequestController : AppControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AcceptOffer(int offerId)
     {
         return NewResult(await Mediator.Send(new AcceptSessionOfferCommand { OfferId = offerId }));
+    }
+
+    /// <summary>
+    /// Pre-check whether the teacher's proposed session slots are still available before accept/pay.
+    /// </summary>
+    [HttpGet(Router.StudentOpenSessionOfferAvailabilityCheck)]
+    [ProducesResponseType(typeof(List<SessionAvailabilityMatchDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOfferAvailabilityCheck(int offerId)
+    {
+        return NewResult(await Mediator.Send(new GetOfferAvailabilityCheckQuery { OfferId = offerId }));
     }
 
     /// <summary>

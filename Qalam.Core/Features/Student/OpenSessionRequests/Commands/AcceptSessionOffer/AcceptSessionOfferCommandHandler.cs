@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Exceptions;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.AcceptSessionOffer;
 
@@ -47,6 +48,21 @@ public class AcceptSessionOfferCommandHandler
         {
             var result = await _acceptanceService.AcceptAsync(request.OfferId, request.UserId, cancellationToken);
             return Success(entity: result);
+        }
+        catch (SessionSlotConflictException ex)
+        {
+            return Conflict<AcceptSessionOfferResultDto>(
+                "SCHEDULE_CONFLICT",
+                Meta: new OfferAvailabilityBlockMetaDto
+                {
+                    Sessions = ex.BlockedSessions.Select(m => new OfferAvailabilityBlockSessionDto
+                    {
+                        SessionId = m.SessionId,
+                        SequenceNumber = m.SequenceNumber,
+                        Status = m.Status,
+                        ConflictWith = m.ConflictWith,
+                    }).ToList(),
+                });
         }
         catch (InvalidOperationException ex)
         {

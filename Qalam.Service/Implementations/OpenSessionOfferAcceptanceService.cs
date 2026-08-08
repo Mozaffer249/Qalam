@@ -5,23 +5,31 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Data.Helpers;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Exceptions;
 
 namespace Qalam.Service.Implementations;
 
 public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceService
 {
     private readonly ApplicationDBContext _db;
+    private readonly ISessionAvailabilityMatchService _availabilityMatch;
+    private readonly ICourseScheduleRepository _scheduleRepo;
     private readonly EnrollmentSettings _enrollmentSettings;
     private readonly OpenSessionRequestSettings _osrSettings;
 
     public OpenSessionOfferAcceptanceService(
         ApplicationDBContext db,
+        ISessionAvailabilityMatchService availabilityMatch,
+        ICourseScheduleRepository scheduleRepo,
         IOptions<EnrollmentSettings> enrollmentSettings,
         IOptions<OpenSessionRequestSettings> osrSettings)
     {
         _db = db;
+        _availabilityMatch = availabilityMatch;
+        _scheduleRepo = scheduleRepo;
         _enrollmentSettings = enrollmentSettings.Value;
         _osrSettings = osrSettings.Value;
     }
@@ -88,6 +96,11 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
 
             resolvedSlots.Add((session, availability.Id));
         }
+
+        var match = await _availabilityMatch.MatchAsync(offer.TeacherId, request.Id, cancellationToken);
+        var blocked = match.Where(m => m.Status != SessionAvailabilityStatus.Available).ToList();
+        if (blocked.Count > 0)
+            throw new SessionSlotConflictException(blocked);
 
         var firstSessionStartUtc = OpenSessionRequestExpiry.FirstSessionStartUtc(
             sessions.Select(s => (s.PreferredDate, s.TimeSlot != null ? (TimeSpan?)s.TimeSlot.StartTime : null)));
@@ -166,6 +179,35 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
 
             request.Status = OpenSessionRequestStatus.PaymentPending;
             request.UpdatedAt = now;
+
+            var availabilityIds = resolvedSlots.Select(r => r.TeacherAvailabilityId).Distinct().ToList();
+            var occupied = await _scheduleRepo.GetScheduledSlotsAsync(
+                preferredStart, preferredEnd, availabilityIds, cancellationToken);
+            foreach (var (session, availabilityId) in resolvedSlots)
+            {
+                if (!occupied.Contains((session.PreferredDate!.Value, availabilityId)))
+                    continue;
+
+                var conflictSessions = match
+                    .Where(m => m.SequenceNumber == session.SequenceNumber)
+                    .ToList();
+                if (conflictSessions.Count == 0)
+                {
+                    conflictSessions =
+                    [
+                        new SessionAvailabilityMatchDto
+                        {
+                            SessionId = session.Id,
+                            SequenceNumber = session.SequenceNumber,
+                            PreferredDate = session.PreferredDate!.Value,
+                            TimeSlotId = session.TimeSlotId ?? 0,
+                            Status = SessionAvailabilityStatus.Conflict,
+                        }
+                    ];
+                }
+
+                throw new SessionSlotConflictException(conflictSessions);
+            }
 
             await _db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
