@@ -61,11 +61,11 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             .ToList();
         dto.IsOwner = isOwner;
         ApplyPaymentFlags(dto, enrollment, isOwner);
-        ApplyProgress(dto, enrollment);
 
         var viewingStudentId = ResolveViewingStudentId(enrollment, ownedStudentIds);
         dto.Sessions = BuildSessions(
             enrollment, viewingStudentId, _sessionSettings.EnforceJoinWindow);
+        ApplyProgress(dto, enrollment);
 
         return Success(entity: dto);
     }
@@ -75,6 +75,9 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         var completed = (enrollment.CourseSchedules ?? [])
             .Count(s => s.Status == ScheduleStatus.Completed);
         dto.CompletedSessionsCount = completed;
+
+        if (dto.SessionsCount is null && dto.Sessions.Count > 0)
+            dto.SessionsCount = dto.Sessions.Count;
 
         if (dto.SessionsCount is int sessionsTotal && sessionsTotal > 0)
             dto.ProgressPercent = (int)Math.Round(completed * 100.0 / sessionsTotal);
@@ -144,7 +147,17 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                 .ThenInclude(r => r.ProposedSessions)
             .Include(e => e.EnrollmentRequest!)
                 .ThenInclude(r => r.SelectedSessionSlots)
+            .Include(e => e.OpenSessionRequest!)
+                .ThenInclude(r => r.Sessions)
             .Include(e => e.SelectedSessionSlots)
+                .ThenInclude(s => s.TeacherAvailability)
+                    .ThenInclude(ta => ta!.TimeSlot)
+            .Include(e => e.SelectedSessionSlots)
+                .ThenInclude(s => s.Units)
+                    .ThenInclude(u => u.ContentUnit)
+            .Include(e => e.SelectedSessionSlots)
+                .ThenInclude(s => s.Units)
+                    .ThenInclude(u => u.Lesson)
             .Include(e => e.ApprovedByTeacher)
                 .ThenInclude(t => t.User)
             .Include(e => e.LeaderStudent).ThenInclude(s => s!.User)
@@ -200,7 +213,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
 
         if (schedules.Count == 0)
         {
-            return courseSessionsByNumber.Values
+            var fromCourse = courseSessionsByNumber.Values
                 .OrderBy(s => s.SessionNumber)
                 .Select(s => new EnrollmentSessionItemDto
                 {
@@ -212,6 +225,11 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                     Units = MapUnits(s.Units)
                 })
                 .ToList();
+
+            if (fromCourse.Count > 0)
+                return fromCourse;
+
+            return BuildFromSelectedSessionSlots(enrollment);
         }
 
         var sessions = new List<EnrollmentSessionItemDto>(schedules.Count);
@@ -283,6 +301,80 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         }
 
         return sessions;
+    }
+
+    /// <summary>
+    /// OSR / direct flexible enrollments store planned calendar slots before payment creates CourseSchedules.
+    /// </summary>
+    private static List<EnrollmentSessionItemDto> BuildFromSelectedSessionSlots(Enrollment enrollment)
+    {
+        var slots = (enrollment.SelectedSessionSlots ?? [])
+            .OrderBy(s => s.SessionNumber)
+            .ToList();
+        if (slots.Count == 0)
+            return [];
+
+        var isPendingPayment = enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment;
+        var cancelled = enrollment.EnrollmentStatus == EnrollmentStatus.Cancelled;
+        var osrSessionsByNumber = enrollment.OpenSessionRequest?.Sessions?
+            .ToDictionary(s => s.SequenceNumber);
+
+        return slots.Select(slot =>
+        {
+            var timeSlot = slot.TeacherAvailability?.TimeSlot;
+            var duration = timeSlot?.ResolveDurationMinutes() ?? 60;
+
+            var osrSession = osrSessionsByNumber?.GetValueOrDefault(slot.SessionNumber);
+
+            var title = osrSession?.Notes;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                title = LocalizableEntity.GetLocalizedValue(
+                    timeSlot?.LabelAr,
+                    timeSlot?.LabelEn);
+            }
+
+            ScheduleStatus? status = cancelled
+                ? ScheduleStatus.Cancelled
+                : isPendingPayment
+                    ? ScheduleStatus.Scheduled
+                    : null;
+
+            return new EnrollmentSessionItemDto
+            {
+                ScheduleId = 0,
+                SessionNumber = slot.SessionNumber,
+                Date = slot.SessionDate,
+                Title = string.IsNullOrWhiteSpace(title) ? null : title,
+                StartTime = timeSlot?.StartTime,
+                EndTime = timeSlot?.EndTime,
+                DurationMinutes = duration,
+                Status = status,
+                CanStart = false,
+                CanJoin = false,
+                Units = MapSelectedSlotUnits(slot.Units),
+            };
+        }).ToList();
+    }
+
+    private static List<EnrollmentSessionContentUnitDto> MapSelectedSlotUnits(
+        ICollection<EnrollmentSelectedSessionSlotUnit>? units)
+    {
+        if (units == null || units.Count == 0)
+            return [];
+
+        return units.Select(u => new EnrollmentSessionContentUnitDto
+        {
+            Id = u.Id,
+            ContentUnitId = u.ContentUnitId,
+            ContentUnitName = LocalizableEntity.GetLocalizedValue(
+                u.ContentUnit?.NameAr,
+                u.ContentUnit?.NameEn),
+            LessonId = u.LessonId,
+            LessonName = LocalizableEntity.GetLocalizedValue(
+                u.Lesson?.NameAr,
+                u.Lesson?.NameEn),
+        }).ToList();
     }
 
     /// <summary>
