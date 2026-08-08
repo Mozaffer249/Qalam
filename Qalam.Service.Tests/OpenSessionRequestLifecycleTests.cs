@@ -5,14 +5,16 @@ namespace Qalam.Service.Tests;
 
 public class OpenSessionRequestLifecycleTests
 {
+    /// <summary>Fixed fixture for formula tests (not production defaults).</summary>
     private static OpenSessionRequestSettings Settings() => new()
     {
         RequestWindowDays = 7,
         BroadcastMinimumLeadHours = 24,
         BroadcastOfferCutoffHours = 12,
+        BroadcastPaymentCutoffHours = 2,
         TargetedMinimumLeadHours = 6,
         TargetedOfferCutoffHours = 3,
-        PaymentCutoffHours = 2,
+        TargetedPaymentCutoffHours = 2,
         NotificationGraceHours = 6,
     };
 
@@ -63,9 +65,9 @@ public class OpenSessionRequestLifecycleTests
         var firstStart = accepted.AddHours(8); // session in 8h
 
         var deadline = OpenSessionRequestExpiry.ResolvePaymentDeadline(
-            accepted, paymentDeadlineHours: 48, firstStart, settings);
+            accepted, paymentDeadlineHours: 48, firstStart, settings, isTargeted: false);
 
-        // firstStart - 2h = accepted + 6h
+        // firstStart - 2h (BroadcastPaymentCutoffHours in fixture) = accepted + 6h
         Assert.Equal(firstStart.AddHours(-2), deadline);
     }
 
@@ -75,6 +77,24 @@ public class OpenSessionRequestLifecycleTests
         var settings = Settings();
         Assert.Equal(24, OpenSessionRequestExpiry.MinimumLeadHours(settings, isTargeted: false));
         Assert.Equal(6, OpenSessionRequestExpiry.MinimumLeadHours(settings, isTargeted: true));
+    }
+
+    [Fact]
+    public void ProductionDefaults_SatisfyLeadOfferPaymentNesting()
+    {
+        var settings = new OpenSessionRequestSettings();
+
+        Assert.Equal(3, settings.BroadcastMinimumLeadHours);
+        Assert.Equal(2, settings.BroadcastOfferCutoffHours);
+        Assert.Equal(1, settings.BroadcastPaymentCutoffHours);
+        Assert.True(settings.BroadcastMinimumLeadHours > settings.BroadcastOfferCutoffHours);
+        Assert.True(settings.BroadcastOfferCutoffHours > settings.BroadcastPaymentCutoffHours);
+
+        Assert.Equal(2, settings.TargetedMinimumLeadHours);
+        Assert.Equal(1, settings.TargetedOfferCutoffHours);
+        Assert.Equal(0, settings.TargetedPaymentCutoffHours);
+        Assert.True(settings.TargetedMinimumLeadHours > settings.TargetedOfferCutoffHours);
+        Assert.True(settings.TargetedOfferCutoffHours > settings.TargetedPaymentCutoffHours);
     }
 
     [Fact]

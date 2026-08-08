@@ -10,19 +10,22 @@ public class OpenSessionRequestSettings
     public int RequestWindowDays { get; set; } = 7;
 
     /// <summary>Broadcast: first session must start at least this many hours from now.</summary>
-    public int BroadcastMinimumLeadHours { get; set; } = 24;
+    public int BroadcastMinimumLeadHours { get; set; } = 3;
 
     /// <summary>Broadcast: stop accepting offers this many hours before the first session.</summary>
-    public int BroadcastOfferCutoffHours { get; set; } = 12;
+    public int BroadcastOfferCutoffHours { get; set; } = 2;
+
+    /// <summary>Broadcast: payment deadline must end at least this many hours before the first session.</summary>
+    public int BroadcastPaymentCutoffHours { get; set; } = 1;
 
     /// <summary>Targeted: first session must start at least this many hours from now.</summary>
-    public int TargetedMinimumLeadHours { get; set; } = 6;
+    public int TargetedMinimumLeadHours { get; set; } = 2;
 
     /// <summary>Targeted: stop accepting offers this many hours before the first session.</summary>
-    public int TargetedOfferCutoffHours { get; set; } = 3;
+    public int TargetedOfferCutoffHours { get; set; } = 1;
 
-    /// <summary>Payment deadline must end at least this many hours before the first session.</summary>
-    public int PaymentCutoffHours { get; set; } = 2;
+    /// <summary>Targeted: payment deadline must end at least this many hours before the first session (0 = pay up to session start).</summary>
+    public int TargetedPaymentCutoffHours { get; set; } = 0;
 
     /// <summary>Default offer validity when the teacher does not specify one.</summary>
     public int DefaultOfferValidityHours { get; set; } = 48;

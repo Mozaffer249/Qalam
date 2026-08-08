@@ -36,6 +36,9 @@ public static class OpenSessionRequestExpiry
     public static int OfferCutoffHours(OpenSessionRequestSettings settings, bool isTargeted) =>
         isTargeted ? settings.TargetedOfferCutoffHours : settings.BroadcastOfferCutoffHours;
 
+    public static int PaymentCutoffHours(OpenSessionRequestSettings settings, bool isTargeted) =>
+        isTargeted ? settings.TargetedPaymentCutoffHours : settings.BroadcastPaymentCutoffHours;
+
     /// <summary>
     /// <c>min(requested ?? publishedAt + RequestWindowDays, firstSessionStartUtc - OfferCutoffHours)</c>.
     /// When there is no first session, falls back to the window-only bound.
@@ -78,14 +81,15 @@ public static class OpenSessionRequestExpiry
         DateTime acceptedAtUtc,
         int paymentDeadlineHours,
         DateTime? firstSessionStartUtc,
-        OpenSessionRequestSettings settings)
+        OpenSessionRequestSettings settings,
+        bool isTargeted)
     {
         var hours = Math.Max(1, paymentDeadlineHours);
         var candidate = acceptedAtUtc.AddHours(hours);
         if (firstSessionStartUtc == null)
             return candidate;
 
-        var cutoffHours = Math.Max(0, settings.PaymentCutoffHours);
+        var cutoffHours = Math.Max(0, PaymentCutoffHours(settings, isTargeted));
         var sessionBound = firstSessionStartUtc.Value.AddHours(-cutoffHours);
         return sessionBound < candidate ? sessionBound : candidate;
     }

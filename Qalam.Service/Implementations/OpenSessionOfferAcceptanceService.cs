@@ -125,7 +125,8 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 now,
                 _enrollmentSettings.PaymentDeadlineHours,
                 firstSessionStartUtc,
-                _osrSettings);
+                _osrSettings,
+                isTargeted: request.TargetedTeacherId != null);
 
             var enrollment = new Enrollment
             {

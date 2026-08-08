@@ -1406,15 +1406,15 @@ All OSR deadlines anchor on the first session start (PreferredDate + TimeSlot.St
 ```
 RequestExpiresAt = min(publishedAt + 7d, firstSessionStart − OfferCutoff)
 OfferExpiresAt   = min(now + ValidityHours, RequestExpiresAt)
-PaymentDeadline  = min(acceptedAt + PaymentDeadlineHours, firstSessionStart − 2h)
+PaymentDeadline  = min(acceptedAt + PaymentDeadlineHours, firstSessionStart − PaymentCutoff)
 ```
 
 Lead / cutoff hours differ by request kind (`OpenSessionRequestSettings`):
 
-| Kind | Min lead | Offer cutoff |
-|------|----------|--------------|
-| Broadcast | 24h | 12h |
-| Targeted | 6h | 3h |
+| Kind | Min lead | Offer cutoff | Payment cutoff |
+|------|----------|--------------|----------------|
+| Broadcast | 3h | 2h | 1h |
+| Targeted | 2h | 1h | 0h |
 
 Single background service: `OpenSessionRequestLifecycleService` (every 5 minutes):
 
