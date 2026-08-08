@@ -16,6 +16,9 @@ public class GetTeachersForAdminQuery : IRequest<Response<List<AdminTeacherListI
     public string? Status { get; set; }
     public TeacherLocation? Location { get; set; }
     public int? SubjectId { get; set; }
+    public int? DomainId { get; set; }
     public string? Search { get; set; }
+    public DateTime? CreatedFrom { get; set; }
+    public DateTime? CreatedTo { get; set; }
     public AdminTeacherListSort SortBy { get; set; } = AdminTeacherListSort.Newest;
 }

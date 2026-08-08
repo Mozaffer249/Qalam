@@ -12,6 +12,7 @@ using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
+using Qalam.Core.Features.Admin.Queries.ExportTeachersForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherStatusSummary;
 using Qalam.Infrastructure.Abstracts;
@@ -53,7 +54,10 @@ public class TeacherManagementController : AppControllerBase
 		string? status = null,
 		TeacherLocation? location = null,
 		int? subjectId = null,
+		int? domainId = null,
 		string? search = null,
+		DateTime? createdFrom = null,
+		DateTime? createdTo = null,
 		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest)
 	{
 		var query = new GetTeachersForAdminQuery
@@ -63,11 +67,52 @@ public class TeacherManagementController : AppControllerBase
 			Status = status,
 			Location = location,
 			SubjectId = subjectId,
+			DomainId = domainId,
 			Search = search,
+			CreatedFrom = createdFrom,
+			CreatedTo = createdTo,
 			SortBy = sortBy
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
+	}
+
+	/// <summary>
+	/// CSV export of all teachers matching the same filters as <see cref="GetTeachers"/> (max 10k rows).
+	/// </summary>
+	[HttpGet("Teachers/Export")]
+	[Produces("text/csv")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
+	public async Task<IActionResult> ExportTeachers(
+		string? status = null,
+		TeacherLocation? location = null,
+		int? subjectId = null,
+		int? domainId = null,
+		string? search = null,
+		DateTime? createdFrom = null,
+		DateTime? createdTo = null,
+		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest)
+	{
+		var response = await _mediator.Send(new ExportTeachersForAdminQuery
+		{
+			Status = status,
+			Location = location,
+			SubjectId = subjectId,
+			DomainId = domainId,
+			Search = search,
+			CreatedFrom = createdFrom,
+			CreatedTo = createdTo,
+			SortBy = sortBy
+		});
+
+		if (!response.Succeeded || response.Data == null)
+			return NewResult(response);
+
+		return File(
+			response.Data.Content,
+			"text/csv; charset=utf-8",
+			response.Data.FileName);
 	}
 
 	/// <summary>

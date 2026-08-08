@@ -1,10 +1,12 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Helpers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -104,8 +106,48 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         AdminTeacherListFilters filters,
         CancellationToken cancellationToken = default)
     {
-        var query = _teachers.AsNoTracking().AsQueryable();
+        var query = ApplyAdminListFilters(_teachers.AsNoTracking(), filters);
+        query = ApplyAdminListSort(query, filters.SortBy);
 
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .Skip((filters.PageNumber - 1) * filters.PageSize)
+            .Take(filters.PageSize)
+            .Select(ProjectToAdminListRow())
+            .ToListAsync(cancellationToken);
+
+        var items = rows.Select(ToAdminListItemDto).ToList();
+        await EnrichAdminListItemsAsync(items, cancellationToken);
+
+        return new PaginatedResult<AdminTeacherListItemDto>(items, total, filters.PageNumber, filters.PageSize);
+    }
+
+    public async Task<List<AdminTeacherListItemDto>?> ExportForAdminAsync(
+        AdminTeacherListFilters filters,
+        int maxRows,
+        CancellationToken cancellationToken = default)
+    {
+        var query = ApplyAdminListFilters(_teachers.AsNoTracking(), filters);
+        query = ApplyAdminListSort(query, filters.SortBy);
+
+        var total = await query.CountAsync(cancellationToken);
+        if (total > maxRows)
+            return null;
+
+        var rows = await query
+            .Take(maxRows)
+            .Select(ProjectToAdminListRow())
+            .ToListAsync(cancellationToken);
+
+        var items = rows.Select(ToAdminListItemDto).ToList();
+        await EnrichAdminListItemsAsync(items, cancellationToken);
+        return items;
+    }
+
+    private IQueryable<Teacher> ApplyAdminListFilters(
+        IQueryable<Teacher> query,
+        AdminTeacherListFilters filters)
+    {
         if (filters.Status.HasValue)
             query = query.Where(t => t.Status == filters.Status.Value);
 
@@ -118,6 +160,31 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             query = query.Where(t => t.TeacherSubjects.Any(ts => ts.SubjectId == subjectId));
         }
 
+        if (filters.DomainId.HasValue)
+        {
+            var domainId = filters.DomainId.Value;
+            var submissionTeacherIds = _context.Set<TeacherDomainQuestionSubmission>()
+                .AsNoTracking()
+                .Where(s => s.Question.DomainId == domainId)
+                .Select(s => s.TeacherId);
+            query = query.Where(t =>
+                t.TeacherSubjects.Any(ts => ts.Subject != null && ts.Subject.DomainId == domainId)
+                || submissionTeacherIds.Contains(t.Id));
+        }
+
+        if (filters.CreatedFrom.HasValue)
+        {
+            var from = filters.CreatedFrom.Value;
+            query = query.Where(t => t.CreatedAt >= from);
+        }
+
+        if (filters.CreatedTo.HasValue)
+        {
+            // Inclusive end-of-day when caller passes a date-only value.
+            var to = filters.CreatedTo.Value;
+            query = query.Where(t => t.CreatedAt <= to);
+        }
+
         if (!string.IsNullOrWhiteSpace(filters.Search))
         {
             var s = filters.Search.Trim();
@@ -127,7 +194,13 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 (t.User.Email != null && t.User.Email.Contains(s))));
         }
 
-        query = filters.SortBy switch
+        return query;
+    }
+
+    private static IQueryable<Teacher> ApplyAdminListSort(
+        IQueryable<Teacher> query,
+        AdminTeacherListSort sortBy) =>
+        sortBy switch
         {
             AdminTeacherListSort.NameAsc => query
                 .OrderBy(t => t.User!.FirstName)
@@ -138,16 +211,172 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             _ => query.OrderByDescending(t => t.CreatedAt)
         };
 
-        var total = await query.CountAsync(cancellationToken);
-        var rows = await query
-            .Skip((filters.PageNumber - 1) * filters.PageSize)
-            .Take(filters.PageSize)
-            .Select(ProjectToAdminListRow())
+    private async Task EnrichAdminListItemsAsync(
+        List<AdminTeacherListItemDto> items,
+        CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+            return;
+
+        var teacherIds = items.Select(i => i.TeacherId).ToList();
+
+        var subjectRows = await _context.Set<TeacherSubject>()
+            .AsNoTracking()
+            .Where(ts => teacherIds.Contains(ts.TeacherId) && ts.Subject != null)
+            .Select(ts => new
+            {
+                ts.TeacherId,
+                SubjectNameAr = ts.Subject!.NameAr,
+                SubjectNameEn = ts.Subject.NameEn,
+                DomainId = ts.Subject.DomainId,
+                DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                DomainNameAr = ts.Subject.Domain != null ? ts.Subject.Domain.NameAr : null,
+                DomainNameEn = ts.Subject.Domain != null ? ts.Subject.Domain.NameEn : null,
+            })
             .ToListAsync(cancellationToken);
 
-        var items = rows.Select(ToAdminListItemDto).ToList();
+        var certRows = await _context.Set<TeacherDocument>()
+            .AsNoTracking()
+            .Where(d => teacherIds.Contains(d.TeacherId) && d.DocumentType == TeacherDocumentType.Certificate)
+            .Select(d => new
+            {
+                d.TeacherId,
+                Title = d.CertificateTitle ?? d.Issuer ?? "",
+            })
+            .ToListAsync(cancellationToken);
 
-        return new PaginatedResult<AdminTeacherListItemDto>(items, total, filters.PageNumber, filters.PageSize);
+        var submissions = await _context.Set<TeacherDomainQuestionSubmission>()
+            .AsNoTracking()
+            .Include(s => s.Question).ThenInclude(q => q.Domain)
+            .Include(s => s.Documents)
+            .Where(s => teacherIds.Contains(s.TeacherId))
+            .ToListAsync(cancellationToken);
+
+        var subjectsByTeacher = subjectRows.GroupBy(r => r.TeacherId).ToDictionary(g => g.Key, g => g.ToList());
+        var certsByTeacher = certRows.GroupBy(r => r.TeacherId).ToDictionary(g => g.Key, g => g.ToList());
+        var submissionsByTeacher = submissions.GroupBy(s => s.TeacherId).ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var item in items)
+        {
+            subjectsByTeacher.TryGetValue(item.TeacherId, out var subjects);
+            certsByTeacher.TryGetValue(item.TeacherId, out var certs);
+            submissionsByTeacher.TryGetValue(item.TeacherId, out var subs);
+
+            subjects ??= [];
+            certs ??= [];
+            subs ??= [];
+
+            var groups = BuildDomainQuestionGroups(subs);
+            item.DomainQuestionSubmissions = groups;
+
+            var domainMap = new Dictionary<int, (string Code, string NameAr, string NameEn)>();
+            foreach (var g in groups)
+            {
+                domainMap[g.DomainId] = (g.DomainCode, g.DomainNameAr, g.DomainNameEn);
+            }
+
+            foreach (var s in subjects)
+            {
+                if (s.DomainId <= 0 || string.IsNullOrWhiteSpace(s.DomainCode))
+                    continue;
+                domainMap.TryAdd(
+                    s.DomainId,
+                    (s.DomainCode!, s.DomainNameAr ?? "", s.DomainNameEn ?? ""));
+            }
+
+            item.SelectedDomainCodes = string.Join("; ", domainMap.Values.Select(d => d.Code).Distinct());
+            item.SelectedDomainNamesAr = string.Join("; ", domainMap.Values.Select(d => d.NameAr).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+            item.SelectedDomainNamesEn = string.Join("; ", domainMap.Values.Select(d => d.NameEn).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+            item.SubjectNamesAr = string.Join("; ", subjects.Select(s => s.SubjectNameAr).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+            item.SubjectNamesEn = string.Join("; ", subjects.Select(s => s.SubjectNameEn).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct());
+            item.CertificateTitles = string.Join("; ", certs.Select(c => c.Title).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct());
+            item.DomainAnswersSummary = AdminTeacherCsvHelper.BuildDomainAnswersSummary(groups);
+        }
+    }
+
+    private static List<TeacherDomainQuestionGroupDto> BuildDomainQuestionGroups(
+        List<TeacherDomainQuestionSubmission> submissions)
+    {
+        if (submissions.Count == 0)
+            return [];
+
+        // Latest submission per question.
+        var latest = submissions
+            .GroupBy(s => s.QuestionId)
+            .Select(g => g.OrderByDescending(s => s.Id).First())
+            .ToList();
+
+        return latest
+            .Where(s => s.Question?.Domain != null)
+            .GroupBy(s => new
+            {
+                s.Question.DomainId,
+                s.Question.Domain.Code,
+                s.Question.Domain.NameAr,
+                s.Question.Domain.NameEn
+            })
+            .Select(g => new TeacherDomainQuestionGroupDto
+            {
+                DomainId = g.Key.DomainId,
+                DomainCode = g.Key.Code,
+                DomainNameAr = g.Key.NameAr,
+                DomainNameEn = g.Key.NameEn,
+                Questions = g.Select(MapDomainSubmissionStatus).OrderBy(q => q.Code).ToList()
+            })
+            .OrderBy(g => g.DomainNameEn)
+            .ToList();
+    }
+
+    private static TeacherDomainQuestionSubmissionStatusDto MapDomainSubmissionStatus(
+        TeacherDomainQuestionSubmission submission)
+    {
+        var q = submission.Question;
+        List<RequirementOptionDto>? selectedOptions = null;
+
+        if (q.RequirementType == RegistrationRequirementType.Selection
+            && !string.IsNullOrWhiteSpace(submission.TextValue))
+        {
+            var allowed = RegistrationRequirementOptionsHelper.Parse(q.OptionsJson);
+            var picked = submission.TextValue.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            selectedOptions = allowed
+                .Where(o => picked.Contains(o.Value, StringComparer.OrdinalIgnoreCase))
+                .Select(o => new RequirementOptionDto
+                {
+                    Value = o.Value,
+                    LabelAr = o.LabelAr,
+                    LabelEn = o.LabelEn
+                })
+                .ToList();
+        }
+
+        var docIds = submission.Documents?
+            .Select(d => d.TeacherDocumentId)
+            .Distinct()
+            .ToList() ?? [];
+        if (submission.TeacherDocumentId is int primary && !docIds.Contains(primary))
+            docIds.Insert(0, primary);
+
+        return new TeacherDomainQuestionSubmissionStatusDto
+        {
+            SubmissionId = submission.Id,
+            QuestionId = q.Id,
+            Code = q.Code,
+            NameAr = q.NameAr,
+            NameEn = q.NameEn,
+            RequirementType = q.RequirementType.ToString(),
+            IsRequired = q.IsRequired,
+            RequiresAdminReview = q.RequiresAdminReview,
+            IsSubmitted = true,
+            VerificationStatus = submission.VerificationStatus,
+            RejectionReason = submission.RejectionReason,
+            TeacherDocumentId = submission.TeacherDocumentId,
+            TeacherDocumentIds = docIds,
+            TextValue = submission.TextValue,
+            BoolValue = submission.BoolValue,
+            SelectedOptions = selectedOptions
+        };
     }
 
     public async Task<AdminTeacherStatusSummaryDto> GetStatusSummaryAsync(

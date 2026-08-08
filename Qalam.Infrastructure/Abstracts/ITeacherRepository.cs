@@ -21,10 +21,18 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
 
     /// <summary>
-    /// Admin paginated teacher browse with optional filters (status, location, subject, search).
+    /// Admin paginated teacher browse with optional filters (status, location, subject, domain, dates, search).
     /// </summary>
     Task<PaginatedResult<AdminTeacherListItemDto>> SearchForAdminAsync(
         AdminTeacherListFilters filters,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// All matching teachers for CSV export (no pagination). Returns null when count exceeds <paramref name="maxRows"/>.
+    /// </summary>
+    Task<List<AdminTeacherListItemDto>?> ExportForAdminAsync(
+        AdminTeacherListFilters filters,
+        int maxRows,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -125,7 +133,10 @@ public record AdminTeacherListFilters(
     string? Search,
     AdminTeacherListSort SortBy,
     int PageNumber,
-    int PageSize);
+    int PageSize,
+    int? DomainId = null,
+    DateTime? CreatedFrom = null,
+    DateTime? CreatedTo = null);
 
 public enum AdminTeacherListSort
 {

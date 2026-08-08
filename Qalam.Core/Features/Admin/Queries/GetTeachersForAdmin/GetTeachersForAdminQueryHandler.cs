@@ -11,7 +11,7 @@ namespace Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 public class GetTeachersForAdminQueryHandler : ResponseHandler,
     IRequestHandler<GetTeachersForAdminQuery, Response<List<AdminTeacherListItemDto>>>
 {
-    private const int MaxPageSize = 50;
+    private const int MaxPageSize = 100;
 
     private readonly ITeacherRepository _teacherRepository;
 
@@ -46,6 +46,10 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             statusFilter = parsed;
         }
 
+        var createdTo = request.CreatedTo;
+        if (createdTo.HasValue && createdTo.Value.TimeOfDay == TimeSpan.Zero)
+            createdTo = createdTo.Value.Date.AddDays(1).AddTicks(-1);
+
         var filters = new AdminTeacherListFilters(
             Status: statusFilter,
             Location: request.Location,
@@ -53,7 +57,10 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             Search: request.Search,
             SortBy: request.SortBy,
             PageNumber: pageNumber,
-            PageSize: pageSize);
+            PageSize: pageSize,
+            DomainId: request.DomainId,
+            CreatedFrom: request.CreatedFrom?.Date,
+            CreatedTo: createdTo);
 
         var result = await _teacherRepository.SearchForAdminAsync(filters, cancellationToken);
 
