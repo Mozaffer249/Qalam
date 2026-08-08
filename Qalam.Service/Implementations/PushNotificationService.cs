@@ -16,6 +16,7 @@ namespace Qalam.Service.Implementations
         private readonly ILogger<PushNotificationService> _logger;
         private readonly IRabbitMQService _rabbitMQService;
         private static bool _firebaseInitialized = false;
+        private static bool _firebaseInitAttempted = false;
         private static readonly object _lock = new object();
 
         public PushNotificationService(
@@ -31,11 +32,12 @@ namespace Qalam.Service.Implementations
 
         private void InitializeFirebase()
         {
-            if (_firebaseInitialized) return;
+            if (_firebaseInitAttempted) return;
 
             lock (_lock)
             {
-                if (_firebaseInitialized) return;
+                if (_firebaseInitAttempted) return;
+                _firebaseInitAttempted = true;
 
                 try
                 {
@@ -48,10 +50,6 @@ namespace Qalam.Service.Implementations
                         });
                         _firebaseInitialized = true;
                         _logger.LogInformation("Firebase initialized successfully");
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Firebase service account key not found. Push notifications will not work.");
                     }
                 }
                 catch (Exception ex)

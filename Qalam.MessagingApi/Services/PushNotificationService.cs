@@ -15,6 +15,7 @@ public class PushNotificationService : IPushNotificationService
     private readonly ILogger<PushNotificationService> _logger;
     private readonly IMessageQueueService _messageQueueService;
     private static bool _firebaseInitialized;
+    private static bool _firebaseInitAttempted;
     private static readonly object _lock = new();
 
     public PushNotificationService(
@@ -30,11 +31,12 @@ public class PushNotificationService : IPushNotificationService
 
     private void InitializeFirebase()
     {
-        if (_firebaseInitialized) return;
+        if (_firebaseInitAttempted) return;
 
         lock (_lock)
         {
-            if (_firebaseInitialized) return;
+            if (_firebaseInitAttempted) return;
+            _firebaseInitAttempted = true;
 
             try
             {
@@ -47,10 +49,6 @@ public class PushNotificationService : IPushNotificationService
                     });
                     _firebaseInitialized = true;
                     _logger.LogInformation("Firebase initialized successfully");
-                }
-                else
-                {
-                    _logger.LogWarning("Firebase service account key not found. Push notifications will not work.");
                 }
             }
             catch (Exception ex)
