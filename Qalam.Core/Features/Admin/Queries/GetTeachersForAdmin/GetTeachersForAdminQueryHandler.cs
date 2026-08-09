@@ -5,6 +5,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Admin.Queries.GetTeachersForAdmin;
 
@@ -14,12 +15,15 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
     private const int MaxPageSize = 100;
 
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherRegistrationStatusService _registrationStatusService;
 
     public GetTeachersForAdminQueryHandler(
         ITeacherRepository teacherRepository,
+        ITeacherRegistrationStatusService registrationStatusService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
+        _registrationStatusService = registrationStatusService;
     }
 
     public async Task<Response<List<AdminTeacherListItemDto>>> Handle(
@@ -63,6 +67,11 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             CreatedTo: createdTo);
 
         var result = await _teacherRepository.SearchForAdminAsync(filters, cancellationToken);
+
+        var teacherIds = result.Items.Select(i => i.TeacherId).ToList();
+        var checklists = await _registrationStatusService.GetChecklistsForTeachersAsync(teacherIds, cancellationToken);
+        foreach (var item in result.Items)
+            item.RegistrationRequirements = checklists.GetValueOrDefault(item.TeacherId) ?? [];
 
         return Success(
             entity: result.Items,

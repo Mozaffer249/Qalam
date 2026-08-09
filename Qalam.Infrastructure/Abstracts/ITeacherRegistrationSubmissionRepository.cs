@@ -9,6 +9,10 @@ public interface ITeacherRegistrationSubmissionRepository : IGenericRepositoryAs
         int teacherId,
         CancellationToken cancellationToken = default);
 
+    Task<List<TeacherRegistrationSubmission>> GetByTeacherIdsWithRequirementsAsync(
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default);
+
     Task<TeacherRegistrationSubmission?> GetByTeacherAndRequirementAsync(
         int teacherId,
         int requirementId,

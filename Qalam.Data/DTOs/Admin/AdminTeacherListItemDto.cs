@@ -36,6 +36,9 @@ public class AdminTeacherListItemDto
 
     /// <summary>Full domain-question groups (answers) for export / detail-lite.</summary>
     public List<TeacherDomainQuestionGroupDto> DomainQuestionSubmissions { get; set; } = new();
+
+    /// <summary>Per-requirement registration checklist (same shape as teacher detail).</summary>
+    public List<TeacherRegistrationSubmissionStatusDto> RegistrationRequirements { get; set; } = new();
 }
 
 /// <summary>CSV file payload for admin teacher export.</summary>

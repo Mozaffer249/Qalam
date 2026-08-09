@@ -6,6 +6,7 @@ using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Admin.Queries.ExportTeachersForAdmin;
 
@@ -27,12 +28,15 @@ public class ExportTeachersForAdminQueryHandler : ResponseHandler,
     public const int MaxExportRows = 10_000;
 
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherRegistrationStatusService _registrationStatusService;
 
     public ExportTeachersForAdminQueryHandler(
         ITeacherRepository teacherRepository,
+        ITeacherRegistrationStatusService registrationStatusService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
+        _registrationStatusService = registrationStatusService;
     }
 
     public async Task<Response<AdminTeacherCsvExportDto>> Handle(
@@ -73,6 +77,11 @@ public class ExportTeachersForAdminQueryHandler : ResponseHandler,
             return BadRequest<AdminTeacherCsvExportDto>(
                 $"Export exceeds the maximum of {MaxExportRows} rows. Narrow your filters and try again.");
         }
+
+        var teacherIds = items.Select(i => i.TeacherId).ToList();
+        var checklists = await _registrationStatusService.GetChecklistsForTeachersAsync(teacherIds, cancellationToken);
+        foreach (var item in items)
+            item.RegistrationRequirements = checklists.GetValueOrDefault(item.TeacherId) ?? [];
 
         return Success(entity: new AdminTeacherCsvExportDto
         {

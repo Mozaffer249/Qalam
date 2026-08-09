@@ -24,6 +24,19 @@ public class TeacherRegistrationSubmissionRepository
             .Where(s => s.TeacherId == teacherId)
             .ToListAsync(cancellationToken);
 
+    public Task<List<TeacherRegistrationSubmission>> GetByTeacherIdsWithRequirementsAsync(
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (teacherIds.Count == 0)
+            return Task.FromResult(new List<TeacherRegistrationSubmission>());
+
+        return _set.Include(s => s.Requirement)
+            .Include(s => s.TeacherDocument)
+            .Where(s => teacherIds.Contains(s.TeacherId))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<TeacherRegistrationSubmission?> GetByTeacherAndRequirementAsync(
         int teacherId,
         int requirementId,

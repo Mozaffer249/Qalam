@@ -65,12 +65,65 @@ public static class AdminTeacherCsvHelper
         return string.Join("; ", parts);
     }
 
+    public static string FormatRequirementStatus(TeacherRegistrationSubmissionStatusDto req)
+    {
+        if (!req.IsSubmitted)
+            return "NotSubmitted";
+        return req.VerificationStatus?.ToString() ?? "Pending";
+    }
+
+    public static string FormatRequirementValue(TeacherRegistrationSubmissionStatusDto req)
+    {
+        if (!req.IsSubmitted)
+            return "";
+
+        if (string.Equals(req.RequirementType, "Selection", StringComparison.OrdinalIgnoreCase)
+            && req.SelectedOptions is { Count: > 0 })
+        {
+            return string.Join(
+                ",",
+                req.SelectedOptions.Select(o =>
+                    !string.IsNullOrWhiteSpace(o.LabelEn) ? o.LabelEn
+                    : !string.IsNullOrWhiteSpace(o.LabelAr) ? o.LabelAr
+                    : o.Value));
+        }
+
+        if (string.Equals(req.RequirementType, "Boolean", StringComparison.OrdinalIgnoreCase)
+            && req.BoolValue.HasValue)
+            return req.BoolValue.Value ? "true" : "false";
+
+        if (string.Equals(req.RequirementType, "Text", StringComparison.OrdinalIgnoreCase))
+            return req.TextValue?.Trim() ?? "";
+
+        if (string.Equals(req.RequirementType, "File", StringComparison.OrdinalIgnoreCase))
+        {
+            if (req.TeacherDocumentId.HasValue)
+                return req.TeacherDocumentId.Value.ToString();
+            return req.IsSubmitted ? "submitted" : "";
+        }
+
+        if (req.BoolValue.HasValue)
+            return req.BoolValue.Value ? "true" : "false";
+
+        return req.TextValue?.Trim() ?? "";
+    }
+
+    public static string BuildRegistrationRequirementsSummary(
+        IEnumerable<TeacherRegistrationSubmissionStatusDto> requirements)
+    {
+        return string.Join(
+            "; ",
+            requirements.Select(r => $"{r.Code}={FormatRequirementStatus(r)}"));
+    }
+
     public static byte[] BuildCsvBytes(IReadOnlyList<AdminTeacherListItemDto> items)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine(string.Join(",",
-        [
+        var requirementCodes = DiscoverRequirementCodes(items);
+
+        var headers = new List<string>
+        {
             "TeacherId",
+            "UserId",
             "FullName",
             "Phone",
             "Email",
@@ -90,15 +143,32 @@ public static class AdminTeacherCsvHelper
             "RejectedDocuments",
             "DomainAnswers",
             "DomainAnswersJson"
-        ]));
+        };
+
+        foreach (var code in requirementCodes)
+        {
+            headers.Add($"Req_{code}_status");
+            headers.Add($"Req_{code}_value");
+        }
+
+        headers.Add("RegistrationRequirementsSummary");
+        headers.Add("RegistrationRequirementsJson");
+
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Join(",", headers.Select(Csv)));
 
         foreach (var t in items)
         {
             var answers = FlattenDomainAnswers(t.DomainQuestionSubmissions);
             var answersJson = JsonSerializer.Serialize(t.DomainQuestionSubmissions, JsonOptions);
-            sb.AppendLine(string.Join(",",
-            [
+            var reqByCode = (t.RegistrationRequirements ?? [])
+                .GroupBy(r => r.Code, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var cells = new List<string>
+            {
                 Csv(t.TeacherId.ToString()),
+                Csv(t.UserId.ToString()),
                 Csv(t.FullName),
                 Csv(t.PhoneNumber),
                 Csv(t.Email),
@@ -118,7 +188,26 @@ public static class AdminTeacherCsvHelper
                 Csv(t.RejectedDocuments.ToString()),
                 Csv(answers),
                 Csv(answersJson)
-            ]));
+            };
+
+            foreach (var code in requirementCodes)
+            {
+                if (reqByCode.TryGetValue(code, out var req))
+                {
+                    cells.Add(Csv(FormatRequirementStatus(req)));
+                    cells.Add(Csv(FormatRequirementValue(req)));
+                }
+                else
+                {
+                    cells.Add(Csv("NotSubmitted"));
+                    cells.Add(Csv(""));
+                }
+            }
+
+            cells.Add(Csv(BuildRegistrationRequirementsSummary(t.RegistrationRequirements ?? [])));
+            cells.Add(Csv(JsonSerializer.Serialize(t.RegistrationRequirements ?? [], JsonOptions)));
+
+            sb.AppendLine(string.Join(",", cells));
         }
 
         var bom = Encoding.UTF8.GetPreamble();
@@ -127,6 +216,24 @@ public static class AdminTeacherCsvHelper
         Buffer.BlockCopy(bom, 0, content, 0, bom.Length);
         Buffer.BlockCopy(body, 0, content, bom.Length, body.Length);
         return content;
+    }
+
+    /// <summary>
+    /// Prefer the first row's checklist order (active catalog order). Fall back to a stable
+    /// union of codes across all rows when the first row is empty.
+    /// </summary>
+    private static List<string> DiscoverRequirementCodes(IReadOnlyList<AdminTeacherListItemDto> items)
+    {
+        var firstWithReqs = items.FirstOrDefault(i => i.RegistrationRequirements is { Count: > 0 });
+        if (firstWithReqs != null)
+            return firstWithReqs.RegistrationRequirements.Select(r => r.Code).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        return items
+            .SelectMany(i => i.RegistrationRequirements ?? [])
+            .Select(r => r.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static string Csv(string? value)

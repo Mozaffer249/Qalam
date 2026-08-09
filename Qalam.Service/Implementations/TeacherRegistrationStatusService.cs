@@ -123,7 +123,34 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
     {
         var active = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
         var submissions = await _submissionRepository.GetByTeacherIdWithRequirementsAsync(teacherId, cancellationToken);
+        return BuildChecklist(active, submissions);
+    }
 
+    public async Task<Dictionary<int, List<TeacherRegistrationSubmissionStatusDto>>> GetChecklistsForTeachersAsync(
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new Dictionary<int, List<TeacherRegistrationSubmissionStatusDto>>();
+        if (teacherIds.Count == 0)
+            return result;
+
+        var active = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
+        var allSubmissions = await _submissionRepository.GetByTeacherIdsWithRequirementsAsync(teacherIds, cancellationToken);
+        var byTeacher = allSubmissions.GroupBy(s => s.TeacherId).ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var teacherId in teacherIds.Distinct())
+        {
+            byTeacher.TryGetValue(teacherId, out var submissions);
+            result[teacherId] = BuildChecklist(active, submissions ?? []);
+        }
+
+        return result;
+    }
+
+    private static List<TeacherRegistrationSubmissionStatusDto> BuildChecklist(
+        List<TeacherRegistrationRequirement> active,
+        List<TeacherRegistrationSubmission> submissions)
+    {
         var result = new List<TeacherRegistrationSubmissionStatusDto>();
 
         foreach (var req in active)
