@@ -55,8 +55,11 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
                     .ChildRules(u =>
                     {
                         u.RuleFor(x => x)
-                            .Must(unit => unit.ContentUnitId.HasValue ^ unit.LessonId.HasValue)
-                            .WithMessage("Exactly one of ContentUnitId or LessonId must be set (not both, not neither).");
+                            .Must(IsExactlyOneUnitSource)
+                            .WithMessage("Exactly one of ContentUnitId, LessonId, or CustomUnitLabel must be set (not both, not neither).");
+                        u.RuleFor(x => x.CustomUnitLabel)
+                            .MaximumLength(200)
+                            .When(x => !string.IsNullOrWhiteSpace(x.CustomUnitLabel));
                     })
                     .When(i => i.Units != null);
             });
@@ -64,4 +67,12 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
     }
 
     private const int MaxUnitsPerSession = 20;
+
+    private static bool IsExactlyOneUnitSource(CreateCourseSessionUnitDto unit)
+    {
+        var hasContentUnit = unit.ContentUnitId.HasValue;
+        var hasLesson = unit.LessonId.HasValue;
+        var hasCustom = !string.IsNullOrWhiteSpace(unit.CustomUnitLabel);
+        return (hasContentUnit ? 1 : 0) + (hasLesson ? 1 : 0) + (hasCustom ? 1 : 0) == 1;
+    }
 }

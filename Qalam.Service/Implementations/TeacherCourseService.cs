@@ -184,6 +184,7 @@ public class TeacherCourseService : ITeacherCourseService
                             {
                                 ContentUnitId = u.ContentUnitId,
                                 LessonId = u.LessonId,
+                                CustomUnitLabel = string.IsNullOrWhiteSpace(u.CustomUnitLabel) ? null : u.CustomUnitLabel.Trim(),
                                 CreatedAt = DateTime.UtcNow
                             });
                         }
@@ -308,6 +309,7 @@ public class TeacherCourseService : ITeacherCourseService
             CourseSessionId = sessionId,
             ContentUnitId = u.ContentUnitId,
             LessonId = u.LessonId,
+            CustomUnitLabel = string.IsNullOrWhiteSpace(u.CustomUnitLabel) ? null : u.CustomUnitLabel.Trim(),
             CreatedAt = now
         });
 

@@ -89,6 +89,7 @@ public class PublishOpenSessionRequestCommandHandler
                 {
                     ContentUnitId = u.ContentUnitId,
                     LessonId = u.LessonId,
+                    CustomUnitLabel = u.CustomUnitLabel,
                     IncludesAllLessons = u.IncludesAllLessons,
                 }).ToList(),
             }).ToList();

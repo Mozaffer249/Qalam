@@ -160,7 +160,8 @@ public class CourseProfile : Profile
                             LessonId = u.LessonId,
                             LessonName = LocalizableEntity.GetLocalizedValue(
                                 u.Lesson != null ? u.Lesson.NameAr : null,
-                                u.Lesson != null ? u.Lesson.NameEn : null)
+                                u.Lesson != null ? u.Lesson.NameEn : null),
+                            CustomUnitLabel = u.CustomUnitLabel
                         }).ToList()
                     })
                     .ToList()));

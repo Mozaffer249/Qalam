@@ -175,6 +175,7 @@ public class CreateOpenSessionRequestCommandHandler
                 {
                     ContentUnitId = u.ContentUnitId,
                     LessonId = u.LessonId,
+                    CustomUnitLabel = string.IsNullOrWhiteSpace(u.CustomUnitLabel) ? null : u.CustomUnitLabel.Trim(),
                     IncludesAllLessons = u.IncludesAllLessons,
                 });
 

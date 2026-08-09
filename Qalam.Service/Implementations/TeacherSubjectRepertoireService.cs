@@ -191,6 +191,9 @@ public class TeacherSubjectRepertoireService : ITeacherSubjectRepertoireService
     {
         foreach (var unit in units)
         {
+            if (!string.IsNullOrWhiteSpace(unit.CustomUnitLabel))
+                continue;
+
             if (unit.ContentUnitId.HasValue)
             {
                 if (!allowedUnitIds.Contains(unit.ContentUnitId.Value))

@@ -130,6 +130,7 @@ public class UpdateOpenSessionRequestDraftCommandHandler
                 {
                     ContentUnitId = u.ContentUnitId,
                     LessonId = u.LessonId,
+                    CustomUnitLabel = string.IsNullOrWhiteSpace(u.CustomUnitLabel) ? null : u.CustomUnitLabel.Trim(),
                     IncludesAllLessons = u.IncludesAllLessons,
                 });
             entity.Sessions.Add(session);

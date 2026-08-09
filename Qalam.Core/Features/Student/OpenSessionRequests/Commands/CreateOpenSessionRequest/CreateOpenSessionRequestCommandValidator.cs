@@ -1,4 +1,5 @@
 using FluentValidation;
+using Qalam.Data.DTOs.OpenSessionRequests;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.CreateOpenSessionRequest;
 
@@ -46,8 +47,17 @@ public class CreateOpenSessionRequestCommandValidator : AbstractValidator<Create
                 s.RuleForEach(x => x.Units).ChildRules(u =>
                 {
                     u.RuleFor(x => x)
-                        .Must(unit => (unit.ContentUnitId.HasValue ^ unit.LessonId.HasValue))
-                        .WithMessage("يجب تحديد ContentUnitId أو LessonId (واحد فقط، ليس كلاهما)");
+                        .Must(IsExactlyOneUnitSource)
+                        .WithMessage("يجب تحديد ContentUnitId أو LessonId أو CustomUnitLabel (واحد فقط)");
+                    u.RuleFor(x => x.CustomUnitLabel)
+                        .MaximumLength(200)
+                        .When(x => !string.IsNullOrWhiteSpace(x.CustomUnitLabel));
+                    u.RuleFor(x => x)
+                        .Must(unit => !unit.IncludesAllLessons
+                            || (unit.ContentUnitId.HasValue
+                                && !unit.LessonId.HasValue
+                                && string.IsNullOrWhiteSpace(unit.CustomUnitLabel)))
+                        .WithMessage("includesAllLessons يُسمح فقط مع ContentUnitId");
                 });
             });
 
@@ -73,5 +83,13 @@ public class CreateOpenSessionRequestCommandValidator : AbstractValidator<Create
                     (d.Value > DateTime.UtcNow.AddHours(23) && d.Value < DateTime.UtcNow.AddDays(31)))
                 .WithMessage("تاريخ انتهاء صلاحية الطلب يجب أن يكون بين يوم و 30 يوماً من الآن");
         });
+    }
+
+    private static bool IsExactlyOneUnitSource(CreateOpenSessionRequestUnitDto unit)
+    {
+        var hasContentUnit = unit.ContentUnitId.HasValue;
+        var hasLesson = unit.LessonId.HasValue;
+        var hasCustom = !string.IsNullOrWhiteSpace(unit.CustomUnitLabel);
+        return (hasContentUnit ? 1 : 0) + (hasLesson ? 1 : 0) + (hasCustom ? 1 : 0) == 1;
     }
 }

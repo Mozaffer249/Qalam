@@ -16,6 +16,9 @@ public class CourseSessionUnitConfiguration : IEntityTypeConfiguration<CourseSes
         builder.HasIndex(e => e.ContentUnitId);
         builder.HasIndex(e => e.LessonId);
 
+        builder.Property(e => e.CustomUnitLabel)
+               .HasMaxLength(200);
+
         builder.HasOne(e => e.CourseSession)
                .WithMany(s => s.Units)
                .HasForeignKey(e => e.CourseSessionId)

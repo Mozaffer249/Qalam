@@ -122,6 +122,7 @@ public class TeacherViewSessionUnitDto
     public int? LessonId { get; set; }
     public string? LessonNameEn { get; set; }
     public string? LessonNameAr { get; set; }
+    public string? CustomUnitLabel { get; set; }
     public bool IncludesAllLessons { get; set; }
 }
 

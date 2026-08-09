@@ -131,6 +131,7 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                             LessonId = u.LessonId,
                             LessonNameEn = u.Lesson != null ? u.Lesson.NameEn : null,
                             LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null,
+                            CustomUnitLabel = u.CustomUnitLabel,
                             IncludesAllLessons = u.IncludesAllLessons,
                         }).ToList()
                     }).ToList(),

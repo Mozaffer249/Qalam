@@ -48,6 +48,8 @@ public class CourseSessionUnitDto
     public string? LessonNameAr { get; set; }
     /// <summary>Student catalog: single culture-selected name.</summary>
     public string? LessonName { get; set; }
+    /// <summary>Free-text "Other" unit label when no catalog unit/lesson is set.</summary>
+    public string? CustomUnitLabel { get; set; }
 }
 
 public class CreateCourseSessionDto
@@ -64,8 +66,11 @@ public class CreateCourseSessionDto
 
 public class CreateCourseSessionUnitDto
 {
+    /// <summary>Exactly one of ContentUnitId, LessonId, or a non-empty CustomUnitLabel must be set.</summary>
     public int? ContentUnitId { get; set; }
     public int? LessonId { get; set; }
+    /// <summary>Free-text "Other" unit label. Mutually exclusive with ContentUnitId and LessonId.</summary>
+    public string? CustomUnitLabel { get; set; }
 }
 
 /// <summary>

@@ -69,12 +69,20 @@ public class TargetedOpenSessionRequestValidator : ITargetedOpenSessionRequestVa
             {
                 var hasContentUnit = u.ContentUnitId.HasValue;
                 var hasLesson = u.LessonId.HasValue;
+                var hasCustom = !string.IsNullOrWhiteSpace(u.CustomUnitLabel);
+                var sourceCount = (hasContentUnit ? 1 : 0) + (hasLesson ? 1 : 0) + (hasCustom ? 1 : 0);
 
-                if (hasContentUnit == hasLesson)
-                    return $"{label}: each unit row must set exactly one of contentUnitId or lessonId.";
+                if (sourceCount != 1)
+                    return $"{label}: each unit row must set exactly one of contentUnitId, lessonId, or customUnitLabel.";
 
-                if (hasLesson && u.IncludesAllLessons)
-                    return $"{label}: includesAllLessons must be false when lessonId is set — single-lesson rows can't expand.";
+                if (hasCustom && u.CustomUnitLabel!.Trim().Length > 200)
+                    return $"{label}: customUnitLabel must be at most 200 characters.";
+
+                if (u.IncludesAllLessons && (hasLesson || hasCustom || !hasContentUnit))
+                    return $"{label}: includesAllLessons must be false unless only contentUnitId is set.";
+
+                if (hasCustom)
+                    continue; // custom rows are outside teacher repertoire
 
                 if (hasContentUnit)
                 {

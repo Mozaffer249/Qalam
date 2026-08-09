@@ -148,15 +148,20 @@ public class CreateOpenSessionRequestSessionDto
 
 public class CreateOpenSessionRequestUnitDto
 {
-    /// <summary>Exactly one of ContentUnitId or LessonId must be set.</summary>
+    /// <summary>Exactly one of ContentUnitId, LessonId, or a non-empty CustomUnitLabel must be set.</summary>
     public int? ContentUnitId { get; set; }
     public int? LessonId { get; set; }
+
+    /// <summary>
+    /// Free-text "Other" unit label. Mutually exclusive with ContentUnitId and LessonId.
+    /// </summary>
+    public string? CustomUnitLabel { get; set; }
 
     /// <summary>
     /// Only meaningful when <see cref="ContentUnitId"/> is set.
     /// <c>true</c>  → the row covers every lesson inside the unit.
     /// <c>false</c> → the row is "this unit as a topic header" — no specific lessons committed (default).
-    /// Setting <c>true</c> together with <see cref="LessonId"/> is rejected — single-lesson rows can't expand.
+    /// Setting <c>true</c> together with <see cref="LessonId"/> or <see cref="CustomUnitLabel"/> is rejected.
     /// </summary>
     public bool IncludesAllLessons { get; set; }
 }
@@ -262,6 +267,7 @@ public class OpenSessionRequestUnitDto
     public int? LessonId { get; set; }
     public string? LessonNameEn { get; set; }
     public string? LessonNameAr { get; set; }
+    public string? CustomUnitLabel { get; set; }
     public bool IncludesAllLessons { get; set; }
 }
 

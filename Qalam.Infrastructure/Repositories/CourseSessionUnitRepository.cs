@@ -57,7 +57,8 @@ public class CourseSessionUnitRepository : GenericRepositoryAsync<CourseSessionU
                 ContentUnitNameAr = u.ContentUnit != null ? u.ContentUnit.NameAr : null,
                 LessonId = u.LessonId,
                 LessonNameEn = u.Lesson != null ? u.Lesson.NameEn : null,
-                LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null
+                LessonNameAr = u.Lesson != null ? u.Lesson.NameAr : null,
+                CustomUnitLabel = u.CustomUnitLabel
             })
             .ToListAsync(cancellationToken);
     }

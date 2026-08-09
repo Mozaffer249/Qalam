@@ -19,6 +19,9 @@ public class SessionRequestSessionUnitConfiguration : IEntityTypeConfiguration<O
         builder.Property(e => e.IncludesAllLessons)
                .HasDefaultValue(false);
 
+        builder.Property(e => e.CustomUnitLabel)
+               .HasMaxLength(200);
+
         builder.HasOne(e => e.ContentUnit)
                .WithMany()
                .HasForeignKey(e => e.ContentUnitId)

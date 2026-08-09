@@ -84,7 +84,8 @@ public static class CourseDtoMapper
             ContentUnitNameAr = u.ContentUnit?.NameAr,
             LessonId = u.LessonId,
             LessonNameEn = u.Lesson?.NameEn,
-            LessonNameAr = u.Lesson?.NameAr
+            LessonNameAr = u.Lesson?.NameAr,
+            CustomUnitLabel = u.CustomUnitLabel
         };
     }
 
