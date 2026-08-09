@@ -11,17 +11,20 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ITeacherDomainQuestionRepository _questionRepository;
     private readonly ITeacherDomainQuestionSubmissionRepository _submissionRepository;
+    private readonly ITeacherDomainApprovalRepository _approvalRepository;
     private readonly ILogger<TeacherDomainSubjectCascadeService> _logger;
 
     public TeacherDomainSubjectCascadeService(
         ITeacherSubjectRepository teacherSubjectRepository,
         ITeacherDomainQuestionRepository questionRepository,
         ITeacherDomainQuestionSubmissionRepository submissionRepository,
+        ITeacherDomainApprovalRepository approvalRepository,
         ILogger<TeacherDomainSubjectCascadeService> logger)
     {
         _teacherSubjectRepository = teacherSubjectRepository;
         _questionRepository = questionRepository;
         _submissionRepository = submissionRepository;
+        _approvalRepository = approvalRepository;
         _logger = logger;
     }
 
@@ -62,7 +65,7 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         int domainId,
         CancellationToken cancellationToken = default)
     {
-        if (!await IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+        if (!await _approvalRepository.IsDomainApprovedAsync(teacherId, domainId, cancellationToken))
             return;
 
         var subjects = await _teacherSubjectRepository.GetInactiveSubjectsInDomainAsync(
@@ -116,7 +119,7 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
         string domainCode,
         CancellationToken cancellationToken = default)
     {
-        if (await IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+        if (await _approvalRepository.IsDomainApprovedAsync(teacherId, domainId, cancellationToken))
             return null;
 
         var questions = await _questionRepository.GetActiveByDomainIdAsync(domainId, cancellationToken);
@@ -139,7 +142,12 @@ public class TeacherDomainSubjectCascadeService : ITeacherDomainSubjectCascadeSe
             return $"Fix rejected domain verification for '{domainNameEn}' ({domainCode}) before adding subjects.";
         }
 
-        return $"Complete and wait for approval of domain requirements for '{domainNameEn}' ({domainCode}) before adding subjects.";
+        if (!await IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+        {
+            return $"Complete and wait for approval of domain requirements for '{domainNameEn}' ({domainCode}) before adding subjects.";
+        }
+
+        return $"Wait for admin to approve the '{domainNameEn}' ({domainCode}) domain before adding subjects.";
     }
 
     private static bool QuestionBlocksDomainApproval(

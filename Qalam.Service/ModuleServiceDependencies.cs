@@ -51,6 +51,7 @@ namespace Qalam.Service
             services.AddTransient<ITeacherDomainQuestionSubmitService, TeacherDomainQuestionSubmitService>();
             services.AddTransient<ITeacherDomainQuestionStatusService, TeacherDomainQuestionStatusService>();
             services.AddTransient<ITeacherDomainSubjectCascadeService, TeacherDomainSubjectCascadeService>();
+            services.AddTransient<ITeacherDomainApprovalService, TeacherDomainApprovalService>();
             services.AddTransient<ITeacherReviewCorrectionService, TeacherReviewCorrectionService>();
 
             // Enum Services

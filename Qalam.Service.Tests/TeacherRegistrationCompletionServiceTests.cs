@@ -53,7 +53,8 @@ public class TeacherRegistrationCompletionServiceTests
             snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Inactive = 1 },
             domainIds: [1],
             domainQuestions: [domainQuestion],
-            domainSubmissions: [domainSubmission]);
+            domainSubmissions: [domainSubmission],
+            hasApprovedDomain: true);
 
         Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
@@ -222,7 +223,8 @@ public class TeacherRegistrationCompletionServiceTests
             snapshot: new TeacherSubjectActivationSnapshot { Total = 1, Active = 1 },
             domainIds: [1],
             domainQuestions: [domainQuestion],
-            domainSubmissions: [domainSubmission]);
+            domainSubmissions: [domainSubmission],
+            hasApprovedDomain: true);
 
         Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
@@ -264,13 +266,50 @@ public class TeacherRegistrationCompletionServiceTests
                     Question = schoolQuestion,
                     VerificationStatus = DocumentVerificationStatus.Approved
                 }
-            ]);
+            ],
+            hasApprovedDomain: true);
 
         Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
 
     [Fact]
-    public async Task CanActivate_ReturnsFalse_WhenAnyDomainSubmissionRejected()
+    public async Task CanActivate_ReturnsFalse_WhenNoDomainApprovalExists()
+    {
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "school_experience",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1],
+            domainQuestions: [schoolQuestion],
+            domainSubmissions:
+            [
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 100,
+                    TeacherId = TeacherId,
+                    QuestionId = schoolQuestion.Id,
+                    Question = schoolQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                }
+            ],
+            hasApprovedDomain: false);
+
+        Assert.False(await service.CanActivateTeacherAccountAsync(TeacherId));
+        var reasons = await service.GetActivationBlockReasonsAsync(TeacherId);
+        Assert.Contains(reasons, r => r.Contains("approved by an admin", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CanActivate_ReturnsTrue_WhenOneDomainApproved_EvenIfOtherDomainRejected()
     {
         const int domain2 = 2;
         var schoolQuestion = new TeacherDomainQuestion
@@ -284,9 +323,9 @@ public class TeacherRegistrationCompletionServiceTests
         var licenseQuestion = new TeacherDomainQuestion
         {
             Id = 11,
-            DomainId = 1,
-            Code = "school_teaching_license",
-            IsRequired = false,
+            DomainId = domain2,
+            Code = "quran_license",
+            IsRequired = true,
             RequiresAdminReview = true
         };
 
@@ -315,13 +354,14 @@ public class TeacherRegistrationCompletionServiceTests
                     VerificationStatus = DocumentVerificationStatus.Rejected,
                     RejectionReason = "Expired"
                 }
-            ]);
+            ],
+            hasApprovedDomain: true);
 
-        Assert.False(await service.CanActivateTeacherAccountAsync(TeacherId));
+        Assert.True(await service.CanActivateTeacherAccountAsync(TeacherId));
     }
 
     [Fact]
-    public async Task Activate_Fails_WhenDocumentsRejectedStatus()
+    public async Task Activate_Succeeds_WhenDocumentsRejectedStatus_ButReadinessClear()
     {
         var service = BuildService(
             teacherStatus: TeacherStatus.DocumentsRejected,
@@ -330,8 +370,64 @@ public class TeacherRegistrationCompletionServiceTests
 
         var (success, error) = await service.ActivateTeacherAccountAsync(TeacherId, AdminId);
 
-        Assert.False(success);
-        Assert.Contains("corrected", error, StringComparison.OrdinalIgnoreCase);
+        Assert.True(success);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public async Task RefreshTeacherStatus_DoesNotDowngrade_WhenRejectedInOtherDomain_AndOneDomainApproved()
+    {
+        const int domain2 = 2;
+        var schoolQuestion = new TeacherDomainQuestion
+        {
+            Id = 10,
+            DomainId = 1,
+            Code = "school_experience",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+        var quranQuestion = new TeacherDomainQuestion
+        {
+            Id = 11,
+            DomainId = domain2,
+            Code = "quran_ijaza",
+            IsRequired = true,
+            RequiresAdminReview = true
+        };
+
+        TeacherStatus? updatedStatus = null;
+        var service = BuildService(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            onStatusUpdate: status => updatedStatus = status,
+            domainIds: [1, domain2],
+            domainQuestions: [schoolQuestion, quranQuestion],
+            domainSubmissions:
+            [
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 100,
+                    TeacherId = TeacherId,
+                    QuestionId = schoolQuestion.Id,
+                    Question = schoolQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Approved
+                },
+                new TeacherDomainQuestionSubmission
+                {
+                    Id = 101,
+                    TeacherId = TeacherId,
+                    QuestionId = quranQuestion.Id,
+                    Question = quranQuestion,
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                    RejectionReason = "Invalid"
+                }
+            ],
+            hasApprovedDomain: true);
+
+        await service.RefreshTeacherStatusAfterReviewAsync(TeacherId);
+
+        Assert.Equal(TeacherStatus.PendingVerification, updatedStatus);
     }
 
     [Fact]
@@ -508,7 +604,8 @@ public class TeacherRegistrationCompletionServiceTests
         List<TeacherDomainQuestion>? domainQuestions = null,
         List<TeacherDomainQuestionSubmission>? domainSubmissions = null,
         List<TeacherRegistrationRequirement>? requirements = null,
-        List<TeacherRegistrationSubmission>? registrationSubmissions = null)
+        List<TeacherRegistrationSubmission>? registrationSubmissions = null,
+        bool hasApprovedDomain = false)
     {
         var teacher = new Teacher { Id = TeacherId, Status = teacherStatus };
 
@@ -582,6 +679,11 @@ public class TeacherRegistrationCompletionServiceTests
             .Setup(r => r.GetByTeacherIdWithQuestionsAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainSubmissions ?? []);
 
+        var domainApproval = new Mock<ITeacherDomainApprovalService>();
+        domainApproval
+            .Setup(s => s.HasAnyApprovedDomainAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(hasApprovedDomain);
+
         return new TeacherRegistrationCompletionService(
             requirementRepo.Object,
             submissionRepo.Object,
@@ -589,6 +691,7 @@ public class TeacherRegistrationCompletionServiceTests
             teacherRepo.Object,
             domainQuestionRepo.Object,
             domainSubmissionRepo.Object,
+            domainApproval.Object,
             lifecycleEmail ?? Mock.Of<ITeacherLifecycleEmailService>(),
             NullLogger<TeacherRegistrationCompletionService>.Instance);
     }

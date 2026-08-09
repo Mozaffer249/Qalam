@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Commands.ActivateTeacherAccount;
 using Qalam.Core.Features.Admin.Commands.ApproveDocument;
+using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomain;
 using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.BlockTeacher;
 using Qalam.Core.Features.Admin.Commands.DeleteTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
 using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
+using Qalam.Core.Features.Admin.Commands.RevokeTeacherDomainApproval;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
@@ -269,6 +271,41 @@ public class TeacherManagementController : AppControllerBase
 		var command = new RejectTeacherDomainQuestionSubmissionCommand
 		{
 			SubmissionId = submissionId,
+			Reason = request.Reason
+		};
+		return NewResult(await _mediator.Send(command));
+	}
+
+	/// <summary>
+	/// Approve an education domain for a teacher after all of its answers are approved.
+	/// At least one approved domain is required before the account can be authorized.
+	/// </summary>
+	[HttpPost("{teacherId:int}/Domains/{domainId:int}/Approve")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	public async Task<IActionResult> ApproveTeacherDomain(int teacherId, int domainId)
+	{
+		var command = new ApproveTeacherDomainCommand
+		{
+			TeacherId = teacherId,
+			DomainId = domainId
+		};
+		return NewResult(await _mediator.Send(command));
+	}
+
+	/// <summary>
+	/// Revoke a previously approved education domain for a teacher.
+	/// </summary>
+	[HttpPost("{teacherId:int}/Domains/{domainId:int}/RevokeApproval")]
+	[ProducesResponseType(StatusCodes.Status200OK)]
+	public async Task<IActionResult> RevokeTeacherDomainApproval(
+		int teacherId,
+		int domainId,
+		[FromBody] RejectDocumentRequest request)
+	{
+		var command = new RevokeTeacherDomainApprovalCommand
+		{
+			TeacherId = teacherId,
+			DomainId = domainId,
 			Reason = request.Reason
 		};
 		return NewResult(await _mediator.Send(command));

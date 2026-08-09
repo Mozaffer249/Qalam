@@ -15,6 +15,7 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
     private readonly ITeacherDocumentRepository _documentRepository;
     private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ITeacherDomainSubjectCascadeService _cascadeService;
+    private readonly ITeacherDomainApprovalService _domainApprovalService;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
 
     public RejectTeacherDomainQuestionSubmissionCommandHandler(
@@ -22,6 +23,7 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
         ITeacherDocumentRepository documentRepository,
         ITeacherRegistrationCompletionService completionService,
         ITeacherDomainSubjectCascadeService cascadeService,
+        ITeacherDomainApprovalService domainApprovalService,
         ITeacherLifecycleEmailService lifecycleEmailService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -29,6 +31,7 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
         _documentRepository = documentRepository;
         _completionService = completionService;
         _cascadeService = cascadeService;
+        _domainApprovalService = domainApprovalService;
         _lifecycleEmailService = lifecycleEmailService;
     }
 
@@ -79,12 +82,24 @@ public class RejectTeacherDomainQuestionSubmissionCommandHandler : ResponseHandl
             ?? submission.Question.NameEn
             ?? $"Domain {domainId}";
 
-        await _cascadeService.RejectSubjectsInDomainAsync(
-            submission.TeacherId,
-            domainId,
-            request.UserId,
-            request.Reason.Trim(),
-            cancellationToken);
+        if (await _domainApprovalService.IsDomainApprovedAsync(submission.TeacherId, domainId, cancellationToken))
+        {
+            await _domainApprovalService.RevokeAsync(
+                submission.TeacherId,
+                domainId,
+                request.UserId,
+                request.Reason.Trim(),
+                cancellationToken);
+        }
+        else
+        {
+            await _cascadeService.RejectSubjectsInDomainAsync(
+                submission.TeacherId,
+                domainId,
+                request.UserId,
+                request.Reason.Trim(),
+                cancellationToken);
+        }
 
         await _completionService.RefreshTeacherStatusAfterReviewAsync(submission.TeacherId, cancellationToken);
 

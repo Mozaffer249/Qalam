@@ -158,6 +158,9 @@ public class TeacherDomainQuestionGroupDto
     public string DomainCode { get; set; } = null!;
     public string DomainNameAr { get; set; } = null!;
     public string DomainNameEn { get; set; } = null!;
+    public bool IsApproved { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public bool CanApprove { get; set; }
     public List<TeacherDomainQuestionSubmissionStatusDto> Questions { get; set; } = new();
 }
 

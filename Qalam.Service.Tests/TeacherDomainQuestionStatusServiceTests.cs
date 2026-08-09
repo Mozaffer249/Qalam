@@ -48,7 +48,8 @@ public class TeacherDomainQuestionStatusServiceTests
             Mock.Of<ISubjectService>(),
             Mock.Of<ITeacherSubjectRepository>(),
             Mock.Of<IEducationDomainService>(),
-            Mock.Of<ITeacherDomainSubjectCascadeService>());
+            Mock.Of<ITeacherDomainSubjectCascadeService>(),
+            Mock.Of<ITeacherDomainApprovalService>());
 
         var domains = new List<EducationDomainDto>
         {
@@ -63,7 +64,7 @@ public class TeacherDomainQuestionStatusServiceTests
     }
 
     [Fact]
-    public async Task EnrichDomains_SetsCanSelectForSubjects_FromCascadeService()
+    public async Task EnrichDomains_SetsCanSelectForSubjects_FromDomainApprovalService()
     {
         var questionRepo = new Mock<ITeacherDomainQuestionRepository>();
         questionRepo
@@ -75,12 +76,12 @@ public class TeacherDomainQuestionStatusServiceTests
             .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        var cascadeService = new Mock<ITeacherDomainSubjectCascadeService>();
-        cascadeService
-            .Setup(s => s.IsDomainFullyApprovedForTeacherAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+        var approvalService = new Mock<ITeacherDomainApprovalService>();
+        approvalService
+            .Setup(s => s.IsDomainApprovedAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        cascadeService
-            .Setup(s => s.IsDomainFullyApprovedForTeacherAsync(TeacherId, 2, It.IsAny<CancellationToken>()))
+        approvalService
+            .Setup(s => s.IsDomainApprovedAsync(TeacherId, 2, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var service = new TeacherDomainQuestionStatusService(
@@ -90,7 +91,8 @@ public class TeacherDomainQuestionStatusServiceTests
             Mock.Of<ISubjectService>(),
             Mock.Of<ITeacherSubjectRepository>(),
             Mock.Of<IEducationDomainService>(),
-            cascadeService.Object);
+            Mock.Of<ITeacherDomainSubjectCascadeService>(),
+            approvalService.Object);
 
         var domains = new List<EducationDomainDto>
         {
@@ -156,7 +158,8 @@ public class TeacherDomainQuestionStatusServiceTests
             subjectService.Object,
             Mock.Of<ITeacherSubjectRepository>(),
             Mock.Of<IEducationDomainService>(),
-            cascadeService.Object);
+            cascadeService.Object,
+            Mock.Of<ITeacherDomainApprovalService>());
 
         var error = await service.ValidateSubjectsDomainQuestionsAsync(TeacherId, [12]);
 
@@ -206,7 +209,8 @@ public class TeacherDomainQuestionStatusServiceTests
             Mock.Of<ISubjectService>(),
             Mock.Of<ITeacherSubjectRepository>(),
             Mock.Of<IEducationDomainService>(),
-            Mock.Of<ITeacherDomainSubjectCascadeService>());
+            Mock.Of<ITeacherDomainSubjectCascadeService>(),
+            Mock.Of<ITeacherDomainApprovalService>());
 
         var domains = new List<EducationDomainDto>
         {
@@ -398,11 +402,12 @@ public class TeacherDomainQuestionStatusServiceTests
             ]);
 
         var cascade = new Mock<ITeacherDomainSubjectCascadeService>();
-        cascade
-            .Setup(s => s.IsDomainFullyApprovedForTeacherAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+        var approval = new Mock<ITeacherDomainApprovalService>();
+        approval
+            .Setup(s => s.IsDomainApprovedAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var service = BuildStatusService(questionRepo.Object, submissionRepo.Object, cascade.Object);
+        var service = BuildStatusService(questionRepo.Object, submissionRepo.Object, cascade.Object, approval.Object);
 
         Assert.True(await service.HasCatalogDomainsPendingAdminReviewAsync(TeacherId));
     }
@@ -686,7 +691,8 @@ public class TeacherDomainQuestionStatusServiceTests
     private static TeacherDomainQuestionStatusService BuildStatusService(
         ITeacherDomainQuestionRepository questionRepo,
         ITeacherDomainQuestionSubmissionRepository submissionRepo,
-        ITeacherDomainSubjectCascadeService cascadeService) =>
+        ITeacherDomainSubjectCascadeService cascadeService,
+        ITeacherDomainApprovalService? approvalService = null) =>
         new(
             questionRepo,
             submissionRepo,
@@ -694,5 +700,6 @@ public class TeacherDomainQuestionStatusServiceTests
             Mock.Of<ISubjectService>(),
             Mock.Of<ITeacherSubjectRepository>(),
             Mock.Of<IEducationDomainService>(),
-            cascadeService);
+            cascadeService,
+            approvalService ?? Mock.Of<ITeacherDomainApprovalService>());
 }

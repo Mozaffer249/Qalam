@@ -14,6 +14,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDomainQuestionRepository _domainQuestionRepository;
     private readonly ITeacherDomainQuestionSubmissionRepository _domainSubmissionRepository;
+    private readonly ITeacherDomainApprovalService _domainApprovalService;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly ILogger<TeacherRegistrationCompletionService> _logger;
 
@@ -24,6 +25,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         ITeacherRepository teacherRepository,
         ITeacherDomainQuestionRepository domainQuestionRepository,
         ITeacherDomainQuestionSubmissionRepository domainSubmissionRepository,
+        ITeacherDomainApprovalService domainApprovalService,
         ITeacherLifecycleEmailService lifecycleEmailService,
         ILogger<TeacherRegistrationCompletionService> logger)
     {
@@ -33,6 +35,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         _teacherRepository = teacherRepository;
         _domainQuestionRepository = domainQuestionRepository;
         _domainSubmissionRepository = domainSubmissionRepository;
+        _domainApprovalService = domainApprovalService;
         _lifecycleEmailService = lifecycleEmailService;
         _logger = logger;
     }
@@ -171,7 +174,8 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             }
         }
 
-        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, cancellationToken))
+        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, cancellationToken)
+            && !await _domainApprovalService.HasAnyApprovedDomainAsync(teacherId, cancellationToken))
         {
             await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
             return;
@@ -215,9 +219,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (teacher.Status == TeacherStatus.Blocked)
             return (false, "Blocked teacher accounts cannot be activated.");
 
-        if (teacher.Status == TeacherStatus.DocumentsRejected)
-            return (false, "Rejected documents or domain answers must be corrected before activation.");
-
         var blockReasons = await EvaluateActivationReadinessAsync(teacherId, cancellationToken);
         if (blockReasons.Count > 0)
             return (false, blockReasons[0]);
@@ -254,7 +255,8 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
             return;
         }
 
-        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, CancellationToken.None))
+        if (await HasRejectedDomainQuestionSubmissionsAsync(teacherId, CancellationToken.None)
+            && !await _domainApprovalService.HasAnyApprovedDomainAsync(teacherId, CancellationToken.None))
         {
             await SetStatusAsync(teacherId, TeacherStatus.DocumentsRejected);
             return;
@@ -340,36 +342,14 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
     private async Task<string?> GetDomainQuestionActivationBlockReasonAsync(int teacherId, CancellationToken cancellationToken)
     {
-        var submissions = await _domainSubmissionRepository.GetByTeacherIdWithQuestionsAsync(teacherId, cancellationToken);
-        var latestByQuestionId = BuildLatestSubmissionByQuestionId(submissions);
-
-        if (latestByQuestionId.Values.Any(s => s.VerificationStatus == DocumentVerificationStatus.Rejected))
-            return "One or more domain verification answers were rejected.";
-
-        if (latestByQuestionId.Values.Any(s =>
-                s.Question.RequiresAdminReview
-                && s.VerificationStatus == DocumentVerificationStatus.Pending))
-            return "One or more domain verification answers are still pending admin review.";
-
         var domainIds = await _domainQuestionRepository.GetDomainIdsWithActiveRequiredQuestionsAsync(cancellationToken);
         if (domainIds.Count == 0)
             return null;
 
-        var questions = await _domainQuestionRepository.GetActiveByDomainIdsAsync(domainIds, cancellationToken);
-        var requiredByDomain = questions.Where(q => q.IsRequired).GroupBy(q => q.DomainId).ToList();
-        if (requiredByDomain.Count == 0)
+        if (await _domainApprovalService.HasAnyApprovedDomainAsync(teacherId, cancellationToken))
             return null;
 
-        foreach (var domain in requiredByDomain)
-        {
-            var allApproved = domain.All(q =>
-                latestByQuestionId.TryGetValue(q.Id, out var sub)
-                && sub.VerificationStatus == DocumentVerificationStatus.Approved);
-            if (allApproved)
-                return null;
-        }
-
-        return "No education domain has all its required questions approved yet.";
+        return "No education domain has been approved by an admin yet.";
     }
 
     public async Task<bool> HasMissingRequiredRegistrationSubmissionsAsync(

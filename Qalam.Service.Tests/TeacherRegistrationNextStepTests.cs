@@ -1076,6 +1076,7 @@ public class TeacherAccountStatusServiceTests
             teacherRepo.Object,
             domainQuestionRepo.Object,
             domainSubmissionRepo.Object,
+            Mock.Of<ITeacherDomainApprovalService>(),
             Mock.Of<ITeacherLifecycleEmailService>(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<TeacherRegistrationCompletionService>.Instance);
 

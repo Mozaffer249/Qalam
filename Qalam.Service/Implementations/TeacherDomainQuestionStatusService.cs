@@ -16,6 +16,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly IEducationDomainService _educationDomainService;
     private readonly ITeacherDomainSubjectCascadeService _cascadeService;
+    private readonly ITeacherDomainApprovalService _domainApprovalService;
 
     public TeacherDomainQuestionStatusService(
         ITeacherDomainQuestionRepository questionRepository,
@@ -24,7 +25,8 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         ISubjectService subjectService,
         ITeacherSubjectRepository teacherSubjectRepository,
         IEducationDomainService educationDomainService,
-        ITeacherDomainSubjectCascadeService cascadeService)
+        ITeacherDomainSubjectCascadeService cascadeService,
+        ITeacherDomainApprovalService domainApprovalService)
     {
         _questionRepository = questionRepository;
         _submissionRepository = submissionRepository;
@@ -33,6 +35,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         _teacherSubjectRepository = teacherSubjectRepository;
         _educationDomainService = educationDomainService;
         _cascadeService = cascadeService;
+        _domainApprovalService = domainApprovalService;
     }
 
     public async Task<List<EducationDomainTeacherDto>> EnrichDomainsForTeacherAsync(
@@ -62,7 +65,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
                 .Where(q => q.IsRequired)
                 .Any(q => QuestionNeedsAnswer(q.Id, submissionByQuestionId));
 
-            var canSelectForSubjects = await _cascadeService.IsDomainFullyApprovedForTeacherAsync(
+            var canSelectForSubjects = await _domainApprovalService.IsDomainApprovedAsync(
                 teacherId,
                 domain.Id,
                 cancellationToken);
@@ -266,7 +269,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
 
         foreach (var domainId in catalogDomainIds)
         {
-            if (!await _cascadeService.IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+            if (!await _domainApprovalService.IsDomainApprovedAsync(teacherId, domainId, cancellationToken))
                 return false;
         }
 
@@ -300,7 +303,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
 
         foreach (var domainId in catalogDomainIds)
         {
-            if (await _cascadeService.IsDomainFullyApprovedForTeacherAsync(teacherId, domainId, cancellationToken))
+            if (await _domainApprovalService.IsDomainApprovedAsync(teacherId, domainId, cancellationToken))
                 return true;
         }
 
@@ -360,7 +363,7 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
         if (submissions.Count == 0)
             return new List<TeacherDomainQuestionGroupDto>();
 
-        return submissions
+        var groups = submissions
             .GroupBy(s => new { s.Question.DomainId, s.Question.Domain.Code, s.Question.Domain.NameAr, s.Question.Domain.NameEn })
             .Select(g => new TeacherDomainQuestionGroupDto
             {
@@ -372,6 +375,20 @@ public class TeacherDomainQuestionStatusService : ITeacherDomainQuestionStatusSe
             })
             .OrderBy(g => g.DomainNameEn)
             .ToList();
+
+        foreach (var group in groups)
+        {
+            var approvedAt = await _domainApprovalService.GetApprovedAtAsync(teacherId, group.DomainId, cancellationToken);
+            group.IsApproved = approvedAt.HasValue;
+            group.ApprovedAt = approvedAt;
+            group.CanApprove = !group.IsApproved
+                && await _cascadeService.IsDomainFullyApprovedForTeacherAsync(
+                    teacherId,
+                    group.DomainId,
+                    cancellationToken);
+        }
+
+        return groups;
     }
 
     private static TeacherDomainQuestionSubmissionStatusDto MapSubmissionStatus(

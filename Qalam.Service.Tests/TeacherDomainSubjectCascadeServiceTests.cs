@@ -36,6 +36,7 @@ public class TeacherDomainSubjectCascadeServiceTests
             teacherSubjectRepo.Object,
             Mock.Of<ITeacherDomainQuestionRepository>(),
             Mock.Of<ITeacherDomainQuestionSubmissionRepository>(),
+            Mock.Of<ITeacherDomainApprovalRepository>(),
             NullLogger<TeacherDomainSubjectCascadeService>.Instance);
 
         await service.RejectSubjectsInDomainAsync(TeacherId, DomainId, AdminId, "Invalid license");
@@ -87,15 +88,55 @@ public class TeacherDomainSubjectCascadeServiceTests
             .Setup(r => r.GetInactiveSubjectsInDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([subject]);
 
+        var approvalRepo = new Mock<ITeacherDomainApprovalRepository>();
+        approvalRepo
+            .Setup(r => r.IsDomainApprovedAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         var service = new TeacherDomainSubjectCascadeService(
             teacherSubjectRepo.Object,
             questionRepo.Object,
             submissionRepo.Object,
+            approvalRepo.Object,
             NullLogger<TeacherDomainSubjectCascadeService>.Instance);
 
         await service.ApproveSubjectsInDomainAsync(TeacherId, DomainId);
 
         Assert.True(subject.IsActive);
+    }
+
+    [Fact]
+    public async Task ApproveSubjectsInDomain_DoesNotReactivate_WhenDomainApprovalMissing()
+    {
+        var subject = new TeacherSubject
+        {
+            Id = 10,
+            TeacherId = TeacherId,
+            IsActive = false,
+            Subject = new Subject { DomainId = DomainId }
+        };
+
+        var teacherSubjectRepo = new Mock<ITeacherSubjectRepository>();
+        teacherSubjectRepo
+            .Setup(r => r.GetInactiveSubjectsInDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([subject]);
+
+        var approvalRepo = new Mock<ITeacherDomainApprovalRepository>();
+        approvalRepo
+            .Setup(r => r.IsDomainApprovedAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var service = new TeacherDomainSubjectCascadeService(
+            teacherSubjectRepo.Object,
+            Mock.Of<ITeacherDomainQuestionRepository>(),
+            Mock.Of<ITeacherDomainQuestionSubmissionRepository>(),
+            approvalRepo.Object,
+            NullLogger<TeacherDomainSubjectCascadeService>.Instance);
+
+        await service.ApproveSubjectsInDomainAsync(TeacherId, DomainId);
+
+        Assert.False(subject.IsActive);
+        teacherSubjectRepo.Verify(r => r.SaveChangesAsync(), Times.Never);
     }
 
     [Fact]
@@ -129,6 +170,7 @@ public class TeacherDomainSubjectCascadeServiceTests
             Mock.Of<ITeacherSubjectRepository>(),
             questionRepo.Object,
             submissionRepo.Object,
+            Mock.Of<ITeacherDomainApprovalRepository>(),
             NullLogger<TeacherDomainSubjectCascadeService>.Instance);
 
         var reason = await service.GetSubjectSaveBlockReasonForDomainAsync(
@@ -303,6 +345,7 @@ public class TeacherDomainSubjectCascadeServiceTests
             Mock.Of<ITeacherSubjectRepository>(),
             questionRepo.Object,
             submissionRepo.Object,
+            Mock.Of<ITeacherDomainApprovalRepository>(),
             NullLogger<TeacherDomainSubjectCascadeService>.Instance);
     }
 }
