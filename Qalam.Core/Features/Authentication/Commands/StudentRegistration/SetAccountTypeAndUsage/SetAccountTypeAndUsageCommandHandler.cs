@@ -1,8 +1,10 @@
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Extensions;
+using Qalam.Core.Helpers;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Student;
@@ -21,18 +23,24 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
     private readonly IAuthenticationService _authService;
+    private readonly ILegalConsentService _consentService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public SetAccountTypeAndUsageCommandHandler(
         UserManager<User> userManager,
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         IAuthenticationService authService,
+        ILegalConsentService consentService,
+        IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _userManager = userManager;
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _authService = authService;
+        _consentService = consentService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -226,6 +234,18 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         }
 
         var jwt = await _authService.GetJWTToken(user);
+
+        if (request.Data.AcceptedTerms)
+        {
+            var ctx = _httpContextAccessor.HttpContext;
+            await _consentService.AcceptRequiredAsync(
+                user.Id,
+                source: "student-register",
+                ipAddress: ClientIpHelper.GetClientIpAddress(ctx),
+                userAgent: ClientIpHelper.GetUserAgent(ctx),
+                cancellationToken);
+        }
+
         return Success(entity: new StudentRegistrationResponseDto
         {
             Token = jwt.AccessToken,

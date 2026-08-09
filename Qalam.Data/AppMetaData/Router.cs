@@ -52,6 +52,23 @@ namespace Qalam.Data.AppMetaData
         public const string AdminContactMessageClose = Rule + "Admin/ContactMessages/{id}/close";
         public const string AdminContactMessageReopen = Rule + "Admin/ContactMessages/{id}/reopen";
         public const string AdminContactMessageInProgress = Rule + "Admin/ContactMessages/{id}/in-progress";
+
+        #region Legal Documents
+        public const string AdminLegalDocuments = Rule + "Admin/LegalDocuments";
+        public const string AdminLegalDocumentById = Rule + "Admin/LegalDocuments/{id}";
+        public const string AdminLegalDocumentVersions = Rule + "Admin/LegalDocuments/{id}/versions";
+        public const string AdminLegalDocumentVersionById = Rule + "Admin/LegalDocuments/versions/{versionId}";
+        public const string AdminLegalDocumentVersionPublish = Rule + "Admin/LegalDocuments/versions/{versionId}/publish";
+        public const string AdminLegalDocumentVersionUnpublish = Rule + "Admin/LegalDocuments/versions/{versionId}/unpublish";
+        public const string AdminLegalDocumentVersionSections = Rule + "Admin/LegalDocuments/versions/{versionId}/sections";
+        public const string AdminLegalDocumentVersionSectionsReorder = Rule + "Admin/LegalDocuments/versions/{versionId}/sections/reorder";
+        public const string AdminLegalDocumentSectionById = Rule + "Admin/LegalDocuments/sections/{id}";
+        public const string LegalDocuments = Rule + "Legal/Documents";
+        public const string LegalDocumentByCode = Rule + "Legal/Documents/{code}";
+        public const string LegalConsentsPending = Rule + "Legal/Consents/Pending";
+        public const string LegalConsents = Rule + "Legal/Consents";
+        #endregion
+
         public const string TeacherDomainQuestionsSubmit = Rule + "Teacher/DomainQuestions/submit";
 
         // Student / Parent Authentication & Registration

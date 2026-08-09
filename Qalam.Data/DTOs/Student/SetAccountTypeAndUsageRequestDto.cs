@@ -34,4 +34,9 @@ public class SetAccountTypeAndUsageRequestDto
     /// Date of birth - must be 18+ to register
     /// </summary>
     public DateOnly DateOfBirth { get; set; }
+
+    /// <summary>
+    /// When true, records consent for required published legal documents (Terms + Privacy).
+    /// </summary>
+    public bool AcceptedTerms { get; set; }
 }

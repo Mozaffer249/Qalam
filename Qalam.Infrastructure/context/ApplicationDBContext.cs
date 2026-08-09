@@ -16,6 +16,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Session;
 using Qalam.Data.Entity.Payment;
 using Qalam.Data.Entity.Messaging;
+using Qalam.Data.Entity.Legal;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Linq;
@@ -85,6 +86,12 @@ namespace Qalam.Infrastructure.context
         public DbSet<TimeSlot> TimeSlots { get; set; }
         public DbSet<SystemSetting> SystemSettings { get; set; }
         public DbSet<DayOfWeekMaster> DaysOfWeek { get; set; }
+
+        // Legal Schema DbSets
+        public DbSet<LegalDocument> LegalDocuments { get; set; }
+        public DbSet<LegalDocumentVersion> LegalDocumentVersions { get; set; }
+        public DbSet<LegalDocumentSection> LegalDocumentSections { get; set; }
+        public DbSet<UserLegalConsent> UserLegalConsents { get; set; }
 
         // Student Schema DbSets
         public DbSet<Student> Students { get; set; }

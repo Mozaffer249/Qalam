@@ -2938,6 +2938,265 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("UserRefreshTokens");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CurrentPublishedVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("RequiresConsent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("TitleAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CurrentPublishedVersionId");
+
+                    b.HasIndex("DisplayOrder");
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("LegalDocuments", "legal");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentSection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnchorKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContentAr")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentEn")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("LegalDocumentVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ParentSectionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TitleAr")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LegalDocumentVersionId");
+
+                    b.HasIndex("ParentSectionId");
+
+                    b.HasIndex("LegalDocumentVersionId", "AnchorKey")
+                        .IsUnique();
+
+                    b.HasIndex("LegalDocumentVersionId", "ParentSectionId", "DisplayOrder");
+
+                    b.ToTable("LegalDocumentSections", "legal");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangeNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EffectiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LegalDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MajorVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinorVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PublishedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LegalDocumentId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_LegalDocumentVersions_OnePublished")
+                        .HasFilter("[Status] = 'Published'");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("LegalDocumentId", "MajorVersion", "MinorVersion")
+                        .IsUnique();
+
+                    b.ToTable("LegalDocumentVersions", "legal");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.UserLegalConsent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AcceptedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("LegalDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LegalDocumentVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcceptedAt");
+
+                    b.HasIndex("LegalDocumentId");
+
+                    b.HasIndex("LegalDocumentVersionId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "LegalDocumentVersionId")
+                        .IsUnique();
+
+                    b.ToTable("UserLegalConsents", "legal");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Messaging.EmailSuppression", b =>
                 {
                     b.Property<int>("Id")
@@ -6524,6 +6783,72 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocument", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocumentVersion", "CurrentPublishedVersion")
+                        .WithMany()
+                        .HasForeignKey("CurrentPublishedVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CurrentPublishedVersion");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentSection", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocumentVersion", "LegalDocumentVersion")
+                        .WithMany("Sections")
+                        .HasForeignKey("LegalDocumentVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocumentSection", "ParentSection")
+                        .WithMany("ChildSections")
+                        .HasForeignKey("ParentSectionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("LegalDocumentVersion");
+
+                    b.Navigation("ParentSection");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentVersion", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocument", "LegalDocument")
+                        .WithMany("Versions")
+                        .HasForeignKey("LegalDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LegalDocument");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.UserLegalConsent", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocument", "LegalDocument")
+                        .WithMany()
+                        .HasForeignKey("LegalDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Legal.LegalDocumentVersion", "LegalDocumentVersion")
+                        .WithMany()
+                        .HasForeignKey("LegalDocumentVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LegalDocument");
+
+                    b.Navigation("LegalDocumentVersion");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.OpenSessionRequests.OfferConversation", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.OpenSessionRequests.OpenSessionOffer", "OpenSessionOffer")
@@ -7649,6 +7974,21 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("TwoFactorRecoveryCodes");
 
                     b.Navigation("UserRefreshTokens");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocument", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentSection", b =>
+                {
+                    b.Navigation("ChildSections");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Legal.LegalDocumentVersion", b =>
+                {
+                    b.Navigation("Sections");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.OpenSessionRequests.OfferConversation", b =>

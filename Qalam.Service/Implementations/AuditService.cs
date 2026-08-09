@@ -22,7 +22,7 @@ namespace Qalam.Service.Implementations
             _securityEventRepository = securityEventRepository;
         }
 
-        public async Task LogAsync(string action, int? userId, string ipAddress, bool success, string? userAgent = null, string? details = null, string? failureReason = null)
+        public async Task LogAsync(string action, int? userId, string ipAddress, bool success, string? userAgent = null, string? details = null, string? failureReason = null, string? entityType = null, string? entityId = null)
         {
             var auditLog = new AuditLog
             {
@@ -33,6 +33,8 @@ namespace Qalam.Service.Implementations
                 Details = details,
                 Success = success,
                 FailureReason = failureReason,
+                EntityType = entityType,
+                EntityId = entityId,
                 Timestamp = DateTime.UtcNow
             };
 

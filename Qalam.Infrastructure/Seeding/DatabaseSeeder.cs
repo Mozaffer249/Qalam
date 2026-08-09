@@ -47,6 +47,9 @@ public class DatabaseSeeder
 
         // University institution catalog (KSU, KAU, KFUPM)
         await UniversityCatalogSeeder.SeedAsync(context);
+
+        // Legal documents (terms, privacy, refund, pricing)
+        await LegalDocumentsSeeder.SeedAsync(context);
     }
 }
 

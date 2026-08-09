@@ -6,7 +6,7 @@ namespace Qalam.Service.Abstracts
 {
     public interface IAuditService
     {
-        Task LogAsync(string action, int? userId, string ipAddress, bool success, string? userAgent = null, string? details = null, string? failureReason = null);
+        Task LogAsync(string action, int? userId, string ipAddress, bool success, string? userAgent = null, string? details = null, string? failureReason = null, string? entityType = null, string? entityId = null);
         Task<List<AuditLog>> GetUserAuditLogsAsync(int userId, int pageNumber, int pageSize);
         Task LogSecurityEventAsync(int userId, SecurityEventType eventType, string ipAddress, string details);
         Task<List<SecurityEvent>> GetUserSecurityEventsAsync(int userId, int pageNumber, int pageSize);

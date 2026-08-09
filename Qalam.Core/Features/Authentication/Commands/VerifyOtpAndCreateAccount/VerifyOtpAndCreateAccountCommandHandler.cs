@@ -1,8 +1,10 @@
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
+using Qalam.Core.Helpers;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
@@ -23,6 +25,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
     private readonly IAuthSettingsProvider _authSettingsProvider;
     private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
     private readonly ITeacherRegistrationCompletionService _completionService;
+    private readonly ILegalConsentService _consentService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
@@ -34,6 +38,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         IAuthSettingsProvider authSettingsProvider,
         IAuthLoginOtpHelper authLoginOtpHelper,
         ITeacherRegistrationCompletionService completionService,
+        ILegalConsentService consentService,
+        IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -45,6 +51,8 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         _authSettingsProvider = authSettingsProvider;
         _authLoginOtpHelper = authLoginOtpHelper;
         _completionService = completionService;
+        _consentService = consentService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<Response<object>> Handle(
@@ -93,10 +101,15 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             if (teacher != null && teacher.Status != TeacherStatus.Active)
                 await _completionService.RefreshTeacherStatusAfterReviewAsync(teacher.Id, cancellationToken);
 
-            if (request.AcceptedTerms && existingUser.TermsAcceptedAt == null)
+            if (request.AcceptedTerms)
             {
-                existingUser.TermsAcceptedAt = DateTime.UtcNow;
-                await _userManager.UpdateAsync(existingUser);
+                var ctx = _httpContextAccessor.HttpContext;
+                await _consentService.AcceptRequiredAsync(
+                    existingUser.Id,
+                    source: "teacher-register",
+                    ipAddress: ClientIpHelper.GetClientIpAddress(ctx),
+                    userAgent: ClientIpHelper.GetUserAgent(ctx),
+                    cancellationToken);
             }
 
             var jwtResult = await _authService.GetJWTToken(existingUser);
@@ -123,6 +136,17 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             pendingEmail,
             termsAcceptedAt: request.AcceptedTerms ? DateTime.UtcNow : null);
         var registerNextStep = await _teacherRegistrationService.GetNextRegistrationStepAsync(result.UserId);
+
+        if (request.AcceptedTerms)
+        {
+            var ctx = _httpContextAccessor.HttpContext;
+            await _consentService.AcceptRequiredAsync(
+                result.UserId,
+                source: "teacher-register",
+                ipAddress: ClientIpHelper.GetClientIpAddress(ctx),
+                userAgent: ClientIpHelper.GetUserAgent(ctx),
+                cancellationToken);
+        }
 
         if (loginOtp != null)
         {

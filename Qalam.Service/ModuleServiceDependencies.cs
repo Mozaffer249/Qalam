@@ -14,6 +14,8 @@ namespace Qalam.Service
             services.AddTransient<ITwoFactorAuthenticationService, TwoFactorAuthenticationService>();
             services.AddSingleton<IRateLimitingService, RateLimitingService>();
             services.AddTransient<IAuditService, AuditService>();
+            services.AddSingleton<ILegalContentSanitizer, LegalContentSanitizer>();
+            services.AddTransient<ILegalConsentService, LegalConsentService>();
             services.AddTransient<ISessionManagementService, SessionManagementService>();
             services.AddTransient<IPasswordSecurityService, PasswordSecurityService>();
             services.AddTransient<ISecurityNotificationService, SecurityNotificationService>();
