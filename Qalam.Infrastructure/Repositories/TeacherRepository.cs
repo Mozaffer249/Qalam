@@ -194,6 +194,45 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 (t.User.Email != null && t.User.Email.Contains(s))));
         }
 
+        if (!string.IsNullOrWhiteSpace(filters.RequirementCode)
+            || filters.RequirementStatus.HasValue)
+        {
+            var code = filters.RequirementCode?.Trim();
+            var hasCode = !string.IsNullOrWhiteSpace(code);
+
+            var subQuery = _context.Set<TeacherRegistrationSubmission>()
+                .AsNoTracking()
+                .Where(s => !hasCode || s.Requirement.Code == code);
+
+            query = filters.RequirementStatus switch
+            {
+                TeacherRequirementFilterStatus.NotSubmitted when hasCode =>
+                    query.Where(t => !subQuery.Any(s => s.TeacherId == t.Id)),
+                TeacherRequirementFilterStatus.NotSubmitted =>
+                    // Any active required catalog item with no submission for this teacher.
+                    query.Where(t => _context.Set<TeacherRegistrationRequirement>()
+                        .AsNoTracking()
+                        .Any(r => r.IsActive && r.IsRequired
+                            && !_context.Set<TeacherRegistrationSubmission>()
+                                .AsNoTracking()
+                                .Any(s => s.TeacherId == t.Id && s.RequirementId == r.Id))),
+                TeacherRequirementFilterStatus.Submitted =>
+                    query.Where(t => subQuery.Any(s => s.TeacherId == t.Id)),
+                TeacherRequirementFilterStatus.Pending =>
+                    query.Where(t => subQuery.Any(s =>
+                        s.TeacherId == t.Id && s.VerificationStatus == DocumentVerificationStatus.Pending)),
+                TeacherRequirementFilterStatus.Approved =>
+                    query.Where(t => subQuery.Any(s =>
+                        s.TeacherId == t.Id && s.VerificationStatus == DocumentVerificationStatus.Approved)),
+                TeacherRequirementFilterStatus.Rejected =>
+                    query.Where(t => subQuery.Any(s =>
+                        s.TeacherId == t.Id && s.VerificationStatus == DocumentVerificationStatus.Rejected)),
+                _ when hasCode =>
+                    query.Where(t => subQuery.Any(s => s.TeacherId == t.Id)),
+                _ => query,
+            };
+        }
+
         return query;
     }
 

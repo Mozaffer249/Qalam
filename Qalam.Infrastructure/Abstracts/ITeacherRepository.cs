@@ -136,7 +136,19 @@ public record AdminTeacherListFilters(
     int PageSize,
     int? DomainId = null,
     DateTime? CreatedFrom = null,
-    DateTime? CreatedTo = null);
+    DateTime? CreatedTo = null,
+    string? RequirementCode = null,
+    TeacherRequirementFilterStatus? RequirementStatus = null);
+
+/// <summary>Submission/verification filter for a registration requirement code.</summary>
+public enum TeacherRequirementFilterStatus
+{
+    Submitted = 1,
+    NotSubmitted = 2,
+    Pending = 3,
+    Approved = 4,
+    Rejected = 5
+}
 
 public enum AdminTeacherListSort
 {

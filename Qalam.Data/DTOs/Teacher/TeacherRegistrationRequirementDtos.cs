@@ -116,6 +116,7 @@ public class TeacherRegistrationSubmissionStatusDto
     public string NameEn { get; set; } = null!;
     public string RequirementType { get; set; } = null!;
     public bool IsRequired { get; set; }
+    public bool IsActive { get; set; } = true;
     public bool IsSubmitted { get; set; }
     public DocumentVerificationStatus? VerificationStatus { get; set; }
     public string? RejectionReason { get; set; }

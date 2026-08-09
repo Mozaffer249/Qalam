@@ -50,6 +50,19 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             statusFilter = parsed;
         }
 
+        TeacherRequirementFilterStatus? requirementStatus = null;
+        if (!string.IsNullOrWhiteSpace(request.RequirementStatus))
+        {
+            if (!Enum.TryParse<TeacherRequirementFilterStatus>(
+                    request.RequirementStatus.Trim(), ignoreCase: true, out var parsedReqStatus))
+            {
+                return BadRequest<List<AdminTeacherListItemDto>>(
+                    "Invalid requirementStatus. Valid values: Submitted, NotSubmitted, Pending, Approved, Rejected");
+            }
+
+            requirementStatus = parsedReqStatus;
+        }
+
         var createdTo = request.CreatedTo;
         if (createdTo.HasValue && createdTo.Value.TimeOfDay == TimeSpan.Zero)
             createdTo = createdTo.Value.Date.AddDays(1).AddTicks(-1);
@@ -64,7 +77,9 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             PageSize: pageSize,
             DomainId: request.DomainId,
             CreatedFrom: request.CreatedFrom?.Date,
-            CreatedTo: createdTo);
+            CreatedTo: createdTo,
+            RequirementCode: request.RequirementCode,
+            RequirementStatus: requirementStatus);
 
         var result = await _teacherRepository.SearchForAdminAsync(filters, cancellationToken);
 

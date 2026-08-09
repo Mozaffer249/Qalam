@@ -21,4 +21,6 @@ public class GetTeachersForAdminQuery : IRequest<Response<List<AdminTeacherListI
     public DateTime? CreatedFrom { get; set; }
     public DateTime? CreatedTo { get; set; }
     public AdminTeacherListSort SortBy { get; set; } = AdminTeacherListSort.Newest;
+    public string? RequirementCode { get; set; }
+    public string? RequirementStatus { get; set; }
 }

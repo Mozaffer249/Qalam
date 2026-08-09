@@ -58,7 +58,9 @@ public class TeacherManagementController : AppControllerBase
 		string? search = null,
 		DateTime? createdFrom = null,
 		DateTime? createdTo = null,
-		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest)
+		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest,
+		string? requirementCode = null,
+		string? requirementStatus = null)
 	{
 		var query = new GetTeachersForAdminQuery
 		{
@@ -71,7 +73,9 @@ public class TeacherManagementController : AppControllerBase
 			Search = search,
 			CreatedFrom = createdFrom,
 			CreatedTo = createdTo,
-			SortBy = sortBy
+			SortBy = sortBy,
+			RequirementCode = requirementCode,
+			RequirementStatus = requirementStatus
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
@@ -92,7 +96,9 @@ public class TeacherManagementController : AppControllerBase
 		string? search = null,
 		DateTime? createdFrom = null,
 		DateTime? createdTo = null,
-		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest)
+		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest,
+		string? requirementCode = null,
+		string? requirementStatus = null)
 	{
 		var response = await _mediator.Send(new ExportTeachersForAdminQuery
 		{
@@ -103,7 +109,9 @@ public class TeacherManagementController : AppControllerBase
 			Search = search,
 			CreatedFrom = createdFrom,
 			CreatedTo = createdTo,
-			SortBy = sortBy
+			SortBy = sortBy,
+			RequirementCode = requirementCode,
+			RequirementStatus = requirementStatus
 		});
 
 		if (!response.Succeeded || response.Data == null)

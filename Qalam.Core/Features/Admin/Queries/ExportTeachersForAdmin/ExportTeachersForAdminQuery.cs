@@ -20,6 +20,8 @@ public class ExportTeachersForAdminQuery : IRequest<Response<AdminTeacherCsvExpo
     public DateTime? CreatedFrom { get; set; }
     public DateTime? CreatedTo { get; set; }
     public AdminTeacherListSort SortBy { get; set; } = AdminTeacherListSort.Newest;
+    public string? RequirementCode { get; set; }
+    public string? RequirementStatus { get; set; }
 }
 
 public class ExportTeachersForAdminQueryHandler : ResponseHandler,
@@ -55,6 +57,19 @@ public class ExportTeachersForAdminQueryHandler : ResponseHandler,
             statusFilter = parsed;
         }
 
+        TeacherRequirementFilterStatus? requirementStatus = null;
+        if (!string.IsNullOrWhiteSpace(request.RequirementStatus))
+        {
+            if (!Enum.TryParse<TeacherRequirementFilterStatus>(
+                    request.RequirementStatus.Trim(), ignoreCase: true, out var parsedReqStatus))
+            {
+                return BadRequest<AdminTeacherCsvExportDto>(
+                    "Invalid requirementStatus. Valid values: Submitted, NotSubmitted, Pending, Approved, Rejected");
+            }
+
+            requirementStatus = parsedReqStatus;
+        }
+
         var createdTo = request.CreatedTo;
         if (createdTo.HasValue && createdTo.Value.TimeOfDay == TimeSpan.Zero)
             createdTo = createdTo.Value.Date.AddDays(1).AddTicks(-1);
@@ -69,7 +84,9 @@ public class ExportTeachersForAdminQueryHandler : ResponseHandler,
             PageSize: MaxExportRows,
             DomainId: request.DomainId,
             CreatedFrom: request.CreatedFrom?.Date,
-            CreatedTo: createdTo);
+            CreatedTo: createdTo,
+            RequirementCode: request.RequirementCode,
+            RequirementStatus: requirementStatus);
 
         var items = await _teacherRepository.ExportForAdminAsync(filters, MaxExportRows, cancellationToken);
         if (items == null)

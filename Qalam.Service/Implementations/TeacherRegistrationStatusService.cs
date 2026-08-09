@@ -134,26 +134,26 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
         if (teacherIds.Count == 0)
             return result;
 
-        var active = await _requirementRepository.GetActiveOrderedAsync(cancellationToken);
+        var all = await _requirementRepository.GetAllOrderedAsync(cancellationToken);
         var allSubmissions = await _submissionRepository.GetByTeacherIdsWithRequirementsAsync(teacherIds, cancellationToken);
         var byTeacher = allSubmissions.GroupBy(s => s.TeacherId).ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var teacherId in teacherIds.Distinct())
         {
             byTeacher.TryGetValue(teacherId, out var submissions);
-            result[teacherId] = BuildChecklist(active, submissions ?? []);
+            result[teacherId] = BuildChecklist(all, submissions ?? []);
         }
 
         return result;
     }
 
     private static List<TeacherRegistrationSubmissionStatusDto> BuildChecklist(
-        List<TeacherRegistrationRequirement> active,
+        List<TeacherRegistrationRequirement> requirements,
         List<TeacherRegistrationSubmission> submissions)
     {
         var result = new List<TeacherRegistrationSubmissionStatusDto>();
 
-        foreach (var req in active)
+        foreach (var req in requirements)
         {
             var related = submissions.Where(s => s.RequirementId == req.Id).ToList();
             var isMultiFile = req.RequirementType == RegistrationRequirementType.File && req.MaxCount > 1;
@@ -169,6 +169,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
                     NameEn = req.NameEn,
                     RequirementType = req.RequirementType.ToString(),
                     IsRequired = req.IsRequired,
+                    IsActive = req.IsActive,
                     IsSubmitted = count >= req.MinCount,
                     VerificationStatus = worst?.VerificationStatus,
                     RejectionReason = worst?.RejectionReason
@@ -184,6 +185,7 @@ public class TeacherRegistrationStatusService : ITeacherRegistrationStatusServic
                     NameEn = req.NameEn,
                     RequirementType = req.RequirementType.ToString(),
                     IsRequired = req.IsRequired,
+                    IsActive = req.IsActive,
                     IsSubmitted = sub != null,
                     VerificationStatus = sub?.VerificationStatus,
                     RejectionReason = sub?.RejectionReason,
