@@ -1,60 +1,35 @@
-using AutoMapper;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Student;
-using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.Queries.GetMyChildren;
 
 public class GetMyChildrenQueryHandler : ResponseHandler,
     IRequestHandler<GetMyChildrenQuery, Response<List<ChildStudentDto>>>
 {
-    private readonly IGuardianRepository _guardianRepository;
-    private readonly IStudentRepository _studentRepository;
-    private readonly IMapper _mapper;
+    private readonly IGuardianChildrenService _guardianChildrenService;
 
     public GetMyChildrenQueryHandler(
-        IGuardianRepository guardianRepository,
-        IStudentRepository studentRepository,
-        IMapper mapper,
+        IGuardianChildrenService guardianChildrenService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
-        _guardianRepository = guardianRepository;
-        _studentRepository = studentRepository;
-        _mapper = mapper;
+        _guardianChildrenService = guardianChildrenService;
     }
 
     public async Task<Response<List<ChildStudentDto>>> Handle(
         GetMyChildrenQuery request,
         CancellationToken cancellationToken)
     {
-        var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
-        if (guardian == null)
+        var children = await _guardianChildrenService.GetMyChildrenAsync(
+            request.UserId,
+            cancellationToken);
+
+        if (children == null)
             return NotFound<List<ChildStudentDto>>("Guardian profile not found.");
 
-        var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
-        var childrenDtos = _mapper.Map<List<ChildStudentDto>>(children);
-
-        // If guardian also studies, include their own student record first
-        var selfStudent = await _studentRepository.GetTableNoTracking()
-            .Where(s => s.UserId == request.UserId && s.IsActive && s.GuardianId == null)
-            .Include(s => s.Domain)
-            .Include(s => s.Curriculum)
-            .Include(s => s.Level)
-            .Include(s => s.Grade)
-            .Include(s => s.User)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (selfStudent != null)
-        {
-            var selfDto = _mapper.Map<ChildStudentDto>(selfStudent);
-            selfDto.IsSelf = true;
-            childrenDtos.Insert(0, selfDto);
-        }
-
-        return Success(entity: childrenDtos);
+        return Success(entity: children);
     }
 }

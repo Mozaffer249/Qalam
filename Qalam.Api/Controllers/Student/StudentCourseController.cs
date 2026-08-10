@@ -18,6 +18,8 @@ using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 using Qalam.Core.Features.Student.Queries.SearchStudents;
 using Qalam.Core.Features.Student.Queries.GetMyChildren;
+using Qalam.Core.Features.Student.Commands.UpdateChild;
+using Qalam.Core.Features.Student.Commands.UpdateChildProfilePicture;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
@@ -97,6 +99,40 @@ public class StudentCourseController : AppControllerBase
     public async Task<IActionResult> GetMyChildren()
     {
         return NewResult(await Mediator.Send(new GetMyChildrenQuery()));
+    }
+
+    /// <summary>
+    /// Update a child profile owned by the authenticated guardian.
+    /// </summary>
+    /// <remarks>PUT Api/V1/Student/Children/{studentId}</remarks>
+    [HttpPut(Router.StudentChildById)]
+    [Authorize(Roles = Roles.Guardian)]
+    [ProducesResponseType(typeof(ChildStudentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateChild(int studentId, [FromBody] UpdateChildDto child)
+    {
+        return NewResult(await Mediator.Send(new UpdateChildCommand
+        {
+            StudentId = studentId,
+            Child = child,
+        }));
+    }
+
+    /// <summary>
+    /// Upload or replace a child profile picture (queued to OSS; previous object deleted on success).
+    /// </summary>
+    /// <remarks>PUT Api/V1/Student/Children/{studentId}/ProfilePicture — multipart form field <c>file</c>.</remarks>
+    [HttpPut(Router.StudentChildProfilePicture)]
+    [Authorize(Roles = Roles.Guardian)]
+    [ProducesResponseType(typeof(ChildStudentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateChildProfilePicture(int studentId, IFormFile file)
+    {
+        return NewResult(await Mediator.Send(new UpdateChildProfilePictureCommand
+        {
+            StudentId = studentId,
+            File = file,
+        }));
     }
 
     /// <summary>

@@ -189,7 +189,8 @@ public class FileStorageService : IFileStorageService
 
     public async Task QueueProfilePicUploadAsync(
         IFormFile file,
-        int userId)
+        int userId,
+        string? previousFileUrl = null)
     {
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
@@ -200,12 +201,17 @@ public class FileStorageService : IFileStorageService
             UserId = userId,
             FileName = file.FileName,
             ContentType = file.ContentType,
-            FileData = base64Data
+            FileData = base64Data,
+            PreviousFileUrl = previousFileUrl,
+            QueuedAt = DateTime.UtcNow,
         };
 
         await _rabbitMQService.QueueProfilePicUploadAsync(message);
 
-        _logger.LogInformation("Profile pic upload queued: UserId={UserId}", userId);
+        _logger.LogInformation(
+            "Profile pic upload queued: UserId={UserId}, HasPrevious={HasPrevious}",
+            userId,
+            !string.IsNullOrWhiteSpace(previousFileUrl));
     }
 
     public async Task QueueOpenSessionRequestAttachmentUploadAsync(

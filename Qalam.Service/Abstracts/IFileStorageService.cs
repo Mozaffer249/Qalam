@@ -32,7 +32,8 @@ public interface IFileStorageService
 
     Task QueueProfilePicUploadAsync(
         IFormFile file,
-        int userId);
+        int userId,
+        string? previousFileUrl = null);
 
     /// <summary>
     /// Queue an Open Session Request attachment for upload. MessagingApi consumer uploads

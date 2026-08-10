@@ -14,14 +14,30 @@ public class StudentProfile : Profile
                 src.User != null
                     ? string.Join(" ", new[] { (src.User.FirstName ?? "").Trim(), (src.User.LastName ?? "").Trim() }.Where(s => !string.IsNullOrEmpty(s)))
                     : ""))
-            .ForMember(dest => dest.DomainNameEn, opt => opt.MapFrom(src => 
+            .ForMember(dest => dest.DomainNameEn, opt => opt.MapFrom(src =>
                 src.Domain != null ? src.Domain.NameEn : null))
-            .ForMember(dest => dest.CurriculumNameEn, opt => opt.MapFrom(src => 
+            .ForMember(dest => dest.DomainNameAr, opt => opt.MapFrom(src =>
+                src.Domain != null ? src.Domain.NameAr : null))
+            .ForMember(dest => dest.CurriculumNameEn, opt => opt.MapFrom(src =>
                 src.Curriculum != null ? src.Curriculum.NameEn : null))
-            .ForMember(dest => dest.LevelNameEn, opt => opt.MapFrom(src => 
+            .ForMember(dest => dest.CurriculumNameAr, opt => opt.MapFrom(src =>
+                src.Curriculum != null ? src.Curriculum.NameAr : null))
+            .ForMember(dest => dest.LevelNameEn, opt => opt.MapFrom(src =>
                 src.Level != null ? src.Level.NameEn : null))
-            .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src => 
-                src.Grade != null ? src.Grade.NameEn : null));
+            .ForMember(dest => dest.LevelNameAr, opt => opt.MapFrom(src =>
+                src.Level != null ? src.Level.NameAr : null))
+            .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src =>
+                src.Grade != null ? src.Grade.NameEn : null))
+            .ForMember(dest => dest.GradeNameAr, opt => opt.MapFrom(src =>
+                src.Grade != null ? src.Grade.NameAr : null))
+            .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src =>
+                src.User != null ? src.User.ProfilePictureUrl : null))
+            .ForMember(dest => dest.NextSessionAt, opt => opt.Ignore())
+            .ForMember(dest => dest.NextScheduleId, opt => opt.Ignore())
+            .ForMember(dest => dest.NextEnrollmentId, opt => opt.Ignore())
+            .ForMember(dest => dest.CompletedSessionsCount, opt => opt.Ignore())
+            .ForMember(dest => dest.SessionsCount, opt => opt.Ignore())
+            .ForMember(dest => dest.ProgressPercent, opt => opt.Ignore());
 
         // AddChildDto -> Student (for AddChild command)
         CreateMap<AddChildDto, Student>()

@@ -99,6 +99,26 @@ public class ProfilePicUploadConsumer : BackgroundService
                             _logger.LogInformation("UserId=0 (test mode) — skipped DB update");
                         }
 
+                        var previous = message.PreviousFileUrl?.Trim();
+                        if (!string.IsNullOrEmpty(previous)
+                            && !string.Equals(previous, fileUrl, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                await storageService.DeleteFileAsync(previous);
+                                _logger.LogInformation(
+                                    "Previous profile pic deleted from OSS: {Url}",
+                                    previous);
+                            }
+                            catch (Exception deleteEx)
+                            {
+                                _logger.LogWarning(
+                                    deleteEx,
+                                    "Failed to delete previous profile pic (upload succeeded): {Url}",
+                                    previous);
+                            }
+                        }
+
                         _logger.LogInformation("========== PROFILE PIC COMPLETE ==========");
                     }
 

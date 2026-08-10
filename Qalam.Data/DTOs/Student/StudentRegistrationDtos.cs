@@ -137,14 +137,45 @@ public class ChildStudentDto
     public GuardianRelation? GuardianRelation { get; set; }
     public int? DomainId { get; set; }
     public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
     public int? CurriculumId { get; set; }
     public string? CurriculumNameEn { get; set; }
+    public string? CurriculumNameAr { get; set; }
     public int? LevelId { get; set; }
     public string? LevelNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
     public int? GradeId { get; set; }
     public string? GradeNameEn { get; set; }
+    public string? GradeNameAr { get; set; }
     public bool IsActive { get; set; }
     public bool IsSelf { get; set; }
+    /// <summary>Resolved public profile picture URL for the child's user account.</summary>
+    public string? ProfilePictureUrl { get; set; }
+
+    /// <summary>Earliest upcoming/in-progress session across the child's enrollments (UTC).</summary>
+    public DateTime? NextSessionAt { get; set; }
+    public int? NextScheduleId { get; set; }
+    public int? NextEnrollmentId { get; set; }
+
+    /// <summary>Aggregate completed sessions across active enrollments.</summary>
+    public int CompletedSessionsCount { get; set; }
+    /// <summary>Aggregate planned sessions across active enrollments.</summary>
+    public int SessionsCount { get; set; }
+    /// <summary>Weighted progress percent when SessionsCount &gt; 0.</summary>
+    public int? ProgressPercent { get; set; }
+}
+
+/// <summary>Guardian updates a child's profile (no password change).</summary>
+public class UpdateChildDto
+{
+    public string FullName { get; set; } = default!;
+    public DateOnly? DateOfBirth { get; set; }
+    public Gender? Gender { get; set; }
+    public GuardianRelation? GuardianRelation { get; set; }
+    public int? DomainId { get; set; }
+    public int? CurriculumId { get; set; }
+    public int? LevelId { get; set; }
+    public int? GradeId { get; set; }
 }
 
 #endregion
