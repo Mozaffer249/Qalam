@@ -174,12 +174,38 @@ public class StudentAuthController : AppControllerBase
     /// <summary>
     /// Parent adds a child (Student linked to Guardian).
     /// </summary>
+    /// <remarks>
+    /// JSON: <c>application/json</c> body <c>{ "child": { ... } }</c>.
+    /// Multipart: <c>multipart/form-data</c> with <c>Child.*</c> fields and optional <c>file</c> (jpg/png/webp, max 5 MB).
+    /// </remarks>
     [HttpPost("AddChild")]
     [Authorize(Roles = Roles.Guardian)]
+    [Consumes("application/json")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddChild([FromBody] AddChildCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Parent adds a child with optional profile picture in one multipart request.
+    /// </summary>
+    /// <remarks>
+    /// POST Api/V1/Authentication/Student/AddChild
+    /// Content-Type: multipart/form-data
+    /// Fields: Child.FullName, Child.Email, Child.Password, Child.ConfirmPassword, Child.DateOfBirth,
+    /// optional Child.Gender, Child.GuardianRelation, education ids, and optional file.
+    /// </remarks>
+    [HttpPost("AddChild")]
+    [Authorize(Roles = Roles.Guardian)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddChildMultipart([FromForm] AddChildCommand command)
     {
         return NewResult(await Mediator.Send(command));
     }

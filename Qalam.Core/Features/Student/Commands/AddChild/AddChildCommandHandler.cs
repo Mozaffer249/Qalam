@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Identity;
 using StudentEntity = Qalam.Data.Entity.Student.Student;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.Commands.AddChild;
 
@@ -21,6 +22,7 @@ public class AddChildCommandHandler : ResponseHandler,
     private readonly ICurriculumRepository _curriculumRepository;
     private readonly IEducationLevelRepository _levelRepository;
     private readonly IGradeRepository _gradeRepository;
+    private readonly IGuardianChildrenService _guardianChildrenService;
 
     public AddChildCommandHandler(
         IGuardianRepository guardianRepository,
@@ -31,6 +33,7 @@ public class AddChildCommandHandler : ResponseHandler,
         ICurriculumRepository curriculumRepository,
         IEducationLevelRepository levelRepository,
         IGradeRepository gradeRepository,
+        IGuardianChildrenService guardianChildrenService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _guardianRepository = guardianRepository;
@@ -41,6 +44,7 @@ public class AddChildCommandHandler : ResponseHandler,
         _curriculumRepository = curriculumRepository;
         _levelRepository = levelRepository;
         _gradeRepository = gradeRepository;
+        _guardianChildrenService = guardianChildrenService;
     }
 
     public async Task<Response<int>> Handle(AddChildCommand request, CancellationToken cancellationToken)
@@ -93,6 +97,13 @@ public class AddChildCommandHandler : ResponseHandler,
                 return BadRequest<int>("Grade not found.");
         }
 
+        if (request.File != null && request.File.Length > 0)
+        {
+            var fileError = await _guardianChildrenService.GetProfilePictureValidationErrorAsync(request.File);
+            if (fileError != null)
+                return BadRequest<int>(fileError);
+        }
+
         var rawUserName = $"child_{guardian.Id}_{Guid.NewGuid():N}";
         var unique = rawUserName.Length > 44 ? rawUserName[..44] : rawUserName;
         var childUser = new User
@@ -113,6 +124,19 @@ public class AddChildCommandHandler : ResponseHandler,
 
         await _studentRepository.AddAsync(student);
         await _studentRepository.SaveChangesAsync();
+
+        if (request.File != null && request.File.Length > 0)
+        {
+            var pic = await _guardianChildrenService.UpdateProfilePictureAsync(
+                request.UserId,
+                student.Id,
+                request.File,
+                cancellationToken);
+
+            if (!pic.Succeeded)
+                return BadRequest<int>(
+                    pic.Error ?? "Child created, but profile picture upload failed.");
+        }
 
         return Success(Message: "Child added successfully.", entity: student.Id);
     }

@@ -204,6 +204,17 @@ public class GuardianChildrenService : IGuardianChildrenService
         return GuardianChildUpdateResult.Ok(MapChild(student));
     }
 
+    public async Task<string?> GetProfilePictureValidationErrorAsync(IFormFile? file)
+    {
+        if (file == null || file.Length == 0)
+            return "Profile picture file is required.";
+
+        var valid = await _fileStorage.ValidateFileAsync(file, AllowedImageExtensions, MaxImageBytes);
+        return valid
+            ? null
+            : "Invalid image. Use jpg, jpeg, png, or webp up to 5 MB.";
+    }
+
     public async Task<HashSet<int>> GetOwnedStudentIdsAsync(
         int userId,
         CancellationToken cancellationToken = default)

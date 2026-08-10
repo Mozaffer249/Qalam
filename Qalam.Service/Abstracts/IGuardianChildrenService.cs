@@ -30,6 +30,11 @@ public interface IGuardianChildrenService
         IFormFile file,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns null when <paramref name="file"/> is a valid profile image; otherwise an error message.
+    /// </summary>
+    Task<string?> GetProfilePictureValidationErrorAsync(IFormFile? file);
+
     /// <summary>Student ids the user may act on (own student + guardian children).</summary>
     Task<HashSet<int>> GetOwnedStudentIdsAsync(int userId, CancellationToken cancellationToken = default);
 
