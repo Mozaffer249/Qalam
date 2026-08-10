@@ -46,6 +46,16 @@ public interface IGuardianChildrenService
         int userId,
         int? studentId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Composite file for an owned child/self-student: attendance aggregates, upcoming sessions,
+    /// and documents (empty until document storage ships). Null when not owned.
+    /// </summary>
+    Task<ChildFileDetailDto?> GetChildFileAsync(
+        int userId,
+        int studentId,
+        int upcomingTake = 5,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class GuardianChildUpdateResult

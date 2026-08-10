@@ -8,6 +8,7 @@ using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Student;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -27,6 +28,7 @@ public class GuardianChildrenService : IGuardianChildrenService
     private readonly UserManager<User> _userManager;
     private readonly IFileStorageService _fileStorage;
     private readonly IMediaUrlResolver _mediaUrlResolver;
+    private readonly ApplicationDBContext _db;
 
     public GuardianChildrenService(
         IGuardianRepository guardianRepository,
@@ -38,7 +40,8 @@ public class GuardianChildrenService : IGuardianChildrenService
         IGradeRepository gradeRepository,
         UserManager<User> userManager,
         IFileStorageService fileStorage,
-        IMediaUrlResolver mediaUrlResolver)
+        IMediaUrlResolver mediaUrlResolver,
+        ApplicationDBContext db)
     {
         _guardianRepository = guardianRepository;
         _studentRepository = studentRepository;
@@ -50,6 +53,7 @@ public class GuardianChildrenService : IGuardianChildrenService
         _userManager = userManager;
         _fileStorage = fileStorage;
         _mediaUrlResolver = mediaUrlResolver;
+        _db = db;
     }
 
     public async Task<List<ChildStudentDto>?> GetMyChildrenAsync(
@@ -248,6 +252,126 @@ public class GuardianChildrenService : IGuardianChildrenService
 
         var self = await _studentRepository.GetByUserIdAsync(userId);
         return self?.Id;
+    }
+
+    public async Task<ChildFileDetailDto?> GetChildFileAsync(
+        int userId,
+        int studentId,
+        int upcomingTake = 5,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = await GetOwnedStudentIdsAsync(userId, cancellationToken);
+        if (!owned.Contains(studentId))
+            return null;
+
+        var take = Math.Clamp(upcomingTake <= 0 ? 5 : upcomingTake, 1, 50);
+
+        var statuses = await _db.SessionAttendances
+            .AsNoTracking()
+            .Where(a => a.StudentId == studentId)
+            .Where(a =>
+                a.Status == SessionAttendanceStatus.Present
+                || a.Status == SessionAttendanceStatus.Absent
+                || a.Status == SessionAttendanceStatus.Late)
+            .GroupBy(a => a.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var present = statuses.FirstOrDefault(s => s.Status == SessionAttendanceStatus.Present)?.Count ?? 0;
+        var absent = statuses.FirstOrDefault(s => s.Status == SessionAttendanceStatus.Absent)?.Count ?? 0;
+        var late = statuses.FirstOrDefault(s => s.Status == SessionAttendanceStatus.Late)?.Count ?? 0;
+        var totalMarked = present + absent + late;
+        var rate = totalMarked == 0
+            ? 0
+            : (int)Math.Round(present * 100.0 / totalMarked);
+
+        var upcoming = await LoadUpcomingSessionsAsync(studentId, take, cancellationToken);
+
+        return new ChildFileDetailDto
+        {
+            AttendanceRatePercent = rate,
+            PresentCount = present,
+            AbsentCount = absent,
+            LateCount = late,
+            TotalMarkedSessions = totalMarked,
+            UpcomingSessions = upcoming,
+            Documents = [],
+        };
+    }
+
+    private async Task<List<ChildUpcomingSessionDto>> LoadUpcomingSessionsAsync(
+        int studentId,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        var utcNow = DateTime.UtcNow;
+
+        var enrollments = await _enrollmentRepository.GetTableNoTracking()
+            .AsSplitQuery()
+            .Where(e => e.Participants.Any(p => p.StudentId == studentId))
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.Teacher)
+                    .ThenInclude(t => t!.User)
+            .Include(e => e.Course)
+                .ThenInclude(c => c!.TeacherSubject)
+                    .ThenInclude(ts => ts!.Subject)
+            .Include(e => e.CourseSchedules)
+                .ThenInclude(cs => cs.TeacherAvailability)
+                    .ThenInclude(ta => ta!.TimeSlot)
+            .ToListAsync(cancellationToken);
+
+        var candidates = new List<(CourseSchedule Schedule, Enrollment Enrollment, DateTime Start)>();
+        foreach (var enrollment in enrollments)
+        {
+            foreach (var schedule in enrollment.CourseSchedules ?? [])
+            {
+                if (schedule.Status is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress))
+                    continue;
+
+                var start = EnrollmentScheduleHelper.ResolveScheduleStartUtc(schedule);
+                if (schedule.Status == ScheduleStatus.Scheduled && start < utcNow)
+                    continue;
+
+                candidates.Add((schedule, enrollment, start));
+            }
+        }
+
+        return candidates
+            .OrderBy(x => x.Schedule.Status == ScheduleStatus.InProgress ? 0 : 1)
+            .ThenBy(x => x.Start)
+            .Take(take)
+            .Select(x =>
+            {
+                var course = x.Enrollment.Course;
+                var teacherUser = course?.Teacher?.User;
+                var teacherName = teacherUser == null
+                    ? null
+                    : string.Join(
+                        " ",
+                        new[]
+                        {
+                            (teacherUser.FirstName ?? "").Trim(),
+                            (teacherUser.LastName ?? "").Trim(),
+                        }.Where(s => !string.IsNullOrEmpty(s)));
+
+                var subject = course?.TeacherSubject?.Subject;
+                var title = course?.Title;
+                var end = x.Start.AddMinutes(x.Schedule.DurationMinutes);
+
+                return new ChildUpcomingSessionDto
+                {
+                    ScheduleId = x.Schedule.Id,
+                    EnrollmentId = x.Enrollment.Id,
+                    TitleEn = title,
+                    TitleAr = title,
+                    StartAt = x.Start,
+                    EndAt = end,
+                    TeacherName = string.IsNullOrWhiteSpace(teacherName) ? null : teacherName,
+                    SubjectNameEn = subject?.NameEn,
+                    SubjectNameAr = subject?.NameAr,
+                };
+            })
+            .ToList();
     }
 
     private ChildStudentDto MapChild(Student student)

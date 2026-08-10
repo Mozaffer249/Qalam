@@ -18,6 +18,7 @@ using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 using Qalam.Core.Features.Student.Queries.SearchStudents;
 using Qalam.Core.Features.Student.Queries.GetMyChildren;
+using Qalam.Core.Features.Student.Queries.GetChildFile;
 using Qalam.Core.Features.Student.Commands.UpdateChild;
 using Qalam.Core.Features.Student.Commands.UpdateChildProfilePicture;
 using Qalam.Data.AppMetaData;
@@ -132,6 +133,26 @@ public class StudentCourseController : AppControllerBase
         {
             StudentId = studentId,
             File = file,
+        }));
+    }
+
+    /// <summary>
+    /// Composite child file: attendance aggregates, upcoming sessions, and documents (empty for now).
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Student/Children/{studentId}/File?upcomingTake=5
+    /// Identity/stats from MyChildren stay on the list; this adds what the list lacks.
+    /// </remarks>
+    [HttpGet(Router.StudentChildFile)]
+    [Authorize(Roles = Roles.Guardian)]
+    [ProducesResponseType(typeof(ChildFileDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChildFile(int studentId, [FromQuery] int upcomingTake = 5)
+    {
+        return NewResult(await Mediator.Send(new GetChildFileQuery
+        {
+            StudentId = studentId,
+            UpcomingTake = upcomingTake,
         }));
     }
 
