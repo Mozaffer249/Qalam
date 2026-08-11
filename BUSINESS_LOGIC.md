@@ -1401,12 +1401,24 @@ var sessions = await _context.TeachingSessions
 
 ## Open Session Request lifecycle (Scenario 2)
 
-All OSR deadlines anchor on the first session start (PreferredDate + TimeSlot.StartTime in Asia/Riyadh, converted via `PlatformTime`):
+### Invitations + payment (parity with S1)
+
+- **Owned** learners in `InvitedStudentIds` (creator self + guardian children) are stored as invitations with status **`Accepted` immediately** — no Accept step.
+- **External** invitees stay **`Pending`** until Accept/Reject, or until `EnrollmentSettings.InviteResponseDeadlineHours` (default 48) → **`Expired`**.
+- Publish/create: any remaining Pending → `PendingInvitations`; otherwise skip wait → `Active` and run matching / targeted notify.
+- When no Pending remain: any Accepted → `Active`; none → `Cancelled`. Whole-request expiry while `PendingInvitations` also marks remaining pending invites `Expired`.
+- **Pay** after offer accept: creator only (`OwnerUserId = RequestedByUserId`); full offer amount once. Invitees never pay.
+- **Invite inbox** (`GET /Student/Invitations`): pending course + OSR invites visible to the **adult invitee** or the **guardian of an invited child** only (not the child account, not the request owner as inbox).
+
+### Deadlines
+
+All OSR session/offer deadlines anchor on the first session start (PreferredDate + TimeSlot.StartTime in Asia/Riyadh, converted via `PlatformTime`):
 
 ```
 RequestExpiresAt = min(publishedAt + 7d, firstSessionStart − OfferCutoff)
 OfferExpiresAt   = min(now + ValidityHours, RequestExpiresAt)
 PaymentDeadline  = min(acceptedAt + PaymentDeadlineHours, firstSessionStart − PaymentCutoff)
+InviteRespondBy  = invitation.CreatedAt + InviteResponseDeadlineHours
 ```
 
 Lead / cutoff hours differ by request kind (`OpenSessionRequestSettings`):
@@ -1418,7 +1430,8 @@ Lead / cutoff hours differ by request kind (`OpenSessionRequestSettings`):
 
 Single background service: `OpenSessionRequestLifecycleService` (every 5 minutes):
 
-1. Expire past-cutoff requests (and withdraw pending offers)
+0. Expire stale pending invitations (then Active/Cancelled + dispatch if Active)
+1. Expire past-cutoff requests (and withdraw pending offers; pending invites → Expired)
 2. Expire orphaned pending offers
 3. Demote empty `ReceivingOffers` → `Active`
 4. Settle abandoned `PaymentPending` (cancelled enrollment) → `Expired`

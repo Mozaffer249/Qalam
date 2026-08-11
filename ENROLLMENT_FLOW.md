@@ -15,10 +15,11 @@ For date/availability internals see [DATE_RANGE_AND_AVAILABILITY.md](DATE_RANGE_
 3. **Group** always uses `CourseEnrollmentRequest` (accept flow when invitees exist).
 4. **Teacher tracks** invites → payment → Active/Cancelled; **cannot Reject**.
 5. **Single payer** — owner pays full `AmountDue` **once**. Invitees never pay.
-6. **Pay gate (Group)** — owner cannot pay until every invitee Accepts, Rejects, or is cancel-invited.
+6. **Pay gate (Group)** — owner cannot pay until every invitee Accepts, Rejects, is cancel-invited, or the invite **expires** (`InviteResponseDeadlineHours`, default 48h → Cancelled).
 7. **Cancel before pay** — owner may cancel a Group **request** (and linked unpaid enrollment) or a **PendingPayment enrollment** (Individual/Group).
 8. Pay success → Enrollment **Active** (+ schedules). Deadline unpaid → **Cancelled**.
 9. Free courses (`AmountDue <= 0`) → Individual creates as **Active** with schedules immediately.
+10. **Invite inbox** — `GET /Student/Invitations` is pending only: **adult invitee self**, or **guardian of the invited child**. Child accounts never see their own invites; request owners do not see sent invites as inbox items. Unified list includes course + open-session (OSR) invites.
 
 ```mermaid
 flowchart TD
@@ -74,7 +75,7 @@ flowchart TD
 | POST | `/Api/V1/Student/EnrollmentRequests/{id}/Cancel` | Owner; Pending/Approved; cancels request + PendingPayment enrollment; pending invites → Cancelled. |
 | POST | `.../Members/Response` | `{ data: { studentId, decision: Confirmed\|Rejected } }` |
 | POST | `.../Members/{studentId}/Cancel` | Owner cancel pending invite |
-| GET | `/Api/V1/Student/Invitations` | Pending invites |
+| GET | `/Api/V1/Student/Invitations` | Pending invites (S1 + OSR). Visible to adult invitee or guardian of invited child only. Includes `source`, `respondByUtc`. |
 | POST | `/Api/V1/Student/Payments/Participants` | Owner only; `{ data: { participantId } }` charges **full** AmountDue; activates enrollment + schedules |
 
 Course catalog detail includes `sessionTypeCode` (`group` / `individual`) for client branching.
@@ -131,3 +132,19 @@ Course catalog detail includes `sessionTypeCode` (`group` / `individual`) for cl
 - Owner = `Enrollment.OwnerUserId` when no request; else `EnrollmentRequest.RequestedByUserId`.
 - Schedules generated from request slots **or** `EnrollmentSelectedSessionSlots` for Individual.
 - Non-owner → 400.
+
+---
+
+## Open Session Requests (Scenario 2) — invitation parity
+
+Same ownership / pay / inbox model as Group course enrollments:
+
+| Rule | Behavior |
+|------|----------|
+| Owned self + children in `invitedStudentIds` | Auto-`Accepted` invitations; no Accept step |
+| External invitees | `Pending` → Accept/Reject or expire |
+| Status after create/publish | Any external Pending → `PendingInvitations`; otherwise `Active` (+ matching) |
+| Invite deadline | `EnrollmentSettings.InviteResponseDeadlineHours` (48) → invite `Expired`; then Active (any Accepted) or Cancelled |
+| Who pays | Creator only (`RequestedByUserId` / `OwnerUserId`); full offer price |
+| Invite inbox | Same visibility as S1 (adult self or guardian of invited child) |
+

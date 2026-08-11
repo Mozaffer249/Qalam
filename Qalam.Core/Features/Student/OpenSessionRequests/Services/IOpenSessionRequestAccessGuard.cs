@@ -23,6 +23,12 @@ public interface IOpenSessionRequestAccessGuard
     Task<bool> CanActOnRequestAsync(int currentUserId, OpenSessionRequest request, CancellationToken ct);
 
     /// <summary>
+    /// Same as <see cref="CanActOnRequestAsync(int, OpenSessionRequest, CancellationToken)"/> but loads
+    /// by id. Returns <c>null</c> when the request does not exist.
+    /// </summary>
+    Task<bool?> CanActOnRequestAsync(int currentUserId, int requestId, CancellationToken ct);
+
+    /// <summary>
     /// Can the current user respond to an invitation for the given invited student?
     /// True if the invited student is the current user (and not a minor), or the current user
     /// is that student's guardian.

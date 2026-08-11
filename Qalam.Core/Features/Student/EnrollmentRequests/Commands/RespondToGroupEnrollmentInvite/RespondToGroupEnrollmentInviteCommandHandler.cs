@@ -74,13 +74,12 @@ public class RespondToGroupEnrollmentInviteCommandHandler : ResponseHandler,
         if (targetStudent == null)
             return NotFound<string>("Student not found.");
 
-        // Minor students: ONLY guardian can respond
-        // Non-minor students: ONLY the student themselves can respond
-        if (targetStudent.IsMinor)
+        // Child (has guardian): ONLY that child's guardian can respond — never the child account.
+        // Adult self-student: ONLY the student themselves.
+        if (targetStudent.GuardianId.HasValue)
         {
             var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
-            var isGuardian = targetStudent.GuardianId.HasValue
-                          && guardian != null
+            var isGuardian = guardian != null
                           && targetStudent.GuardianId.Value == guardian.Id;
 
             if (!isGuardian)
@@ -91,6 +90,10 @@ public class RespondToGroupEnrollmentInviteCommandHandler : ResponseHandler,
             if (targetStudent.UserId != request.UserId)
                 return BadRequest<string>("Only the student themselves can respond to this invitation.");
         }
+
+        var deadlineHours = Math.Max(1, _settings.InviteResponseDeadlineHours);
+        if (groupMember.CreatedAt.AddHours(deadlineHours) < DateTime.UtcNow)
+            return BadRequest<string>("Invitation response deadline has passed.");
 
         groupMember.ConfirmationStatus = request.Data.Decision;
         groupMember.ConfirmedAt = DateTime.UtcNow;

@@ -22,16 +22,13 @@ public class StudentPaymentController : AppControllerBase
     /// <remarks>
     /// POST Api/V1/Student/Payments/Participants
     ///
-    /// Individual enrollment: pay the only participant (effectively pays the whole enrollment).
-    /// Group enrollment: pay one member; per-member share = round(EstimatedTotalPrice / participantCount, 2);
-    /// the last payer absorbs the rounding remainder so the sum equals EstimatedTotalPrice exactly.
+    /// Single-payer model: only the enrollment owner (request creator / Enrollment.OwnerUserId)
+    /// may pay. One successful payment covers the full <c>AmountDue</c> and marks all participants Succeeded.
     ///
-    /// Authorization rules:
-    /// - Adult student: only the student themselves can pay.
-    /// - Minor student: only the linked guardian can pay.
+    /// Authorization: caller must be the enrollment owner (not per-invitee / not child of invitee).
     ///
-    /// When the LAST pending participant succeeds, the enrollment flips to Active and schedules
-    /// are generated from the originating request's SelectedAvailabilities and ProposedSessions / Course.Sessions.
+    /// On success the enrollment flips to Active and schedules are generated from the originating
+    /// request's SelectedAvailabilities and ProposedSessions / Course.Sessions (or OSR offer slots).
     /// </remarks>
     [HttpPost(Router.StudentPayEnrollmentParticipant)]
     [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]
@@ -43,7 +40,7 @@ public class StudentPaymentController : AppControllerBase
     }
 
     /// <summary>
-    /// Get the unified payment summary for an enrollment (individual = one participant; group = per-member breakdown).
+    /// Get the unified payment summary for an enrollment (owner pays full amount; participants show status).
     /// </summary>
     [HttpGet(Router.StudentEnrollmentPaymentSummary)]
     [ProducesResponseType(typeof(EnrollmentPaymentSummaryDto), StatusCodes.Status200OK)]

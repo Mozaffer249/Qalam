@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
@@ -60,12 +61,39 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
     Task<DateTime?> GetExpiresAtAsync(int requestId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Tracked draft aggregate for publish: sessions (units + time slot) and invitations.
+    /// </summary>
+    Task<OpenSessionRequest?> GetForPublishAsync(int requestId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Student-facing detail graph (AsNoTracking) for response mapping after publish/create.
+    /// </summary>
+    Task<OpenSessionRequest?> GetStudentDetailAsync(int requestId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pending OSR invitations for the given students (S2 inbox), projected to list DTOs.
+    /// Does not set <see cref="StudentInvitationListItemDto.RespondByUtc"/>.
+    /// </summary>
+    Task<List<StudentInvitationListItemDto>> GetPendingInvitationListItemsAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Phase 1: expire Draft / PendingInvitations / Active / ReceivingOffers past ExpiresAt or past
     /// the session-derived offer cutoff. Pending offers → Withdrawn.
     /// </summary>
     Task<List<ExpiredRequestResult>> ExpirePastCutoffRequestsAsync(
         DateTime nowUtc,
         OpenSessionRequestSettings settings,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pending invitations older than the invite-response deadline → Expired;
+    /// when no Pending remain on a PendingInvitations request → Active (any Accepted) or Cancelled.
+    /// </summary>
+    Task<List<InviteExpiryFinalizeResult>> ExpireStalePendingInvitationsAsync(
+        DateTime nowUtc,
+        int inviteResponseDeadlineHours,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -115,6 +143,12 @@ public record ExpiredRequestResult(
     int RequestedByUserId,
     DateTime EffectiveExpiryUtc,
     bool Notify);
+
+public record InviteExpiryFinalizeResult(
+    int RequestId,
+    int RequestedByUserId,
+    int? TargetedTeacherId,
+    bool BecameActive);
 
 public record SettledPaymentPendingResult(
     int RequestId,

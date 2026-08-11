@@ -56,23 +56,46 @@ public class OpenSessionRequestAccessGuard : IOpenSessionRequestAccessGuard
         return false;
     }
 
-    public async Task<bool> CanRespondToInvitationAsync(int currentUserId, int invitedStudentId, CancellationToken ct)
+    public async Task<bool?> CanActOnRequestAsync(int currentUserId, int requestId, CancellationToken ct)
     {
-        var student = await _db.Students
-            .Where(s => s.Id == invitedStudentId)
-            .Select(s => new { s.UserId, s.IsMinor, s.GuardianId })
+        var row = await _db.OpenSessionRequests
+            .AsNoTracking()
+            .Where(r => r.Id == requestId)
+            .Select(r => new { r.RequestedByUserId, r.CreatedByGuardianId })
             .FirstOrDefaultAsync(ct);
 
-        if (student is null) return false;
+        if (row is null)
+            return null;
 
-        if (!student.IsMinor && student.UserId == currentUserId) return true;
+        if (row.RequestedByUserId == currentUserId)
+            return true;
 
-        if (student.GuardianId is int gid)
+        if (row.CreatedByGuardianId is int gid)
         {
             return await _db.Guardians
                 .AnyAsync(g => g.Id == gid && g.UserId == currentUserId && g.IsActive, ct);
         }
 
         return false;
+    }
+
+    public async Task<bool> CanRespondToInvitationAsync(int currentUserId, int invitedStudentId, CancellationToken ct)
+    {
+        var student = await _db.Students
+            .Where(s => s.Id == invitedStudentId)
+            .Select(s => new { s.UserId, s.GuardianId })
+            .FirstOrDefaultAsync(ct);
+
+        if (student is null) return false;
+
+        // Child (has guardian): only that child's guardian may respond — never the child account.
+        if (student.GuardianId is int gid)
+        {
+            return await _db.Guardians
+                .AnyAsync(g => g.Id == gid && g.UserId == currentUserId && g.IsActive, ct);
+        }
+
+        // Adult self-student: only themselves.
+        return student.UserId == currentUserId;
     }
 }

@@ -21,15 +21,18 @@ public class OpenSessionRequestLifecycleService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OpenSessionRequestLifecycleService> _logger;
     private readonly OpenSessionRequestSettings _settings;
+    private readonly EnrollmentSettings _enrollmentSettings;
 
     public OpenSessionRequestLifecycleService(
         IServiceScopeFactory scopeFactory,
         ILogger<OpenSessionRequestLifecycleService> logger,
-        IOptions<OpenSessionRequestSettings> settings)
+        IOptions<OpenSessionRequestSettings> settings,
+        IOptions<EnrollmentSettings> enrollmentSettings)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _settings = settings.Value;
+        _enrollmentSettings = enrollmentSettings.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -64,6 +67,39 @@ public class OpenSessionRequestLifecycleService : BackgroundService
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
         var now = DateTime.UtcNow;
+
+        // Phase 0 — expire stale pending invitations, finalize PendingInvitations → Active|Cancelled
+        var inviteFinalized = await requestRepo.ExpireStalePendingInvitationsAsync(
+            now, _enrollmentSettings.InviteResponseDeadlineHours, ct);
+        if (inviteFinalized.Count > 0)
+        {
+            _logger.LogInformation(
+                "Finalized {Count} open session requests after invite-response deadline.",
+                inviteFinalized.Count);
+
+            var targeting = scope.ServiceProvider.GetRequiredService<IOpenSessionRequestTargetingService>();
+            foreach (var item in inviteFinalized.Where(x => x.BecameActive))
+            {
+                try
+                {
+                    if (item.TargetedTeacherId.HasValue)
+                    {
+                        await targeting.NotifyTargetedTeacherAsync(
+                            item.RequestId, item.TargetedTeacherId.Value, ct);
+                    }
+                    else
+                    {
+                        await targeting.RunMatchingAndNotifyAsync(item.RequestId, ct);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to dispatch matching after invite expiry for request {RequestId}.",
+                        item.RequestId);
+                }
+            }
+        }
 
         // Phase 1 — close past-cutoff requests
         var expired = await requestRepo.ExpirePastCutoffRequestsAsync(now, _settings, ct);

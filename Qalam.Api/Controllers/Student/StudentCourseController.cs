@@ -185,8 +185,8 @@ public class StudentCourseController : AppControllerBase
     ///
     /// Next step after success:
     /// - Fixed individual → call POST `/Student/Payments/Participants` with the participant id from the new enrollment.
-    /// - Fixed group → wait for invitees to respond; once all responded, leader pays per-member share.
-    /// - Flexible → wait for teacher approval; when status flips to Approved, pay per-participant.
+    /// - Fixed group → wait for invitees to respond; once all responded, the request owner pays the full amount once.
+    /// - Flexible → wait for teacher approval; when status flips to Approved, the request owner pays the full amount once.
     ///
     /// Sample request (fixed course, single student) — auto-approves:
     /// <code>
@@ -333,7 +333,8 @@ public class StudentCourseController : AppControllerBase
     /// - `nextSessionAt` / `nextScheduleId` — next InProgress or Scheduled session (UTC).
     /// - `teacherIsOnline` — true when the teacher is currently in a live room for this enrollment.
     ///
-    /// Group enrollments appear here for every member (the per-member payment status lives on the participant row).
+    /// Group enrollments appear here for every member (participant rows track payment status;
+    /// only the enrollment owner pays the full amount once).
     /// </remarks>
     [HttpGet(Router.StudentEnrollments)]
     [ProducesResponseType(typeof(List<EnrollmentListItemDto>), StatusCodes.Status200OK)]

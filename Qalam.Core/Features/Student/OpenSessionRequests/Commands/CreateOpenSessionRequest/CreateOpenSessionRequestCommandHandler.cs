@@ -25,6 +25,7 @@ public class CreateOpenSessionRequestCommandHandler
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
     private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
+    private readonly IGuardianChildrenService _guardianChildren;
 
     public CreateOpenSessionRequestCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
@@ -33,7 +34,8 @@ public class CreateOpenSessionRequestCommandHandler
         IOpenSessionRequestTargetingService targetingService,
         ITargetedOpenSessionRequestValidator targetedValidator,
         IOptions<OpenSessionRequestSettings> osrSettings,
-        IMapper mapper) : base(sharedLocalizer)
+        IMapper mapper,
+        IGuardianChildrenService guardianChildren) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
@@ -41,6 +43,7 @@ public class CreateOpenSessionRequestCommandHandler
         _targetedValidator = targetedValidator;
         _osrSettings = osrSettings.Value;
         _mapper = mapper;
+        _guardianChildren = guardianChildren;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -99,6 +102,10 @@ public class CreateOpenSessionRequestCommandHandler
         // 5. Resolve invited-by student id (the learner's own Student.Id is the inviter)
         var inviterStudentId = data.StudentId;
 
+        // Owned self + children: auto-Accepted (no pending invite). External → Pending.
+        var ownedStudentIds = await _guardianChildren.GetOwnedStudentIdsAsync(
+            request.UserId, cancellationToken);
+
         // 5b. First-session start + minimum lead (skipped for drafts — rechecked at publish)
         var now = DateTime.UtcNow;
         var isTargeted = data.TargetedTeacherId.HasValue;
@@ -113,6 +120,9 @@ public class CreateOpenSessionRequestCommandHandler
                 return BadRequest<OpenSessionRequestDetailDto>(leadError);
         }
 
+        var invitedIds = data.InvitedStudentIds.Distinct().ToList();
+        var hasExternalPending = invitedIds.Any(id => !ownedStudentIds.Contains(id));
+
         // 6. Build the entity
         OpenSessionRequestStatus status;
         DateTime? publishedAt;
@@ -123,7 +133,7 @@ public class CreateOpenSessionRequestCommandHandler
         }
         else
         {
-            status = data.InvitedStudentIds.Any()
+            status = hasExternalPending
                 ? OpenSessionRequestStatus.PendingInvitations
                 : OpenSessionRequestStatus.Active;
             publishedAt = now;
@@ -182,13 +192,17 @@ public class CreateOpenSessionRequestCommandHandler
             entity.Sessions.Add(session);
         }
 
-        foreach (var invitedId in data.InvitedStudentIds.Distinct())
+        foreach (var invitedId in invitedIds)
         {
+            var isOwned = ownedStudentIds.Contains(invitedId);
             entity.Invitations.Add(new OpenSessionRequestInvitation
             {
                 InvitedStudentId = invitedId,
                 InvitedByStudentId = inviterStudentId,
-                Status = OpenSessionRequestInvitationStatus.Pending,
+                Status = isOwned
+                    ? OpenSessionRequestInvitationStatus.Accepted
+                    : OpenSessionRequestInvitationStatus.Pending,
+                RespondedAt = isOwned ? now : null,
             });
         }
 

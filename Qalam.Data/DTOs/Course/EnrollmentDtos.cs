@@ -464,19 +464,41 @@ public class StudentSearchResultDto
 }
 
 /// <summary>
-/// Pending invitation for a student to join a group enrollment request.
+/// Pending invitation inbox item (course enrollment request or open session request).
+/// Visibility: adult invitee self, or guardian of an invited child — never the child account, never the sender.
 /// </summary>
 public class StudentInvitationListItemDto
 {
+    /// <summary><c>EnrollmentRequest</c> or <c>OpenSessionRequest</c>.</summary>
+    public string Source { get; set; } = "EnrollmentRequest";
+
     public int InvitationId { get; set; }
-    public int EnrollmentRequestId { get; set; }
-    public int CourseId { get; set; }
-    public string CourseTitle { get; set; } = default!;
+    public int? EnrollmentRequestId { get; set; }
+    public int? OpenSessionRequestId { get; set; }
+
+    public int? CourseId { get; set; }
+    public string? CourseTitle { get; set; }
     public string? CourseImageUrl { get; set; }
     public string? TeacherDisplayName { get; set; }
+
+    /// <summary>OSR display title (subject name).</summary>
+    public string? TitleEn { get; set; }
+    public string? TitleAr { get; set; }
+
     public int InvitedStudentId { get; set; }
     public string? InvitedStudentName { get; set; }
     public string? RequestedByUserName { get; set; }
     public DateTime CreatedAt { get; set; }
-    public GroupMemberConfirmationStatus ConfirmationStatus { get; set; }
+    /// <summary>Computed: CreatedAt + InviteResponseDeadlineHours.</summary>
+    public DateTime RespondByUtc { get; set; }
+    public GroupMemberConfirmationStatus? ConfirmationStatus { get; set; }
+}
+
+/// <summary>
+/// Paginated pending-invitation inbox (S1 course + S2 OSR), after visibility filtering.
+/// </summary>
+public class StudentInvitationListResultDto
+{
+    public List<StudentInvitationListItemDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
 }

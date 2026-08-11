@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.OpenSessionRequests;
@@ -198,10 +199,92 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 r.Id,
                 student != null ? student.Id : 0,
                 r.RequestedByUserId,
-                null,
+                r.CreatedByGuardianId,
                 r.Status,
                 r.TargetedTeacherId))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<OpenSessionRequest?> GetForPublishAsync(
+        int requestId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.OpenSessionRequests
+            .Include(r => r.Sessions).ThenInclude(s => s.Units)
+            .Include(r => r.Sessions).ThenInclude(s => s.TimeSlot)
+            .Include(r => r.Invitations)
+            .FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+    }
+
+    public async Task<OpenSessionRequest?> GetStudentDetailAsync(
+        int requestId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.OpenSessionRequests
+            .AsNoTracking()
+            .Include(r => r.Student).ThenInclude(s => s!.User)
+            .Include(r => r.CreatedByGuardian).ThenInclude(g => g!.User)
+            .Include(r => r.Domain)
+            .Include(r => r.Curriculum)
+            .Include(r => r.Level)
+            .Include(r => r.Grade)
+            .Include(r => r.Term)
+            .Include(r => r.University)
+            .Include(r => r.College)
+            .Include(r => r.Department)
+            .Include(r => r.AcademicProgram)
+            .Include(r => r.Subject)
+            .Include(r => r.TeachingMode)
+            .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
+            .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
+            .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
+            .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
+            .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
+            .Include(r => r.Attachments)
+            .FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
+    }
+
+    public async Task<List<StudentInvitationListItemDto>> GetPendingInvitationListItemsAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (studentIds.Count == 0)
+            return new List<StudentInvitationListItemDto>();
+
+        return await _context.OpenSessionRequestInvitations
+            .AsNoTracking()
+            .Where(i => studentIds.Contains(i.InvitedStudentId)
+                        && i.Status == OpenSessionRequestInvitationStatus.Pending
+                        && i.OpenSessionRequest.Status == OpenSessionRequestStatus.PendingInvitations)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new StudentInvitationListItemDto
+            {
+                Source = "OpenSessionRequest",
+                InvitationId = i.Id,
+                EnrollmentRequestId = null,
+                OpenSessionRequestId = i.SessionRequestId,
+                CourseId = null,
+                CourseTitle = null,
+                CourseImageUrl = null,
+                TeacherDisplayName = null,
+                TitleEn = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameEn
+                    : null,
+                TitleAr = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameAr
+                    : null,
+                InvitedStudentId = i.InvitedStudentId,
+                InvitedStudentName = i.InvitedStudent != null && i.InvitedStudent.User != null
+                    ? (i.InvitedStudent.User.FirstName + " " + i.InvitedStudent.User.LastName).Trim()
+                    : null,
+                RequestedByUserName = i.OpenSessionRequest.RequestedByUser != null
+                    ? (i.OpenSessionRequest.RequestedByUser.FirstName + " "
+                       + i.OpenSessionRequest.RequestedByUser.LastName).Trim()
+                    : null,
+                CreatedAt = i.CreatedAt,
+                ConfirmationStatus = null
+            })
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> UpdateStatusAsync(int requestId, OpenSessionRequestStatus newStatus, CancellationToken cancellationToken = default)
@@ -237,6 +320,7 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
         // SQL-friendly candidate filter; precise cutoff applied in memory.
         var candidates = await _context.OpenSessionRequests
             .Include(r => r.Offers)
+            .Include(r => r.Invitations)
             .Include(r => r.Sessions).ThenInclude(s => s.TimeSlot)
             .Where(r => expirables.Contains(r.Status)
                         && (
@@ -273,6 +357,13 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 offer.UpdatedAt = nowUtc;
             }
 
+            foreach (var invite in request.Invitations.Where(i =>
+                         i.Status == OpenSessionRequestInvitationStatus.Pending))
+            {
+                invite.Status = OpenSessionRequestInvitationStatus.Expired;
+                invite.RespondedAt = nowUtc;
+            }
+
             results.Add(new ExpiredRequestResult(
                 request.Id,
                 request.RequestedByUserId,
@@ -281,6 +372,68 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
         }
 
         if (results.Count > 0)
+            await _context.SaveChangesAsync(cancellationToken);
+
+        return results;
+    }
+
+    public async Task<List<InviteExpiryFinalizeResult>> ExpireStalePendingInvitationsAsync(
+        DateTime nowUtc,
+        int inviteResponseDeadlineHours,
+        CancellationToken cancellationToken = default)
+    {
+        var hours = Math.Max(1, inviteResponseDeadlineHours);
+        var cutoff = nowUtc.AddHours(-hours);
+
+        var candidates = await _context.OpenSessionRequests
+            .Include(r => r.Invitations)
+            .Where(r => r.Status == OpenSessionRequestStatus.PendingInvitations
+                        && r.Invitations.Any(i =>
+                            i.Status == OpenSessionRequestInvitationStatus.Pending
+                            && i.CreatedAt < cutoff))
+            .ToListAsync(cancellationToken);
+
+        var results = new List<InviteExpiryFinalizeResult>();
+        if (candidates.Count == 0)
+            return results;
+
+        foreach (var request in candidates)
+        {
+            foreach (var invite in request.Invitations.Where(i =>
+                         i.Status == OpenSessionRequestInvitationStatus.Pending
+                         && i.CreatedAt < cutoff))
+            {
+                invite.Status = OpenSessionRequestInvitationStatus.Expired;
+                invite.RespondedAt = nowUtc;
+            }
+
+            var stillPending = request.Invitations.Any(i =>
+                i.Status == OpenSessionRequestInvitationStatus.Pending);
+            if (stillPending)
+                continue;
+
+            var anyAccepted = request.Invitations.Any(i =>
+                i.Status == OpenSessionRequestInvitationStatus.Accepted);
+
+            if (anyAccepted)
+            {
+                request.Status = OpenSessionRequestStatus.Active;
+                request.UpdatedAt = nowUtc;
+                results.Add(new InviteExpiryFinalizeResult(
+                    request.Id, request.RequestedByUserId, request.TargetedTeacherId, BecameActive: true));
+            }
+            else
+            {
+                request.Status = OpenSessionRequestStatus.Cancelled;
+                request.CancelledAt = nowUtc;
+                request.CancellationReason = "انتهت مهلة الرد على الدعوات";
+                request.UpdatedAt = nowUtc;
+                results.Add(new InviteExpiryFinalizeResult(
+                    request.Id, request.RequestedByUserId, request.TargetedTeacherId, BecameActive: false));
+            }
+        }
+
+        if (results.Count > 0 || candidates.Count > 0)
             await _context.SaveChangesAsync(cancellationToken);
 
         return results;

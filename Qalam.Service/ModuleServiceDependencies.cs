@@ -110,6 +110,8 @@ namespace Qalam.Service
             services.AddTransient<ITargetedOpenSessionRequestValidator, TargetedOpenSessionRequestValidator>();
             services.AddTransient<IOfferConversationService, OfferConversationService>();
             services.AddTransient<IOpenSessionOfferAcceptanceService, OpenSessionOfferAcceptanceService>();
+            services.AddTransient<IOpenSessionRequestPublishService, OpenSessionRequestPublishService>();
+            services.AddTransient<IStudentInvitationInboxService, StudentInvitationInboxService>();
             services.AddTransient<IOpenSessionRequestReleaseService, OpenSessionRequestReleaseService>();
             services.AddTransient<ISessionAvailabilityMatchService, SessionAvailabilityMatchService>();
 

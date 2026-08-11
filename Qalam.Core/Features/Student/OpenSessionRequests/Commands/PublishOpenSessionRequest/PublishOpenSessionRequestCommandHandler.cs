@@ -1,16 +1,11 @@
 using AutoMapper;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
-using Qalam.Data.Entity.Common.Enums;
-using Qalam.Data.Helpers;
-using Qalam.Infrastructure.context;
-using Qalam.Service;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.PublishOpenSessionRequest;
@@ -18,27 +13,21 @@ namespace Qalam.Core.Features.Student.OpenSessionRequests.Commands.PublishOpenSe
 public class PublishOpenSessionRequestCommandHandler
     : ResponseHandler, IRequestHandler<PublishOpenSessionRequestCommand, Response<OpenSessionRequestDetailDto>>
 {
-    private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
-    private readonly IOpenSessionRequestTargetingService _targetingService;
-    private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
-    private readonly OpenSessionRequestSettings _osrSettings;
+    private readonly IOpenSessionRequestPublishService _publishService;
+    private readonly IOpenSessionRequestRepository _requestRepo;
     private readonly IMapper _mapper;
 
     public PublishOpenSessionRequestCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
-        ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
-        IOpenSessionRequestTargetingService targetingService,
-        ITargetedOpenSessionRequestValidator targetedValidator,
-        IOptions<OpenSessionRequestSettings> osrSettings,
+        IOpenSessionRequestPublishService publishService,
+        IOpenSessionRequestRepository requestRepo,
         IMapper mapper) : base(sharedLocalizer)
     {
-        _db = db;
         _accessGuard = accessGuard;
-        _targetingService = targetingService;
-        _targetedValidator = targetedValidator;
-        _osrSettings = osrSettings.Value;
+        _publishService = publishService;
+        _requestRepo = requestRepo;
         _mapper = mapper;
     }
 
@@ -46,115 +35,33 @@ public class PublishOpenSessionRequestCommandHandler
         PublishOpenSessionRequestCommand request,
         CancellationToken cancellationToken)
     {
-        var entity = await _db.OpenSessionRequests
-            .Include(r => r.Sessions).ThenInclude(s => s.Units)
-            .Include(r => r.Invitations)
-            .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
+        var canAct = await _accessGuard.CanActOnRequestAsync(
+            request.UserId, request.Id, cancellationToken);
 
-        if (entity == null)
+        if (canAct is null)
             return NotFound<OpenSessionRequestDetailDto>("الطلب غير موجود");
 
-        if (!await _accessGuard.CanActOnRequestAsync(request.UserId, entity, cancellationToken))
+        if (canAct == false)
             return Unauthorized<OpenSessionRequestDetailDto>("Forbidden");
 
-        if (entity.Status != OpenSessionRequestStatus.Draft)
-            return BadRequest<OpenSessionRequestDetailDto>("يمكن نشر المسودات فقط.");
+        var result = await _publishService.PublishAsync(
+            request.Id, request.UserId, cancellationToken);
 
-        if (entity.Sessions.Count == 0)
-            return BadRequest<OpenSessionRequestDetailDto>("أضف جلسة واحدةً واحدة قبل النشر.");
-
-        if (entity.TotalSessionsCount != entity.Sessions.Count)
-            return BadRequest<OpenSessionRequestDetailDto>("عدد الجلسات غير متطابق.");
-
-        var domain = await _db.EducationDomains
-            .Where(x => x.Id == entity.DomainId)
-            .Select(x => new { x.Code, x.NameEn })
-            .FirstOrDefaultAsync(cancellationToken);
-        if (QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn)
-            && entity.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
-            return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
-
-        if (entity.TargetedTeacherId.HasValue)
+        if (!result.Succeeded)
         {
-            var sessionDtos = entity.Sessions.Select(s => new CreateOpenSessionRequestSessionDto
+            return result.FailureKind switch
             {
-                SequenceNumber = s.SequenceNumber,
-                PreferredDate = s.PreferredDate ?? default,
-                TimeSlotId = s.TimeSlotId ?? 0,
-                DurationMinutes = s.DurationMinutes,
-                QuranContentTypeId = s.QuranContentTypeId,
-                QuranLevelId = s.QuranLevelId,
-                Notes = s.Notes,
-                Units = s.Units.Select(u => new CreateOpenSessionRequestUnitDto
-                {
-                    ContentUnitId = u.ContentUnitId,
-                    LessonId = u.LessonId,
-                    CustomUnitLabel = u.CustomUnitLabel,
-                    IncludesAllLessons = u.IncludesAllLessons,
-                }).ToList(),
-            }).ToList();
-
-            var err = await _targetedValidator.ValidateAsync(
-                entity.TargetedTeacherId.Value, entity.SubjectId, sessionDtos, cancellationToken);
-            if (err is not null)
-                return BadRequest<OpenSessionRequestDetailDto>(err);
+                OpenSessionRequestPublishFailureKind.NotFound =>
+                    NotFound<OpenSessionRequestDetailDto>(result.Message),
+                OpenSessionRequestPublishFailureKind.Forbidden =>
+                    Unauthorized<OpenSessionRequestDetailDto>(result.Message ?? "Forbidden"),
+                _ => BadRequest<OpenSessionRequestDetailDto>(result.Message)
+            };
         }
 
-        var now = DateTime.UtcNow;
-        var isTargeted = entity.TargetedTeacherId.HasValue;
-        var firstSessionStartUtc = await OpenSessionRequestDeadlineResolver.ResolveFirstSessionStartUtcAsync(
-            _db,
-            entity.Sessions.Select(s => (s.PreferredDate, s.TimeSlotId)),
-            cancellationToken);
-
-        var leadError = OpenSessionRequestDeadlineResolver.ValidateMinimumLead(
-            now, firstSessionStartUtc, _osrSettings, isTargeted);
-        if (leadError != null)
-            return BadRequest<OpenSessionRequestDetailDto>(leadError);
-
-        // Any invitation rows → PendingInvitations until resolved; else Active
-        var status = entity.Invitations.Count > 0
-            ? OpenSessionRequestStatus.PendingInvitations
-            : OpenSessionRequestStatus.Active;
-
-        entity.Status = status;
-        entity.PublishedAt = now;
-        entity.ExpiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
-            now, entity.ExpiresAt, firstSessionStartUtc, _osrSettings, isTargeted);
-
-        await _db.SaveChangesAsync(cancellationToken);
-
-        if (status == OpenSessionRequestStatus.Active)
-        {
-            if (entity.TargetedTeacherId.HasValue)
-                await _targetingService.NotifyTargetedTeacherAsync(
-                    entity.Id, entity.TargetedTeacherId.Value, cancellationToken);
-            else
-                await _targetingService.RunMatchingAndNotifyAsync(entity.Id, cancellationToken);
-        }
-
-        var detail = await _db.OpenSessionRequests
-            .AsNoTracking()
-            .Include(r => r.Student).ThenInclude(s => s!.User)
-            .Include(r => r.CreatedByGuardian).ThenInclude(g => g!.User)
-            .Include(r => r.Domain)
-            .Include(r => r.Curriculum)
-            .Include(r => r.Level)
-            .Include(r => r.Grade)
-            .Include(r => r.Term)
-            .Include(r => r.University)
-            .Include(r => r.College)
-            .Include(r => r.Department)
-            .Include(r => r.AcademicProgram)
-            .Include(r => r.Subject)
-            .Include(r => r.TeachingMode)
-            .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
-            .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
-            .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
-            .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
-            .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
-            .Include(r => r.Attachments)
-            .FirstAsync(r => r.Id == entity.Id, cancellationToken);
+        var detail = await _requestRepo.GetStudentDetailAsync(result.RequestId!.Value, cancellationToken);
+        if (detail is null)
+            return NotFound<OpenSessionRequestDetailDto>("الطلب غير موجود");
 
         return Success(entity: _mapper.Map<OpenSessionRequestDetailDto>(detail));
     }

@@ -1,10 +1,12 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
@@ -16,23 +18,26 @@ public class RespondToOpenSessionRequestInvitationCommandHandler
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IOpenSessionRequestTargetingService _targetingService;
+    private readonly EnrollmentSettings _enrollmentSettings;
 
     public RespondToOpenSessionRequestInvitationCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
-        IOpenSessionRequestTargetingService targetingService) : base(sharedLocalizer)
+        IOpenSessionRequestTargetingService targetingService,
+        IOptions<EnrollmentSettings> enrollmentSettings) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _targetingService = targetingService;
+        _enrollmentSettings = enrollmentSettings.Value;
     }
 
     public async Task<Response<string>> Handle(
         RespondToOpenSessionRequestInvitationCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. Authorize: the responder must be the invited student (if adult) or their guardian
+        // 1. Authorize: adult invitee = self; child invitee = that child's guardian only
         if (!await _accessGuard.CanRespondToInvitationAsync(request.UserId, request.Data.StudentId, cancellationToken))
             return Unauthorized<string>("غير مصرح لك بالرد على هذه الدعوة");
 
@@ -55,6 +60,10 @@ public class RespondToOpenSessionRequestInvitationCommandHandler
 
         if (invitation.Status != OpenSessionRequestInvitationStatus.Pending)
             return BadRequest<string>($"تم الرد على هذه الدعوة مسبقاً ({invitation.Status})");
+
+        var deadlineHours = Math.Max(1, _enrollmentSettings.InviteResponseDeadlineHours);
+        if (invitation.CreatedAt.AddHours(deadlineHours) < DateTime.UtcNow)
+            return BadRequest<string>("انتهت مهلة الرد على هذه الدعوة");
 
         // 3. Update the invitation
         invitation.Status = request.Data.Decision;

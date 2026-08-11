@@ -55,6 +55,8 @@ public class CreateOpenSessionRequestDto
 
     /// <summary>
     /// Student.Ids to invite as co-learners. Max 5; allowed only for Group teaching modes.
+    /// Owned self/children may be included and are auto-Accepted (no pending invite).
+    /// External students stay Pending until Accept/Reject (or invite-response deadline).
     /// </summary>
     public List<int> InvitedStudentIds { get; set; } = new();
 
