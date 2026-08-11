@@ -10,6 +10,11 @@ public interface IEnrollmentRepository : IGenericRepositoryAsync<Enrollment>
     /// </summary>
     IQueryable<Enrollment> GetByStudentIdQueryable(int studentId);
 
+    /// <summary>
+    /// Enrollments where any participant is in <paramref name="studentIds"/>.
+    /// </summary>
+    IQueryable<Enrollment> GetByStudentIdsQueryable(IReadOnlyCollection<int> studentIds);
+
     Task<List<Enrollment>> GetExpiredPendingPaymentAsync(DateTime now, CancellationToken ct);
 
     /// <summary>

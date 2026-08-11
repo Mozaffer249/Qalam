@@ -17,10 +17,16 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
     }
 
     public IQueryable<Enrollment> GetByStudentIdQueryable(int studentId)
+        => GetByStudentIdsQueryable([studentId]);
+
+    public IQueryable<Enrollment> GetByStudentIdsQueryable(IReadOnlyCollection<int> studentIds)
     {
+        if (studentIds == null || studentIds.Count == 0)
+            return _context.Enrollments.AsNoTracking().Where(_ => false);
+
         return _context.Enrollments
             .AsNoTracking()
-            .Where(e => e.Participants.Any(p => p.StudentId == studentId))
+            .Where(e => e.Participants.Any(p => studentIds.Contains(p.StudentId)))
             .Include(e => e.Course)
                 .ThenInclude(c => c.TeachingMode)
             .Include(e => e.Course)
@@ -35,6 +41,8 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Include(e => e.LeaderStudent)
                 .ThenInclude(s => s.User)
             .Include(e => e.Participants)
+                .ThenInclude(p => p.Student)
+                    .ThenInclude(s => s.User)
             .Include(e => e.CourseSchedules)
                 .ThenInclude(cs => cs.TeacherAvailability)
                     .ThenInclude(ta => ta.TimeSlot)

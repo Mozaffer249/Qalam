@@ -12,8 +12,8 @@ public class GetMyEnrollmentsQuery : IRequest<Response<List<EnrollmentListItemDt
     public int UserId { get; set; }
 
     /// <summary>
-    /// Optional student id. When set, returns enrollments for that student if the caller
-    /// owns them (self student or guardian of the child). When null, uses the caller's own student row.
+    /// Optional student id. When set, returns enrollments for that owned student only.
+    /// When null, returns enrollments for all owned students (self + guardian children).
     /// </summary>
     public int? StudentId { get; set; }
 

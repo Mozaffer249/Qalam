@@ -265,8 +265,27 @@ public class EnrollmentListItemDto
     /// <summary>True when any schedule on this enrollment has the teacher currently in the live room.</summary>
     public bool TeacherIsOnline { get; set; }
 
-    /// <summary>Linked enrollment request id when this enrollment came from a request (for list dedup).</summary>
+    /// <summary>Linked enrollment request id when this enrollment came from a course request (for list dedup).</summary>
     public int? EnrollmentRequestId { get; set; }
+
+    /// <summary>Linked open session request id when this enrollment came from OSR.</summary>
+    public int? SessionRequestId { get; set; }
+
+    /// <summary>Enrollment origin: course request vs open session request.</summary>
+    public EnrollmentSource Source { get; set; }
+
+    /// <summary>
+    /// Caller's owned students who are participants on this enrollment
+    /// (self and/or guardian children — not the full group).
+    /// </summary>
+    public List<EnrollmentListStudentDto> EnrolledStudents { get; set; } = [];
+}
+
+/// <summary>Owned student visible on an enrollment list row.</summary>
+public class EnrollmentListStudentDto
+{
+    public int StudentId { get; set; }
+    public string FullName { get; set; } = string.Empty;
 }
 
 /// <summary>

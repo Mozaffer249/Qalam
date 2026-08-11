@@ -12,4 +12,16 @@ public interface IStudentEnrollmentQueryService
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Paged enrollments where any participant is in <paramref name="studentIds"/>.
+    /// <paramref name="ownedStudentIdsForProjection"/> controls which participants appear in
+    /// <see cref="EnrollmentListItemDto.EnrolledStudents"/> (caller-owned subset).
+    /// </summary>
+    Task<(List<EnrollmentListItemDto> Items, int TotalCount)> ListForStudentsAsync(
+        IReadOnlyCollection<int> studentIds,
+        IReadOnlyCollection<int> ownedStudentIdsForProjection,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

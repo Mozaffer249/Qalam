@@ -21,13 +21,26 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
         _mediaUrlResolver = mediaUrlResolver;
     }
 
-    public async Task<(List<EnrollmentListItemDto> Items, int TotalCount)> ListForStudentAsync(
+    public Task<(List<EnrollmentListItemDto> Items, int TotalCount)> ListForStudentAsync(
         int studentId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
+        => ListForStudentsAsync(
+            [studentId],
+            [studentId],
+            pageNumber,
+            pageSize,
+            cancellationToken);
+
+    public async Task<(List<EnrollmentListItemDto> Items, int TotalCount)> ListForStudentsAsync(
+        IReadOnlyCollection<int> studentIds,
+        IReadOnlyCollection<int> ownedStudentIdsForProjection,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
     {
-        var query = _enrollmentRepository.GetByStudentIdQueryable(studentId);
+        var query = _enrollmentRepository.GetByStudentIdsQueryable(studentIds);
         var totalCount = await query.CountAsync(cancellationToken);
 
         var enrollments = await query
@@ -35,12 +48,18 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        var ownedSet = ownedStudentIdsForProjection as HashSet<int>
+            ?? ownedStudentIdsForProjection.ToHashSet();
+
         var utcNow = DateTime.UtcNow;
-        var items = enrollments.Select(e => MapListItem(e, utcNow)).ToList();
+        var items = enrollments.Select(e => MapListItem(e, ownedSet, utcNow)).ToList();
         return (items, totalCount);
     }
 
-    private EnrollmentListItemDto MapListItem(Enrollment enrollment, DateTime utcNow)
+    private EnrollmentListItemDto MapListItem(
+        Enrollment enrollment,
+        HashSet<int> ownedStudentIds,
+        DateTime utcNow)
     {
         var subject = enrollment.Course?.TeacherSubject?.Subject;
         var teacherUser = enrollment.ApprovedByTeacher?.User;
@@ -69,6 +88,17 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
                 ? sessions.Count
                 : null,
             AmountDue = enrollment.AmountDue,
+            Source = enrollment.Source,
+            EnrollmentRequestId = enrollment.EnrollmentRequestId,
+            SessionRequestId = enrollment.SessionRequestId,
+            EnrolledStudents = (enrollment.Participants ?? [])
+                .Where(p => ownedStudentIds.Contains(p.StudentId))
+                .Select(p => new EnrollmentListStudentDto
+                {
+                    StudentId = p.StudentId,
+                    FullName = FormatFullName(p.Student?.User),
+                })
+                .ToList(),
         };
 
         var completed = schedules.Count(s => s.Status == ScheduleStatus.Completed);
@@ -86,5 +116,19 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
         }
 
         return dto;
+    }
+
+    private static string FormatFullName(Data.Entity.Identity.User? user)
+    {
+        if (user == null)
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            new[]
+            {
+                (user.FirstName ?? string.Empty).Trim(),
+                (user.LastName ?? string.Empty).Trim(),
+            }.Where(s => !string.IsNullOrEmpty(s)));
     }
 }

@@ -26,16 +26,33 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
         GetMyEnrollmentsQuery request,
         CancellationToken cancellationToken)
     {
-        var studentId = await _guardianChildrenService.ResolveTargetStudentIdAsync(
+        var owned = await _guardianChildrenService.GetOwnedStudentIdsAsync(
             request.UserId,
-            request.StudentId,
             cancellationToken);
 
-        if (studentId == null)
-            return NotFound<List<EnrollmentListItemDto>>("Student not found.");
+        if (owned.Count == 0)
+        {
+            return Success(
+                entity: new List<EnrollmentListItemDto>(),
+                Meta: BuildPaginationMeta(request.PageNumber, request.PageSize, 0));
+        }
 
-        var (items, totalCount) = await _enrollmentQueryService.ListForStudentAsync(
-            studentId.Value,
+        IReadOnlyCollection<int> queryStudentIds;
+        if (request.StudentId is int requestedId)
+        {
+            if (!owned.Contains(requestedId))
+                return NotFound<List<EnrollmentListItemDto>>("Student not found.");
+
+            queryStudentIds = [requestedId];
+        }
+        else
+        {
+            queryStudentIds = owned;
+        }
+
+        var (items, totalCount) = await _enrollmentQueryService.ListForStudentsAsync(
+            queryStudentIds,
+            owned,
             request.PageNumber,
             request.PageSize,
             cancellationToken);
