@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Bases;
@@ -12,6 +13,7 @@ using Qalam.Core.Features.Authentication.Commands.ChangePassword;
 using Qalam.Core.Features.Authentication.Commands.ResetPassword;
 using Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode;
 using Qalam.Core.Features.Authentication.Commands.UpdateProfile;
+using Qalam.Core.Features.Authentication.Commands.UpdateMyProfilePicture;
 using Qalam.Core.Features.Authentication.Queries.GetProfile;
 using Qalam.Core.Features.Authentication.Queries.GetTeacherRegistrationRequirements;
 using Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements;
@@ -330,6 +332,17 @@ namespace Qalam.Api.Controllers.Authentication.Core
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileCommand command)
             => NewResult(await Mediator.Send(command));
+
+        /// <summary>
+        /// Upload or replace the current user's profile picture (queued to OSS).
+        /// </summary>
+        /// <remarks>PUT Api/V1/Authentication/Profile/Picture — multipart form field <c>file</c>.</remarks>
+        [Authorize]
+        [HttpPut(Router.AccountUpdateProfilePicture)]
+        [ProducesResponseType(typeof(UpdateMyProfilePictureResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UpdateProfilePicture(IFormFile file)
+            => NewResult(await Mediator.Send(new UpdateMyProfilePictureCommand { File = file }));
 
         #endregion
 

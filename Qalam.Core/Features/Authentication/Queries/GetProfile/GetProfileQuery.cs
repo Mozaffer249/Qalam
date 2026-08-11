@@ -1,5 +1,6 @@
 using MediatR;
 using Qalam.Core.Bases;
+using Qalam.Data.DTOs.Auth;
 
 namespace Qalam.Core.Features.Authentication.Queries.GetProfile
 {
@@ -19,6 +20,6 @@ namespace Qalam.Core.Features.Authentication.Queries.GetProfile
         public string? PhoneNumber { get; set; }
         public bool TwoFactorEnabled { get; set; }
         public bool EmailConfirmed { get; set; }
+        public RelatedAccountsDto RelatedAccounts { get; set; } = new();
     }
 }
-

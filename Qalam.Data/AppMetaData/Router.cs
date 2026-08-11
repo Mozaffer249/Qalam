@@ -85,6 +85,7 @@ namespace Qalam.Data.AppMetaData
         // Account Management
         public const string AccountGetProfile = Authentication + "/Profile";
         public const string AccountUpdateProfile = Authentication + "/Profile/Update";
+        public const string AccountUpdateProfilePicture = Authentication + "/Profile/Picture";
         public const string AccountChangeEmail = Authentication + "/ChangeEmail";
         public const string AccountConfirmEmailChange = Authentication + "/ConfirmEmailChange";
         public const string AccountGetSessions = Authentication + "/Sessions";

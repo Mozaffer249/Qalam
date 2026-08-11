@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Authentication;
 using Qalam.Data.Entity.Identity;
+using Qalam.Service.Abstracts;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,15 +17,21 @@ namespace Qalam.Core.Features.Authentication.Queries.GetProfile
         private readonly UserManager<User> _userManager;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
+        private readonly IUserProfileService _userProfileService;
+        private readonly IMediaUrlResolver _mediaUrlResolver;
 
         public GetProfileQueryHandler(
             UserManager<User> userManager,
             IHttpContextAccessor httpContextAccessor,
-            IStringLocalizer<AuthenticationResources> authLocalizer) : base(authLocalizer)
+            IStringLocalizer<AuthenticationResources> authLocalizer,
+            IUserProfileService userProfileService,
+            IMediaUrlResolver mediaUrlResolver) : base(authLocalizer)
         {
             _userManager = userManager;
             _httpContextAccessor = httpContextAccessor;
             _authLocalizer = authLocalizer;
+            _userProfileService = userProfileService;
+            _mediaUrlResolver = mediaUrlResolver;
         }
 
         public async Task<Response<ProfileResponse>> Handle(GetProfileQuery request, CancellationToken cancellationToken)
@@ -33,7 +40,7 @@ namespace Qalam.Core.Features.Authentication.Queries.GetProfile
             var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 ?? _httpContextAccessor.HttpContext?.User.FindFirst("uid")?.Value;
 
-            if (string.IsNullOrEmpty(userIdClaim))
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             {
                 return Unauthorized<ProfileResponse>(_authLocalizer[AuthenticationResourcesKeys.UserNotFound]);
             }
@@ -44,6 +51,8 @@ namespace Qalam.Core.Features.Authentication.Queries.GetProfile
                 return NotFound<ProfileResponse>(_authLocalizer[AuthenticationResourcesKeys.UserNotFound]);
             }
 
+            var relatedAccounts = await _userProfileService.GetRelatedAccountsAsync(userId, cancellationToken);
+
             var response = new ProfileResponse
             {
                 UserName = user.UserName!,
@@ -52,14 +61,14 @@ namespace Qalam.Core.Features.Authentication.Queries.GetProfile
                 LastName = user.LastName,
                 Address = user.Address,
                 Nationality = user.Nationality,
-                ProfilePictureUrl = user.ProfilePictureUrl,
+                ProfilePictureUrl = _mediaUrlResolver.ToPublicUrl(user.ProfilePictureUrl),
                 PhoneNumber = user.PhoneNumber,
                 TwoFactorEnabled = user.TwoFactorEnabled,
-                EmailConfirmed = user.EmailConfirmed
+                EmailConfirmed = user.EmailConfirmed,
+                RelatedAccounts = relatedAccounts,
             };
 
             return Success<ProfileResponse>(entity: response);
         }
     }
 }
-
