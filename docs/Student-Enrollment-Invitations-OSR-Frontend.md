@@ -59,7 +59,7 @@ flowchart TD
 | Method | Path | Notes |
 |--------|------|-------|
 | POST | `/Student/Enrollments` | **Individual only.** Returns `id`, `enrollmentStatus`, `amountDue`, `paymentDeadline`, `payParticipantId`, `canPay`. Free (`amountDue <= 0`) → often **Active** immediately. |
-| GET | `/Student/Enrollments` | My enrollments (Individual + Group once enrollment exists). |
+| GET | `/Student/Enrollments` | Enrollments where **at least one participant** is an owned learner (caller’s adult self and/or guardian children). Omit `StudentId` → all owned; pass `StudentId` to scope to one. `enrolledStudents` lists only those owned participants. Includes CourseRequest and SessionRequest (OSR) sources once an enrollment exists. |
 | GET | `/Student/Enrollments/{id}` | Owner or participant. Flags: `isOwner`, `canPay`, `canCancel`, `amountDue`, `paymentDeadline`, `payParticipantId`. |
 | POST | `/Student/Enrollments/{id}/Cancel` | Owner; **PendingPayment** only. |
 | POST | `/Student/EnrollmentRequests` | **Group only.** Fixed → Approved. `proposedSessions` must be `[]`. |
@@ -211,7 +211,8 @@ Authorization: Bearer <token>
 | Field | Notes |
 |-------|--------|
 | `source` | `"EnrollmentRequest"` or `"OpenSessionRequest"` |
-| `invitationId` | Row id |
+| `invitationId` | Row id (not globally unique across S1/OSR) |
+| `invitationKey` | Use this for detail: `EnrollmentRequest-{invitationId}` or `OpenSessionRequest-{invitationId}` |
 | `enrollmentRequestId` | Set for S1; null for OSR |
 | `openSessionRequestId` | Set for OSR; null for S1 |
 | `courseId`, `courseTitle`, `courseImageUrl`, `teacherDisplayName` | S1 course display |
@@ -228,6 +229,7 @@ Authorization: Bearer <token>
 {
   "source": "EnrollmentRequest",
   "invitationId": 901,
+  "invitationKey": "EnrollmentRequest-901",
   "enrollmentRequestId": 123,
   "openSessionRequestId": null,
   "courseId": 7,
@@ -251,6 +253,7 @@ Authorization: Bearer <token>
 {
   "source": "OpenSessionRequest",
   "invitationId": 44,
+  "invitationKey": "OpenSessionRequest-44",
   "enrollmentRequestId": null,
   "openSessionRequestId": 88,
   "courseId": null,
@@ -275,7 +278,126 @@ Authorization: Bearer <token>
 | `EnrollmentRequest` | `courseTitle` (+ image/teacher) | `POST /Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response` with `decision`: `Confirmed` \| `Rejected` |
 | `OpenSessionRequest` | `titleAr` / `titleEn` | `POST /Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` with `decision`: `Accepted` \| `Rejected` |
 
-Always send `data.studentId` = `invitedStudentId`. Hide **Pay** on invitee flows.
+Always send `data.studentId` = `invitedStudentId`. Hide **Pay** on invitee flows. Open detail with `GET /Invitations/{invitationKey}` (no `source` query).
+
+### Invitation detail
+
+```http
+GET /Api/V1/Student/Invitations/{invitationKey}
+Authorization: Bearer <token>
+```
+
+`invitationKey` comes from the inbox list (`EnrollmentRequest-901`, `OpenSessionRequest-44`). Do **not** send a `source` query — type is baked into the key so S1 and OSR row ids cannot collide.
+
+Detail expands to the **parent request** (all invitees + full sessions). Inbox list stays invitee-only; owners open detail via the same key (`EnrollmentRequest-{memberId}`) or keep using request detail.
+
+Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no access → **404**.
+
+#### Who can open
+
+| Caller | Can open | `InvitedStudents` | `ActionableStudentIds` |
+|--------|----------|-------------------|------------------------|
+| **Owner** | Yes | All Invited on parent | `[]` (owner does not Accept) |
+| **Invited adult** (self student, no guardian) | Yes if their invite is on parent | All Invited on parent | Their student id if Pending + in deadline + stage OK |
+| **Guardian of invited child(ren)** | Yes if **any** invited student on parent is their child | All Invited on parent | All of **their** children on this request who are still Pending + in deadline + stage OK |
+| Child login as invited minor | No (same as inbox) | — | — |
+| Unrelated user | 404 | — | — |
+
+#### Response fields
+
+| Field | Notes |
+|-------|--------|
+| `source` | `"EnrollmentRequest"` or `"OpenSessionRequest"` |
+| `invitationId` | Opened inbox row id |
+| `invitationKey` | Same key used to open this detail |
+| `enrollmentRequestId` / `openSessionRequestId` | Parent request id |
+| `courseId`, `courseTitle`, `courseImageUrl`, `teacherDisplayName` | S1 header |
+| `titleEn`, `titleAr`, `domainName`, `subjectName` | OSR header |
+| `teachingModeName`, `requestedByUserName`, `parentStatus` | Shared display |
+| `createdAt`, `respondByUtc` | Opened invite created + deadline |
+| `invitedStudents[]` | All Invited on parent (not Own members). Each: `invitationId`, `studentId`, `fullName`, `status`, `createdAt`, `respondByUtc`, `isViewerOwned` |
+| `viewerStudentIds` | Caller’s owned students (adult self and/or guardian children) that appear on this request as Invited |
+| `sessions[]` | Date/time + `units[]` (En/Ar names). Empty `units` when the request has no content |
+| `isOwner`, `canRespond`, `actionableStudentIds` | CTAs |
+| `canCancelInvite`, `cancelableInviteStudentIds` | Owner S1 only — pending Invited student ids |
+| `canCancel`, `canPay`, `enrollmentId`, `enrollmentStatus`, `amountDue`, `paymentDeadline`, `payParticipantId` | Owner cancel/pay |
+| `respondPath` | Existing POST path |
+| `respondAcceptDecision` / `respondRejectDecision` | `Confirmed`/`Rejected` (S1) or `Accepted`/`Rejected` (OSR) |
+
+#### Sessions + content
+
+| Source | Sessions | Content |
+|--------|----------|---------|
+| S1 | `selectedSessionSlots` if any, else `proposedSessions` (+ availability time labels) | Per-slot `units` (names En/Ar) when loaded |
+| OSR | Sessions by `sequenceNumber` + time slot labels | Each session’s `units` (same shape as OSR unit DTO) |
+
+#### CTAs (backend)
+
+| Flag | Owner | Invitee adult | Guardian (1+ children invited) |
+|------|--------|---------------|--------------------------------|
+| `isOwner` | true | false | false |
+| `actionableStudentIds` | `[]` | `[self]` if Pending + deadline + stage OK | all owned children on parent with Pending + deadline + stage OK |
+| `canRespond` | false | `actionableStudentIds.length > 0` | same |
+| `canCancelInvite` / `cancelableInviteStudentIds` | S1: pending Invited student ids; OSR: empty / false | empty / false | empty / false |
+| `canCancel` | owner cancel-request rules | false | false |
+| `canPay` | PendingPayment enrollment + deadline | false | false |
+
+Respond: for each id in `actionableStudentIds`, POST the existing member-response endpoint (one call per student when a guardian acts for multiple children). Body: `{ "data": { "studentId", "decision" } }`.
+
+| `source` | `respondPath` | Accept / Reject |
+|----------|---------------|-----------------|
+| `EnrollmentRequest` | `Api/V1/Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response` | `Confirmed` / `Rejected` |
+| `OpenSessionRequest` | `Api/V1/Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` | `Accepted` / `Rejected` |
+
+#### Sample — guardian with two children on the same OSR
+
+```json
+{
+  "source": "OpenSessionRequest",
+  "invitationId": 44,
+  "invitationKey": "OpenSessionRequest-44",
+  "openSessionRequestId": 88,
+  "titleEn": "Quran Memorization",
+  "titleAr": "حفظ القرآن",
+  "parentStatus": "PendingInvitations",
+  "invitedStudents": [
+    { "invitationId": 44, "studentId": 55, "fullName": "Omar", "status": "Pending", "isViewerOwned": true },
+    { "invitationId": 45, "studentId": 56, "fullName": "Lina", "status": "Pending", "isViewerOwned": true },
+    { "invitationId": 46, "studentId": 90, "fullName": "External Peer", "status": "Pending", "isViewerOwned": false }
+  ],
+  "viewerStudentIds": [55, 56],
+  "actionableStudentIds": [55, 56],
+  "sessions": [
+    {
+      "sequenceNumber": 1,
+      "date": "2026-06-15",
+      "durationMinutes": 90,
+      "timeSlotLabelEn": "Evening",
+      "units": [
+        { "contentUnitId": 12, "contentUnitNameEn": "Juz 30", "contentUnitNameAr": "الجزء ٣٠", "includesAllLessons": true }
+      ]
+    }
+  ],
+  "isOwner": false,
+  "canRespond": true,
+  "canCancelInvite": false,
+  "canCancel": false,
+  "canPay": false,
+  "respondPath": "Api/V1/Student/OpenSessionRequests/88/Members/Response",
+  "respondAcceptDecision": "Accepted",
+  "respondRejectDecision": "Rejected"
+}
+```
+
+Guardian POSTs twice (Omar then Lina) with `decision: Accepted` or `Rejected`.
+
+#### Sample — invited adult (S1)
+
+Single `actionableStudentIds: [<self>]`; `invitedStudents` still lists everyone for context. `respondAcceptDecision` = `Confirmed`.
+
+#### Sample — owner
+
+`isOwner: true`, `canRespond: false`, `actionableStudentIds: []`. S1 may set `canCancelInvite` + `cancelableInviteStudentIds`. `canPay` / `canCancel` follow owner rules. Sessions + units included when present.
 
 ---
 
@@ -523,6 +645,8 @@ UI: show Pay only when `canPay` / `isOwner` and status is PendingPayment. Prefer
 | Child responds to own invite (must be guardian) | 400 / unauthorized |
 | Adult invitee: another user responds | 400 |
 | Child login: empty Invitations | 200 + `[]` (expected) |
+| Invitation detail: unrelated / unknown key | 404 |
+| Invitation detail: bare int or malformed `invitationKey` | 400 |
 | OSR publish non-Draft / no sessions / count mismatch | 400 |
 | OSR Quran sessions missing Quran fields | 400 |
 | OSR first session inside minimum lead | 400 |
@@ -535,5 +659,5 @@ UI: show Pay only when `canPay` / `isOwner` and status is PendingPayment. Prefer
 
 1. **Booking a published course?** → S1. Use `sessionTypeCode` → Enrollments vs EnrollmentRequests.  
 2. **Requesting custom sessions / teacher offers?** → OSR create/publish.  
-3. **Someone invited you / your child?** → `GET /Invitations` → branch on `source` → Respond. Never Pay.  
+3. **Someone invited you / your child?** → `GET /Invitations` → `GET /Invitations/{invitationKey}` → Respond using `respondPath` + decision strings (`actionableStudentIds`). Never Pay unless `canPay`.  
 4. **Ready to pay?** → Owner only → `POST /Payments/Participants` with `payParticipantId`.

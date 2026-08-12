@@ -10,6 +10,7 @@ using Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrol
 using Qalam.Core.Features.Student.EnrollmentRequests.Commands.CancelEnrollmentRequest;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
+using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitationById;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
 using Qalam.Core.Features.Student.Enrollments.Commands.CancelEnrollment;
@@ -392,6 +393,26 @@ public class StudentCourseController : AppControllerBase
     [ProducesResponseType(typeof(List<StudentInvitationListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyInvitations([FromQuery] GetMyInvitationsQuery query)
     {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Invitation detail for a course enrollment request or open session request.
+    /// Expands to the parent request: all invitees, sessions with content units, and server-computed CTAs.
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Student/Invitations/{invitationKey}
+    ///
+    /// <c>invitationKey</c> comes from the inbox list (e.g. <c>EnrollmentRequest-901</c>,
+    /// <c>OpenSessionRequest-44</c>). Do not send a separate <c>source</c> query.
+    /// </remarks>
+    [HttpGet(Router.StudentInvitationById)]
+    [ProducesResponseType(typeof(StudentInvitationDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyInvitationById(string invitationKey)
+    {
+        var query = new GetMyInvitationByIdQuery { InvitationKey = invitationKey };
         return NewResult(await Mediator.Send(query));
     }
 

@@ -13,4 +13,13 @@ public interface IStudentInvitationInboxService
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Invitation detail for S1 or OSR by <c>invitationKey</c> (<c>EnrollmentRequest-901</c> /
+    /// <c>OpenSessionRequest-44</c>). Null when the key is invalid, not found, or caller cannot view it.
+    /// </summary>
+    Task<StudentInvitationDetailDto?> GetInvitationDetailAsync(
+        int userId,
+        string invitationKey,
+        CancellationToken cancellationToken = default);
 }

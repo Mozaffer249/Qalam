@@ -389,6 +389,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentSearch = Rule + "Student/Search";
         /// <summary>Student pending invitations: Api/V1/Student/Invitations</summary>
         public const string StudentInvitations = Rule + "Student/Invitations";
+        /// <summary>Invitation detail (S1 or OSR): Api/V1/Student/Invitations/{invitationKey}</summary>
+        public const string StudentInvitationById = StudentInvitations + "/{invitationKey}";
 
         /// <summary>Pay one participant of an enrollment (individual = the only participant; group = one member). Api/V1/Student/Payments/Participants</summary>
         public const string StudentPayEnrollmentParticipant = Rule + "Student/Payments/Participants";

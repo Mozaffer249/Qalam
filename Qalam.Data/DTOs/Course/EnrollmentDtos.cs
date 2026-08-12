@@ -492,6 +492,12 @@ public class StudentInvitationListItemDto
     public string Source { get; set; } = "EnrollmentRequest";
 
     public int InvitationId { get; set; }
+
+    /// <summary>
+    /// Globally unique key for detail: <c>{source}-{invitationId}</c>
+    /// (e.g. <c>EnrollmentRequest-901</c>, <c>OpenSessionRequest-44</c>).
+    /// </summary>
+    public string InvitationKey { get; set; } = string.Empty;
     public int? EnrollmentRequestId { get; set; }
     public int? OpenSessionRequestId { get; set; }
 
@@ -520,4 +526,132 @@ public class StudentInvitationListResultDto
 {
     public List<StudentInvitationListItemDto> Items { get; set; } = new();
     public int TotalCount { get; set; }
+}
+
+/// <summary>
+/// Unified invitation detail (course enrollment request or open session request).
+/// </summary>
+public class StudentInvitationDetailDto
+{
+    public const string SourceEnrollmentRequest = "EnrollmentRequest";
+    public const string SourceOpenSessionRequest = "OpenSessionRequest";
+
+    public static string FormatInvitationKey(string source, int invitationId)
+        => $"{source}-{invitationId}";
+
+    public static bool TryParseInvitationKey(string? key, out string source, out int invitationId)
+    {
+        source = string.Empty;
+        invitationId = 0;
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        var trimmed = key.Trim();
+        string? matchedSource = null;
+        string? idPart = null;
+
+        if (trimmed.StartsWith(SourceEnrollmentRequest + "-", StringComparison.OrdinalIgnoreCase))
+        {
+            matchedSource = SourceEnrollmentRequest;
+            idPart = trimmed[(SourceEnrollmentRequest.Length + 1)..];
+        }
+        else if (trimmed.StartsWith(SourceOpenSessionRequest + "-", StringComparison.OrdinalIgnoreCase))
+        {
+            matchedSource = SourceOpenSessionRequest;
+            idPart = trimmed[(SourceOpenSessionRequest.Length + 1)..];
+        }
+
+        if (matchedSource == null || !int.TryParse(idPart, out invitationId) || invitationId <= 0)
+            return false;
+
+        source = matchedSource;
+        return true;
+    }
+
+    public string Source { get; set; } = SourceEnrollmentRequest;
+    public int InvitationId { get; set; }
+    public string InvitationKey { get; set; } = string.Empty;
+    public int? EnrollmentRequestId { get; set; }
+    public int? OpenSessionRequestId { get; set; }
+
+    public int? CourseId { get; set; }
+    public string? CourseTitle { get; set; }
+    public string? CourseImageUrl { get; set; }
+    public string? TeacherDisplayName { get; set; }
+    public string? TitleEn { get; set; }
+    public string? TitleAr { get; set; }
+    public string? DomainName { get; set; }
+    public string? SubjectName { get; set; }
+    public string? TeachingModeName { get; set; }
+    public string? RequestedByUserName { get; set; }
+    public string? ParentStatus { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime RespondByUtc { get; set; }
+
+    /// <summary>All Invited students on the parent request (not Own members).</summary>
+    public List<InvitationStudentItemDto> InvitedStudents { get; set; } = [];
+
+    /// <summary>
+    /// Caller's owned visible students (adult self and/or guardian children)
+    /// that appear on this request as Invited.
+    /// </summary>
+    public List<int> ViewerStudentIds { get; set; } = [];
+
+    public List<InvitationSessionItemDto> Sessions { get; set; } = [];
+
+    public bool IsOwner { get; set; }
+    public bool CanRespond { get; set; }
+    public List<int> ActionableStudentIds { get; set; } = [];
+    public bool CanCancelInvite { get; set; }
+    public List<int> CancelableInviteStudentIds { get; set; } = [];
+    public bool CanCancel { get; set; }
+    public bool CanPay { get; set; }
+    public int? EnrollmentId { get; set; }
+    public string? EnrollmentStatus { get; set; }
+    public decimal? AmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+    public int? PayParticipantId { get; set; }
+
+    public string? RespondPath { get; set; }
+    public string? RespondAcceptDecision { get; set; }
+    public string? RespondRejectDecision { get; set; }
+}
+
+public class InvitationStudentItemDto
+{
+    public int InvitationId { get; set; }
+    public int StudentId { get; set; }
+    public string? FullName { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime RespondByUtc { get; set; }
+    public bool IsViewerOwned { get; set; }
+}
+
+public class InvitationSessionItemDto
+{
+    public int SequenceNumber { get; set; }
+    public DateOnly? Date { get; set; }
+    public int DurationMinutes { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
+    public int? TeacherAvailabilityId { get; set; }
+    public int? TimeSlotId { get; set; }
+    public string? TimeSlotLabelEn { get; set; }
+    public string? TimeSlotLabelAr { get; set; }
+    public TimeSpan? StartTime { get; set; }
+    public TimeSpan? EndTime { get; set; }
+    public List<InvitationSessionUnitDto> Units { get; set; } = [];
+}
+
+public class InvitationSessionUnitDto
+{
+    public int? ContentUnitId { get; set; }
+    public string? ContentUnitNameEn { get; set; }
+    public string? ContentUnitNameAr { get; set; }
+    public int? LessonId { get; set; }
+    public string? LessonNameEn { get; set; }
+    public string? LessonNameAr { get; set; }
+    public string? CustomUnitLabel { get; set; }
+    public bool IncludesAllLessons { get; set; }
 }
