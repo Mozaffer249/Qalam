@@ -16,7 +16,7 @@ Self-contained API contract for the **student / guardian** app. Auth: Bearer tok
 | **Single payer** | Only the **owner** (request creator / `OwnerUserId`) pays **full** `amountDue` **once**. Invitees never pay. |
 | **Invite deadline** | Default **48 hours** from invite `createdAt`. List exposes `respondByUtc`. After deadline → respond returns **400**; server expires invites. |
 | **Child login** | Does **not** see invites to themselves; guardian manages those. |
-| **Owner inbox** | Owners see **one row per sent request** in `GET /Invitations` (`isOwner: true`, any invite/request status). Invitee inbox stays pending-only. |
+| **Owner inbox** | Owners see **one row per sent request** in `GET /Invitations` (`isOwner: true`, any invite/request status). Invitees see **all** invite statuses (with `parentStatus`). |
 | **OSR** | Session request (no course catalog book). Same ownership / pay / invite visibility as Group S1. |
 
 ### Actors
@@ -175,7 +175,7 @@ Content-Type: application/json
 |-----|----------------------|--------------------------|--------------------|
 | Requests | Not listed | Waiting invites | Awaiting payment |
 | Enrollments | PendingPayment → Pay | Hidden until enrollment exists | Listed |
-| Invitations | Empty (no invites) | Invitee pending rows; owner: one row per sent request | Owner sent row remains |
+| Invitations | Empty (no invites) | Invitee all-status rows; owner: one row per sent request | Owner/invitee history rows remain |
 
 ### Navigation after book
 
@@ -193,7 +193,7 @@ GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10
 Authorization: Bearer <token>
 ```
 
-- Invitee rows: **pending only**. Owner rows: **all statuses**, one per parent request.
+- Invitee rows: **all invite statuses** (one row per invite). Owner rows: **all statuses**, one per parent request.
 - Paginated; meta: `totalCount`, `pageNumber`, `pageSize`, …
 - `pageNumber >= 1`, `pageSize` 1–100.
 
@@ -201,8 +201,8 @@ Authorization: Bearer <token>
 
 | Caller | Sees |
 |--------|------|
-| Adult student (no `GuardianId` on their student) | Pending invites where `invitedStudentId` is **themselves** |
-| Guardian | Pending invites where `invitedStudentId` is **one of their children** |
+| Adult student (no `GuardianId` on their student) | Invites where `invitedStudentId` is **themselves** (any invite status) |
+| Guardian | Invites where `invitedStudentId` is **one of their children** (any invite status) |
 | Child login | **Empty** for invites to self |
 | Request owner | **One row per sent request** (`isOwner: true`), any invite/request status. Same parent as an invitee row → invitee row only |
 
@@ -221,9 +221,9 @@ Authorization: Bearer <token>
 | `requestedByUserName` | Who sent |
 | `createdAt` | UTC |
 | `respondByUtc` | `createdAt + InviteResponseDeadlineHours` (default 48h) — show countdown |
-| `confirmationStatus` | S1 invite status; null for OSR |
+| `confirmationStatus` | Invite status (S1 + mapped OSR); use with `parentStatus` for badge |
 | `isOwner` | `true` for sent (creator) rows — hide Accept/Reject |
-| `parentStatus` | Parent request status (owner badge). Invitee rows may omit |
+| `parentStatus` | Parent request status — **always set** for invitee and owner rows (e.g. `Cancelled`) |
 
 ### Sample list item (S1)
 
@@ -247,7 +247,7 @@ Authorization: Bearer <token>
   "respondByUtc": "2026-08-12T10:00:00Z",
   "confirmationStatus": "Pending",
   "isOwner": false,
-  "parentStatus": null
+  "parentStatus": "Approved"
 }
 ```
 
@@ -271,11 +271,13 @@ Authorization: Bearer <token>
   "requestedByUserName": "Guardian Name",
   "createdAt": "2026-08-10T10:00:00Z",
   "respondByUtc": "2026-08-12T10:00:00Z",
-  "confirmationStatus": null,
+  "confirmationStatus": "Pending",
   "isOwner": false,
-  "parentStatus": null
+  "parentStatus": "PendingInvitations"
 }
 ```
+
+Flutter Invitations tab: client-side **Active** (pending) vs **Archived** (history) filter. Badge prefers terminal `parentStatus` (`Cancelled` / `Rejected` / `Expired`) over invite status.
 
 ### UI branching by `source`
 

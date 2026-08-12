@@ -288,6 +288,74 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<StudentInvitationListItemDto>> GetReceivedInvitationListItemsAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (studentIds.Count == 0)
+            return new List<StudentInvitationListItemDto>();
+
+        var rows = await _context.OpenSessionRequestInvitations
+            .AsNoTracking()
+            .Where(i => studentIds.Contains(i.InvitedStudentId))
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new
+            {
+                i.Id,
+                i.SessionRequestId,
+                i.InvitedStudentId,
+                i.Status,
+                i.CreatedAt,
+                RequestStatus = i.OpenSessionRequest.Status,
+                TitleEn = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameEn
+                    : null,
+                TitleAr = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameAr
+                    : null,
+                InvitedStudentName = i.InvitedStudent != null && i.InvitedStudent.User != null
+                    ? (i.InvitedStudent.User.FirstName + " " + i.InvitedStudent.User.LastName).Trim()
+                    : null,
+                RequestedByUserName = i.OpenSessionRequest.RequestedByUser != null
+                    ? (i.OpenSessionRequest.RequestedByUser.FirstName + " "
+                       + i.OpenSessionRequest.RequestedByUser.LastName).Trim()
+                    : null
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(i => new StudentInvitationListItemDto
+        {
+            Source = "OpenSessionRequest",
+            InvitationId = i.Id,
+            EnrollmentRequestId = null,
+            OpenSessionRequestId = i.SessionRequestId,
+            CourseId = null,
+            CourseTitle = null,
+            CourseImageUrl = null,
+            TeacherDisplayName = null,
+            TitleEn = i.TitleEn,
+            TitleAr = i.TitleAr,
+            InvitedStudentId = i.InvitedStudentId,
+            InvitedStudentName = i.InvitedStudentName,
+            RequestedByUserName = i.RequestedByUserName,
+            CreatedAt = i.CreatedAt,
+            ConfirmationStatus = MapOsrInviteToConfirmationStatus(i.Status),
+            IsOwner = false,
+            ParentStatus = i.RequestStatus.ToString()
+        }).ToList();
+    }
+
+    private static GroupMemberConfirmationStatus MapOsrInviteToConfirmationStatus(
+        OpenSessionRequestInvitationStatus status)
+        => status switch
+        {
+            OpenSessionRequestInvitationStatus.Pending => GroupMemberConfirmationStatus.Pending,
+            OpenSessionRequestInvitationStatus.Accepted => GroupMemberConfirmationStatus.Confirmed,
+            OpenSessionRequestInvitationStatus.Rejected => GroupMemberConfirmationStatus.Rejected,
+            OpenSessionRequestInvitationStatus.Expired => GroupMemberConfirmationStatus.Cancelled,
+            _ => GroupMemberConfirmationStatus.Pending
+        };
+
     public async Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
         int userId,
         int? guardianId,

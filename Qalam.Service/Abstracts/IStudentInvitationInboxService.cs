@@ -5,9 +5,10 @@ namespace Qalam.Service.Abstracts;
 public interface IStudentInvitationInboxService
 {
     /// <summary>
-    /// Unified invitation inbox (S1 course + S2 OSR): pending invites to visible students
-    /// (adult self / guardian children) plus the caller's sent requests (any status, one row each).
-    /// Child accounts see none for themselves. Same parent as invitee + owner → invitee row only.
+    /// Unified invitation inbox (S1 course + S2 OSR): received invites for visible students
+    /// (adult self / guardian children, all statuses) plus the caller's sent requests
+    /// (any status, one row each). Child accounts see none for themselves.
+    /// Same parent as invitee + owner → invitee row only.
     /// </summary>
     Task<StudentInvitationListResultDto> GetMyInvitationsAsync(
         int userId,

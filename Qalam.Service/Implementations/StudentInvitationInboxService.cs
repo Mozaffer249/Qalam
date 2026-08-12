@@ -61,14 +61,14 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
 
         var inviteeS1 = visibleStudentIds.Count == 0
             ? new List<StudentInvitationListItemDto>()
-            : await _enrollmentRequestRepository.GetPendingInvitationListItemsAsync(
+            : await _enrollmentRequestRepository.GetReceivedInvitationListItemsAsync(
                 visibleStudentIds, cancellationToken);
         ApplyInvitationListComputedFields(
             inviteeS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
 
         var inviteeS2 = visibleStudentIds.Count == 0
             ? new List<StudentInvitationListItemDto>()
-            : await _openSessionRequestRepository.GetPendingInvitationListItemsAsync(
+            : await _openSessionRequestRepository.GetReceivedInvitationListItemsAsync(
                 visibleStudentIds, cancellationToken);
         ApplyInvitationListComputedFields(
             inviteeS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);

@@ -118,6 +118,71 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<StudentInvitationListItemDto>> GetReceivedInvitationListItemsAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (studentIds.Count == 0)
+            return new List<StudentInvitationListItemDto>();
+
+        var rows = await _context.CourseRequestGroupMembers
+            .AsNoTracking()
+            .Where(gm => studentIds.Contains(gm.StudentId)
+                      && gm.MemberType == GroupMemberType.Invited)
+            .OrderByDescending(gm => gm.CreatedAt)
+            .Select(gm => new
+            {
+                gm.Id,
+                gm.CourseEnrollmentRequestId,
+                gm.StudentId,
+                gm.ConfirmationStatus,
+                gm.CreatedAt,
+                RequestStatus = gm.CourseEnrollmentRequest.Status,
+                CourseId = gm.CourseEnrollmentRequest.CourseId,
+                CourseTitle = gm.CourseEnrollmentRequest.Course != null
+                    ? gm.CourseEnrollmentRequest.Course.Title
+                    : "",
+                CourseImageUrl = gm.CourseEnrollmentRequest.Course != null
+                    ? gm.CourseEnrollmentRequest.Course.ImageUrl
+                    : null,
+                TeacherDisplayName = gm.CourseEnrollmentRequest.Course != null
+                    && gm.CourseEnrollmentRequest.Course.Teacher != null
+                    && gm.CourseEnrollmentRequest.Course.Teacher.User != null
+                    ? (gm.CourseEnrollmentRequest.Course.Teacher.User.FirstName + " "
+                       + gm.CourseEnrollmentRequest.Course.Teacher.User.LastName).Trim()
+                    : null,
+                InvitedStudentName = gm.Student != null && gm.Student.User != null
+                    ? (gm.Student.User.FirstName + " " + gm.Student.User.LastName).Trim()
+                    : null,
+                RequestedByUserName = gm.CourseEnrollmentRequest.RequestedByUser != null
+                    ? (gm.CourseEnrollmentRequest.RequestedByUser.FirstName + " "
+                       + gm.CourseEnrollmentRequest.RequestedByUser.LastName).Trim()
+                    : null
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(gm => new StudentInvitationListItemDto
+        {
+            Source = "EnrollmentRequest",
+            InvitationId = gm.Id,
+            EnrollmentRequestId = gm.CourseEnrollmentRequestId,
+            OpenSessionRequestId = null,
+            CourseId = gm.CourseId,
+            CourseTitle = gm.CourseTitle,
+            CourseImageUrl = gm.CourseImageUrl,
+            TeacherDisplayName = gm.TeacherDisplayName,
+            TitleEn = null,
+            TitleAr = null,
+            InvitedStudentId = gm.StudentId,
+            InvitedStudentName = gm.InvitedStudentName,
+            RequestedByUserName = gm.RequestedByUserName,
+            CreatedAt = gm.CreatedAt,
+            ConfirmationStatus = gm.ConfirmationStatus,
+            IsOwner = false,
+            ParentStatus = gm.RequestStatus.ToString()
+        }).ToList();
+    }
+
     public async Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
         int userId,
         CancellationToken cancellationToken = default)

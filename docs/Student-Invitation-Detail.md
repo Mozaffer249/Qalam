@@ -19,10 +19,12 @@ If `invitationKey` is missing, build `{source}-{invitationId}`.
 
 | Caller | Rows |
 |--------|------|
-| Invitee / guardian of invitee | **Pending** invites only |
+| Invitee / guardian of invitee | **All** invite statuses (one row per invite); `parentStatus` always set |
 | Creator (`RequestedByUserId` / OSR `CreatedByGuardianId`) | **All** sent requests (any invite/request status), **one row per parent** with `isOwner: true` |
 
-Same parent as invitee + owner → keep the **invitee** row only. `isOwner` → no Accept/Reject; tap still opens detail. `parentStatus` is the request status (badge). `invitationId` on owner rows is the first **Pending** invite if any, else the first invite row.
+Same parent as invitee + owner → keep the **invitee** row only. `isOwner` → no Accept/Reject; tap still opens detail. Terminal `parentStatus` (e.g. `Cancelled`) drives the badge for invitees too. `invitationId` on owner rows is the first **Pending** invite if any, else the first invite row.
+
+Flutter Invitations tab filters client-side: **Active** (pending) vs **Archived** (history).
 
 ## Detail
 
