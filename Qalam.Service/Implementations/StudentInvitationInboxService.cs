@@ -64,6 +64,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             ? new List<StudentInvitationListItemDto>()
             : await _enrollmentRequestRepository.GetReceivedInvitationListItemsAsync(
                 visibleStudentIds, scope, cancellationToken);
+        inviteeS1 = CollapseInviteeRowsByParent(inviteeS1, x => x.EnrollmentRequestId);
         ApplyInvitationListComputedFields(
             inviteeS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
 
@@ -71,6 +72,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             ? new List<StudentInvitationListItemDto>()
             : await _openSessionRequestRepository.GetReceivedInvitationListItemsAsync(
                 visibleStudentIds, scope, cancellationToken);
+        inviteeS2 = CollapseInviteeRowsByParent(inviteeS2, x => x.OpenSessionRequestId);
         ApplyInvitationListComputedFields(
             inviteeS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);
 
@@ -571,6 +573,32 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             ConfirmedByUserId = confirmedByUserId,
             IsViewerOwned = isViewerOwned,
         };
+
+    /// <summary>
+    /// One inbox row per parent when multiple owned invitees share the same request.
+    /// Prefer a Pending invite, then earliest CreatedAt (matches owner sent-row pick).
+    /// </summary>
+    private static List<StudentInvitationListItemDto> CollapseInviteeRowsByParent(
+        List<StudentInvitationListItemDto> items,
+        Func<StudentInvitationListItemDto, int?> parentIdSelector)
+    {
+        if (items.Count <= 1)
+            return items;
+
+        return items
+            .GroupBy(parentIdSelector)
+            .Select(g =>
+            {
+                if (!g.Key.HasValue)
+                    return g.OrderBy(x => x.CreatedAt).First();
+
+                return g
+                    .OrderBy(x => x.ConfirmationStatus == GroupMemberConfirmationStatus.Pending ? 0 : 1)
+                    .ThenBy(x => x.CreatedAt)
+                    .First();
+            })
+            .ToList();
+    }
 
     private void ApplyInvitationListComputedFields(
         IEnumerable<StudentInvitationListItemDto> items,

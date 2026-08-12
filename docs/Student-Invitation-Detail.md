@@ -23,10 +23,10 @@ If `invitationKey` is missing, build `{source}-{invitationId}`.
 
 | Caller | Rows (within `scope`) |
 |--------|------|
-| Invitee / guardian of invitee | One row per invite; `parentStatus` always set |
+| Invitee / guardian of invitee | One row per parent request; `parentStatus` always set |
 | Creator (`RequestedByUserId` / OSR `CreatedByGuardianId`) | One row per parent with `isOwner: true` |
 
-Same parent as invitee + owner → keep the **invitee** row only. `isOwner` → no Accept/Reject; tap still opens detail. Terminal `parentStatus` (e.g. `Cancelled`) drives the badge for invitees too. `invitationId` on owner rows is the first **Pending** invite if any, else the first invite row.
+Same parent as invitee + owner → keep the **invitee** row only. Multiple owned invitees on the same parent → **one** invitee row (Pending invite preferred, else earliest). `isOwner` → no Accept/Reject; tap still opens detail. Terminal `parentStatus` (e.g. `Cancelled`) drives the badge for invitees too. `invitationId` on owner rows is the first **Pending** invite if any, else the first invite row.
 
 Flutter Invitations tab: **dropdown** sends `scope` on each load (not client-side filter).
 

@@ -195,7 +195,7 @@ Authorization: Bearer <token>
 
 - `scope`: `Active` (default) = pending/actionable; `Archived` = history (accepted/rejected/cancelled/expired).
 - Server filters before pagination (`totalCount` matches the selected scope).
-- Invitee rows: one per invite. Owner rows: one per parent request.
+- Invitee / guardian rows: one per parent request (multiple owned invitees on the same request collapse to one row). Owner rows: one per parent request.
 - Paginated; meta: `totalCount`, `pageNumber`, `pageSize`, …
 - `pageNumber >= 1`, `pageSize` 1–100.
 
@@ -203,8 +203,8 @@ Authorization: Bearer <token>
 
 | Caller | Sees (within `scope`) |
 |--------|------|
-| Adult student (no `GuardianId` on their student) | Invites where `invitedStudentId` is **themselves** |
-| Guardian | Invites where `invitedStudentId` is **one of their children** |
+| Adult student (no `GuardianId` on their student) | Invites where `invitedStudentId` is **themselves** (one row per parent) |
+| Guardian | Invites where `invitedStudentId` is **one of their children** — **one row per parent** when multiple children are invited to the same request |
 | Child login | **Empty** for invites to self |
 | Request owner | **One row per sent request** (`isOwner: true`). Same parent as an invitee row → invitee row only |
 
