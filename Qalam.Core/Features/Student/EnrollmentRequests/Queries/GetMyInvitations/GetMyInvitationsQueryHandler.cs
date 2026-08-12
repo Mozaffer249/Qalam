@@ -27,6 +27,7 @@ public class GetMyInvitationsQueryHandler : ResponseHandler,
             request.UserId,
             request.PageNumber,
             request.PageSize,
+            request.Scope,
             cancellationToken);
 
         return Success(

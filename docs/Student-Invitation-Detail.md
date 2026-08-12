@@ -5,10 +5,14 @@ Simple contract for inbox → detail. Auth: Bearer, roles **Student** / **Guardi
 ## List
 
 ```http
-GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10
+GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10&scope=Active
 ```
 
 Use **`invitationKey`** from each row. Do not send `source` as a query.
+
+| Query | Values | Default |
+|-------|--------|---------|
+| `scope` | `Active` (pending/actionable) \| `Archived` (history) | `Active` |
 
 | Example key | Meaning |
 |-------------|---------|
@@ -17,14 +21,14 @@ Use **`invitationKey`** from each row. Do not send `source` as a query.
 
 If `invitationKey` is missing, build `{source}-{invitationId}`.
 
-| Caller | Rows |
+| Caller | Rows (within `scope`) |
 |--------|------|
-| Invitee / guardian of invitee | **All** invite statuses (one row per invite); `parentStatus` always set |
-| Creator (`RequestedByUserId` / OSR `CreatedByGuardianId`) | **All** sent requests (any invite/request status), **one row per parent** with `isOwner: true` |
+| Invitee / guardian of invitee | One row per invite; `parentStatus` always set |
+| Creator (`RequestedByUserId` / OSR `CreatedByGuardianId`) | One row per parent with `isOwner: true` |
 
 Same parent as invitee + owner → keep the **invitee** row only. `isOwner` → no Accept/Reject; tap still opens detail. Terminal `parentStatus` (e.g. `Cancelled`) drives the badge for invitees too. `invitationId` on owner rows is the first **Pending** invite if any, else the first invite row.
 
-Flutter Invitations tab filters client-side: **Active** (pending) vs **Archived** (history).
+Flutter Invitations tab: **dropdown** sends `scope` on each load (not client-side filter).
 
 ## Detail
 

@@ -290,14 +290,34 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
 
     public async Task<List<StudentInvitationListItemDto>> GetReceivedInvitationListItemsAsync(
         IReadOnlyCollection<int> studentIds,
+        InvitationInboxScope scope,
         CancellationToken cancellationToken = default)
     {
         if (studentIds.Count == 0)
             return new List<StudentInvitationListItemDto>();
 
-        var rows = await _context.OpenSessionRequestInvitations
+        var query = _context.OpenSessionRequestInvitations
             .AsNoTracking()
-            .Where(i => studentIds.Contains(i.InvitedStudentId))
+            .Where(i => studentIds.Contains(i.InvitedStudentId));
+
+        if (scope == InvitationInboxScope.Active)
+        {
+            query = query.Where(i =>
+                i.Status == OpenSessionRequestInvitationStatus.Pending
+                && i.OpenSessionRequest.Status != OpenSessionRequestStatus.Cancelled
+                && i.OpenSessionRequest.Status != OpenSessionRequestStatus.Expired
+                && i.OpenSessionRequest.Status != OpenSessionRequestStatus.Rejected);
+        }
+        else
+        {
+            query = query.Where(i =>
+                i.Status != OpenSessionRequestInvitationStatus.Pending
+                || i.OpenSessionRequest.Status == OpenSessionRequestStatus.Cancelled
+                || i.OpenSessionRequest.Status == OpenSessionRequestStatus.Expired
+                || i.OpenSessionRequest.Status == OpenSessionRequestStatus.Rejected);
+        }
+
+        var rows = await query
             .OrderByDescending(i => i.CreatedAt)
             .Select(i => new
             {
@@ -359,6 +379,7 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
     public async Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
         int userId,
         int? guardianId,
+        InvitationInboxScope scope,
         CancellationToken cancellationToken = default)
     {
         var invitations = _context.OpenSessionRequestInvitations.AsNoTracking();
@@ -408,26 +429,36 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                     .ThenBy(m => m.CreatedAt)
                     .First();
                 var request = g.First();
-                return new StudentInvitationListItemDto
-                {
-                    Source = "OpenSessionRequest",
-                    InvitationId = invite.Id,
-                    EnrollmentRequestId = null,
-                    OpenSessionRequestId = request.SessionRequestId,
-                    CourseId = null,
-                    CourseTitle = null,
-                    CourseImageUrl = null,
-                    TeacherDisplayName = null,
-                    TitleEn = request.TitleEn,
-                    TitleAr = request.TitleAr,
-                    InvitedStudentId = invite.InvitedStudentId,
-                    InvitedStudentName = invite.InvitedStudentName,
-                    RequestedByUserName = request.RequestedByUserName,
-                    CreatedAt = request.RequestCreatedAt,
-                    ConfirmationStatus = null,
-                    IsOwner = true,
-                    ParentStatus = request.RequestStatus.ToString()
-                };
+                var hasPending = g.Any(m => m.Status == OpenSessionRequestInvitationStatus.Pending);
+                var parent = request.RequestStatus;
+                var parentTerminal = parent is OpenSessionRequestStatus.Cancelled
+                    or OpenSessionRequestStatus.Expired
+                    or OpenSessionRequestStatus.Rejected;
+                var waitingParent = parent is OpenSessionRequestStatus.Draft
+                    or OpenSessionRequestStatus.PendingInvitations;
+                var isActive = !parentTerminal && (waitingParent || hasPending);
+                return new { invite, request, isActive };
+            })
+            .Where(x => scope == InvitationInboxScope.Active ? x.isActive : !x.isActive)
+            .Select(x => new StudentInvitationListItemDto
+            {
+                Source = "OpenSessionRequest",
+                InvitationId = x.invite.Id,
+                EnrollmentRequestId = null,
+                OpenSessionRequestId = x.request.SessionRequestId,
+                CourseId = null,
+                CourseTitle = null,
+                CourseImageUrl = null,
+                TeacherDisplayName = null,
+                TitleEn = x.request.TitleEn,
+                TitleAr = x.request.TitleAr,
+                InvitedStudentId = x.invite.InvitedStudentId,
+                InvitedStudentName = x.invite.InvitedStudentName,
+                RequestedByUserName = x.request.RequestedByUserName,
+                CreatedAt = x.request.RequestCreatedAt,
+                ConfirmationStatus = null,
+                IsOwner = true,
+                ParentStatus = x.request.RequestStatus.ToString()
             })
             .ToList();
     }

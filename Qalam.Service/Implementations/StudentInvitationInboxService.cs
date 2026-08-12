@@ -53,6 +53,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         int userId,
         int pageNumber,
         int pageSize,
+        InvitationInboxScope scope,
         CancellationToken cancellationToken = default)
     {
         var visibleStudentIds = await ResolveVisibleStudentIdsAsync(userId, cancellationToken);
@@ -62,24 +63,24 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         var inviteeS1 = visibleStudentIds.Count == 0
             ? new List<StudentInvitationListItemDto>()
             : await _enrollmentRequestRepository.GetReceivedInvitationListItemsAsync(
-                visibleStudentIds, cancellationToken);
+                visibleStudentIds, scope, cancellationToken);
         ApplyInvitationListComputedFields(
             inviteeS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
 
         var inviteeS2 = visibleStudentIds.Count == 0
             ? new List<StudentInvitationListItemDto>()
             : await _openSessionRequestRepository.GetReceivedInvitationListItemsAsync(
-                visibleStudentIds, cancellationToken);
+                visibleStudentIds, scope, cancellationToken);
         ApplyInvitationListComputedFields(
             inviteeS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);
 
         var ownerS1 = await _enrollmentRequestRepository.GetSentInvitationListItemsAsync(
-            userId, cancellationToken);
+            userId, scope, cancellationToken);
         ApplyInvitationListComputedFields(
             ownerS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
 
         var ownerS2 = await _openSessionRequestRepository.GetSentInvitationListItemsAsync(
-            userId, guardian?.Id, cancellationToken);
+            userId, guardian?.Id, scope, cancellationToken);
         ApplyInvitationListComputedFields(
             ownerS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);
 

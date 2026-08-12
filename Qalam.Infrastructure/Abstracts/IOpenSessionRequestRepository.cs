@@ -79,22 +79,24 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Received OSR invitations for the given students (any invite / request status),
+    /// Received OSR invitations for the given students, scoped Active/Archived,
     /// one row per invitation. Sets <see cref="StudentInvitationListItemDto.ParentStatus"/>.
     /// Does not set RespondByUtc.
     /// </summary>
     Task<List<StudentInvitationListItemDto>> GetReceivedInvitationListItemsAsync(
         IReadOnlyCollection<int> studentIds,
+        InvitationInboxScope scope,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sent OSR invitations for the caller (<paramref name="userId"/> or
-    /// <paramref name="guardianId"/>): one row per request that has any invitation
-    /// (any invite / request status). Does not set RespondByUtc.
+    /// <paramref name="guardianId"/>), scoped Active/Archived: one row per request
+    /// that has any invitation. Does not set RespondByUtc.
     /// </summary>
     Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
         int userId,
         int? guardianId,
+        InvitationInboxScope scope,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -16,7 +16,7 @@ Self-contained API contract for the **student / guardian** app. Auth: Bearer tok
 | **Single payer** | Only the **owner** (request creator / `OwnerUserId`) pays **full** `amountDue` **once**. Invitees never pay. |
 | **Invite deadline** | Default **48 hours** from invite `createdAt`. List exposes `respondByUtc`. After deadline → respond returns **400**; server expires invites. |
 | **Child login** | Does **not** see invites to themselves; guardian manages those. |
-| **Owner inbox** | Owners see **one row per sent request** in `GET /Invitations` (`isOwner: true`, any invite/request status). Invitees see **all** invite statuses (with `parentStatus`). |
+| **Owner inbox** | Owners see **one row per sent request** in `GET /Invitations` (`isOwner: true`). Invitees see received invites. Both are filtered by `scope=Active|Archived`. |
 | **OSR** | Session request (no course catalog book). Same ownership / pay / invite visibility as Group S1. |
 
 ### Actors
@@ -189,22 +189,24 @@ Content-Type: application/json
 ## 3. Invitations inbox (S1 + OSR)
 
 ```http
-GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10
+GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10&scope=Active
 Authorization: Bearer <token>
 ```
 
-- Invitee rows: **all invite statuses** (one row per invite). Owner rows: **all statuses**, one per parent request.
+- `scope`: `Active` (default) = pending/actionable; `Archived` = history (accepted/rejected/cancelled/expired).
+- Server filters before pagination (`totalCount` matches the selected scope).
+- Invitee rows: one per invite. Owner rows: one per parent request.
 - Paginated; meta: `totalCount`, `pageNumber`, `pageSize`, …
 - `pageNumber >= 1`, `pageSize` 1–100.
 
 ### Visibility
 
-| Caller | Sees |
+| Caller | Sees (within `scope`) |
 |--------|------|
-| Adult student (no `GuardianId` on their student) | Invites where `invitedStudentId` is **themselves** (any invite status) |
-| Guardian | Invites where `invitedStudentId` is **one of their children** (any invite status) |
+| Adult student (no `GuardianId` on their student) | Invites where `invitedStudentId` is **themselves** |
+| Guardian | Invites where `invitedStudentId` is **one of their children** |
 | Child login | **Empty** for invites to self |
-| Request owner | **One row per sent request** (`isOwner: true`), any invite/request status. Same parent as an invitee row → invitee row only |
+| Request owner | **One row per sent request** (`isOwner: true`). Same parent as an invitee row → invitee row only |
 
 ### List item fields
 
@@ -277,7 +279,7 @@ Authorization: Bearer <token>
 }
 ```
 
-Flutter Invitations tab: client-side **Active** (pending) vs **Archived** (history) filter. Badge prefers terminal `parentStatus` (`Cancelled` / `Rejected` / `Expired`) over invite status.
+Flutter Invitations tab: **dropdown** sends `scope=Active|Archived` on each load (server-filtered). Badge prefers terminal `parentStatus` (`Cancelled` / `Rejected` / `Expired`) over invite status.
 
 ### UI branching by `source`
 
