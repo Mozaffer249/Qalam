@@ -299,7 +299,7 @@ Authorization: Bearer <token>
 
 `invitationKey` comes from the inbox list (`EnrollmentRequest-901`, `OpenSessionRequest-44`). Do **not** send a `source` query — type is baked into the key so S1 and OSR row ids cannot collide.
 
-Detail expands to the **parent request** (all invitees + full sessions). Inbox includes invitee pending rows and owner sent rows; tap either with `invitationKey`. Owners may still open request detail screens.
+Detail expands to the **parent request** (all members Own + Invited + full sessions). Inbox includes invitee pending rows and owner sent rows; tap either with `invitationKey`. Owners may still open request detail screens.
 
 Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no access → **404**.
 
@@ -307,9 +307,9 @@ Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no 
 
 | Caller | Can open | `InvitedStudents` | `ActionableStudentIds` |
 |--------|----------|-------------------|------------------------|
-| **Owner** | Yes | All Invited on parent | `[]` (owner does not Accept) |
-| **Invited adult** (self student, no guardian) | Yes if their invite is on parent | All Invited on parent | Their student id if Pending + in deadline + stage OK |
-| **Guardian of invited child(ren)** | Yes if **any** invited student on parent is their child | All Invited on parent | All of **their** children on this request who are still Pending + in deadline + stage OK |
+| **Owner** | Yes | All members on parent (Own + Invited) | `[]` (owner does not Accept) |
+| **Invited adult** (self student, no guardian) | Yes if their invite is on parent | All members on parent (Own + Invited) | Their student id if Pending Invited + in deadline + stage OK |
+| **Guardian of invited child(ren)** | Yes if **any** invited student on parent is their child | All members on parent (Own + Invited) | All of **their** Invited children on this request who are still Pending + in deadline + stage OK |
 | Child login as invited minor | No (same as inbox) | — | — |
 | Unrelated user | 404 | — | — |
 
@@ -325,8 +325,8 @@ Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no 
 | `titleEn`, `titleAr`, `domainName`, `subjectName` | OSR header |
 | `teachingModeName`, `requestedByUserName`, `parentStatus` | Shared display |
 | `createdAt`, `respondByUtc` | Opened invite created + deadline |
-| `invitedStudents[]` | All Invited on parent (not Own members). Each: `invitationId`, `studentId`, `fullName`, `status`, `createdAt`, `respondByUtc`, `isViewerOwned` |
-| `viewerStudentIds` | Caller’s owned students (adult self and/or guardian children) that appear on this request as Invited |
+| `invitedStudents[]` | **All members** on parent (Own + Invited; wire name kept). Each: `invitationId`, `studentId`, `fullName`, `memberType` (`Own`\|`Invited`), `status`, `createdAt`, `respondByUtc`, `confirmedAt`, `confirmedByUserId`, `isViewerOwned`. OSR Own learner uses `invitationId: 0`. Ordered Own then Invited / by `createdAt` |
+| `viewerStudentIds` | Caller’s owned students (adult self and/or guardian children) that appear on this request as **Own or Invited** |
 | `sessions[]` | Date/time + `units[]` (En/Ar names). Empty `units` when the request has no content |
 | `isOwner`, `canRespond`, `actionableStudentIds` | CTAs |
 | `canCancelInvite`, `cancelableInviteStudentIds` | Owner S1 only — pending Invited student ids |
@@ -346,7 +346,7 @@ Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no 
 | Flag | Owner | Invitee adult | Guardian (1+ children invited) |
 |------|--------|---------------|--------------------------------|
 | `isOwner` | true | false | false |
-| `actionableStudentIds` | `[]` | `[self]` if Pending + deadline + stage OK | all owned children on parent with Pending + deadline + stage OK |
+| `actionableStudentIds` | `[]` | `[self]` if Invited Pending + deadline + stage OK | all owned Invited children on parent with Pending + deadline + stage OK |
 | `canRespond` | false | `actionableStudentIds.length > 0` | same |
 | `canCancelInvite` / `cancelableInviteStudentIds` | S1: pending Invited student ids; OSR: empty / false | empty / false | empty / false |
 | `canCancel` | owner cancel-request rules | false | false |
@@ -371,9 +371,10 @@ Respond: for each id in `actionableStudentIds`, POST the existing member-respons
   "titleAr": "حفظ القرآن",
   "parentStatus": "PendingInvitations",
   "invitedStudents": [
-    { "invitationId": 44, "studentId": 55, "fullName": "Omar", "status": "Pending", "isViewerOwned": true },
-    { "invitationId": 45, "studentId": 56, "fullName": "Lina", "status": "Pending", "isViewerOwned": true },
-    { "invitationId": 46, "studentId": 90, "fullName": "External Peer", "status": "Pending", "isViewerOwned": false }
+    { "invitationId": 0, "studentId": 10, "fullName": "Parent Learner", "memberType": "Own", "status": "Confirmed", "isViewerOwned": false },
+    { "invitationId": 44, "studentId": 55, "fullName": "Omar", "memberType": "Invited", "status": "Pending", "isViewerOwned": true },
+    { "invitationId": 45, "studentId": 56, "fullName": "Lina", "memberType": "Invited", "status": "Pending", "isViewerOwned": true },
+    { "invitationId": 46, "studentId": 90, "fullName": "External Peer", "memberType": "Invited", "status": "Pending", "isViewerOwned": false }
   ],
   "viewerStudentIds": [55, 56],
   "actionableStudentIds": [55, 56],
@@ -403,11 +404,11 @@ Guardian POSTs twice (Omar then Lina) with `decision: Accepted` or `Rejected`.
 
 #### Sample — invited adult (S1)
 
-Single `actionableStudentIds: [<self>]`; `invitedStudents` still lists everyone for context. `respondAcceptDecision` = `Confirmed`.
+Single `actionableStudentIds: [<self>]`; `invitedStudents` lists **all** members (Own + Invited) for context. `respondAcceptDecision` = `Confirmed`.
 
 #### Sample — owner
 
-`isOwner: true`, `canRespond: false`, `actionableStudentIds: []`. S1 may set `canCancelInvite` + `cancelableInviteStudentIds`. `canPay` / `canCancel` follow owner rules. Sessions + units included when present.
+`isOwner: true`, `canRespond: false`, `actionableStudentIds: []`, `viewerStudentIds` = owned students on the request (Own or Invited). S1 `invitedStudents` includes Own members first. S1 may set `canCancelInvite` + `cancelableInviteStudentIds` (pending Invited only). `canPay` / `canCancel` follow owner rules. Sessions + units included when present.
 
 ---
 

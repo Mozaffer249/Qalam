@@ -596,12 +596,12 @@ public class StudentInvitationDetailDto
     public DateTime CreatedAt { get; set; }
     public DateTime RespondByUtc { get; set; }
 
-    /// <summary>All Invited students on the parent request (not Own members).</summary>
+    /// <summary>All members on the parent request (Own + Invited).</summary>
     public List<InvitationStudentItemDto> InvitedStudents { get; set; } = [];
 
     /// <summary>
     /// Caller's owned visible students (adult self and/or guardian children)
-    /// that appear on this request as Invited.
+    /// that appear on this request as Own or Invited.
     /// </summary>
     public List<int> ViewerStudentIds { get; set; } = [];
 
@@ -630,9 +630,13 @@ public class InvitationStudentItemDto
     public int InvitationId { get; set; }
     public int StudentId { get; set; }
     public string? FullName { get; set; }
+    /// <summary><c>Own</c> or <c>Invited</c>.</summary>
+    public string MemberType { get; set; } = nameof(GroupMemberType.Invited);
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime RespondByUtc { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public int? ConfirmedByUserId { get; set; }
     public bool IsViewerOwned { get; set; }
 }
 

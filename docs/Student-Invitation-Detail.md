@@ -39,7 +39,7 @@ GET /Api/V1/Student/Invitations/{invitationKey}
 - Malformed / bare int (`/Invitations/44`) → **400**
 - Unknown key / no access / child opening own invite → **404**
 
-Response includes `source`, invitees, sessions + units, and CTAs.
+Response includes `source`, **all members** (`invitedStudents` with `memberType` Own|Invited), `viewerStudentIds` (owned students on the request as Own or Invited), sessions + units, and CTAs.
 
 ## Who can open
 

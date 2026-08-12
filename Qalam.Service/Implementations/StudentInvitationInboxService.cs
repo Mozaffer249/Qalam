@@ -172,12 +172,14 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             return null;
 
         var isOwner = parent.RequestedByUserId == userId;
+        var memberStudentIds = parent.GroupMembers.Select(gm => gm.StudentId).ToHashSet();
+        var viewerOnRequest = memberStudentIds.Where(visibleStudentIds.Contains).ToList();
         var invitedStudentIds = parent.GroupMembers
             .Where(gm => gm.MemberType == GroupMemberType.Invited)
             .Select(gm => gm.StudentId)
             .ToHashSet();
-        var viewerOnRequest = invitedStudentIds.Where(visibleStudentIds.Contains).ToList();
-        if (!isOwner && viewerOnRequest.Count == 0)
+        var viewerInvitedOnRequest = invitedStudentIds.Where(visibleStudentIds.Contains).ToList();
+        if (!isOwner && viewerInvitedOnRequest.Count == 0)
             return null;
 
         var enrollment = await _enrollmentRepository.GetTableNoTracking()
@@ -192,15 +194,18 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
                 && enrollment == null);
 
         var invitedStudents = parent.GroupMembers
-            .Where(gm => gm.MemberType == GroupMemberType.Invited)
-            .OrderBy(gm => gm.CreatedAt)
-            .Select(gm => MapInvitedStudent(
+            .OrderBy(gm => gm.MemberType == GroupMemberType.Own ? 0 : 1)
+            .ThenBy(gm => gm.CreatedAt)
+            .Select(gm => MapMemberStudent(
                 gm.Id,
                 gm.StudentId,
                 FormatFullName(gm.Student?.User),
+                gm.MemberType.ToString(),
                 gm.ConfirmationStatus.ToString(),
                 gm.CreatedAt,
                 gm.CreatedAt.AddHours(deadlineHours),
+                gm.ConfirmedAt,
+                gm.ConfirmedByUserId,
                 visibleStudentIds.Contains(gm.StudentId)))
             .ToList();
 
@@ -208,6 +213,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             ? new List<int>()
             : invitedStudents
                 .Where(s => s.IsViewerOwned
+                            && string.Equals(s.MemberType, nameof(GroupMemberType.Invited), StringComparison.OrdinalIgnoreCase)
                             && string.Equals(s.Status, nameof(GroupMemberConfirmationStatus.Pending), StringComparison.OrdinalIgnoreCase)
                             && s.RespondByUtc >= now
                             && canRespondStage)
@@ -216,7 +222,8 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
                 .ToList();
 
         var pendingInviteStudentIds = invitedStudents
-            .Where(s => string.Equals(s.Status, nameof(GroupMemberConfirmationStatus.Pending), StringComparison.OrdinalIgnoreCase))
+            .Where(s => string.Equals(s.MemberType, nameof(GroupMemberType.Invited), StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(s.Status, nameof(GroupMemberConfirmationStatus.Pending), StringComparison.OrdinalIgnoreCase))
             .Select(s => s.StudentId)
             .ToList();
 
@@ -286,6 +293,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         var parent = await _openSessionRequestRepository.GetTableNoTracking()
             .Include(r => r.RequestedByUser)
             .Include(r => r.CreatedByGuardian).ThenInclude(g => g!.User)
+            .Include(r => r.Student).ThenInclude(s => s.User)
             .Include(r => r.Domain)
             .Include(r => r.Subject)
             .Include(r => r.TeachingMode)
@@ -312,8 +320,10 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
                           && parent.CreatedByGuardianId == guardian.Id);
 
         var invitedStudentIds = parent.Invitations.Select(i => i.InvitedStudentId).ToHashSet();
-        var viewerOnRequest = invitedStudentIds.Where(visibleStudentIds.Contains).ToList();
-        if (!isOwner && viewerOnRequest.Count == 0)
+        var memberStudentIds = invitedStudentIds.Append(parent.StudentId).ToHashSet();
+        var viewerOnRequest = memberStudentIds.Where(visibleStudentIds.Contains).ToList();
+        var viewerInvitedOnRequest = invitedStudentIds.Where(visibleStudentIds.Contains).ToList();
+        if (!isOwner && viewerInvitedOnRequest.Count == 0)
             return null;
 
         var enrollment = await _enrollmentRepository.GetTableNoTracking()
@@ -324,22 +334,39 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         var now = DateTime.UtcNow;
         var canRespondStage = parent.Status == OpenSessionRequestStatus.PendingInvitations;
 
-        var invitedStudents = parent.Invitations
+        var invitedStudents = new List<InvitationStudentItemDto>
+        {
+            MapMemberStudent(
+                invitationId: 0,
+                studentId: parent.StudentId,
+                fullName: FormatFullName(parent.Student?.User),
+                memberType: nameof(GroupMemberType.Own),
+                status: nameof(GroupMemberConfirmationStatus.Confirmed),
+                createdAt: parent.CreatedAt,
+                respondByUtc: parent.CreatedAt.AddHours(deadlineHours),
+                confirmedAt: parent.CreatedAt,
+                confirmedByUserId: parent.RequestedByUserId,
+                isViewerOwned: visibleStudentIds.Contains(parent.StudentId))
+        };
+        invitedStudents.AddRange(parent.Invitations
             .OrderBy(i => i.CreatedAt)
-            .Select(i => MapInvitedStudent(
+            .Select(i => MapMemberStudent(
                 i.Id,
                 i.InvitedStudentId,
                 FormatFullName(i.InvitedStudent?.User),
+                nameof(GroupMemberType.Invited),
                 i.Status.ToString(),
                 i.CreatedAt,
                 i.CreatedAt.AddHours(deadlineHours),
-                visibleStudentIds.Contains(i.InvitedStudentId)))
-            .ToList();
+                i.RespondedAt,
+                confirmedByUserId: null,
+                visibleStudentIds.Contains(i.InvitedStudentId))));
 
         var actionable = isOwner
             ? new List<int>()
             : invitedStudents
                 .Where(s => s.IsViewerOwned
+                            && string.Equals(s.MemberType, nameof(GroupMemberType.Invited), StringComparison.OrdinalIgnoreCase)
                             && string.Equals(s.Status, nameof(OpenSessionRequestInvitationStatus.Pending), StringComparison.OrdinalIgnoreCase)
                             && s.RespondByUtc >= now
                             && canRespondStage)
@@ -520,22 +547,28 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             .ToList();
     }
 
-    private static InvitationStudentItemDto MapInvitedStudent(
+    private static InvitationStudentItemDto MapMemberStudent(
         int invitationId,
         int studentId,
         string? fullName,
+        string memberType,
         string status,
         DateTime createdAt,
         DateTime respondByUtc,
+        DateTime? confirmedAt,
+        int? confirmedByUserId,
         bool isViewerOwned)
         => new()
         {
             InvitationId = invitationId,
             StudentId = studentId,
             FullName = fullName,
+            MemberType = memberType,
             Status = status,
             CreatedAt = createdAt,
             RespondByUtc = respondByUtc,
+            ConfirmedAt = confirmedAt,
+            ConfirmedByUserId = confirmedByUserId,
             IsViewerOwned = isViewerOwned,
         };
 
