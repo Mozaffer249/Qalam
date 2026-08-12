@@ -112,8 +112,82 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                        + gm.CourseEnrollmentRequest.RequestedByUser.LastName).Trim()
                     : null,
                 CreatedAt = gm.CreatedAt,
-                ConfirmationStatus = gm.ConfirmationStatus
+                ConfirmationStatus = gm.ConfirmationStatus,
+                IsOwner = false
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var members = await _context.CourseRequestGroupMembers
+            .AsNoTracking()
+            .Where(gm => gm.CourseEnrollmentRequest.RequestedByUserId == userId
+                      && gm.MemberType == GroupMemberType.Invited)
+            .Select(gm => new
+            {
+                gm.Id,
+                gm.StudentId,
+                gm.ConfirmationStatus,
+                gm.CreatedAt,
+                gm.CourseEnrollmentRequestId,
+                RequestCreatedAt = gm.CourseEnrollmentRequest.CreatedAt,
+                RequestStatus = gm.CourseEnrollmentRequest.Status,
+                CourseId = gm.CourseEnrollmentRequest.CourseId,
+                CourseTitle = gm.CourseEnrollmentRequest.Course != null
+                    ? gm.CourseEnrollmentRequest.Course.Title
+                    : "",
+                CourseImageUrl = gm.CourseEnrollmentRequest.Course != null
+                    ? gm.CourseEnrollmentRequest.Course.ImageUrl
+                    : null,
+                TeacherDisplayName = gm.CourseEnrollmentRequest.Course != null
+                    && gm.CourseEnrollmentRequest.Course.Teacher != null
+                    && gm.CourseEnrollmentRequest.Course.Teacher.User != null
+                    ? (gm.CourseEnrollmentRequest.Course.Teacher.User.FirstName + " "
+                       + gm.CourseEnrollmentRequest.Course.Teacher.User.LastName).Trim()
+                    : null,
+                InvitedStudentName = gm.Student != null && gm.Student.User != null
+                    ? (gm.Student.User.FirstName + " " + gm.Student.User.LastName).Trim()
+                    : null,
+                RequestedByUserName = gm.CourseEnrollmentRequest.RequestedByUser != null
+                    ? (gm.CourseEnrollmentRequest.RequestedByUser.FirstName + " "
+                       + gm.CourseEnrollmentRequest.RequestedByUser.LastName).Trim()
+                    : null
+            })
+            .ToListAsync(cancellationToken);
+
+        return members
+            .GroupBy(m => m.CourseEnrollmentRequestId)
+            .Select(g =>
+            {
+                var invite = g
+                    .OrderBy(m => m.ConfirmationStatus == GroupMemberConfirmationStatus.Pending ? 0 : 1)
+                    .ThenBy(m => m.CreatedAt)
+                    .First();
+                var request = g.First();
+                return new StudentInvitationListItemDto
+                {
+                    Source = "EnrollmentRequest",
+                    InvitationId = invite.Id,
+                    EnrollmentRequestId = request.CourseEnrollmentRequestId,
+                    OpenSessionRequestId = null,
+                    CourseId = request.CourseId,
+                    CourseTitle = request.CourseTitle,
+                    CourseImageUrl = request.CourseImageUrl,
+                    TeacherDisplayName = request.TeacherDisplayName,
+                    TitleEn = null,
+                    TitleAr = null,
+                    InvitedStudentId = invite.StudentId,
+                    InvitedStudentName = invite.InvitedStudentName,
+                    RequestedByUserName = request.RequestedByUserName,
+                    CreatedAt = request.RequestCreatedAt,
+                    ConfirmationStatus = invite.ConfirmationStatus,
+                    IsOwner = true,
+                    ParentStatus = request.RequestStatus.ToString()
+                };
+            })
+            .ToList();
     }
 }

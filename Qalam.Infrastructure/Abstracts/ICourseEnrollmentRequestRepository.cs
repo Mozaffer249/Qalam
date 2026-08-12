@@ -17,4 +17,12 @@ public interface ICourseEnrollmentRequestRepository : IGenericRepositoryAsync<Co
     Task<List<StudentInvitationListItemDto>> GetPendingInvitationListItemsAsync(
         IReadOnlyCollection<int> studentIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sent S1 invitations for the caller: one row per request that has any Invited member
+    /// (any confirmation / request status). Does not set RespondByUtc or public media URLs.
+    /// </summary>
+    Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
+        int userId,
+        CancellationToken cancellationToken = default);
 }

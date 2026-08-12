@@ -282,9 +282,86 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                        + i.OpenSessionRequest.RequestedByUser.LastName).Trim()
                     : null,
                 CreatedAt = i.CreatedAt,
-                ConfirmationStatus = null
+                ConfirmationStatus = null,
+                IsOwner = false
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
+        int userId,
+        int? guardianId,
+        CancellationToken cancellationToken = default)
+    {
+        var invitations = _context.OpenSessionRequestInvitations.AsNoTracking();
+        if (guardianId.HasValue)
+        {
+            invitations = invitations.Where(i =>
+                i.OpenSessionRequest.RequestedByUserId == userId
+                || i.OpenSessionRequest.CreatedByGuardianId == guardianId);
+        }
+        else
+        {
+            invitations = invitations.Where(i => i.OpenSessionRequest.RequestedByUserId == userId);
+        }
+
+        var members = await invitations
+            .Select(i => new
+            {
+                i.Id,
+                i.InvitedStudentId,
+                i.Status,
+                i.CreatedAt,
+                i.SessionRequestId,
+                RequestCreatedAt = i.OpenSessionRequest.CreatedAt,
+                RequestStatus = i.OpenSessionRequest.Status,
+                TitleEn = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameEn
+                    : null,
+                TitleAr = i.OpenSessionRequest.Subject != null
+                    ? i.OpenSessionRequest.Subject.NameAr
+                    : null,
+                InvitedStudentName = i.InvitedStudent != null && i.InvitedStudent.User != null
+                    ? (i.InvitedStudent.User.FirstName + " " + i.InvitedStudent.User.LastName).Trim()
+                    : null,
+                RequestedByUserName = i.OpenSessionRequest.RequestedByUser != null
+                    ? (i.OpenSessionRequest.RequestedByUser.FirstName + " "
+                       + i.OpenSessionRequest.RequestedByUser.LastName).Trim()
+                    : null
+            })
+            .ToListAsync(cancellationToken);
+
+        return members
+            .GroupBy(m => m.SessionRequestId)
+            .Select(g =>
+            {
+                var invite = g
+                    .OrderBy(m => m.Status == OpenSessionRequestInvitationStatus.Pending ? 0 : 1)
+                    .ThenBy(m => m.CreatedAt)
+                    .First();
+                var request = g.First();
+                return new StudentInvitationListItemDto
+                {
+                    Source = "OpenSessionRequest",
+                    InvitationId = invite.Id,
+                    EnrollmentRequestId = null,
+                    OpenSessionRequestId = request.SessionRequestId,
+                    CourseId = null,
+                    CourseTitle = null,
+                    CourseImageUrl = null,
+                    TeacherDisplayName = null,
+                    TitleEn = request.TitleEn,
+                    TitleAr = request.TitleAr,
+                    InvitedStudentId = invite.InvitedStudentId,
+                    InvitedStudentName = invite.InvitedStudentName,
+                    RequestedByUserName = request.RequestedByUserName,
+                    CreatedAt = request.RequestCreatedAt,
+                    ConfirmationStatus = null,
+                    IsOwner = true,
+                    ParentStatus = request.RequestStatus.ToString()
+                };
+            })
+            .ToList();
     }
 
     public async Task<bool> UpdateStatusAsync(int requestId, OpenSessionRequestStatus newStatus, CancellationToken cancellationToken = default)

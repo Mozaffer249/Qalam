@@ -483,8 +483,10 @@ public class StudentSearchResultDto
 }
 
 /// <summary>
-/// Pending invitation inbox item (course enrollment request or open session request).
-/// Visibility: adult invitee self, or guardian of an invited child — never the child account, never the sender.
+/// Invitation inbox item (course enrollment request or open session request).
+/// Invitee rows: pending invites to adult self or guardian children.
+/// Owner rows: one per sent request (any invite/request status) with <see cref="IsOwner"/>.
+/// Child accounts never see invites to themselves.
 /// </summary>
 public class StudentInvitationListItemDto
 {
@@ -517,10 +519,16 @@ public class StudentInvitationListItemDto
     /// <summary>Computed: CreatedAt + InviteResponseDeadlineHours.</summary>
     public DateTime RespondByUtc { get; set; }
     public GroupMemberConfirmationStatus? ConfirmationStatus { get; set; }
+
+    /// <summary>True when this row is a request the caller sent (no Accept/Reject).</summary>
+    public bool IsOwner { get; set; }
+
+    /// <summary>Parent request status (owner badge). Invitee rows may leave this null.</summary>
+    public string? ParentStatus { get; set; }
 }
 
 /// <summary>
-/// Paginated pending-invitation inbox (S1 course + S2 OSR), after visibility filtering.
+/// Paginated invitation inbox (S1 course + S2 OSR): pending invitee rows plus owner sent rows.
 /// </summary>
 public class StudentInvitationListResultDto
 {

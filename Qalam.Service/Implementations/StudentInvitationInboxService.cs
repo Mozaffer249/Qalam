@@ -56,38 +56,53 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         CancellationToken cancellationToken = default)
     {
         var visibleStudentIds = await ResolveVisibleStudentIdsAsync(userId, cancellationToken);
-        if (visibleStudentIds.Count == 0)
-        {
-            return new StudentInvitationListResultDto
-            {
-                Items = new List<StudentInvitationListItemDto>(),
-                TotalCount = 0
-            };
-        }
-
+        var guardian = await _guardianRepository.GetByUserIdAsync(userId);
         var deadlineHours = DeadlineHours();
 
-        var s1Items = await _enrollmentRequestRepository.GetPendingInvitationListItemsAsync(
-            visibleStudentIds, cancellationToken);
-        foreach (var item in s1Items)
-        {
-            item.CourseImageUrl = _mediaUrlResolver.ToPublicUrl(item.CourseImageUrl);
-            item.RespondByUtc = item.CreatedAt.AddHours(deadlineHours);
-            item.InvitationKey = StudentInvitationDetailDto.FormatInvitationKey(
-                StudentInvitationDetailDto.SourceEnrollmentRequest, item.InvitationId);
-        }
+        var inviteeS1 = visibleStudentIds.Count == 0
+            ? new List<StudentInvitationListItemDto>()
+            : await _enrollmentRequestRepository.GetPendingInvitationListItemsAsync(
+                visibleStudentIds, cancellationToken);
+        ApplyInvitationListComputedFields(
+            inviteeS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
 
-        var s2Items = await _openSessionRequestRepository.GetPendingInvitationListItemsAsync(
-            visibleStudentIds, cancellationToken);
-        foreach (var item in s2Items)
-        {
-            item.RespondByUtc = item.CreatedAt.AddHours(deadlineHours);
-            item.InvitationKey = StudentInvitationDetailDto.FormatInvitationKey(
-                StudentInvitationDetailDto.SourceOpenSessionRequest, item.InvitationId);
-        }
+        var inviteeS2 = visibleStudentIds.Count == 0
+            ? new List<StudentInvitationListItemDto>()
+            : await _openSessionRequestRepository.GetPendingInvitationListItemsAsync(
+                visibleStudentIds, cancellationToken);
+        ApplyInvitationListComputedFields(
+            inviteeS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);
 
-        var merged = s1Items
-            .Concat(s2Items)
+        var ownerS1 = await _enrollmentRequestRepository.GetSentInvitationListItemsAsync(
+            userId, cancellationToken);
+        ApplyInvitationListComputedFields(
+            ownerS1, StudentInvitationDetailDto.SourceEnrollmentRequest, deadlineHours);
+
+        var ownerS2 = await _openSessionRequestRepository.GetSentInvitationListItemsAsync(
+            userId, guardian?.Id, cancellationToken);
+        ApplyInvitationListComputedFields(
+            ownerS2, StudentInvitationDetailDto.SourceOpenSessionRequest, deadlineHours);
+
+        var inviteeEnrollmentIds = inviteeS1
+            .Where(x => x.EnrollmentRequestId.HasValue)
+            .Select(x => x.EnrollmentRequestId!.Value)
+            .ToHashSet();
+        var inviteeOsrIds = inviteeS2
+            .Where(x => x.OpenSessionRequestId.HasValue)
+            .Select(x => x.OpenSessionRequestId!.Value)
+            .ToHashSet();
+
+        var ownerS1Deduped = ownerS1.Where(x =>
+            !x.EnrollmentRequestId.HasValue
+            || !inviteeEnrollmentIds.Contains(x.EnrollmentRequestId.Value));
+        var ownerS2Deduped = ownerS2.Where(x =>
+            !x.OpenSessionRequestId.HasValue
+            || !inviteeOsrIds.Contains(x.OpenSessionRequestId.Value));
+
+        var merged = inviteeS1
+            .Concat(inviteeS2)
+            .Concat(ownerS1Deduped)
+            .Concat(ownerS2Deduped)
             .OrderByDescending(x => x.CreatedAt)
             .ToList();
 
@@ -522,6 +537,20 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             RespondByUtc = respondByUtc,
             IsViewerOwned = isViewerOwned,
         };
+
+    private void ApplyInvitationListComputedFields(
+        IEnumerable<StudentInvitationListItemDto> items,
+        string source,
+        int deadlineHours)
+    {
+        foreach (var item in items)
+        {
+            if (source == StudentInvitationDetailDto.SourceEnrollmentRequest)
+                item.CourseImageUrl = _mediaUrlResolver.ToPublicUrl(item.CourseImageUrl);
+            item.RespondByUtc = item.CreatedAt.AddHours(deadlineHours);
+            item.InvitationKey = StudentInvitationDetailDto.FormatInvitationKey(source, item.InvitationId);
+        }
+    }
 
     private int DeadlineHours() => Math.Max(1, _enrollmentSettings.InviteResponseDeadlineHours);
 

@@ -16,7 +16,7 @@ Self-contained API contract for the **student / guardian** app. Auth: Bearer tok
 | **Single payer** | Only the **owner** (request creator / `OwnerUserId`) pays **full** `amountDue` **once**. Invitees never pay. |
 | **Invite deadline** | Default **48 hours** from invite `createdAt`. List exposes `respondByUtc`. After deadline → respond returns **400**; server expires invites. |
 | **Child login** | Does **not** see invites to themselves; guardian manages those. |
-| **Owner inbox** | Owners do **not** see invites they **sent** in `GET /Invitations`. |
+| **Owner inbox** | Owners see **one row per sent request** in `GET /Invitations` (`isOwner: true`, any invite/request status). Invitee inbox stays pending-only. |
 | **OSR** | Session request (no course catalog book). Same ownership / pay / invite visibility as Group S1. |
 
 ### Actors
@@ -175,7 +175,7 @@ Content-Type: application/json
 |-----|----------------------|--------------------------|--------------------|
 | Requests | Not listed | Waiting invites | Awaiting payment |
 | Enrollments | PendingPayment → Pay | Hidden until enrollment exists | Listed |
-| Invitations | Empty (owner) | Rows for **invitees** | — |
+| Invitations | Empty (no invites) | Invitee pending rows; owner: one row per sent request | Owner sent row remains |
 
 ### Navigation after book
 
@@ -193,7 +193,7 @@ GET /Api/V1/Student/Invitations?pageNumber=1&pageSize=10
 Authorization: Bearer <token>
 ```
 
-- Pending only.
+- Invitee rows: **pending only**. Owner rows: **all statuses**, one per parent request.
 - Paginated; meta: `totalCount`, `pageNumber`, `pageSize`, …
 - `pageNumber >= 1`, `pageSize` 1–100.
 
@@ -204,7 +204,7 @@ Authorization: Bearer <token>
 | Adult student (no `GuardianId` on their student) | Pending invites where `invitedStudentId` is **themselves** |
 | Guardian | Pending invites where `invitedStudentId` is **one of their children** |
 | Child login | **Empty** for invites to self |
-| Request owner | Does **not** see sent invites here |
+| Request owner | **One row per sent request** (`isOwner: true`), any invite/request status. Same parent as an invitee row → invitee row only |
 
 ### List item fields
 
@@ -221,7 +221,9 @@ Authorization: Bearer <token>
 | `requestedByUserName` | Who sent |
 | `createdAt` | UTC |
 | `respondByUtc` | `createdAt + InviteResponseDeadlineHours` (default 48h) — show countdown |
-| `confirmationStatus` | S1 pending status; null for OSR |
+| `confirmationStatus` | S1 invite status; null for OSR |
+| `isOwner` | `true` for sent (creator) rows — hide Accept/Reject |
+| `parentStatus` | Parent request status (owner badge). Invitee rows may omit |
 
 ### Sample list item (S1)
 
@@ -243,7 +245,9 @@ Authorization: Bearer <token>
   "requestedByUserName": "Guardian Name",
   "createdAt": "2026-08-10T10:00:00Z",
   "respondByUtc": "2026-08-12T10:00:00Z",
-  "confirmationStatus": "Pending"
+  "confirmationStatus": "Pending",
+  "isOwner": false,
+  "parentStatus": null
 }
 ```
 
@@ -267,7 +271,9 @@ Authorization: Bearer <token>
   "requestedByUserName": "Guardian Name",
   "createdAt": "2026-08-10T10:00:00Z",
   "respondByUtc": "2026-08-12T10:00:00Z",
-  "confirmationStatus": null
+  "confirmationStatus": null,
+  "isOwner": false,
+  "parentStatus": null
 }
 ```
 
@@ -278,7 +284,7 @@ Authorization: Bearer <token>
 | `EnrollmentRequest` | `courseTitle` (+ image/teacher) | `POST /Student/EnrollmentRequests/{enrollmentRequestId}/Members/Response` with `decision`: `Confirmed` \| `Rejected` |
 | `OpenSessionRequest` | `titleAr` / `titleEn` | `POST /Student/OpenSessionRequests/{openSessionRequestId}/Members/Response` with `decision`: `Accepted` \| `Rejected` |
 
-Always send `data.studentId` = `invitedStudentId`. Hide **Pay** on invitee flows. Open detail with `GET /Invitations/{invitationKey}` (no `source` query).
+Always send `data.studentId` = `invitedStudentId`. Hide **Pay** on invitee flows. Hide Accept/Reject when `isOwner`. Open detail with `GET /Invitations/{invitationKey}` (no `source` query).
 
 ### Invitation detail
 
@@ -289,7 +295,7 @@ Authorization: Bearer <token>
 
 `invitationKey` comes from the inbox list (`EnrollmentRequest-901`, `OpenSessionRequest-44`). Do **not** send a `source` query — type is baked into the key so S1 and OSR row ids cannot collide.
 
-Detail expands to the **parent request** (all invitees + full sessions). Inbox list stays invitee-only; owners open detail via the same key (`EnrollmentRequest-{memberId}`) or keep using request detail.
+Detail expands to the **parent request** (all invitees + full sessions). Inbox includes invitee pending rows and owner sent rows; tap either with `invitationKey`. Owners may still open request detail screens.
 
 Bare int (`GET /Invitations/44`) or malformed key → **400**. Unknown key / no access → **404**.
 

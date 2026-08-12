@@ -79,6 +79,16 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sent OSR invitations for the caller (<paramref name="userId"/> or
+    /// <paramref name="guardianId"/>): one row per request that has any invitation
+    /// (any invite / request status). Does not set RespondByUtc.
+    /// </summary>
+    Task<List<StudentInvitationListItemDto>> GetSentInvitationListItemsAsync(
+        int userId,
+        int? guardianId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Phase 1: expire Draft / PendingInvitations / Active / ReceivingOffers past ExpiresAt or past
     /// the session-derived offer cutoff. Pending offers → Withdrawn.
     /// </summary>
