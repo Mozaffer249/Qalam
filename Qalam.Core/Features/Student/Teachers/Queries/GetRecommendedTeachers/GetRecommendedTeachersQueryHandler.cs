@@ -32,32 +32,56 @@ public class GetRecommendedTeachersQueryHandler : ResponseHandler,
         GetRecommendedTeachersQuery request,
         CancellationToken cancellationToken)
     {
-        StudentEntity student;
+        var take = request.Take is > 0 ? request.Take.Value : DefaultTake;
+
         if (request.StudentId <= 0)
         {
-            var ownStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
-            if (ownStudent == null)
-                return BadRequest<List<TeacherCardDto>>(
-                    "Specify StudentId for which learner to recommend teachers for. Your account has no student profile to infer self.");
-            student = ownStudent;
+            var domainIds = await ResolveHouseholdDomainIdsAsync(request.UserId);
+            var householdTeachers = await _teacherRepository.GetRecommendedForDomainsAsync(
+                domainIds,
+                take,
+                cancellationToken);
+            return Success(entity: householdTeachers);
         }
-        else
-        {
-            student = await _studentRepository.GetByIdAsync(request.StudentId);
-            if (student == null)
-                return NotFound<List<TeacherCardDto>>("Student not found.");
-        }
+
+        var student = await _studentRepository.GetByIdAsync(request.StudentId);
+        if (student == null)
+            return NotFound<List<TeacherCardDto>>("Student not found.");
 
         var isSelf = student.UserId == request.UserId;
         if (!isSelf)
         {
             var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
             if (guardian == null || student.GuardianId != guardian.Id)
-                return Forbidden<List<TeacherCardDto>>("You don't have permission to browse teachers for this student.");
+                return Forbidden<List<TeacherCardDto>>(
+                    "You don't have permission to browse teachers for this student.");
         }
 
-        var take = request.Take is > 0 ? request.Take.Value : DefaultTake;
-        var teachers = await _teacherRepository.GetRecommendedForStudentAsync(student, take, cancellationToken);
+        var teachers = await _teacherRepository.GetRecommendedForStudentAsync(
+            student,
+            take,
+            cancellationToken);
         return Success(entity: teachers);
+    }
+
+    private async Task<List<int>> ResolveHouseholdDomainIdsAsync(int userId)
+    {
+        var domainIds = new HashSet<int>();
+        var ownStudent = await _studentRepository.GetByUserIdAsync(userId);
+        if (ownStudent?.DomainId is int ownDomain)
+            domainIds.Add(ownDomain);
+
+        var guardian = await _guardianRepository.GetByUserIdAsync(userId);
+        if (guardian != null)
+        {
+            var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
+            foreach (var child in children)
+            {
+                if (child.DomainId is int childDomain)
+                    domainIds.Add(childDomain);
+            }
+        }
+
+        return domainIds.ToList();
     }
 }

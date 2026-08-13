@@ -96,10 +96,12 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         {
             // Regenerate token to include all current roles
             var jwtToken = await _authService.GetJWTToken(user);
+            var existingRoles = await _userManager.GetRolesAsync(user);
             return Success(entity: new StudentRegistrationResponseDto
             {
                 Token = jwtToken.AccessToken,
                 CurrentStep = 1,
+                Roles = new List<string>(existingRoles),
                 NextStepName = "Dashboard",
                 IsNextStepRequired = false,
                 OptionalSteps = new List<string>(),
@@ -214,10 +216,12 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
                 cancellationToken);
         }
 
+        var roles = await _userManager.GetRolesAsync(user);
         return Success(entity: new StudentRegistrationResponseDto
         {
             Token = jwt.AccessToken,
             CurrentStep = 2,
+            Roles = new List<string>(roles),
             NextStepName = nextStepName,
             IsNextStepRequired = isNextStepRequired,
             OptionalSteps = optionalSteps,

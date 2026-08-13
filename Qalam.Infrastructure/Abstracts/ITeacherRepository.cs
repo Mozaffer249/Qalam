@@ -70,6 +70,15 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Household recommendation: top teachers whose active subjects match any of the given domain ids.
+    /// Empty <paramref name="domainIds"/> → unfiltered top-N active teachers.
+    /// </summary>
+    Task<List<TeacherCardDto>> GetRecommendedForDomainsAsync(
+        IReadOnlyCollection<int> domainIds,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Student-facing paginated browse with optional filters. Every filter is AND-combined when supplied.
     /// Used by the scenario-2 "Find a Teacher" picker before setting <c>TargetedTeacherId</c>.
     /// </summary>

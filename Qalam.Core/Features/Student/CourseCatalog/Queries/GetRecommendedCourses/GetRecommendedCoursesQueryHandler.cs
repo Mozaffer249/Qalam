@@ -15,6 +15,8 @@ namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetRecommendedCourse
 public class GetRecommendedCoursesQueryHandler : ResponseHandler,
     IRequestHandler<GetRecommendedCoursesQuery, Response<List<CourseCatalogItemDto>>>
 {
+    private const int DefaultTake = 4;
+
     private readonly ICourseRepository _courseRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
@@ -37,48 +39,47 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
         GetRecommendedCoursesQuery request,
         CancellationToken cancellationToken)
     {
-        StudentProfile student;
+        HashSet<int> domainIds;
+
         if (request.StudentId <= 0)
         {
-            var ownStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
-            if (ownStudent == null)
-                return BadRequest<List<CourseCatalogItemDto>>(
-                    "Specify StudentId for which learner to recommend courses for. Your account has no student profile to infer self.");
-
-            student = ownStudent;
+            domainIds = await ResolveHouseholdDomainIdsAsync(request.UserId, cancellationToken);
         }
         else
         {
-            student = await _studentRepository.GetByIdAsync(request.StudentId);
+            var student = await _studentRepository.GetByIdAsync(request.StudentId);
             if (student == null)
                 return NotFound<List<CourseCatalogItemDto>>("Student not found.");
-        }
 
-        var isSelf = student.UserId == request.UserId;
-        if (!isSelf)
-        {
-            var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
-            if (guardian == null || student.GuardianId != guardian.Id)
-                return Forbidden<List<CourseCatalogItemDto>>("You don't have permission to browse courses for this student.");
+            var isSelf = student.UserId == request.UserId;
+            if (!isSelf)
+            {
+                var guardian = await _guardianRepository.GetByUserIdAsync(request.UserId);
+                if (guardian == null || student.GuardianId != guardian.Id)
+                    return Forbidden<List<CourseCatalogItemDto>>(
+                        "You don't have permission to browse courses for this student.");
+            }
+
+            domainIds = student.DomainId.HasValue
+                ? new HashSet<int> { student.DomainId.Value }
+                : new HashSet<int>();
         }
 
         var query = _courseRepository.GetPublishedCoursesQueryable();
 
-        // Domain-based recommendations only
-        if (student.DomainId.HasValue)
+        if (domainIds.Count > 0)
         {
-            var domainId = student.DomainId.Value;
             query = query.Where(c =>
                 c.TeacherSubject != null &&
                 c.TeacherSubject.Subject != null &&
-                c.TeacherSubject.Subject.DomainId == domainId);
+                domainIds.Contains(c.TeacherSubject.Subject.DomainId));
         }
 
         var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
             .Equals("ar", StringComparison.OrdinalIgnoreCase);
 
         var items = await query
-            .Take(4)
+            .Take(DefaultTake)
             .Select(c => new CourseCatalogItemDto
             {
                 Id = c.Id,
@@ -134,5 +135,28 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
             })
             .ToListAsync(cancellationToken);
         return Success(entity: items);
+    }
+
+    private async Task<HashSet<int>> ResolveHouseholdDomainIdsAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var domainIds = new HashSet<int>();
+        var ownStudent = await _studentRepository.GetByUserIdAsync(userId);
+        if (ownStudent?.DomainId is int ownDomain)
+            domainIds.Add(ownDomain);
+
+        var guardian = await _guardianRepository.GetByUserIdAsync(userId);
+        if (guardian != null)
+        {
+            var children = await _studentRepository.GetChildrenByGuardianIdAsync(guardian.Id);
+            foreach (var child in children)
+            {
+                if (child.DomainId is int childDomain)
+                    domainIds.Add(childDomain);
+            }
+        }
+
+        return domainIds;
     }
 }

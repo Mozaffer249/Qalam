@@ -571,6 +571,28 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         return await query.Take(take).Select(ProjectToCard()).ToListAsync(cancellationToken);
     }
 
+    public async Task<List<TeacherCardDto>> GetRecommendedForDomainsAsync(
+        IReadOnlyCollection<int> domainIds,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var query = ActiveTeachersBaseQuery();
+
+        if (domainIds.Count > 0)
+        {
+            var domains = domainIds.ToList();
+            query = query.Where(t => t.TeacherSubjects.Any(ts =>
+                ts.IsActive && ts.Subject != null && domains.Contains(ts.Subject.DomainId)));
+        }
+
+        query = query
+            .OrderByDescending(t => t.RatingAverage)
+            .ThenByDescending(t => t.TeacherReviews.Count(r => r.IsApproved))
+            .ThenByDescending(t => t.CreatedAt);
+
+        return await query.Take(take).Select(ProjectToCard()).ToListAsync(cancellationToken);
+    }
+
     public async Task<PaginatedResult<TeacherCardDto>> SearchAsync(
         TeacherSearchFilters filters,
         CancellationToken cancellationToken = default)

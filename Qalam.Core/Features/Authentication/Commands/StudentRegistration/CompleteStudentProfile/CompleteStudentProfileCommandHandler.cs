@@ -88,10 +88,16 @@ public class CompleteStudentProfileCommandHandler : ResponseHandler,
             ? "Profile completed! You can add children or go to dashboard."
             : "Profile completed successfully!";
 
+        var userForRoles = await _userManager.FindByIdAsync(request.UserId.ToString());
+        var roles = userForRoles != null
+            ? new List<string>(await _userManager.GetRolesAsync(userForRoles))
+            : new List<string>();
+
         return Success(entity: new StudentRegistrationResponseDto
         {
             Token = refreshedToken,
             CurrentStep = 3,
+            Roles = roles,
             NextStepName = "Dashboard",
             IsNextStepRequired = false,
             OptionalSteps = optionalSteps,
