@@ -83,14 +83,22 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         var existingStudent = await _studentRepository.GetByUserIdAsync(user.Id);
         var existingGuardian = await _guardianRepository.GetByUserIdAsync(user.Id);
 
-        // Check if requested roles are already set up
-        bool studentAlreadyExists = existingStudent != null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both);
-        bool guardianAlreadyExists = existingGuardian != null && (accountType == StudentAccountType.Parent || accountType == StudentAccountType.Both);
+        // Parent+StudySelf/Both also needs a self Student (same user, GuardianId null).
+        var needsSelfStudent =
+            accountType == StudentAccountType.Student
+            || accountType == StudentAccountType.Both
+            || (accountType == StudentAccountType.Parent
+                && usageMode is UsageMode.StudySelf or UsageMode.Both);
 
-        // If all requested roles exist, user is done
-        if ((accountType == StudentAccountType.Student && studentAlreadyExists) ||
-            (accountType == StudentAccountType.Parent && guardianAlreadyExists) ||
-            (accountType == StudentAccountType.Both && studentAlreadyExists && guardianAlreadyExists))
+        var needsGuardian =
+            accountType == StudentAccountType.Parent
+            || accountType == StudentAccountType.Both;
+
+        // If all requested roles/entities exist, user is done
+        var studentAlreadyExists = existingStudent != null && needsSelfStudent;
+        var guardianAlreadyExists = existingGuardian != null && needsGuardian;
+        if ((!needsSelfStudent || studentAlreadyExists) && (!needsGuardian || guardianAlreadyExists)
+            && (needsSelfStudent || needsGuardian))
         {
             // Regenerate token to include all current roles
             var jwtToken = await _authService.GetJWTToken(user);
@@ -155,14 +163,14 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
                 string.Join("; ", updateResult.Errors.Select(e => e.Description)));
         }
 
-        if (existingStudent == null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both))
+        if (existingStudent == null && needsSelfStudent)
             await _userManager.AddToRoleAsync(user, Roles.Student);
-        if (existingGuardian == null && (accountType == StudentAccountType.Parent || accountType == StudentAccountType.Both))
+        if (existingGuardian == null && needsGuardian)
             await _userManager.AddToRoleAsync(user, Roles.Guardian);
 
         var fullPhone = user.PhoneNumber ?? user.UserName ?? "";
 
-        if (existingStudent == null && (accountType == StudentAccountType.Student || accountType == StudentAccountType.Both))
+        if (existingStudent == null && needsSelfStudent)
         {
             await _studentRepository.AddAsync(new StudentEntity
             {
@@ -175,7 +183,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             await _studentRepository.SaveChangesAsync();
         }
 
-        if (existingGuardian == null && (accountType == StudentAccountType.Parent || accountType == StudentAccountType.Both))
+        if (existingGuardian == null && needsGuardian)
         {
             await _guardianRepository.AddAsync(new GuardianEntity
             {
@@ -189,48 +197,33 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             await _guardianRepository.SaveChangesAsync();
         }
 
-        // Smart logic to determine next step based on AccountType and UsageMode
+        // Next step from intent: study → academic; children-only → dashboard (AddChildren optional)
         string nextStepName;
         bool isNextStepRequired;
         List<string> optionalSteps = new();
         string nextStepDescription;
 
-        if (accountType == StudentAccountType.Student)
+        if (needsSelfStudent)
         {
             nextStepName = "CompleteAcademicProfile";
             isNextStepRequired = true;
-            nextStepDescription = "Complete your academic profile to start.";
-        }
-        else if (accountType == StudentAccountType.Parent)
-        {
-            if (usageMode == UsageMode.StudySelf)
+            if (needsGuardian)
             {
-                nextStepName = "CompleteAcademicProfile";
-                isNextStepRequired = true;
-                optionalSteps.Add("AddChildren");
-                nextStepDescription = "Complete your academic profile. You can also add children later.";
-            }
-            else if (usageMode == UsageMode.AddChildren)
-            {
-                nextStepName = "AddChildren";
-                isNextStepRequired = false;
-                optionalSteps.Add("Dashboard");
-                nextStepDescription = "You can add children now or skip to dashboard.";
-            }
-            else // UsageMode.Both
-            {
-                nextStepName = "CompleteAcademicProfile";
-                isNextStepRequired = true;
                 optionalSteps.Add("AddChildren");
                 nextStepDescription = "Complete your academic profile first, then you can add children.";
             }
+            else
+            {
+                nextStepDescription = "Complete your academic profile to start.";
+            }
         }
-        else // StudentAccountType.Both
+        else
         {
-            nextStepName = "CompleteAcademicProfile";
-            isNextStepRequired = true;
+            // Parent + AddChildren: guardian-only, no academic gate
+            nextStepName = "Dashboard";
+            isNextStepRequired = false;
             optionalSteps.Add("AddChildren");
-            nextStepDescription = "Complete your academic profile. You can add children anytime.";
+            nextStepDescription = "You can add children from home anytime.";
         }
 
         var jwt = await _authService.GetJWTToken(user);

@@ -75,14 +75,14 @@
 **الخطوة التالية**:
 ```json
 {
-  "nextStepName": "AddChildren",
+  "nextStepName": "Dashboard",
   "isNextStepRequired": false,
-  "optionalSteps": ["Dashboard"],
-  "nextStepDescription": "You can add children now or skip to dashboard."
+  "optionalSteps": ["AddChildren"],
+  "nextStepDescription": "You can add children from home anytime."
 }
 ```
 
-**التفسير**: ولي الأمر لن يدرس بنفسه، فقط سيدير أبناءه. يمكنه إضافة أبناء الآن أو تخطي ذلك والذهاب للوحة التحكم مباشرة.
+**التفسير**: ولي الأمر لن يدرس بنفسه، فقط سيدير أبناءه. يذهب إلى لوحة التحكم مباشرة؛ إضافة الأبناء اختيارية من الصفحة الرئيسية (ليست بوابة تسجيل).
 
 ---
 
@@ -500,9 +500,18 @@
 |------------|-----------|-------------------|----------------|---------|----------------|
 | Student | - | Student | CompleteAcademicProfile | نعم | - |
 | Parent | StudySelf | Guardian + Student | CompleteAcademicProfile | نعم | AddChildren |
-| Parent | AddChildren | Guardian | AddChildren | لا | Dashboard |
+| Parent | AddChildren | Guardian | Dashboard | لا | AddChildren |
 | Parent | Both | Guardian + Student | CompleteAcademicProfile | نعم | AddChildren |
 | Both | أي قيمة | Student + Guardian | CompleteAcademicProfile | نعم | AddChildren |
+
+**واجهة التطبيق (Flutter):** شاشة نية واحدة بعد OTP بدل شاشتين (نوع الحساب + طريقة الاستخدام):
+- أريد أن أدرس → `Student`
+- أدير حساب أبنائي → `Parent` + `AddChildren`
+- أدرس وأدير حساب أبنائي → `Parent` + `Both`
+
+`accountType: Both` يبقى مدعوماً في الـ API كاسم مستعار لنفس نية «أدرس + أبناء».
+
+**CompleteProfile:** إذا وُجد Guardian بدون Student (حسابات عالقة من bug قديم)، يُنشأ Student ذاتي ويُضاف دور Student ويُرجع token محدّث عند الحاجة.
 
 ---
 
@@ -550,7 +559,7 @@
 }
 ```
 
-3. **Student profile غير موجود عند CompleteProfile**:
+3. **Student profile غير موجود عند CompleteProfile** (ولي أمر بدون دراسة فقط — لا Guardian أيضاً أو لم يكمل SetAccountType):
 ```json
 {
   "statusCode": 404,
@@ -558,6 +567,7 @@
   "message": "Student profile not found. Complete registration first."
 }
 ```
+ملاحظة: إن وُجد Guardian بدون Student، يقوم CompleteProfile بإنشاء Student ذاتي (إصلاح للحسابات العالقة).
 
 ---
 

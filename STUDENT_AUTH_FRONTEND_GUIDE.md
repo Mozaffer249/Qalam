@@ -4,8 +4,8 @@
 
 **Step 0:** Call `GET /Api/V1/Authentication/Config` and read the `student` block to decide which fields to show (phone, email) and OTP delivery (`Email` vs `Sms`). See [docs/Auth-Config-Frontend.md](docs/Auth-Config-Frontend.md).
 
-Multi-step registration flow: Phone (+ email when config requires) OTP -> Account Type -> Academic Profile -> Dashboard.
-Supports 3 account types: Student, Parent, Both.
+Multi-step registration flow: Phone (+ email when config requires) OTP → **Intent** (study / children / both) → Personal details → Academic Profile (if studying) → Dashboard.
+Supports intents mapped to account types: Student, Parent+AddChildren, Parent+Both (`accountType: Both` remains an API alias).
 
 **Base URL:** `Api/V1/Authentication/Student/`
 
@@ -28,32 +28,34 @@ All responses are wrapped in:
 
 ```
 Screen 1: Phone Input
-    POST /SendOttp
+    POST /SendOtp
         |
 Screen 2: OTP Verification
-    POST /VerifyOp → returns token
+    POST /VerifyOtp → returns token
         |
         ├── Existing user with Student/Guardian role → Dashboard
         |
-Screen 3-4: Account Type + Personal Info
+Screen 3: Intent (one screen — how will you use Qalam?)
+    Study → accountType Student
+    Children → accountType Parent + usageMode AddChildren
+    Study + children → accountType Parent + usageMode Both
+        |
+Screen 4: Personal Info
     POST /SetAccountTypeAndUsage  (Bearer token required)
         |                          → returns NEW token (with roles)
-        ├── Student → CompleteAcademicProfile (required)
-        ├── Parent + StudySelf → CompleteAcademicProfile (required) + AddChildren (optional)
-        ├── Parent + AddChildren → AddChildren (optional) or Dashboard
-        ├── Parent + Both → CompleteAcademicProfile (required) + AddChildren (optional)
-        └── Both → CompleteAcademicProfile (required) + AddChildren (optional)
+        ├── Student / Parent+StudySelf / Parent+Both / Both → CompleteAcademicProfile (required)
+        └── Parent + AddChildren → Dashboard (AddChildren optional hint only)
         |
-Screen 5: Academic Profile
+Screen 5: Academic Profile (only when studying)
     POST /CompleteProfile  (Bearer token required)
-        |                   → token is null (keep using previous token)
-        └── Dashboard (optionally AddChildren if Guardian)
+        |                   → token null normally; replace if non-null (self-heal)
+        └── Dashboard (optionally prompt AddChildren if Guardian — do not auto-route on optionalSteps)
         |
-Screen 6 (optional): Add Child
+Add Child (optional, from home)
     POST /AddChild  (Bearer token + Guardian role required)
-        |             → can repeat multiple times
-        └── Dashboard
 ```
+
+**Routing rule:** Follow `nextStepName` when deciding the next screen. Treat `optionalSteps` as home CTAs / dialogs — never override a required step.
 
 **Important: Token updates at each step.** When a response contains a non-null `token`, replace the stored token. The new token may contain updated claims (e.g., roles added after SetAccountTypeAndUsage).
 
@@ -282,34 +284,30 @@ interface SetAccountTypeRequest {
 
 ### Routing Table
 
-| accountType | usageMode | nextStepName | isNextStepRequired | optionalSteps |
-|-------------|-----------|--------------|-------------------|---------------|
-| Student | -- | CompleteAcademicProfile | true | [] |
-| Parent | StudySelf | CompleteAcademicProfile | true | ["AddChildren"] |
-| Parent | AddChildren | AddChildren | false | ["Dashboard"] |
-| Parent | Both | CompleteAcademicProfile | true | ["AddChildren"] |
-| Both | Both | CompleteAcademicProfile | true | ["AddChildren"] |
+| accountType | usageMode | nextStepName | isNextStepRequired | optionalSteps | Entities |
+|-------------|-----------|--------------|-------------------|---------------|----------|
+| Student | -- | CompleteAcademicProfile | true | [] | Student |
+| Parent | StudySelf | CompleteAcademicProfile | true | ["AddChildren"] | Guardian + Student |
+| Parent | AddChildren | Dashboard | false | ["AddChildren"] | Guardian |
+| Parent | Both | CompleteAcademicProfile | true | ["AddChildren"] | Guardian + Student |
+| Both | any | CompleteAcademicProfile | true | ["AddChildren"] | Student + Guardian |
 
 ### Frontend Logic
 
 ```
-Screen 3: Account Type Selection (radio/card selection)
-  - "Student"  → "I want to learn"
-  - "Parent"   → "I want to manage my children's education"
-  - "Both"     → "I want to learn AND manage my children"
-
-If Parent or Both selected → show UsageMode selector:
-  - "StudySelf"    → "I will study too"
-  - "AddChildren"  → "I will only add children"
-  - "Both"         → "I will study AND add children"
+Screen 3: Intent (single screen — goals, not roles)
+  - Study → accountType Student
+  - Manage children → accountType Parent + usageMode AddChildren
+  - Study and manage children → accountType Parent + usageMode Both
+  (Do not show a separate "Both account type" + usage screens)
 
 Screen 4: Personal Info Form
   - firstName, lastName, email, password, dateOfBirth, cityOrRegion(optional)
 
 On success:
   1. REPLACE stored token with response.data.token
-  2. Navigate based on nextStepName
-  3. If optionalSteps includes "AddChildren", show skip-able "Add Children" option
+  2. Navigate based on nextStepName (required step wins)
+  3. optionalSteps are home CTAs / dialogs — never override nextStepName
 ```
 
 ---
