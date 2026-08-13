@@ -225,8 +225,8 @@ Base URL: `Api/V1/Authentication/Student`
 ```
 
 ### Case 3.3: accountType = "Parent", usageMode = "AddChildren"
-**Roles assigned:** Guardian
-**Next:** Dashboard (AddChildren optional from home)
+**Roles assigned:** Guardian + Student (Option A — always Student)
+**Next:** CompleteAcademicProfile (required); AddChildren optional after personal details
 
 ```json
 // REQUEST
@@ -246,12 +246,12 @@ Base URL: `Api/V1/Authentication/Student`
 // RESPONSE
 {
   "data": {
-    "token": "eyJ...(includes role:Guardian)...",
+    "token": "eyJ...(includes roles:Guardian,Student)...",
     "currentStep": 2,
-    "nextStepName": "Dashboard",
-    "isNextStepRequired": false,
+    "nextStepName": "CompleteAcademicProfile",
+    "isNextStepRequired": true,
     "optionalSteps": ["AddChildren"],
-    "nextStepDescription": "You can add children from home anytime.",
+    "nextStepDescription": "You can add children now or skip, then complete your academic profile.",
     "isRegistrationComplete": false,
     "message": "Account type set successfully."
   }
@@ -565,11 +565,11 @@ Can be called multiple times to add multiple children.
 |-------------|-----------|--------------|-----------|---------------|----------|
 | Student | — | CompleteAcademicProfile | YES | — | Student |
 | Parent | StudySelf | CompleteAcademicProfile | YES | AddChildren | Guardian + Student |
-| Parent | AddChildren | Dashboard | NO | AddChildren | Guardian |
+| Parent | AddChildren | CompleteAcademicProfile | YES | AddChildren | Guardian + Student |
 | Parent | Both | CompleteAcademicProfile | YES | AddChildren | Guardian + Student |
 | Both | any | CompleteAcademicProfile | YES | AddChildren | Student + Guardian |
 
-**Flutter intent UI (one screen):** Study → Student; Children → Parent+AddChildren; Study+Children → Parent+Both. Do not route on `optionalSteps` when `isNextStepRequired` is true — follow `nextStepName`.
+**Option A:** every adult always gets Student. Flutter intent: Study → Student; Manage children / Study+children → Parent+Both. After personal details, if `optionalSteps` includes AddChildren → optional Add children screen (Skip → academic).
 
 ---
 
@@ -594,9 +594,7 @@ Always check: if `response.data.token !== null` → replace stored token.
 | VerifyOtp (new user) | User (phone only, temp password) |
 | VerifyOtp (existing) | None |
 | SetAccountType (Student) | Student profile + Student role |
-| SetAccountType (Parent + AddChildren) | Guardian profile + Guardian role |
-| SetAccountType (Parent + StudySelf/Both) | Guardian + Student profiles + both roles |
-| SetAccountType (Both) | Student + Guardian profiles + both roles |
+| SetAccountType (Parent any usage / Both) | Student + Guardian profiles + both roles |
 | CompleteProfile | Updates existing Student; if Guardian-only stuck account, creates self Student + Student role |
 | AddChild | User (child account) + Student (linked to Guardian) |
 

@@ -83,22 +83,16 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         var existingStudent = await _studentRepository.GetByUserIdAsync(user.Id);
         var existingGuardian = await _guardianRepository.GetByUserIdAsync(user.Id);
 
-        // Parent+StudySelf/Both also needs a self Student (same user, GuardianId null).
-        var needsSelfStudent =
-            accountType == StudentAccountType.Student
-            || accountType == StudentAccountType.Both
-            || (accountType == StudentAccountType.Parent
-                && usageMode is UsageMode.StudySelf or UsageMode.Both);
-
+        // Option A: every adult always gets a self Student; Guardian is additive.
+        const bool needsSelfStudent = true;
         var needsGuardian =
             accountType == StudentAccountType.Parent
             || accountType == StudentAccountType.Both;
 
         // If all requested roles/entities exist, user is done
-        var studentAlreadyExists = existingStudent != null && needsSelfStudent;
+        var studentAlreadyExists = existingStudent != null;
         var guardianAlreadyExists = existingGuardian != null && needsGuardian;
-        if ((!needsSelfStudent || studentAlreadyExists) && (!needsGuardian || guardianAlreadyExists)
-            && (needsSelfStudent || needsGuardian))
+        if (studentAlreadyExists && (!needsGuardian || guardianAlreadyExists))
         {
             // Regenerate token to include all current roles
             var jwtToken = await _authService.GetJWTToken(user);
@@ -197,34 +191,15 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
             await _guardianRepository.SaveChangesAsync();
         }
 
-        // Next step from intent: study → academic; children-only → dashboard (AddChildren optional)
-        string nextStepName;
-        bool isNextStepRequired;
-        List<string> optionalSteps = new();
-        string nextStepDescription;
-
-        if (needsSelfStudent)
-        {
-            nextStepName = "CompleteAcademicProfile";
-            isNextStepRequired = true;
-            if (needsGuardian)
-            {
-                optionalSteps.Add("AddChildren");
-                nextStepDescription = "Complete your academic profile first, then you can add children.";
-            }
-            else
-            {
-                nextStepDescription = "Complete your academic profile to start.";
-            }
-        }
-        else
-        {
-            // Parent + AddChildren: guardian-only, no academic gate
-            nextStepName = "Dashboard";
-            isNextStepRequired = false;
-            optionalSteps.Add("AddChildren");
-            nextStepDescription = "You can add children from home anytime.";
-        }
+        // Option A: academic always required; AddChildren optional when Guardian.
+        const string nextStepName = "CompleteAcademicProfile";
+        const bool isNextStepRequired = true;
+        var optionalSteps = needsGuardian
+            ? new List<string> { "AddChildren" }
+            : new List<string>();
+        var nextStepDescription = needsGuardian
+            ? "You can add children now or skip, then complete your academic profile."
+            : "Complete your academic profile to start.";
 
         var jwt = await _authService.GetJWTToken(user);
 

@@ -68,21 +68,21 @@
 ### السيناريو الثالث: تسجيل كولي أمر + سيضيف أبناء فقط (Parent + AddChildren)
 
 **نوع الحساب**: Parent  
-**طريقة الاستخدام**: AddChildren  
-**الكيانات المُنشأة**: Guardian entity فقط  
-**الأدوار المُضافة**: Guardian role
+**طريقة الاستخدام**: AddChildren (legacy — يعامل مثل Both)  
+**الكيانات المُنشأة**: Guardian + Student entities  
+**الأدوار المُضافة**: Guardian + Student roles
 
 **الخطوة التالية**:
 ```json
 {
-  "nextStepName": "Dashboard",
-  "isNextStepRequired": false,
+  "nextStepName": "CompleteAcademicProfile",
+  "isNextStepRequired": true,
   "optionalSteps": ["AddChildren"],
-  "nextStepDescription": "You can add children from home anytime."
+  "nextStepDescription": "You can add children now or skip, then complete your academic profile."
 }
 ```
 
-**التفسير**: ولي الأمر لن يدرس بنفسه، فقط سيدير أبناءه. يذهب إلى لوحة التحكم مباشرة؛ إضافة الأبناء اختيارية من الصفحة الرئيسية (ليست بوابة تسجيل).
+**التفسير (Option A)**: كل بالغ يحصل على Student. إضافة الأبناء اختيارية بعد إدخال البيانات الشخصية، ثم الملف الأكاديمي إلزامي.
 
 ---
 
@@ -500,14 +500,18 @@
 |------------|-----------|-------------------|----------------|---------|----------------|
 | Student | - | Student | CompleteAcademicProfile | نعم | - |
 | Parent | StudySelf | Guardian + Student | CompleteAcademicProfile | نعم | AddChildren |
-| Parent | AddChildren | Guardian | Dashboard | لا | AddChildren |
+| Parent | AddChildren | Guardian + Student | CompleteAcademicProfile | نعم | AddChildren |
 | Parent | Both | Guardian + Student | CompleteAcademicProfile | نعم | AddChildren |
 | Both | أي قيمة | Student + Guardian | CompleteAcademicProfile | نعم | AddChildren |
 
-**واجهة التطبيق (Flutter):** شاشة نية واحدة بعد OTP بدل شاشتين (نوع الحساب + طريقة الاستخدام):
+**Option A:** كل بالغ يحصل دائماً على Student. لا يوجد حساب Guardian فقط.
+
+**واجهة التطبيق (Flutter):** شاشة نية واحدة بعد OTP:
 - أريد أن أدرس → `Student`
-- أدير حساب أبنائي → `Parent` + `AddChildren`
+- أدير حساب أبنائي → `Parent` + `Both`
 - أدرس وأدير حساب أبنائي → `Parent` + `Both`
+
+بعد البيانات الشخصية: إن وُجد `AddChildren` في `optionalSteps` → شاشة إضافة أبناء (تخطي مسموح) ثم الملف الأكاديمي.
 
 `accountType: Both` يبقى مدعوماً في الـ API كاسم مستعار لنفس نية «أدرس + أبناء».
 

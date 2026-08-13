@@ -37,25 +37,23 @@ Screen 2: OTP Verification
         |
 Screen 3: Intent (one screen — how will you use Qalam?)
     Study → accountType Student
-    Children → accountType Parent + usageMode AddChildren
-    Study + children → accountType Parent + usageMode Both
+    Children / Study+children → accountType Parent + usageMode Both
         |
 Screen 4: Personal Info
     POST /SetAccountTypeAndUsage  (Bearer token required)
-        |                          → returns NEW token (with roles)
-        ├── Student / Parent+StudySelf / Parent+Both / Both → CompleteAcademicProfile (required)
-        └── Parent + AddChildren → Dashboard (AddChildren optional hint only)
+        |                          → returns NEW token (with roles; always Student)
+        ├── optionalSteps includes AddChildren → Add children (skippable)
+        └── else → CompleteAcademicProfile
         |
-Screen 5: Academic Profile (only when studying)
-    POST /CompleteProfile  (Bearer token required)
-        |                   → token null normally; replace if non-null (self-heal)
-        └── Dashboard (optionally prompt AddChildren if Guardian — do not auto-route on optionalSteps)
+Screen 4b (optional): Add Child
+    POST /AddChild — Skip or after save → CompleteAcademicProfile
         |
-Add Child (optional, from home)
-    POST /AddChild  (Bearer token + Guardian role required)
+Screen 5: Academic Profile (always required)
+    POST /CompleteProfile
+        └── Dashboard
 ```
 
-**Routing rule:** Follow `nextStepName` when deciding the next screen. Treat `optionalSteps` as home CTAs / dialogs — never override a required step.
+**Routing rule:** After personal details only, Flutter may open Add children when it is in `optionalSteps`, then continue to required academic. OTP / global navigators still follow `nextStepName` and must not skip academic.
 
 **Important: Token updates at each step.** When a response contains a non-null `token`, replace the stored token. The new token may contain updated claims (e.g., roles added after SetAccountTypeAndUsage).
 
@@ -288,7 +286,7 @@ interface SetAccountTypeRequest {
 |-------------|-----------|--------------|-------------------|---------------|----------|
 | Student | -- | CompleteAcademicProfile | true | [] | Student |
 | Parent | StudySelf | CompleteAcademicProfile | true | ["AddChildren"] | Guardian + Student |
-| Parent | AddChildren | Dashboard | false | ["AddChildren"] | Guardian |
+| Parent | AddChildren | CompleteAcademicProfile | true | ["AddChildren"] | Guardian + Student |
 | Parent | Both | CompleteAcademicProfile | true | ["AddChildren"] | Guardian + Student |
 | Both | any | CompleteAcademicProfile | true | ["AddChildren"] | Student + Guardian |
 
@@ -297,17 +295,17 @@ interface SetAccountTypeRequest {
 ```
 Screen 3: Intent (single screen — goals, not roles)
   - Study → accountType Student
-  - Manage children → accountType Parent + usageMode AddChildren
+  - Manage children → accountType Parent + usageMode Both
   - Study and manage children → accountType Parent + usageMode Both
-  (Do not show a separate "Both account type" + usage screens)
 
 Screen 4: Personal Info Form
   - firstName, lastName, email, password, dateOfBirth, cityOrRegion(optional)
 
 On success:
   1. REPLACE stored token with response.data.token
-  2. Navigate based on nextStepName (required step wins)
-  3. optionalSteps are home CTAs / dialogs — never override nextStepName
+  2. If optionalSteps includes AddChildren → Add children screen (Skip → academic)
+  3. Else navigate to nextStepName (CompleteAcademicProfile)
+  4. After Add children Skip/Save → CompleteAcademicProfile (never home during registration)
 ```
 
 ---
