@@ -226,6 +226,11 @@ Authorization: Bearer <token>
 | `confirmationStatus` | Invite status (S1 + mapped OSR); use with `parentStatus` for badge |
 | `isOwner` | `true` for sent (creator) rows — hide Accept/Reject |
 | `parentStatus` | Parent request status — **always set** for invitee and owner rows (e.g. `Cancelled`) |
+| `isGroup` | `true` when parent has **more than one Invited** member (`invitedStudentCount > 1`) |
+| `invitedStudentCount` | Count of **Invited** members on the parent (Own excluded for S1) |
+| `viewerInviteeCount` | Invitee rows only: how many of **this caller’s** visible students are invitees on that parent (set after collapse). Null/omitted on owner rows |
+
+**Accept on list card:** only when a single learner can safely respond — if `isGroup` or `invitedStudentCount > 1` or `viewerInviteeCount > 1`, open detail instead (no Accept on the card).
 
 ### Sample list item (S1)
 
@@ -249,7 +254,10 @@ Authorization: Bearer <token>
   "respondByUtc": "2026-08-12T10:00:00Z",
   "confirmationStatus": "Pending",
   "isOwner": false,
-  "parentStatus": "Approved"
+  "parentStatus": "Approved",
+  "isGroup": true,
+  "invitedStudentCount": 3,
+  "viewerInviteeCount": 2
 }
 ```
 
@@ -275,7 +283,10 @@ Authorization: Bearer <token>
   "respondByUtc": "2026-08-12T10:00:00Z",
   "confirmationStatus": "Pending",
   "isOwner": false,
-  "parentStatus": "PendingInvitations"
+  "parentStatus": "PendingInvitations",
+  "isGroup": false,
+  "invitedStudentCount": 1,
+  "viewerInviteeCount": 1
 }
 ```
 

@@ -283,7 +283,9 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                     : null,
                 CreatedAt = i.CreatedAt,
                 ConfirmationStatus = null,
-                IsOwner = false
+                IsOwner = false,
+                InvitedStudentCount = i.OpenSessionRequest.Invitations.Count(),
+                IsGroup = i.OpenSessionRequest.Invitations.Count() > 1
             })
             .ToListAsync(cancellationToken);
     }
@@ -339,7 +341,8 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 RequestedByUserName = i.OpenSessionRequest.RequestedByUser != null
                     ? (i.OpenSessionRequest.RequestedByUser.FirstName + " "
                        + i.OpenSessionRequest.RequestedByUser.LastName).Trim()
-                    : null
+                    : null,
+                InvitedStudentCount = i.OpenSessionRequest.Invitations.Count()
             })
             .ToListAsync(cancellationToken);
 
@@ -361,7 +364,9 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
             CreatedAt = i.CreatedAt,
             ConfirmationStatus = MapOsrInviteToConfirmationStatus(i.Status),
             IsOwner = false,
-            ParentStatus = i.RequestStatus.ToString()
+            ParentStatus = i.RequestStatus.ToString(),
+            InvitedStudentCount = i.InvitedStudentCount,
+            IsGroup = i.InvitedStudentCount > 1
         }).ToList();
     }
 
@@ -437,7 +442,8 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 var waitingParent = parent is OpenSessionRequestStatus.Draft
                     or OpenSessionRequestStatus.PendingInvitations;
                 var isActive = !parentTerminal && (waitingParent || hasPending);
-                return new { invite, request, isActive };
+                var invitedCount = g.Count();
+                return new { invite, request, isActive, invitedCount };
             })
             .Where(x => scope == InvitationInboxScope.Active ? x.isActive : !x.isActive)
             .Select(x => new StudentInvitationListItemDto
@@ -458,7 +464,9 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
                 CreatedAt = x.request.RequestCreatedAt,
                 ConfirmationStatus = null,
                 IsOwner = true,
-                ParentStatus = x.request.RequestStatus.ToString()
+                ParentStatus = x.request.RequestStatus.ToString(),
+                InvitedStudentCount = x.invitedCount,
+                IsGroup = x.invitedCount > 1
             })
             .ToList();
     }

@@ -525,6 +525,21 @@ public class StudentInvitationListItemDto
 
     /// <summary>Parent request status (badge). Set for invitee and owner rows.</summary>
     public string? ParentStatus { get; set; }
+
+    /// <summary>
+    /// True when the parent request is group / multi-student.
+    /// When unset, clients may infer from counts / source.
+    /// </summary>
+    public bool IsGroup { get; set; }
+
+    /// <summary>Total invitees on the parent request (Own excluded when available).</summary>
+    public int? InvitedStudentCount { get; set; }
+
+    /// <summary>
+    /// How many of the caller's visible students are invitees on this parent.
+    /// Used so collapsed inbox rows hide Accept when multiple owned invitees share a request.
+    /// </summary>
+    public int? ViewerInviteeCount { get; set; }
 }
 
 /// <summary>

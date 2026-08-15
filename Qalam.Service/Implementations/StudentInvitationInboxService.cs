@@ -577,25 +577,36 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
     /// <summary>
     /// One inbox row per parent when multiple owned invitees share the same request.
     /// Prefer a Pending invite, then earliest CreatedAt (matches owner sent-row pick).
+    /// Sets <see cref="StudentInvitationListItemDto.ViewerInviteeCount"/> to the number of
+    /// caller-visible invitees on that parent. Does not change parent <c>IsGroup</c> /
+    /// <c>InvitedStudentCount</c> (those come from the repository).
     /// </summary>
     private static List<StudentInvitationListItemDto> CollapseInviteeRowsByParent(
         List<StudentInvitationListItemDto> items,
         Func<StudentInvitationListItemDto, int?> parentIdSelector)
     {
-        if (items.Count <= 1)
+        if (items.Count == 0)
             return items;
 
         return items
             .GroupBy(parentIdSelector)
             .Select(g =>
             {
+                StudentInvitationListItemDto picked;
                 if (!g.Key.HasValue)
-                    return g.OrderBy(x => x.CreatedAt).First();
+                {
+                    picked = g.OrderBy(x => x.CreatedAt).First();
+                    picked.ViewerInviteeCount = 1;
+                    return picked;
+                }
 
-                return g
+                var groupItems = g.ToList();
+                picked = groupItems
                     .OrderBy(x => x.ConfirmationStatus == GroupMemberConfirmationStatus.Pending ? 0 : 1)
                     .ThenBy(x => x.CreatedAt)
                     .First();
+                picked.ViewerInviteeCount = groupItems.Count;
+                return picked;
             })
             .ToList();
     }

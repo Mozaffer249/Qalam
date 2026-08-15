@@ -113,7 +113,11 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                     : null,
                 CreatedAt = gm.CreatedAt,
                 ConfirmationStatus = gm.ConfirmationStatus,
-                IsOwner = false
+                IsOwner = false,
+                InvitedStudentCount = gm.CourseEnrollmentRequest.GroupMembers
+                    .Count(m => m.MemberType == GroupMemberType.Invited),
+                IsGroup = gm.CourseEnrollmentRequest.GroupMembers
+                    .Count(m => m.MemberType == GroupMemberType.Invited) > 1
             })
             .ToListAsync(cancellationToken);
     }
@@ -175,7 +179,9 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                 RequestedByUserName = gm.CourseEnrollmentRequest.RequestedByUser != null
                     ? (gm.CourseEnrollmentRequest.RequestedByUser.FirstName + " "
                        + gm.CourseEnrollmentRequest.RequestedByUser.LastName).Trim()
-                    : null
+                    : null,
+                InvitedStudentCount = gm.CourseEnrollmentRequest.GroupMembers
+                    .Count(m => m.MemberType == GroupMemberType.Invited)
             })
             .ToListAsync(cancellationToken);
 
@@ -197,7 +203,9 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
             CreatedAt = gm.CreatedAt,
             ConfirmationStatus = gm.ConfirmationStatus,
             IsOwner = false,
-            ParentStatus = gm.RequestStatus.ToString()
+            ParentStatus = gm.RequestStatus.ToString(),
+            InvitedStudentCount = gm.InvitedStudentCount,
+            IsGroup = gm.InvitedStudentCount > 1
         }).ToList();
     }
 
@@ -254,7 +262,8 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                 var hasPending = g.Any(m => m.ConfirmationStatus == GroupMemberConfirmationStatus.Pending);
                 var parentOk = request.RequestStatus is RequestStatus.Pending or RequestStatus.Approved;
                 var isActive = parentOk && hasPending;
-                return new { invite, request, isActive };
+                var invitedCount = g.Count();
+                return new { invite, request, isActive, invitedCount };
             })
             .Where(x => scope == InvitationInboxScope.Active ? x.isActive : !x.isActive)
             .Select(x => new StudentInvitationListItemDto
@@ -275,7 +284,9 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
                 CreatedAt = x.request.RequestCreatedAt,
                 ConfirmationStatus = x.invite.ConfirmationStatus,
                 IsOwner = true,
-                ParentStatus = x.request.RequestStatus.ToString()
+                ParentStatus = x.request.RequestStatus.ToString(),
+                InvitedStudentCount = x.invitedCount,
+                IsGroup = x.invitedCount > 1
             })
             .ToList();
     }
