@@ -151,6 +151,29 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             schedule.TeacherAttendanceStatus,
             schedule.TeacherJoinedAt);
 
+        var participants = enrollment.Participants
+            .OrderBy(p => p.Id)
+            .Select(p =>
+            {
+                var row = schedule.Attendances?.FirstOrDefault(a => a.StudentId == p.StudentId);
+                var (status, isAutoResolved) = SessionAttendanceRules.EffectiveStudentAttendance(row);
+                return new StudentSessionParticipantAttendanceDto
+                {
+                    StudentId = p.StudentId,
+                    DisplayName = FormatUserName(p.Student?.User),
+                    AvatarUrl = NullIfEmpty(p.Student?.User?.ProfilePictureUrl),
+                    IsViewer = viewingStudentId is int vs && vs == p.StudentId,
+                    Attendance = new SessionAttendanceInfoDto
+                    {
+                        Status = status,
+                        LateMinutes = SessionAttendanceRules.ComputeLateMinutes(row?.JoinedAt, startUtc),
+                        JoinedAt = row?.JoinedAt,
+                        IsAutoResolved = isAutoResolved,
+                    },
+                };
+            })
+            .ToList();
+
         var dto = new StudentSessionDetailDto
         {
             ScheduleId = schedule.Id,
@@ -186,6 +209,7 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Units = MapUnits(courseSession?.Units),
             Attachments = contentLinks.Select(MapAttachment).ToList(),
             Reviews = reviews,
+            Participants = participants,
         };
 
         return Success(entity: dto);

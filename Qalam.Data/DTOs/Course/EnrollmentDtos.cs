@@ -363,6 +363,9 @@ public class EnrollmentSessionItemDto
     public decimal? Rating { get; set; }
     public string? TeacherNote { get; set; }
 
+    /// <summary>Per-participant attendance for group (and individual) enrollment session rows.</summary>
+    public List<EnrollmentSessionParticipantAttendanceDto> ParticipantAttendances { get; set; } = new();
+
     /// <summary>
     /// True when session start UTC is still in the future (sequential date lock).
     /// Completed / InProgress / Cancelled are never locked. Template rows with no date are unlocked.
@@ -374,6 +377,16 @@ public class EnrollmentSessionItemDto
 
     /// <summary>Content units / lessons covered in this session (culture-selected names).</summary>
     public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();
+}
+
+/// <summary>One student attendance row on a teacher enrollment session item.</summary>
+public class EnrollmentSessionParticipantAttendanceDto
+{
+    public int StudentId { get; set; }
+    public string? StudentName { get; set; }
+    public string Status { get; set; } = "Pending";
+    public DateTime? JoinedAt { get; set; }
+    public decimal? Rating { get; set; }
 }
 
 /// <summary>

@@ -344,6 +344,25 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                     a.Status is SessionAttendanceStatus.Absent or SessionAttendanceStatus.Late);
             }
 
+            var participantAttendances = enrollment.Participants
+                .OrderBy(p => p.Id)
+                .Select(p =>
+                {
+                    var row = cs.Attendances?.FirstOrDefault(a => a.StudentId == p.StudentId);
+                    var (status, _) = SessionAttendanceRules.EffectiveStudentAttendance(row);
+                    return new EnrollmentSessionParticipantAttendanceDto
+                    {
+                        StudentId = p.StudentId,
+                        StudentName = p.Student?.User != null
+                            ? (p.Student.User.FirstName + " " + p.Student.User.LastName).Trim()
+                            : null,
+                        Status = status,
+                        JoinedAt = row?.JoinedAt,
+                        Rating = row?.Rating,
+                    };
+                })
+                .ToList();
+
             dto.Sessions.Add(new EnrollmentSessionItemDto
             {
                 ScheduleId = cs.Id,
@@ -372,6 +391,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 AttendanceStatus = primaryAttendance?.Status.ToString(),
                 Rating = primaryAttendance?.Rating,
                 TeacherNote = cs.TeacherNote ?? primaryAttendance?.Note,
+                ParticipantAttendances = participantAttendances,
                 Units = units,
             });
         }

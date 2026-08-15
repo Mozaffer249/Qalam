@@ -39,6 +39,18 @@ public class StudentSessionDetailDto
     public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();
     public List<StudentSessionAttachmentDto> Attachments { get; set; } = new();
     public List<SessionReviewDto> Reviews { get; set; } = new();
+    /// <summary>All enrollment participants with effective attendance for this session.</summary>
+    public List<StudentSessionParticipantAttendanceDto> Participants { get; set; } = new();
+}
+
+/// <summary>One participant row on student session detail attendance overview.</summary>
+public class StudentSessionParticipantAttendanceDto
+{
+    public int StudentId { get; set; }
+    public string? DisplayName { get; set; }
+    public string? AvatarUrl { get; set; }
+    public SessionAttendanceInfoDto Attendance { get; set; } = new();
+    public bool IsViewer { get; set; }
 }
 
 public class StudentSessionAttachmentDto
