@@ -11,6 +11,57 @@ namespace Qalam.Service.Tests;
 public class EducationFilterServiceRuleTests
 {
   [Fact]
+  public async Task GetFilterOptionsAsync_SoftSkills_ReturnsParentSubjectAsNextStep()
+  {
+    const int domainId = 20;
+    var rule = new EducationRule
+    {
+      DomainId = domainId,
+      HasParentSubject = true,
+      HasWritableFilters = true,
+    };
+
+    var domainRepo = new Mock<IEducationDomainRepository>();
+    domainRepo.Setup(r => r.GetEducationRuleByDomainIdAsync(domainId)).ReturnsAsync(rule);
+    domainRepo.Setup(r => r.GetByIdAsync(domainId)).ReturnsAsync(new EducationDomain
+    {
+      Id = domainId,
+      Code = "soft-skills",
+      NameEn = "Soft Skills",
+      NameAr = "ناعمة",
+    });
+
+    var subjectRepo = new Mock<ISubjectRepository>();
+    subjectRepo
+      .Setup(r => r.GetSubjectsAsOptionsAsync(
+        domainId,
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        true))
+      .ReturnsAsync([new FilterOptionDto { Id = 1, NameEn = "Negotiation", NameAr = "تفاوض", Code = "soft.nego" }]);
+
+    var writableRepo = new Mock<IWritableFilterRepository>();
+    writableRepo
+      .Setup(r => r.GetActiveSlotsByDomainIdAsync(domainId, It.IsAny<CancellationToken>()))
+      .ReturnsAsync([]);
+
+    var service = CreateService(
+      domainRepo: domainRepo.Object,
+      subjectRepo: subjectRepo.Object,
+      writableFilterRepo: writableRepo.Object);
+
+    var response = await service.GetFilterOptionsAsync(new FilterStateDto { DomainId = domainId });
+
+    Assert.Equal("ParentSubject", response.NextStep);
+    Assert.Single(response.Options);
+    Assert.True(response.Rule.HasParentSubject);
+  }
+
+  [Fact]
   public async Task GetFilterOptionsAsync_SchoolLikeRule_ReturnsCurriculumAsNextStep()
   {
     const int domainId = 1;
@@ -218,7 +269,9 @@ public class EducationFilterServiceRuleTests
         It.IsAny<int?>(),
         It.IsAny<int?>(),
         It.IsAny<int?>(),
-        It.IsAny<int?>()))
+        It.IsAny<int?>(),
+        It.IsAny<int?>(),
+        It.IsAny<bool>()))
       .ReturnsAsync([new FilterOptionDto { Id = subjectId, NameEn = "Holy Quran", NameAr = "القرآن الكريم" }]);
 
     return CreateService(
@@ -236,7 +289,8 @@ public class EducationFilterServiceRuleTests
     IAcademicTermRepository? termRepo = null,
     ISubjectRepository? subjectRepo = null,
     IContentUnitRepository? contentUnitRepo = null,
-    ILessonRepository? lessonRepo = null)
+    ILessonRepository? lessonRepo = null,
+    IWritableFilterRepository? writableFilterRepo = null)
   {
     return new EducationFilterService(
       domainRepo ?? Mock.Of<IEducationDomainRepository>(),
@@ -250,6 +304,7 @@ public class EducationFilterServiceRuleTests
       Mock.Of<IUniversityRepository>(),
       Mock.Of<ICollegeRepository>(),
       Mock.Of<IDepartmentRepository>(),
-      Mock.Of<IAcademicProgramRepository>());
+      Mock.Of<IAcademicProgramRepository>(),
+      writableFilterRepo ?? Mock.Of<IWritableFilterRepository>());
   }
 }

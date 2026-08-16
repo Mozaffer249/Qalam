@@ -39,8 +39,11 @@ public class DatabaseSeeder
         await LanguageLevelsSeeder.SeedAsync(context);
         await LanguageSubjectsSeeder.SeedAsync(context);
 
-        // General Skills Domain
+        // Legacy general skills (no-op when skills domain is inactive)
         await GeneralSkillsSubjectsSeeder.SeedAsync(context);
+
+        // Wave-1 split: soft / life / tech / hobbies / finance / knowledge
+        await SkillsSplitCatalogSeeder.SeedAsync(context);
 
         // Language & skills catalog (units + lessons)
         await LanguageSkillsCatalogSeeder.SeedAsync(context);

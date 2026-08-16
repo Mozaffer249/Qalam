@@ -1,0 +1,64 @@
+using Microsoft.EntityFrameworkCore;
+using Qalam.Data.DTOs;
+using Qalam.Data.Entity.Education;
+using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.InfrastructureBases;
+
+namespace Qalam.Infrastructure.Repositories;
+
+public class WritableFilterRepository : GenericRepositoryAsync<WritableFilterValue>, IWritableFilterRepository
+{
+    public WritableFilterRepository(ApplicationDBContext context) : base(context) { }
+
+    public async Task<List<WritableFilterSlot>> GetActiveSlotsByDomainIdAsync(int domainId, CancellationToken ct = default)
+    {
+        return await _dbContext.WritableFilterSlots
+            .AsNoTracking()
+            .Where(s => s.DomainId == domainId && s.IsActive)
+            .OrderBy(s => s.OrderIndex)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<FilterOptionDto>> GetValuesAsOptionsAsync(int slotId, CancellationToken ct = default)
+    {
+        return await _dbContext.WritableFilterValues
+            .AsNoTracking()
+            .Where(v => v.SlotId == slotId && v.IsActive)
+            .OrderByDescending(v => v.IsSeeded)
+            .ThenBy(v => v.NameEn)
+            .Select(v => new FilterOptionDto
+            {
+                Id = v.Id,
+                NameAr = v.NameAr,
+                NameEn = v.NameEn,
+                Code = v.Code
+            })
+            .ToListAsync(ct);
+    }
+
+    public Task<WritableFilterSlot?> GetSlotByDomainAndCodeAsync(int domainId, string slotCode, CancellationToken ct = default)
+    {
+        return _dbContext.WritableFilterSlots
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.DomainId == domainId && s.Code == slotCode && s.IsActive, ct);
+    }
+
+    public Task<WritableFilterValue?> FindByNormalizedAsync(int slotId, string normalizedText, CancellationToken ct = default)
+    {
+        return _dbContext.WritableFilterValues
+            .FirstOrDefaultAsync(v => v.SlotId == slotId && v.NormalizedText == normalizedText, ct);
+    }
+
+    public async Task<List<WritableFilterValue>> GetByIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        return await _dbContext.WritableFilterValues
+            .AsNoTracking()
+            .Include(v => v.Slot)
+            .Where(v => ids.Contains(v.Id) && v.IsActive)
+            .ToListAsync(ct);
+    }
+}

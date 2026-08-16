@@ -31,6 +31,11 @@ public class Subject : AuditableEntity
     public int? UniversityId { get; set; }
     public University? University { get; set; }
 
+    /// <summary>Category subject when the domain uses a مجال → مهارة tree.</summary>
+    public int? ParentSubjectId { get; set; }
+    public Subject? ParentSubject { get; set; }
+    public ICollection<Subject> ChildSubjects { get; set; } = new List<Subject>();
+
     [MaxLength(80)]
     public string? Code { get; set; }
 

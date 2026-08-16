@@ -31,6 +31,7 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
                 GradeId = s.GradeId,
 
                 TermId = s.TermId,
+                ParentSubjectId = s.ParentSubjectId,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
                 DescriptionAr = s.DescriptionAr,
@@ -53,6 +54,7 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
                 LevelId = s.LevelId,
                 GradeId = s.GradeId,
                 TermId = s.TermId,
+                ParentSubjectId = s.ParentSubjectId,
                 Code = s.Code,
                 NameAr = s.NameAr,
                 NameEn = s.NameEn,
@@ -150,11 +152,26 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .ToListAsync();
     }
 
-    public async Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(int domainId, int? curriculumId, int? levelId, int? gradeId, int? termId, int? academicProgramId = null)
+    public async Task<List<FilterOptionDto>> GetSubjectsAsOptionsAsync(
+        int domainId,
+        int? curriculumId,
+        int? levelId,
+        int? gradeId,
+        int? termId,
+        int? academicProgramId = null,
+        int? parentSubjectId = null,
+        bool parentsOnly = false)
     {
         var query = _dbContext.Subjects
             .AsNoTracking()
             .Where(s => s.DomainId == domainId && s.IsActive);
+
+        if (parentsOnly)
+            query = query.Where(s => s.ParentSubjectId == null);
+        else if (parentSubjectId.HasValue)
+            query = query.Where(s => s.ParentSubjectId == parentSubjectId);
+        else
+            query = query.Where(s => s.ParentSubjectId == null);
 
         // University path: subjects are owned by the program. Do not also require LevelId —
         // seed/data may attach subjects to a single year while the wizard still picks Level.

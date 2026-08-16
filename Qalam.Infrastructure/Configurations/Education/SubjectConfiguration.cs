@@ -17,6 +17,7 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
         builder.HasIndex(e => e.AcademicProgramId);
         builder.HasIndex(e => e.UniversityId);
         builder.HasIndex(e => e.IsActive);
+        builder.HasIndex(e => e.ParentSubjectId);
 
         builder.Property(e => e.Code).HasMaxLength(80);
         builder.Property(e => e.NameAr).IsRequired().HasMaxLength(100);
@@ -62,6 +63,11 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
         builder.HasOne(e => e.University)
                .WithMany()
                .HasForeignKey(e => e.UniversityId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.ParentSubject)
+               .WithMany(s => s.ChildSubjects)
+               .HasForeignKey(e => e.ParentSubjectId)
                .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(e => e.ContentUnits)

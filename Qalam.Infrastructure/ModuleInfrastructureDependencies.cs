@@ -42,6 +42,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<IGradeRepository, GradeRepository>();
             services.AddTransient<IAcademicTermRepository, AcademicTermRepository>();
             services.AddTransient<ISubjectRepository, SubjectRepository>();
+            services.AddTransient<IWritableFilterRepository, WritableFilterRepository>();
             services.AddTransient<IContentUnitRepository, ContentUnitRepository>();
             services.AddTransient<ILessonRepository, LessonRepository>();
             services.AddTransient<IUniversityRepository, UniversityRepository>();

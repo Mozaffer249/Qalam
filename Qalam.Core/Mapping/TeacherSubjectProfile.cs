@@ -26,6 +26,7 @@ public class TeacherSubjectProfile : Profile
             .ForMember(dest => dest.GradeNameEn, opt => opt.MapFrom(src => src.Subject != null && src.Subject.Grade != null ? src.Subject.Grade.NameEn : null))
             .ForMember(dest => dest.QuranContentTypeIds, opt => opt.MapFrom(src => src.QuranContentTypes.Select(c => c.QuranContentTypeId).ToList()))
             .ForMember(dest => dest.QuranLevelIds, opt => opt.MapFrom(src => src.QuranLevels.Select(l => l.QuranLevelId).ToList()))
+            .ForMember(dest => dest.WritableFilterValueIds, opt => opt.MapFrom(src => src.WritableFilters.Select(w => w.WritableFilterValueId).ToList()))
             .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits));
 
         // TeacherSubjectUnit -> TeacherSubjectUnitResponseDto

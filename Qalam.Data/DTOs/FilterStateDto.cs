@@ -39,10 +39,19 @@ public class FilterStateDto
     /// <summary>Academic program ID under department.</summary>
     public int? AcademicProgramId { get; set; }
 
+    /// <summary>Category subject when the domain uses HasParentSubject.</summary>
+    public int? ParentSubjectId { get; set; }
+
     /// <summary>
     /// Subject ID (wizard step 5 — before term selection).
     /// </summary>
     public int? SubjectId { get; set; }
+
+    /// <summary>Selected writable filter value ids (any slots already chosen).</summary>
+    public List<int>? WritableValueIds { get; set; }
+
+    /// <summary>Optional slots the client skipped.</summary>
+    public List<string>? SkippedWritableSlotCodes { get; set; }
 
     /// <summary>
     /// Academic term/semester IDs (wizard step 6 — after subjectId).

@@ -8,6 +8,7 @@ public class SubjectDto
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
     public int? TermId { get; set; }
+    public int? ParentSubjectId { get; set; }
     public string? Code { get; set; }
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;

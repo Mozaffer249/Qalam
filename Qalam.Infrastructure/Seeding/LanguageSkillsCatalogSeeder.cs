@@ -92,8 +92,9 @@ public static class LanguageSkillsCatalogSeeder
     private static async Task SeedSkillsCatalogAsync(ApplicationDBContext context)
     {
         var skillsDomain = await context.EducationDomains
-            .FirstOrDefaultAsync(d => d.Code == "skills")
-            ?? throw new InvalidOperationException("Skills domain must be seeded before skills catalog content");
+            .FirstOrDefaultAsync(d => d.Code == "skills" && d.IsActive);
+        if (skillsDomain == null)
+            return;
 
         var curatedOverrides = new Dictionary<string, List<CatalogModule>>
         {
@@ -125,9 +126,7 @@ public static class LanguageSkillsCatalogSeeder
             .ToListAsync();
 
         if (subjects.Count == 0)
-        {
-            throw new InvalidOperationException("Skills subjects must be seeded before skills catalog content");
-        }
+            return;
 
         var catalogBySubject = new Dictionary<string, List<CatalogModule>>();
 

@@ -132,6 +132,8 @@ namespace Qalam.Data.AppMetaData
         public const string EducationDepartmentById = EducationDepartments + SingleRoute;
         public const string EducationAcademicPrograms = Education + "/AcademicPrograms";
         public const string EducationAcademicProgramById = EducationAcademicPrograms + SingleRoute;
+
+        public const string EducationWritableFilterValues = Education + "/WritableFilterValues";
         #endregion
 
         #region Curriculum

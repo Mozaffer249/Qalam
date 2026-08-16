@@ -10,6 +10,13 @@ public class FilterOptionsResponseDto
     /// Next wizard step. Standard flow: Curriculum, Level, Grade, Subject, Term, Unit, Lesson, Done (in that order).
     /// </summary>
     public string NextStep { get; set; } = default!;
+
+    /// <summary>When NextStep is WritableFilter, the slot being asked.</summary>
+    public string? WritableSlotCode { get; set; }
+
+    public bool AllowCustomWrite { get; set; }
+
+    public bool AllowSkipWritable { get; set; }
     
     // For non-paginated responses (backward compatibility)
     public List<FilterOptionDto> Options { get; set; } = new List<FilterOptionDto>();

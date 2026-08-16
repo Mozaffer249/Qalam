@@ -187,6 +187,7 @@ public class TeacherSubjectAdminService : ITeacherSubjectAdminService
             CreatedAt = subject.CreatedAt,
             QuranContentTypeIds = subject.QuranContentTypes.Select(c => c.QuranContentTypeId).ToList(),
             QuranLevelIds = subject.QuranLevels.Select(l => l.QuranLevelId).ToList(),
+            WritableFilterValueIds = subject.WritableFilters.Select(w => w.WritableFilterValueId).ToList(),
             Units = subject.TeacherSubjectUnits.Select(MapUnitToDto).ToList()
         };
     }

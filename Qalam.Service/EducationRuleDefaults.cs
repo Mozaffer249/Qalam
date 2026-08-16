@@ -13,6 +13,12 @@ public static class EducationRuleDefaults
             "language" => Language(),
             "skills" => Skills(),
             "university" => University(),
+            "soft-skills" => SoftSkills(),
+            "life-skills" => LifeSkills(),
+            "tech-skills" => TechSkills(),
+            "hobbies" => Hobbies(),
+            "finance" => Finance(),
+            "knowledge" => Knowledge(),
             _ => Generic(),
         };
 
@@ -95,6 +101,103 @@ public static class EducationRuleDefaults
         AllowFlexibleCourses = false,
     };
 
+    public static EducationRuleDto SoftSkills() => new()
+    {
+        HasParentSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 20,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
+    public static EducationRuleDto LifeSkills() => new()
+    {
+        HasParentSubject = true,
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 20,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
+    public static EducationRuleDto TechSkills() => new()
+    {
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 15,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
+    public static EducationRuleDto Hobbies() => new()
+    {
+        HasParentSubject = true,
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 15,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
+    public static EducationRuleDto Finance() => new()
+    {
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 15,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
+    public static EducationRuleDto Knowledge() => new()
+    {
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 20,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
+    };
+
     public static EducationRuleDto University() => new()
     {
         HasCurriculum = false,
@@ -134,6 +237,9 @@ public static class EducationRuleDefaults
         rule.RequiresQuranContentType = dto.RequiresQuranContentType;
         rule.RequiresQuranLevel = dto.RequiresQuranLevel;
         rule.RequiresUnitTypeSelection = dto.RequiresUnitTypeSelection;
+        rule.HasParentSubject = dto.HasParentSubject;
+        rule.EducationLevelAfterSubject = dto.EducationLevelAfterSubject;
+        rule.HasWritableFilters = dto.HasWritableFilters;
         rule.MinSessions = dto.MinSessions;
         rule.MaxSessions = dto.MaxSessions;
         rule.DefaultSessionDurationMinutes = dto.DefaultSessionDurationMinutes;
@@ -165,6 +271,9 @@ public static class EducationRuleDefaults
         RequiresQuranContentType = rule.RequiresQuranContentType,
         RequiresQuranLevel = rule.RequiresQuranLevel,
         RequiresUnitTypeSelection = rule.RequiresUnitTypeSelection,
+        HasParentSubject = rule.HasParentSubject,
+        EducationLevelAfterSubject = rule.EducationLevelAfterSubject,
+        HasWritableFilters = rule.HasWritableFilters,
         MinSessions = rule.MinSessions,
         MaxSessions = rule.MaxSessions,
         DefaultSessionDurationMinutes = rule.DefaultSessionDurationMinutes,

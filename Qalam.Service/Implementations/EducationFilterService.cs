@@ -1,3 +1,4 @@
+using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Teaching;
@@ -20,6 +21,7 @@ public class EducationFilterService : IEducationFilterService
     private readonly ICollegeRepository _collegeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IAcademicProgramRepository _academicProgramRepository;
+    private readonly IWritableFilterRepository _writableFilterRepository;
 
     public EducationFilterService(
         IEducationDomainRepository domainRepository,
@@ -33,7 +35,8 @@ public class EducationFilterService : IEducationFilterService
         IUniversityRepository universityRepository,
         ICollegeRepository collegeRepository,
         IDepartmentRepository departmentRepository,
-        IAcademicProgramRepository academicProgramRepository)
+        IAcademicProgramRepository academicProgramRepository,
+        IWritableFilterRepository writableFilterRepository)
     {
         _domainRepository = domainRepository;
         _curriculumRepository = curriculumRepository;
@@ -47,6 +50,7 @@ public class EducationFilterService : IEducationFilterService
         _collegeRepository = collegeRepository;
         _departmentRepository = departmentRepository;
         _academicProgramRepository = academicProgramRepository;
+        _writableFilterRepository = writableFilterRepository;
     }
 
     public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state, int pageNumber = 1, int pageSize = 20)
@@ -85,6 +89,9 @@ public class EducationFilterService : IEducationFilterService
         var result = await DetermineNextStepAsync(state, rule, domain, pageNumber, pageSize);
         response.NextStep = result.NextStep;
         response.Options = result.Options;
+        response.WritableSlotCode = result.WritableSlotCode;
+        response.AllowCustomWrite = result.AllowCustomWrite;
+        response.AllowSkipWritable = result.AllowSkipWritable;
         response.Unit = result.Unit;
         response.TotalCount = result.TotalCount;
         response.PageNumber = result.PageNumber;
@@ -139,6 +146,9 @@ public class EducationFilterService : IEducationFilterService
     private class FilterStepResult
     {
         public string NextStep { get; set; } = default!;
+        public string? WritableSlotCode { get; set; }
+        public bool AllowCustomWrite { get; set; }
+        public bool AllowSkipWritable { get; set; }
         public List<FilterOptionDto> Options { get; set; } = new();
         public List<FilterOptionDto>? Unit { get; set; }
         public int? TotalCount { get; set; }
@@ -274,8 +284,12 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Curriculum", Options = curricula };
         }
 
-        // EducationLevel
-        if (rule.HasEducationLevel && !state.LevelId.HasValue)
+        var startWritable = await TryWritableStepAsync(state, rule, domainId, WritableFilterAfterSteps.Start);
+        if (startWritable != null)
+            return startWritable;
+
+        // EducationLevel (before subject — school / language / university)
+        if (rule.HasEducationLevel && !rule.EducationLevelAfterSubject && !state.LevelId.HasValue)
         {
             var levels = await _levelRepository.GetLevelsAsOptionsAsync(
                 domainId,
@@ -294,6 +308,23 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Grade", Options = grades };
         }
 
+        if (rule.HasParentSubject && !state.ParentSubjectId.HasValue && !state.SubjectId.HasValue)
+        {
+            var parents = await _subjectRepository.GetSubjectsAsOptionsAsync(
+                domainId,
+                state.CurriculumId,
+                levelId: rule.EducationLevelAfterSubject ? null : state.LevelId,
+                state.GradeId,
+                termId: null,
+                academicProgramId: state.AcademicProgramId,
+                parentsOnly: true);
+            return new FilterStepResult { NextStep = "ParentSubject", Options = parents };
+        }
+
+        var afterParentWritable = await TryWritableStepAsync(state, rule, domainId, WritableFilterAfterSteps.ParentSubject);
+        if (afterParentWritable != null)
+            return afterParentWritable;
+
         // Subject
         if (!state.SubjectId.HasValue)
         {
@@ -306,15 +337,62 @@ public class EducationFilterService : IEducationFilterService
                     state.AcademicProgramId = programId;
             }
 
-            var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
+            if (rule.HasParentSubject && state.ParentSubjectId.HasValue)
+            {
+                var children = await _subjectRepository.GetSubjectsAsOptionsAsync(
+                    domainId,
+                    state.CurriculumId,
+                    levelId: null,
+                    gradeId: null,
+                    termId: null,
+                    parentSubjectId: state.ParentSubjectId);
+                if (children.Count == 0)
+                {
+                    state.SubjectId = state.ParentSubjectId;
+                }
+                else
+                {
+                    return new FilterStepResult { NextStep = "Subject", Options = children };
+                }
+            }
+
+            if (!state.SubjectId.HasValue)
+            {
+                var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
+                    domainId,
+                    state.CurriculumId,
+                    levelId: rule.EducationLevelAfterSubject ? null : state.LevelId,
+                    state.GradeId,
+                    termId: null,
+                    academicProgramId: state.AcademicProgramId);
+
+                if (subjects.Count == 1 && rule.HasWritableFilters)
+                {
+                    state.SubjectId = subjects[0].Id;
+                }
+                else
+                {
+                    return new FilterStepResult { NextStep = "Subject", Options = subjects };
+                }
+            }
+        }
+
+        var afterSubjectWritable = await TryWritableStepAsync(state, rule, domainId, WritableFilterAfterSteps.Subject);
+        if (afterSubjectWritable != null)
+            return afterSubjectWritable;
+
+        if (rule.HasEducationLevel && rule.EducationLevelAfterSubject && !state.LevelId.HasValue)
+        {
+            var levels = await _levelRepository.GetLevelsAsOptionsAsync(
                 domainId,
                 state.CurriculumId,
-                state.LevelId,
-                state.GradeId,
-                termId: null,
-                academicProgramId: state.AcademicProgramId);
-            return new FilterStepResult { NextStep = "Subject", Options = subjects };
+                state.AcademicProgramId);
+            return new FilterStepResult { NextStep = "Level", Options = levels };
         }
+
+        var afterLevelWritable = await TryWritableStepAsync(state, rule, domainId, WritableFilterAfterSteps.Level);
+        if (afterLevelWritable != null)
+            return afterLevelWritable;
 
         // AcademicTerm (optional for university)
         if (rule.HasAcademicTerm
@@ -408,7 +486,67 @@ public class EducationFilterService : IEducationFilterService
             RequiresQuranContentType = rule.RequiresQuranContentType,
             RequiresQuranLevel = rule.RequiresQuranLevel,
             RequiresUnitTypeSelection = rule.RequiresUnitTypeSelection,
+            HasParentSubject = rule.HasParentSubject,
+            EducationLevelAfterSubject = rule.EducationLevelAfterSubject,
+            HasWritableFilters = rule.HasWritableFilters,
             RulesConfigured = rule.RulesConfigured,
         };
+    }
+
+    private async Task<FilterStepResult?> TryWritableStepAsync(
+        FilterStateDto state,
+        EducationRule rule,
+        int domainId,
+        string afterStep)
+    {
+        if (!rule.HasWritableFilters)
+            return null;
+
+        var slots = await _writableFilterRepository.GetActiveSlotsByDomainIdAsync(domainId);
+        var selected = await _writableFilterRepository.GetByIdsAsync(state.WritableValueIds ?? []);
+        var selectedSlotIds = selected.Select(v => v.SlotId).ToHashSet();
+        var skipped = new HashSet<string>(
+            state.SkippedWritableSlotCodes ?? [],
+            StringComparer.OrdinalIgnoreCase);
+
+        string? subjectCode = null;
+        if (state.SubjectId.HasValue)
+        {
+            var subject = await _subjectRepository.GetByIdAsync(state.SubjectId.Value);
+            subjectCode = subject?.Code;
+        }
+
+        foreach (var slot in slots.Where(s =>
+                     string.Equals(s.AfterStep, afterStep, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (selectedSlotIds.Contains(slot.Id) || skipped.Contains(slot.Code))
+                continue;
+
+            var required = slot.IsRequired
+                || (!string.IsNullOrWhiteSpace(slot.RequiredWhenSubjectCodeContains)
+                    && !string.IsNullOrWhiteSpace(subjectCode)
+                    && subjectCode.Contains(slot.RequiredWhenSubjectCodeContains, StringComparison.OrdinalIgnoreCase));
+
+            if (!required && string.IsNullOrWhiteSpace(slot.RequiredWhenSubjectCodeContains) && !slot.IsRequired)
+            {
+                // Optional slot: still surface so the client can pick or skip.
+            }
+            else if (!required && !string.IsNullOrWhiteSpace(slot.RequiredWhenSubjectCodeContains))
+            {
+                continue;
+            }
+
+            var options = await _writableFilterRepository.GetValuesAsOptionsAsync(slot.Id);
+            return new FilterStepResult
+            {
+                NextStep = "WritableFilter",
+                Options = options,
+                WritableSlotCode = slot.Code,
+                AllowCustomWrite = true,
+                AllowSkipWritable = !required
+            };
+        }
+
+        return null;
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.context;
@@ -107,12 +108,12 @@ public class EducationDomainsSeeder
                         CreatedAt = DateTime.UtcNow
                     }
                 },
-                // Skills Domain
+                // Skills Domain (legacy — deactivated after wave-1 split)
                 new()
                 {
                     NameAr = "مهارات عامة",
                     NameEn = "General Skills",
-                    Code = "skills",
+                    Code = EducationDomainCodes.Skills,
                     DescriptionAr = "المهارات الحياتية والمهنية والتقنية",
                     DescriptionEn = "Life, professional, and technical skills",
                     IsActive = true,
@@ -176,9 +177,13 @@ public class EducationDomainsSeeder
                 }
             };
 
+            domains.AddRange(CreateWave1Domains());
+
             await context.EducationDomains.AddRangeAsync(domains);
             await context.SaveChangesAsync();
         }
+
+        await EnsureWave1DomainsAsync(context);
 
         // Backfill university institutional rule flags on existing DBs
         var universityDomain = await context.EducationDomains
@@ -199,6 +204,93 @@ public class EducationDomainsSeeder
                 uniRule.UpdatedAt = DateTime.UtcNow;
                 await context.SaveChangesAsync();
             }
+        }
+    }
+
+    private static List<EducationDomain> CreateWave1Domains()
+    {
+        var now = DateTime.UtcNow;
+        return
+        [
+            CreateDomain(EducationDomainCodes.SoftSkills, "المهارات العملية والناعمة", "Practical and Soft Skills",
+                "مهارات العمل والتواصل والقيادة", "Workplace, communication, and leadership skills",
+                HasParentSubject: true, HasLevel: false, LevelAfterSubject: false, now),
+            CreateDomain(EducationDomainCodes.LifeSkills, "المهارات الحياتية وتطوير الذات", "Life Skills and Self-Development",
+                "تطوير الذات والأسرة والعلاقات", "Self-development, family, and relationships",
+                HasParentSubject: true, HasLevel: true, LevelAfterSubject: true, now),
+            CreateDomain(EducationDomainCodes.TechSkills, "المهارات التقنية", "Technical Skills",
+                "البرمجة والشبكات والتصميم والتقنية", "Programming, networks, design, and technology",
+                HasParentSubject: false, HasLevel: true, LevelAfterSubject: true, now),
+            CreateDomain(EducationDomainCodes.Hobbies, "المهارات الشخصية والهوايات", "Personal Skills and Hobbies",
+                "الهوايات والحرف ومجموعات الاهتمام", "Hobbies, crafts, and interest groups",
+                HasParentSubject: true, HasLevel: true, LevelAfterSubject: true, now),
+            CreateDomain(EducationDomainCodes.Finance, "المال والاستثمار", "Money and Investment",
+                "الاستثمار والادخار والتخطيط المالي", "Investing, saving, and financial planning",
+                HasParentSubject: false, HasLevel: true, LevelAfterSubject: true, now),
+            CreateDomain(EducationDomainCodes.Knowledge, "العلوم والثقافة والمعرفة", "Science, Culture, and Knowledge",
+                "المعرفة العامة والعلوم والثقافة", "General knowledge, science, and culture",
+                HasParentSubject: false, HasLevel: true, LevelAfterSubject: true, now)
+        ];
+    }
+
+    private static EducationDomain CreateDomain(
+        string code,
+        string nameAr,
+        string nameEn,
+        string descAr,
+        string descEn,
+        bool HasParentSubject,
+        bool HasLevel,
+        bool LevelAfterSubject,
+        DateTime now) =>
+        new()
+        {
+            NameAr = nameAr,
+            NameEn = nameEn,
+            Code = code,
+            DescriptionAr = descAr,
+            DescriptionEn = descEn,
+            IsActive = true,
+            CreatedAt = now,
+            EducationRule = new EducationRule
+            {
+                HasParentSubject = HasParentSubject,
+                HasEducationLevel = HasLevel,
+                EducationLevelAfterSubject = LevelAfterSubject,
+                HasWritableFilters = true,
+                HasContentUnits = false,
+                HasLessons = false,
+                MinSessions = 1,
+                MaxSessions = 100,
+                DefaultSessionDurationMinutes = 60,
+                MinGroupSize = 1,
+                MaxGroupSize = 20,
+                AllowExtension = true,
+                AllowFlexibleCourses = true,
+                CreatedAt = now
+            }
+        };
+
+    private static async Task EnsureWave1DomainsAsync(ApplicationDBContext context)
+    {
+        var existing = await context.EducationDomains.ToListAsync();
+        var existingCodes = existing.Select(d => d.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var missing = CreateWave1Domains()
+            .Where(d => !existingCodes.Contains(d.Code))
+            .ToList();
+        if (missing.Count > 0)
+        {
+            await context.EducationDomains.AddRangeAsync(missing);
+            await context.SaveChangesAsync();
+        }
+
+        var skills = existing.FirstOrDefault(d => d.Code == EducationDomainCodes.Skills);
+        if (skills is { IsActive: true })
+        {
+            skills.IsActive = false;
+            skills.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
         }
     }
 }

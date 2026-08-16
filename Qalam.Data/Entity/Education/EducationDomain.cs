@@ -29,6 +29,7 @@ public class EducationDomain : AuditableEntity
     public ICollection<Curriculum> Curricula { get; set; } = new List<Curriculum>();
     public ICollection<EducationLevel> EducationLevels { get; set; } = new List<EducationLevel>();
     public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
+    public ICollection<WritableFilterSlot> WritableFilterSlots { get; set; } = new List<WritableFilterSlot>();
     public ICollection<DomainTeachingMode> DomainTeachingModes { get; set; } = new List<DomainTeachingMode>();
     public EducationRule? EducationRule { get; set; }
 }

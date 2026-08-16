@@ -22,6 +22,10 @@ public class EducationRuleDto
     public bool RequiresQuranLevel { get; set; }
     public bool RequiresUnitTypeSelection { get; set; }
 
+    public bool HasParentSubject { get; set; }
+    public bool EducationLevelAfterSubject { get; set; }
+    public bool HasWritableFilters { get; set; }
+
     public int MinSessions { get; set; } = 1;
     public int MaxSessions { get; set; } = 100;
     public int DefaultSessionDurationMinutes { get; set; } = 60;

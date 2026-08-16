@@ -19,6 +19,7 @@ using Qalam.Core.Features.Education.Queries.GetAcademicTermsList;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainById;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
 using Qalam.Core.Features.Education.Queries.GetEducationLevelById;
+using Qalam.Core.Features.Education.Commands.UpsertWritableFilterValue;
 using Qalam.Core.Features.Education.Queries.GetFilterOptions;
 using Qalam.Core.Features.Education.Queries.GetGradeById;
 using Qalam.Core.Features.Education.Queries.GetGradesList;
@@ -114,6 +115,13 @@ public class EducationController : AppControllerBase
     [ProducesResponseType(typeof(Qalam.Data.DTOs.FilterOptionsResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetFilterOptions([FromQuery] GetFilterOptionsQuery query)
         => NewResult(await Mediator.Send(query));
+
+    /// <summary>
+    /// Create or reuse a writable filter value (seeded examples + custom text).
+    /// </summary>
+    [HttpPost(Router.EducationWritableFilterValues)]
+    public async Task<IActionResult> UpsertWritableFilterValue([FromBody] UpsertWritableFilterValueCommand command)
+        => NewResult(await Mediator.Send(command));
 
     #endregion
 

@@ -35,6 +35,15 @@ public class EducationRule : AuditableEntity
     public bool RequiresQuranLevel { get; set; }
     public bool RequiresUnitTypeSelection { get; set; }
 
+    /// <summary>Two-step subject picker: category (parent) then skill (child).</summary>
+    public bool HasParentSubject { get; set; }
+
+    /// <summary>When true, Level is asked after Subject instead of before it.</summary>
+    public bool EducationLevelAfterSubject { get; set; }
+
+    /// <summary>Domain has one or more writable filter slots (seeded examples + custom text).</summary>
+    public bool HasWritableFilters { get; set; }
+
     public int MinSessions { get; set; } = 1;
     public int MaxSessions { get; set; } = 100;
     public int DefaultSessionDurationMinutes { get; set; } = 60;

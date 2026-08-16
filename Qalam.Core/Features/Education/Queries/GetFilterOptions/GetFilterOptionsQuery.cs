@@ -42,10 +42,19 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     /// <summary>Academic program ID.</summary>
     public int? AcademicProgramId { get; set; }
 
+    /// <summary>Category subject when nextStep was ParentSubject.</summary>
+    public int? ParentSubjectId { get; set; }
+
     /// <summary>
     /// Subject ID (wizard step 5 — send after gradeId, before termIds).
     /// </summary>
     public int? SubjectId { get; set; }
+
+    /// <summary>Writable filter value ids already chosen. Repeat the query param.</summary>
+    public List<int>? WritableValueIds { get; set; }
+
+    /// <summary>Optional writable slots the client skipped. Repeat the query param.</summary>
+    public List<string>? SkippedWritableSlotCodes { get; set; }
 
     /// <summary>
     /// Academic term IDs (wizard step 6 — send after subjectId; repeat param for multi-select).

@@ -8,7 +8,13 @@ public class GeneralSkillsSubjectsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        var skillsDomainId = 4; // General Skills domain
+        var skillsDomain = await context.EducationDomains
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Code == "skills" && d.IsActive);
+        if (skillsDomain == null)
+            return;
+
+        var skillsDomainId = skillsDomain.Id;
 
         if (!await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == skillsDomainId))
         {

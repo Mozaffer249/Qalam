@@ -16,6 +16,7 @@ public class AdminTeacherSubjectDto
     public DateTime CreatedAt { get; set; }
     public List<int> QuranContentTypeIds { get; set; } = new();
     public List<int> QuranLevelIds { get; set; } = new();
+    public List<int> WritableFilterValueIds { get; set; } = new();
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 }
 

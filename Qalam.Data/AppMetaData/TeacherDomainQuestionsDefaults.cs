@@ -42,6 +42,8 @@ public static class TeacherDomainQuestionsDefaults
             questions.AddRange(CreateSkillsQuestions(skillsId, extensions, now));
         }
 
+        AddWave1SkillLikeQuestions(questions, domainIdsByCode, extensions, now);
+
         if (domainIdsByCode.TryGetValue("university", out var universityId))
         {
             questions.AddRange(CreateUniversityQuestions(universityId, extensions, now));
@@ -234,6 +236,86 @@ public static class TeacherDomainQuestionsDefaults
         {
             DomainId = domainId,
             Code = TeacherDomainQuestionCodes.SkillsCertification,
+            NameAr = "شهادة مهنية أو تدريب",
+            NameEn = "Professional or training certification",
+            DescriptionAr = "رفع شهادة مهنية أو تدريب ذات صلة (إن وجدت)",
+            DescriptionEn = "Upload a relevant professional or training certificate if available",
+            RequirementType = RegistrationRequirementType.File,
+            IsActive = true,
+            IsRequired = false,
+            RequiresAdminReview = true,
+            SortOrder = 20,
+            MinCount = 0,
+            MaxCount = 1,
+            MaxFileSizeBytes = DefaultMaxFileSizeBytes,
+            AllowedExtensionsJson = extensions,
+            MapsToDocumentType = TeacherDocumentType.Certificate,
+            IsSystem = true,
+            CreatedAt = now
+        }
+    ];
+
+    private static void AddWave1SkillLikeQuestions(
+        List<TeacherDomainQuestion> questions,
+        IReadOnlyDictionary<string, int> domainIdsByCode,
+        string extensions,
+        DateTime now)
+    {
+        (string DomainCode, string YearsCode, string CertCode, string YearsAr, string YearsEn)[] specs =
+        [
+            (EducationDomainCodes.SoftSkills, TeacherDomainQuestionCodes.SoftSkillsExperienceYears, TeacherDomainQuestionCodes.SoftSkillsCertification,
+                "سنوات الخبرة في المهارات العملية والناعمة", "Years of soft-skills teaching experience"),
+            (EducationDomainCodes.LifeSkills, TeacherDomainQuestionCodes.LifeSkillsExperienceYears, TeacherDomainQuestionCodes.LifeSkillsCertification,
+                "سنوات الخبرة في المهارات الحياتية", "Years of life-skills teaching experience"),
+            (EducationDomainCodes.TechSkills, TeacherDomainQuestionCodes.TechSkillsExperienceYears, TeacherDomainQuestionCodes.TechSkillsCertification,
+                "سنوات الخبرة في المهارات التقنية", "Years of technical-skills teaching experience"),
+            (EducationDomainCodes.Hobbies, TeacherDomainQuestionCodes.HobbiesExperienceYears, TeacherDomainQuestionCodes.HobbiesCertification,
+                "سنوات الخبرة في الهوايات والمهارات الشخصية", "Years of hobbies teaching experience"),
+            (EducationDomainCodes.Finance, TeacherDomainQuestionCodes.FinanceExperienceYears, TeacherDomainQuestionCodes.FinanceCertification,
+                "سنوات الخبرة في المال والاستثمار", "Years of finance teaching experience"),
+            (EducationDomainCodes.Knowledge, TeacherDomainQuestionCodes.KnowledgeExperienceYears, TeacherDomainQuestionCodes.KnowledgeCertification,
+                "سنوات الخبرة في العلوم والثقافة", "Years of knowledge-domain teaching experience")
+        ];
+
+        foreach (var spec in specs)
+        {
+            if (!domainIdsByCode.TryGetValue(spec.DomainCode, out var domainId))
+                continue;
+
+            questions.AddRange(CreateSkillLikeQuestions(domainId, spec.YearsCode, spec.CertCode, spec.YearsAr, spec.YearsEn, extensions, now));
+        }
+    }
+
+    private static IEnumerable<TeacherDomainQuestion> CreateSkillLikeQuestions(
+        int domainId,
+        string yearsCode,
+        string certCode,
+        string yearsAr,
+        string yearsEn,
+        string extensions,
+        DateTime now) =>
+    [
+        new()
+        {
+            DomainId = domainId,
+            Code = yearsCode,
+            NameAr = yearsAr,
+            NameEn = yearsEn,
+            RequirementType = RegistrationRequirementType.Text,
+            IsActive = true,
+            IsRequired = true,
+            RequiresAdminReview = false,
+            SortOrder = 10,
+            MinCount = 1,
+            MaxCount = 1,
+            MaxLength = 100,
+            IsSystem = true,
+            CreatedAt = now
+        },
+        new()
+        {
+            DomainId = domainId,
+            Code = certCode,
             NameAr = "شهادة مهنية أو تدريب",
             NameEn = "Professional or training certification",
             DescriptionAr = "رفع شهادة مهنية أو تدريب ذات صلة (إن وجدت)",

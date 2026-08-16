@@ -60,6 +60,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<Grade> Grades { get; set; }
         public DbSet<AcademicTerm> AcademicTerms { get; set; }
         public DbSet<Subject> Subjects { get; set; }
+        public DbSet<WritableFilterSlot> WritableFilterSlots { get; set; }
+        public DbSet<WritableFilterValue> WritableFilterValues { get; set; }
         public DbSet<ContentUnit> ContentUnits { get; set; }
         public DbSet<Lesson> Lessons { get; set; }
         public DbSet<University> Universities { get; set; }
@@ -104,6 +106,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherSubjectUnit> TeacherSubjectUnits { get; set; }
         public DbSet<TeacherSubjectQuranContentType> TeacherSubjectQuranContentTypes { get; set; }
         public DbSet<TeacherSubjectQuranLevel> TeacherSubjectQuranLevels { get; set; }
+        public DbSet<TeacherSubjectWritableFilter> TeacherSubjectWritableFilters { get; set; }
         public DbSet<TeacherAvailability> TeacherAvailabilities { get; set; }
         public DbSet<TeacherAvailabilityException> TeacherAvailabilityExceptions { get; set; }
         public DbSet<TeacherArea> TeacherAreas { get; set; }

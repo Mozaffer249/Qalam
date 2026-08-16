@@ -37,6 +37,8 @@ public class TeacherSubjectItemDto
     /// Quran levels covered. Empty = all levels.
     /// </summary>
     public List<int> QuranLevelIds { get; set; } = new();
+
+    public List<int> WritableFilterValueIds { get; set; } = new();
 }
 
 /// <summary>
@@ -59,6 +61,8 @@ public class UpdateTeacherSubjectDto
     public List<int> QuranContentTypeIds { get; set; } = new();
 
     public List<int> QuranLevelIds { get; set; } = new();
+
+    public List<int> WritableFilterValueIds { get; set; } = new();
 }
 
 #endregion
@@ -105,6 +109,7 @@ public class TeacherSubjectResponseDto
 
     public List<int> QuranContentTypeIds { get; set; } = new();
     public List<int> QuranLevelIds { get; set; } = new();
+    public List<int> WritableFilterValueIds { get; set; } = new();
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 }
