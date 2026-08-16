@@ -45,6 +45,9 @@ public class DatabaseSeeder
         // Wave-1 split: soft / life / tech / hobbies / finance / knowledge
         await SkillsSplitCatalogSeeder.SeedAsync(context);
 
+        // Wave-1 units + lessons (LanguageModule, no Term)
+        await Wave1UnitsLessonsSeeder.SeedAsync(context);
+
         // Language & skills catalog (units + lessons)
         await LanguageSkillsCatalogSeeder.SeedAsync(context);
 

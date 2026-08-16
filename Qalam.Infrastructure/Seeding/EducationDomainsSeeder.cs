@@ -258,8 +258,9 @@ public class EducationDomainsSeeder
                 HasEducationLevel = HasLevel,
                 EducationLevelAfterSubject = LevelAfterSubject,
                 HasWritableFilters = true,
-                HasContentUnits = false,
-                HasLessons = false,
+                HasContentUnits = true,
+                HasLessons = true,
+                RulesConfigured = true,
                 MinSessions = 1,
                 MaxSessions = 100,
                 DefaultSessionDurationMinutes = 60,
@@ -273,7 +274,9 @@ public class EducationDomainsSeeder
 
     private static async Task EnsureWave1DomainsAsync(ApplicationDBContext context)
     {
-        var existing = await context.EducationDomains.ToListAsync();
+        var existing = await context.EducationDomains
+            .Include(d => d.EducationRule)
+            .ToListAsync();
         var existingCodes = existing.Select(d => d.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var missing = CreateWave1Domains()
@@ -284,6 +287,28 @@ public class EducationDomainsSeeder
             await context.EducationDomains.AddRangeAsync(missing);
             await context.SaveChangesAsync();
         }
+
+        var wave1Dirty = false;
+        foreach (var domain in existing.Where(d =>
+                     EducationDomainCodes.Wave1SplitFromSkills.Contains(d.Code)))
+        {
+            var rule = domain.EducationRule;
+            if (rule is null)
+                continue;
+
+            var dirty = false;
+            if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+            if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
+            if (!rule.RulesConfigured) { rule.RulesConfigured = true; dirty = true; }
+            if (dirty)
+            {
+                rule.UpdatedAt = DateTime.UtcNow;
+                wave1Dirty = true;
+            }
+        }
+
+        if (wave1Dirty)
+            await context.SaveChangesAsync();
 
         var skills = existing.FirstOrDefault(d => d.Code == EducationDomainCodes.Skills);
         if (skills is { IsActive: true })
