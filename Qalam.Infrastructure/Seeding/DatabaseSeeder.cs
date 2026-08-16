@@ -34,10 +34,12 @@ public class DatabaseSeeder
 
         // Quran Domain Subjects
         await QuranSubjectsSeeder.SeedAsync(context);
+        await QuranExcelCatalogSeeder.SeedAsync(context);
 
         // Languages Domain
         await LanguageLevelsSeeder.SeedAsync(context);
         await LanguageSubjectsSeeder.SeedAsync(context);
+        await LanguageExcelCatalogSeeder.SeedAsync(context);
 
         // Legacy general skills (no-op when skills domain is inactive)
         await GeneralSkillsSubjectsSeeder.SeedAsync(context);
@@ -47,6 +49,9 @@ public class DatabaseSeeder
 
         // Wave-1 units + lessons (LanguageModule, no Term)
         await Wave1UnitsLessonsSeeder.SeedAsync(context);
+
+        // Sharia (Excel domain 4)
+        await ShariaCatalogSeeder.SeedAsync(context);
 
         // Language & skills catalog (units + lessons)
         await LanguageSkillsCatalogSeeder.SeedAsync(context);

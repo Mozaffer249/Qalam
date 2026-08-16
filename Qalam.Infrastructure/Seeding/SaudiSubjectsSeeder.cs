@@ -186,6 +186,110 @@ public class SaudiSubjectsSeeder
             // Seed ContentUnits for elementary subjects
             await SeedElementaryContentUnitsAsync(context, saudiCurriculumId, elementaryLevel.Id);
         }
+
+        await EnsureSaudiUnitsAndLessonsAsync(
+            context,
+            saudiCurriculumId,
+            elementaryLevel.Id,
+            intermediateLevel.Id,
+            secondaryLevel.Id);
+    }
+
+    /// <summary>
+    /// Idempotent: lessons on existing SchoolUnits; one unit+two lessons for intermediate/secondary subjects without units.
+    /// </summary>
+    private static async Task EnsureSaudiUnitsAndLessonsAsync(
+        ApplicationDBContext context,
+        int curriculumId,
+        int elementaryLevelId,
+        int intermediateLevelId,
+        int secondaryLevelId)
+    {
+        var terms = await context.AcademicTerms
+            .Where(t => t.CurriculumId == curriculumId)
+            .OrderBy(t => t.OrderIndex)
+            .ToListAsync();
+        var defaultTermId = terms.FirstOrDefault()?.Id;
+
+        // Lessons for any SchoolUnit that has none
+        var unitsWithoutLessons = await context.ContentUnits
+            .Include(cu => cu.Lessons)
+            .Where(cu =>
+                cu.UnitTypeCode == "SchoolUnit" &&
+                cu.Subject.CurriculumId == curriculumId &&
+                !cu.Lessons.Any())
+            .ToListAsync();
+
+        foreach (var unit in unitsWithoutLessons)
+        {
+            unit.Lessons.Add(new Lesson
+            {
+                NameAr = "الدرس 1 — مقدمة",
+                NameEn = "Lesson 1 — Introduction",
+                OrderIndex = 1,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            unit.Lessons.Add(new Lesson
+            {
+                NameAr = "الدرس 2 — تطبيق",
+                NameEn = "Lesson 2 — Practice",
+                OrderIndex = 2,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (unitsWithoutLessons.Count > 0)
+            await context.SaveChangesAsync();
+
+        // Intermediate / secondary subjects with no units
+        var stageSubjects = await context.Subjects
+            .Where(s =>
+                s.CurriculumId == curriculumId &&
+                s.IsActive &&
+                (s.LevelId == intermediateLevelId || s.LevelId == secondaryLevelId) &&
+                !context.ContentUnits.Any(cu => cu.SubjectId == s.Id))
+            .ToListAsync();
+
+        var newUnits = new List<ContentUnit>();
+        foreach (var subject in stageSubjects)
+        {
+            var unit = new ContentUnit
+            {
+                SubjectId = subject.Id,
+                TermId = defaultTermId,
+                NameAr = $"مقدمة — {subject.NameAr}",
+                NameEn = $"Foundations — {subject.NameEn}",
+                OrderIndex = 1,
+                UnitTypeCode = "SchoolUnit",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            unit.Lessons.Add(new Lesson
+            {
+                NameAr = "الدرس 1 — مقدمة",
+                NameEn = "Lesson 1 — Introduction",
+                OrderIndex = 1,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            unit.Lessons.Add(new Lesson
+            {
+                NameAr = "الدرس 2 — تطبيق",
+                NameEn = "Lesson 2 — Practice",
+                OrderIndex = 2,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            newUnits.Add(unit);
+        }
+
+        if (newUnits.Count > 0)
+        {
+            await context.ContentUnits.AddRangeAsync(newUnits);
+            await context.SaveChangesAsync();
+        }
     }
 
     /// <summary>
@@ -348,7 +452,26 @@ public class SaudiSubjectsSeeder
                     OrderIndex = i + 1,
                     UnitTypeCode = "SchoolUnit",
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    Lessons =
+                    {
+                        new Lesson
+                        {
+                            NameAr = "الدرس 1 — مقدمة",
+                            NameEn = "Lesson 1 — Introduction",
+                            OrderIndex = 1,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        },
+                        new Lesson
+                        {
+                            NameAr = "الدرس 2 — تطبيق",
+                            NameEn = "Lesson 2 — Practice",
+                            OrderIndex = 2,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        }
+                    }
                 });
             }
         }

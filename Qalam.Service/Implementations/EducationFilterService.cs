@@ -22,6 +22,7 @@ public class EducationFilterService : IEducationFilterService
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IAcademicProgramRepository _academicProgramRepository;
     private readonly IWritableFilterRepository _writableFilterRepository;
+    private readonly IQuranContentTypeRepository _quranContentTypeRepository;
 
     public EducationFilterService(
         IEducationDomainRepository domainRepository,
@@ -36,7 +37,8 @@ public class EducationFilterService : IEducationFilterService
         ICollegeRepository collegeRepository,
         IDepartmentRepository departmentRepository,
         IAcademicProgramRepository academicProgramRepository,
-        IWritableFilterRepository writableFilterRepository)
+        IWritableFilterRepository writableFilterRepository,
+        IQuranContentTypeRepository quranContentTypeRepository)
     {
         _domainRepository = domainRepository;
         _curriculumRepository = curriculumRepository;
@@ -51,6 +53,7 @@ public class EducationFilterService : IEducationFilterService
         _departmentRepository = departmentRepository;
         _academicProgramRepository = academicProgramRepository;
         _writableFilterRepository = writableFilterRepository;
+        _quranContentTypeRepository = quranContentTypeRepository;
     }
 
     public async Task<FilterOptionsResponseDto> GetFilterOptionsAsync(FilterStateDto state, int pageNumber = 1, int pageSize = 20)
@@ -125,8 +128,7 @@ public class EducationFilterService : IEducationFilterService
 
         // ========================================
         // QURAN DOMAIN FLOW
-        // Subject (auto) → Unit → Lesson → Done
-        // Content type / level are session-scoped catalogs (Quran/ContentTypes, Quran/Levels), not filter steps.
+        // Subject (auto) → ContentType → Riwayah (writable) → Level (audience) → Unit → Done
         // ========================================
         if (isQuranDomain)
         {
@@ -158,8 +160,7 @@ public class EducationFilterService : IEducationFilterService
     }
 
     /// <summary>
-    /// Quran domain flow: Subject (auto) → Unit → Lesson → Done.
-    /// Content type / level are not filter wizard steps.
+    /// Quran domain flow: Subject (auto) → ContentType → Riwayah writable → Audience Level → Unit → Done.
     /// </summary>
     private async Task<FilterStepResult> DetermineQuranNextStepAsync(
         FilterStateDto state,
@@ -181,6 +182,30 @@ public class EducationFilterService : IEducationFilterService
 
         if (!state.SubjectId.HasValue)
             state.SubjectId = quranSubject.Id;
+
+        if (rule.RequiresQuranContentType && !state.QuranContentTypeId.HasValue)
+        {
+            var types = await _quranContentTypeRepository.GetQuranContentTypesAsOptionsAsync();
+            return new FilterStepResult
+            {
+                NextStep = "QuranContentType",
+                Options = types
+            };
+        }
+
+        var afterSubjectWritable = await TryWritableStepAsync(
+            state, rule, domainId, WritableFilterAfterSteps.Subject);
+        if (afterSubjectWritable != null)
+            return afterSubjectWritable;
+
+        if (rule.HasEducationLevel && !state.LevelId.HasValue)
+        {
+            var levels = await _levelRepository.GetLevelsAsOptionsAsync(
+                domainId,
+                curriculumId: null,
+                academicProgramId: null);
+            return new FilterStepResult { NextStep = "Level", Options = levels };
+        }
 
         if (!state.ContentUnitId.HasValue)
         {

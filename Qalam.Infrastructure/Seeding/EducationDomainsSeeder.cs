@@ -33,6 +33,7 @@ public class EducationDomainsSeeder
                         HasAcademicTerm = true,
                         HasContentUnits = true,
                         HasLessons = true,
+                        RulesConfigured = true,
                         RequiresQuranContentType = false,
                         RequiresQuranLevel = false,
                         RequiresUnitTypeSelection = false,
@@ -59,13 +60,15 @@ public class EducationDomainsSeeder
                     EducationRule = new EducationRule
                     {
                         HasCurriculum = false,
-                        HasEducationLevel = false,
+                        HasEducationLevel = true,
                         HasGrade = false,
                         HasAcademicTerm = false,
                         HasContentUnits = true,
-                        HasLessons = true,
+                        HasLessons = false,
+                        HasWritableFilters = true,
+                        RulesConfigured = true,
                         RequiresQuranContentType = true,
-                        RequiresQuranLevel = true,
+                        RequiresQuranLevel = false,
                         RequiresUnitTypeSelection = true,
                         MinSessions = 1,
                         MaxSessions = 300,
@@ -91,10 +94,12 @@ public class EducationDomainsSeeder
                     {
                         HasCurriculum = false,
                         HasEducationLevel = true,
-                        HasGrade = false,
+                        HasGrade = true,
                         HasAcademicTerm = false,
-                        HasContentUnits = true,
-                        HasLessons = true,
+                        HasContentUnits = false,
+                        HasLessons = false,
+                        HasWritableFilters = true,
+                        RulesConfigured = true,
                         RequiresQuranContentType = false,
                         RequiresQuranLevel = false,
                         RequiresUnitTypeSelection = false,
@@ -156,12 +161,13 @@ public class EducationDomainsSeeder
                         HasGrade = false,
                         HasAcademicTerm = true,
                         AcademicTermOptional = true,
-                        HasContentUnits = true,
-                        HasLessons = true,
+                        HasContentUnits = false,
+                        HasLessons = false,
                         HasUniversity = true,
                         HasCollege = true,
                         HasDepartment = true,
                         HasAcademicProgram = true,
+                        RulesConfigured = true,
                         RequiresQuranContentType = false,
                         RequiresQuranLevel = false,
                         RequiresUnitTypeSelection = false,
@@ -178,12 +184,15 @@ public class EducationDomainsSeeder
             };
 
             domains.AddRange(CreateWave1Domains());
+            domains.Add(CreateShariaDomain(DateTime.UtcNow));
 
             await context.EducationDomains.AddRangeAsync(domains);
             await context.SaveChangesAsync();
         }
 
         await EnsureWave1DomainsAsync(context);
+        await EnsureExcelCoreDomainsAsync(context);
+        await EnsureShariaDomainAsync(context);
 
         // Backfill university institutional rule flags on existing DBs
         var universityDomain = await context.EducationDomains
@@ -199,6 +208,9 @@ public class EducationDomainsSeeder
             if (!uniRule.AcademicTermOptional) { uniRule.AcademicTermOptional = true; dirty = true; }
             if (uniRule.HasCurriculum) { uniRule.HasCurriculum = false; dirty = true; }
             if (uniRule.HasGrade) { uniRule.HasGrade = false; dirty = true; }
+            if (uniRule.HasContentUnits) { uniRule.HasContentUnits = false; dirty = true; }
+            if (uniRule.HasLessons) { uniRule.HasLessons = false; dirty = true; }
+            if (!uniRule.RulesConfigured) { uniRule.RulesConfigured = true; dirty = true; }
             if (dirty)
             {
                 uniRule.UpdatedAt = DateTime.UtcNow;
@@ -317,6 +329,122 @@ public class EducationDomainsSeeder
             skills.UpdatedAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
         }
+    }
+
+    private static EducationDomain CreateShariaDomain(DateTime now) =>
+        new()
+        {
+            NameAr = "علوم الشريعة واللغة العربية",
+            NameEn = "Sharia and Arabic Sciences",
+            Code = EducationDomainCodes.Sharia,
+            DescriptionAr = "العلوم الشرعية وعلوم اللغة العربية",
+            DescriptionEn = "Islamic sciences and Arabic language sciences",
+            IsActive = true,
+            CreatedAt = now,
+            EducationRule = new EducationRule
+            {
+                HasParentSubject = true,
+                HasWritableFilters = true,
+                HasEducationLevel = true,
+                EducationLevelAfterSubject = true,
+                HasContentUnits = false,
+                HasLessons = false,
+                RulesConfigured = true,
+                MinSessions = 1,
+                MaxSessions = 100,
+                DefaultSessionDurationMinutes = 60,
+                MinGroupSize = 1,
+                MaxGroupSize = 20,
+                AllowExtension = true,
+                AllowFlexibleCourses = true,
+                CreatedAt = now
+            }
+        };
+
+    private static async Task EnsureShariaDomainAsync(ApplicationDBContext context)
+    {
+        var existing = await context.EducationDomains
+            .Include(d => d.EducationRule)
+            .FirstOrDefaultAsync(d => d.Code == EducationDomainCodes.Sharia);
+        if (existing is null)
+        {
+            await context.EducationDomains.AddAsync(CreateShariaDomain(DateTime.UtcNow));
+            await context.SaveChangesAsync();
+            return;
+        }
+
+        var rule = existing.EducationRule;
+        if (rule is null)
+            return;
+
+        var dirty = false;
+        if (!rule.HasParentSubject) { rule.HasParentSubject = true; dirty = true; }
+        if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
+        if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
+        if (!rule.EducationLevelAfterSubject) { rule.EducationLevelAfterSubject = true; dirty = true; }
+        if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
+        if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+        if (!rule.RulesConfigured) { rule.RulesConfigured = true; dirty = true; }
+        if (dirty)
+        {
+            rule.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsureExcelCoreDomainsAsync(ApplicationDBContext context)
+    {
+        var domains = await context.EducationDomains
+            .Include(d => d.EducationRule)
+            .Where(d => d.Code == "school" || d.Code == "university" || d.Code == "quran" || d.Code == "language")
+            .ToListAsync();
+
+        var dirtyAny = false;
+        foreach (var domain in domains)
+        {
+            var rule = domain.EducationRule;
+            if (rule is null)
+                continue;
+
+            var dirty = false;
+            if (!rule.RulesConfigured) { rule.RulesConfigured = true; dirty = true; }
+
+            switch (domain.Code)
+            {
+                case "quran":
+                    if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
+                    if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
+                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+                    if (rule.RequiresQuranLevel) { rule.RequiresQuranLevel = false; dirty = true; }
+                    if (!rule.RequiresQuranContentType) { rule.RequiresQuranContentType = true; dirty = true; }
+                    if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+                    break;
+                case "language":
+                    if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
+                    if (!rule.HasGrade) { rule.HasGrade = true; dirty = true; }
+                    if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
+                    if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
+                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+                    break;
+                case "school":
+                    if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+                    if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
+                    break;
+                case "university":
+                    if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
+                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+                    break;
+            }
+
+            if (dirty)
+            {
+                rule.UpdatedAt = DateTime.UtcNow;
+                dirtyAny = true;
+            }
+        }
+
+        if (dirtyAny)
+            await context.SaveChangesAsync();
     }
 }
 

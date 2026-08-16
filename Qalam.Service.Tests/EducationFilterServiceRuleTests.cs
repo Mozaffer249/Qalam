@@ -305,6 +305,7 @@ public class EducationFilterServiceRuleTests
       Mock.Of<ICollegeRepository>(),
       Mock.Of<IDepartmentRepository>(),
       Mock.Of<IAcademicProgramRepository>(),
-      writableFilterRepo ?? Mock.Of<IWritableFilterRepository>());
+      writableFilterRepo ?? Mock.Of<IWritableFilterRepository>(),
+      Mock.Of<IQuranContentTypeRepository>());
   }
 }

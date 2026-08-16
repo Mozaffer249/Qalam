@@ -29,5 +29,21 @@ public static class TeacherDomainQuestionsSeeder
         }
 
         await context.SaveChangesAsync();
+
+        // Legacy skills domain is inactive — hide its survey questions on existing DBs.
+        if (domainIdsByCode.TryGetValue(EducationDomainCodes.Skills, out var skillsDomainId))
+        {
+            var skillsQuestions = await context.TeacherDomainQuestions
+                .Where(q => q.DomainId == skillsDomainId && q.IsActive)
+                .ToListAsync();
+            foreach (var q in skillsQuestions)
+            {
+                q.IsActive = false;
+                q.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (skillsQuestions.Count > 0)
+                await context.SaveChangesAsync();
+        }
     }
 }

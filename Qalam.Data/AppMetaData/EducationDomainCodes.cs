@@ -14,6 +14,7 @@ public static class EducationDomainCodes
     public const string Hobbies = "hobbies";
     public const string Finance = "finance";
     public const string Knowledge = "knowledge";
+    public const string Sharia = "sharia";
 
     public static readonly string[] Wave1SplitFromSkills =
     [

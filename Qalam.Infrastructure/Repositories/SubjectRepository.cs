@@ -185,10 +185,10 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
                 query = query.Where(s => s.CurriculumId == curriculumId);
 
             if (levelId.HasValue)
-                query = query.Where(s => s.LevelId == levelId);
+                query = query.Where(s => s.LevelId == null || s.LevelId == levelId);
 
             if (gradeId.HasValue)
-                query = query.Where(s => s.GradeId == gradeId);
+                query = query.Where(s => s.GradeId == null || s.GradeId == gradeId);
 
             if (termId.HasValue)
                 query = query.Where(s => s.TermId == termId);

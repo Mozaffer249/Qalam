@@ -19,6 +19,7 @@ public static class EducationRuleDefaults
             "hobbies" => Hobbies(),
             "finance" => Finance(),
             "knowledge" => Knowledge(),
+            "sharia" => Sharia(),
             _ => Generic(),
         };
 
@@ -61,9 +62,12 @@ public static class EducationRuleDefaults
 
     public static EducationRuleDto Quran() => new()
     {
+        HasEducationLevel = true,
+        HasWritableFilters = true,
         HasContentUnits = true,
+        HasLessons = false,
         RequiresQuranContentType = true,
-        RequiresQuranLevel = true,
+        RequiresQuranLevel = false,
         RequiresUnitTypeSelection = true,
         MinSessions = 1,
         MaxSessions = 300,
@@ -77,8 +81,10 @@ public static class EducationRuleDefaults
     public static EducationRuleDto Language() => new()
     {
         HasEducationLevel = true,
-        HasContentUnits = true,
-        HasLessons = true,
+        HasGrade = true,
+        HasWritableFilters = true,
+        HasContentUnits = false,
+        HasLessons = false,
         MinSessions = 1,
         MaxSessions = 150,
         DefaultSessionDurationMinutes = 60,
@@ -205,8 +211,8 @@ public static class EducationRuleDefaults
         HasGrade = false,
         HasAcademicTerm = true,
         AcademicTermOptional = true,
-        HasContentUnits = true,
-        HasLessons = true,
+        HasContentUnits = false,
+        HasLessons = false,
         HasUniversity = true,
         HasCollege = true,
         HasDepartment = true,
@@ -218,6 +224,23 @@ public static class EducationRuleDefaults
         MaxGroupSize = 40,
         AllowExtension = true,
         AllowFlexibleCourses = false,
+    };
+
+    public static EducationRuleDto Sharia() => new()
+    {
+        HasParentSubject = true,
+        HasWritableFilters = true,
+        HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
+        HasContentUnits = false,
+        HasLessons = false,
+        MinSessions = 1,
+        MaxSessions = 100,
+        DefaultSessionDurationMinutes = 60,
+        MinGroupSize = 1,
+        MaxGroupSize = 20,
+        AllowExtension = true,
+        AllowFlexibleCourses = true,
     };
 
     public static EducationRule MapToEntity(EducationRuleDto dto, int domainId, EducationRule? existing = null)

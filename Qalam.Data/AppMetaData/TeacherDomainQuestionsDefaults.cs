@@ -44,6 +44,18 @@ public static class TeacherDomainQuestionsDefaults
 
         AddWave1SkillLikeQuestions(questions, domainIdsByCode, extensions, now);
 
+        if (domainIdsByCode.TryGetValue(EducationDomainCodes.Sharia, out var shariaId))
+        {
+            questions.AddRange(CreateSkillLikeQuestions(
+                shariaId,
+                TeacherDomainQuestionCodes.ShariaExperienceYears,
+                TeacherDomainQuestionCodes.ShariaCertification,
+                "سنوات الخبرة في علوم الشريعة واللغة العربية",
+                "Years of sharia and Arabic-sciences teaching experience",
+                extensions,
+                now));
+        }
+
         if (domainIdsByCode.TryGetValue("university", out var universityId))
         {
             questions.AddRange(CreateUniversityQuestions(universityId, extensions, now));
@@ -222,7 +234,7 @@ public static class TeacherDomainQuestionsDefaults
             DescriptionAr = "عدد سنوات خبرتك في تدريس المهارات العامة أو المهنية",
             DescriptionEn = "How many years you have taught life, professional, or technical skills",
             RequirementType = RegistrationRequirementType.Text,
-            IsActive = true,
+            IsActive = false,
             IsRequired = true,
             RequiresAdminReview = false,
             SortOrder = 10,
@@ -241,7 +253,7 @@ public static class TeacherDomainQuestionsDefaults
             DescriptionAr = "رفع شهادة مهنية أو تدريب ذات صلة (إن وجدت)",
             DescriptionEn = "Upload a relevant professional or training certificate if available",
             RequirementType = RegistrationRequirementType.File,
-            IsActive = true,
+            IsActive = false,
             IsRequired = false,
             RequiresAdminReview = true,
             SortOrder = 20,

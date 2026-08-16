@@ -20,9 +20,13 @@ public static class LanguageSkillsCatalogSeeder
     private static async Task SeedLanguageCatalogAsync(ApplicationDBContext context)
     {
         var languageDomain = await context.EducationDomains
+            .Include(d => d.EducationRule)
             .FirstOrDefaultAsync(d => d.Code == "language")
             ?? throw new InvalidOperationException("Language domain must be seeded before language catalog content");
 
+        // Excel language path has no units/lessons — skip catalog modules when rule says so.
+        if (languageDomain.EducationRule is { HasContentUnits: false })
+            return;
         var curatedOverrides = new Dictionary<string, List<CatalogModule>>
         {
             ["Spanish - Conversation (A1 - Basic Beginner)"] =

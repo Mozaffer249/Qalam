@@ -32,6 +32,8 @@ public static class TeacherDomainQuestionCodes
     public const string FinanceCertification = "finance_certification";
     public const string KnowledgeExperienceYears = "knowledge_experience_years";
     public const string KnowledgeCertification = "knowledge_certification";
+    public const string ShariaExperienceYears = "sharia_experience_years";
+    public const string ShariaCertification = "sharia_certification";
 
     // University (domain: university)
     public const string UniversityTeachingExperience = "university_teaching_experience";

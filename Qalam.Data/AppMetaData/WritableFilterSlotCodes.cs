@@ -13,6 +13,13 @@ public static class WritableFilterSlotCodes
     public const string FinanceField = "finance.field";
     public const string KnowledgePreciseTopic = "knowledge.precise_topic";
     public const string KnowledgeOtherField = "knowledge.other_field";
+    public const string QuranRiwayah = "quran.riwayah";
+    public const string ShariaEducationType = "sharia.education_type";
+    public const string ShariaBook = "sharia.book";
+    public const string LanguageOtherLanguage = "language.other_language";
+    public const string LanguageSkill = "language.skill";
+    public const string LanguagePurpose = "language.purpose";
+    public const string LanguageCurriculum = "language.curriculum";
 }
 
 public static class WritableFilterAfterSteps
