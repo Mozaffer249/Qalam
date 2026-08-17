@@ -64,9 +64,19 @@ public class FilterStateDto
     public bool SkipTerm { get; set; }
 
     /// <summary>
-    /// Selected content unit ID (wizard step 7 — after Unit).
+    /// Selected content unit ID (wizard step 7 — after Unit). Prefer <see cref="ContentUnitIds"/> for multi-select.
     /// </summary>
     public int? ContentUnitId { get; set; }
+
+    /// <summary>
+    /// Selected content unit IDs (Quran juz/surah multi-select; also used when selecting multiple units).
+    /// </summary>
+    public List<int>? ContentUnitIds { get; set; }
+
+    /// <summary>
+    /// When true, skip Unit selection (full subject / all juz+surah coverage).
+    /// </summary>
+    public bool SkipUnits { get; set; }
 
     /// <summary>
     /// Selected lesson IDs (wizard step 8 — optional multi-select after unit).

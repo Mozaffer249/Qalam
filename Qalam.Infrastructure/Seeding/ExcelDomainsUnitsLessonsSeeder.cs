@@ -6,13 +6,16 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds sample units and lessons for Excel domains that now expose content trees:
-/// sharia / language (flat lang.*) → LanguageModule; university → SchoolUnit.
+/// Seeds sample units and lessons for Excel domains that expose content trees:
+/// sharia → LanguageModule; university → SchoolUnit.
+/// Language has no units/lessons per Excel (stops at writables).
 /// </summary>
 public static class ExcelDomainsUnitsLessonsSeeder
 {
     public static async Task SeedAsync(ApplicationDBContext context)
     {
+        await DeactivateLanguageDummyUnitsAsync(context);
+
         await SeedDomainAsync(
             context,
             EducationDomainCodes.Sharia,
@@ -21,15 +24,51 @@ public static class ExcelDomainsUnitsLessonsSeeder
 
         await SeedDomainAsync(
             context,
-            EducationDomainCodes.Language,
-            unitTypeCode: "LanguageModule",
-            subjectFilter: s => s.Code != null && s.Code.StartsWith("lang."));
-
-        await SeedDomainAsync(
-            context,
             EducationDomainCodes.University,
             unitTypeCode: "SchoolUnit",
             subjectFilter: null);
+    }
+
+    /// <summary>
+    /// Excel language path has no units — deactivate any LanguageModule rows under lang.* subjects.
+    /// </summary>
+    private static async Task DeactivateLanguageDummyUnitsAsync(ApplicationDBContext context)
+    {
+        var domain = await context.EducationDomains
+            .FirstOrDefaultAsync(d => d.Code == EducationDomainCodes.Language);
+        if (domain is null)
+            return;
+
+        var subjectIds = await context.Subjects
+            .Where(s => s.DomainId == domain.Id && s.Code != null && s.Code.StartsWith("lang."))
+            .Select(s => s.Id)
+            .ToListAsync();
+        if (subjectIds.Count == 0)
+            return;
+
+        var units = await context.ContentUnits
+            .Include(cu => cu.Lessons)
+            .Where(cu =>
+                subjectIds.Contains(cu.SubjectId) &&
+                cu.UnitTypeCode == "LanguageModule" &&
+                cu.IsActive)
+            .ToListAsync();
+
+        if (units.Count == 0)
+            return;
+
+        foreach (var unit in units)
+        {
+            unit.IsActive = false;
+            unit.UpdatedAt = DateTime.UtcNow;
+            foreach (var lesson in unit.Lessons.Where(l => l.IsActive))
+            {
+                lesson.IsActive = false;
+                lesson.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task SeedDomainAsync(

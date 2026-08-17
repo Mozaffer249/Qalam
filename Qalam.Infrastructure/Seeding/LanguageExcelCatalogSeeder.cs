@@ -165,7 +165,8 @@ public static class LanguageExcelCatalogSeeder
             ("lang.tr", "اللغة التركية", "Turkish"),
             ("lang.zh", "اللغة الصينية", "Chinese"),
             ("lang.ja", "اللغة اليابانية", "Japanese"),
-            ("lang.ko", "اللغة الكورية", "Korean")
+            ("lang.ko", "اللغة الكورية", "Korean"),
+            ("lang.other", "لغة أخرى", "Other language")
         };
 
         foreach (var lang in languages)
@@ -190,13 +191,25 @@ public static class LanguageExcelCatalogSeeder
 
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)
     {
+        await EnsureLanguageWritableAfterStepsAsync(context, domainId);
+
         if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domainId))
             return;
 
-        var specs = new (string Code, string Ar, string En, string After, int Order, bool Required, (string Code, string Ar, string En)[] Values)[]
+        var specs = new (string Code, string Ar, string En, string After, int Order, bool Required, string? RequiredWhen, (string Code, string Ar, string En)[] Values)[]
         {
+            (WritableFilterSlotCodes.LanguageOtherLanguage, "لغة أخرى", "Other language",
+                WritableFilterAfterSteps.Subject, 1, false, ".other",
+            [
+                ("de", "الألمانية", "German"),
+                ("it", "الإيطالية", "Italian"),
+                ("ru", "الروسية", "Russian"),
+                ("ur", "الأردية", "Urdu"),
+                ("pt", "البرتغالية", "Portuguese"),
+                ("sw", "السواحيلية", "Swahili")
+            ]),
             (WritableFilterSlotCodes.LanguageSkill, "المهارة", "Skill",
-                WritableFilterAfterSteps.Subject, 1, true,
+                WritableFilterAfterSteps.Grade, 2, true, null,
             [
                 ("conversation", "المحادثة والممارسة", "Conversation and practice"),
                 ("rw", "القراءة والكتابة", "Reading and writing"),
@@ -204,7 +217,7 @@ public static class LanguageExcelCatalogSeeder
                 ("vocab", "المفردات", "Vocabulary")
             ]),
             (WritableFilterSlotCodes.LanguagePurpose, "الغرض / التخصص", "Purpose / specialization",
-                WritableFilterAfterSteps.Subject, 2, true,
+                WritableFilterAfterSteps.Grade, 3, true, null,
             [
                 ("systematic", "الدراسة المنهجية", "Systematic study"),
                 ("foundation", "التأسيس اللغوي", "Language foundation"),
@@ -220,23 +233,13 @@ public static class LanguageExcelCatalogSeeder
                 ("translation", "الترجمة", "Translation")
             ]),
             (WritableFilterSlotCodes.LanguageCurriculum, "المنهج", "Curriculum",
-                WritableFilterAfterSteps.Subject, 3, false,
+                WritableFilterAfterSteps.Grade, 4, false, null,
             [
                 ("oxford", "Oxford book", "Oxford book"),
                 ("headway", "Headway", "Headway"),
                 ("english-file", "English File", "English File"),
                 ("qcf", "QCF", "QCF"),
                 ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk")
-            ]),
-            (WritableFilterSlotCodes.LanguageOtherLanguage, "لغة أخرى", "Other language",
-                WritableFilterAfterSteps.Subject, 4, false,
-            [
-                ("de", "الألمانية", "German"),
-                ("it", "الإيطالية", "Italian"),
-                ("ru", "الروسية", "Russian"),
-                ("ur", "الأردية", "Urdu"),
-                ("pt", "البرتغالية", "Portuguese"),
-                ("sw", "السواحيلية", "Swahili")
             ])
         };
 
@@ -251,6 +254,7 @@ public static class LanguageExcelCatalogSeeder
                 AfterStep = spec.After,
                 OrderIndex = spec.Order,
                 IsRequired = spec.Required,
+                RequiredWhenSubjectCodeContains = spec.RequiredWhen,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -274,5 +278,72 @@ public static class LanguageExcelCatalogSeeder
 
             await context.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Backfill AfterStep / RequiredWhen for language slots on existing DBs.
+    /// Excel: other-language after Subject; skill/purpose/curriculum after Grade (CEFR).
+    /// </summary>
+    private static async Task EnsureLanguageWritableAfterStepsAsync(ApplicationDBContext context, int domainId)
+    {
+        var slots = await context.WritableFilterSlots
+            .Where(s => s.DomainId == domainId)
+            .ToListAsync();
+        if (slots.Count == 0)
+            return;
+
+        var dirtyAny = false;
+        foreach (var slot in slots)
+        {
+            var dirty = false;
+            if (slot.Code == WritableFilterSlotCodes.LanguageOtherLanguage)
+            {
+                if (slot.AfterStep != WritableFilterAfterSteps.Subject)
+                {
+                    slot.AfterStep = WritableFilterAfterSteps.Subject;
+                    dirty = true;
+                }
+                if (slot.RequiredWhenSubjectCodeContains != ".other")
+                {
+                    slot.RequiredWhenSubjectCodeContains = ".other";
+                    dirty = true;
+                }
+                if (slot.OrderIndex != 1)
+                {
+                    slot.OrderIndex = 1;
+                    dirty = true;
+                }
+            }
+            else if (slot.Code is WritableFilterSlotCodes.LanguageSkill
+                     or WritableFilterSlotCodes.LanguagePurpose
+                     or WritableFilterSlotCodes.LanguageCurriculum)
+            {
+                if (slot.AfterStep != WritableFilterAfterSteps.Grade)
+                {
+                    slot.AfterStep = WritableFilterAfterSteps.Grade;
+                    dirty = true;
+                }
+                var desiredOrder = slot.Code switch
+                {
+                    WritableFilterSlotCodes.LanguageSkill => 2,
+                    WritableFilterSlotCodes.LanguagePurpose => 3,
+                    _ => 4
+                };
+                if (slot.OrderIndex != desiredOrder)
+                {
+                    slot.OrderIndex = desiredOrder;
+                    dirty = true;
+                }
+            }
+
+            if (dirty)
+            {
+                slot.UpdatedAt = DateTime.UtcNow;
+                dirtyAny = true;
+            }
+        }
+
+        if (dirtyAny)
+            await context.SaveChangesAsync();
     }
 }

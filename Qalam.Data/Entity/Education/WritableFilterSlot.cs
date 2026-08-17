@@ -19,7 +19,7 @@ public class WritableFilterSlot : AuditableEntity
     [Required, MaxLength(100)]
     public string NameEn { get; set; } = default!;
 
-    /// <summary>Start | ParentSubject | Subject | Level</summary>
+    /// <summary>Start | ParentSubject | Subject | Level | Grade</summary>
     [Required, MaxLength(40)]
     public string AfterStep { get; set; } = default!;
 

@@ -81,10 +81,11 @@ public static class EducationRuleDefaults
     public static EducationRuleDto Language() => new()
     {
         HasEducationLevel = true,
+        EducationLevelAfterSubject = true,
         HasGrade = true,
         HasWritableFilters = true,
-        HasContentUnits = true,
-        HasLessons = true,
+        HasContentUnits = false,
+        HasLessons = false,
         MinSessions = 1,
         MaxSessions = 150,
         DefaultSessionDurationMinutes = 60,

@@ -30,6 +30,11 @@ public class FilterOptionsResponseDto
     public int? PageNumber { get; set; }
     public int? PageSize { get; set; }
     public int? TotalPages { get; set; }
+
+    /// <summary>
+    /// When true, clients should pre-select all options (Excel Quran: الأصل الكل).
+    /// </summary>
+    public bool SelectAllByDefault { get; set; }
     
     // For Quran domain enhanced response
     [JsonPropertyName("contentTypes")]

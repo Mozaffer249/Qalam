@@ -28,4 +28,5 @@ public static class WritableFilterAfterSteps
     public const string ParentSubject = "ParentSubject";
     public const string Subject = "Subject";
     public const string Level = "Level";
+    public const string Grade = "Grade";
 }

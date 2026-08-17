@@ -50,8 +50,8 @@ public class EducationDomainsSeeder
                 // Quran Domain
                 new()
                 {
-                    NameAr = "قرآن كريم",
-                    NameEn = "Quran",
+                    NameAr = "القرآن الكريم وعلومه",
+                    NameEn = "Quran and its sciences",
                     Code = "quran",
                     DescriptionAr = "تعليم القرآن الكريم حفظاً وتلاوة وتجويداً",
                     DescriptionEn = "Quran education: memorization, recitation, and tajweed",
@@ -94,10 +94,11 @@ public class EducationDomainsSeeder
                     {
                         HasCurriculum = false,
                         HasEducationLevel = true,
+                        EducationLevelAfterSubject = true,
                         HasGrade = true,
                         HasAcademicTerm = false,
-                        HasContentUnits = true,
-                        HasLessons = true,
+                        HasContentUnits = false,
+                        HasLessons = false,
                         HasWritableFilters = true,
                         RulesConfigured = true,
                         RequiresQuranContentType = false,
@@ -418,13 +419,24 @@ public class EducationDomainsSeeder
                     if (rule.RequiresQuranLevel) { rule.RequiresQuranLevel = false; dirty = true; }
                     if (!rule.RequiresQuranContentType) { rule.RequiresQuranContentType = true; dirty = true; }
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+                    if (domain.NameAr != "القرآن الكريم وعلومه")
+                    {
+                        domain.NameAr = "القرآن الكريم وعلومه";
+                        dirty = true;
+                    }
+                    if (domain.NameEn != "Quran and its sciences")
+                    {
+                        domain.NameEn = "Quran and its sciences";
+                        dirty = true;
+                    }
                     break;
                 case "language":
                     if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
+                    if (!rule.EducationLevelAfterSubject) { rule.EducationLevelAfterSubject = true; dirty = true; }
                     if (!rule.HasGrade) { rule.HasGrade = true; dirty = true; }
                     if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
-                    if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
-                    if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
+                    if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
+                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
                     break;
                 case "school":
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
@@ -439,6 +451,8 @@ public class EducationDomainsSeeder
             if (dirty)
             {
                 rule.UpdatedAt = DateTime.UtcNow;
+                if (domain.Code == "quran")
+                    domain.UpdatedAt = DateTime.UtcNow;
                 dirtyAny = true;
             }
         }
