@@ -22,6 +22,14 @@ public class WritableFilterValue : AuditableEntity
     [Required, MaxLength(200)]
     public string NormalizedText { get; set; } = default!;
 
+    /// <summary>
+    /// When set, value is offered only if the selected subject code contains this token
+    /// (e.g. "lang.en" for English curricula, "lang.ar-nns" for Arabic NNS).
+    /// Null/empty = available for every subject in the slot.
+    /// </summary>
+    [MaxLength(40)]
+    public string? SubjectCodeContains { get; set; }
+
     public bool IsSeeded { get; set; }
 
     public bool IsActive { get; set; } = true;

@@ -72,15 +72,24 @@ HasCurriculum: false
 
 ```csharp
 Code: "language"
-HasCurriculum: false
+EducationLevelAfterSubject: true
+HasGrade: true
+HasWritableFilters: true
+HasContentUnits: false
+HasLessons: false
 ```
 
-- **الوصف:** تعليم اللغات الأجنبية والعربية
-- **الخصائص:**
-  - مرن - بدون منهج محدد
-  - يمكن تخصيص المحتوى حسب احتياج الطالب
+- **الوصف:** تعليم اللغات الأجنبية والعربية لغير الناطقين بها
+- **تسلسل الفلاتر (Excel):**
+  1. Subject (`lang.en`, `lang.ar-nns`, …، `lang.other`)
+  2. Level — الفئة العمرية (`أطفال` / `شباب` / `كبار`)
+  3. Grade — المستوى CEFR (`A1`…`C2`)
+  4. Writable — المهارة (`language.skill`)
+  5. Writable — الغرض (`language.purpose`)
+  6. Writable — المنهج (`language.curriculum`) — اختياري، مقيّد برمز المادة (مثل كتب الإنجليزية لـ `lang.en` فقط)
+- **حالة خاصة:** عند `lang.other` يظهر writable «لغة أخرى» مباشرة بعد Subject ثم يكمل التسلسل أعلاه
 
-**مثال:** تعليم اللغة الإنجليزية للمحادثة
+**مثال:** الإنجليزية ← شباب ← أساسي A2 ← المفردات ← التأسيس اللغوي ← Oxford book
 
 #### 4. **General Skills (مهارات عامة)**
 

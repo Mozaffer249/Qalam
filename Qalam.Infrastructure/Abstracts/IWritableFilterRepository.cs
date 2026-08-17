@@ -8,7 +8,10 @@ public interface IWritableFilterRepository : IGenericRepositoryAsync<WritableFil
 {
     Task<List<WritableFilterSlot>> GetActiveSlotsByDomainIdAsync(int domainId, CancellationToken ct = default);
 
-    Task<List<FilterOptionDto>> GetValuesAsOptionsAsync(int slotId, CancellationToken ct = default);
+    Task<List<FilterOptionDto>> GetValuesAsOptionsAsync(
+        int slotId,
+        string? subjectCode = null,
+        CancellationToken ct = default);
 
     Task<WritableFilterSlot?> GetSlotByDomainAndCodeAsync(int domainId, string slotCode, CancellationToken ct = default);
 

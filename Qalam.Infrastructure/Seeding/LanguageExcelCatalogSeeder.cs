@@ -192,54 +192,55 @@ public static class LanguageExcelCatalogSeeder
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)
     {
         await EnsureLanguageWritableAfterStepsAsync(context, domainId);
+        await EnsureLanguageCurriculumSubjectScopesAsync(context, domainId);
 
         if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domainId))
             return;
 
-        var specs = new (string Code, string Ar, string En, string After, int Order, bool Required, string? RequiredWhen, (string Code, string Ar, string En)[] Values)[]
+        var specs = new (string Code, string Ar, string En, string After, int Order, bool Required, string? RequiredWhen, (string Code, string Ar, string En, string? SubjectScope)[] Values)[]
         {
             (WritableFilterSlotCodes.LanguageOtherLanguage, "لغة أخرى", "Other language",
                 WritableFilterAfterSteps.Subject, 1, false, ".other",
             [
-                ("de", "الألمانية", "German"),
-                ("it", "الإيطالية", "Italian"),
-                ("ru", "الروسية", "Russian"),
-                ("ur", "الأردية", "Urdu"),
-                ("pt", "البرتغالية", "Portuguese"),
-                ("sw", "السواحيلية", "Swahili")
+                ("de", "الألمانية", "German", null),
+                ("it", "الإيطالية", "Italian", null),
+                ("ru", "الروسية", "Russian", null),
+                ("ur", "الأردية", "Urdu", null),
+                ("pt", "البرتغالية", "Portuguese", null),
+                ("sw", "السواحيلية", "Swahili", null)
             ]),
             (WritableFilterSlotCodes.LanguageSkill, "المهارة", "Skill",
                 WritableFilterAfterSteps.Grade, 2, true, null,
             [
-                ("conversation", "المحادثة والممارسة", "Conversation and practice"),
-                ("rw", "القراءة والكتابة", "Reading and writing"),
-                ("grammar", "القواعد", "Grammar"),
-                ("vocab", "المفردات", "Vocabulary")
+                ("conversation", "المحادثة والممارسة", "Conversation and practice", null),
+                ("rw", "القراءة والكتابة", "Reading and writing", null),
+                ("grammar", "القواعد", "Grammar", null),
+                ("vocab", "المفردات", "Vocabulary", null)
             ]),
             (WritableFilterSlotCodes.LanguagePurpose, "الغرض / التخصص", "Purpose / specialization",
                 WritableFilterAfterSteps.Grade, 3, true, null,
             [
-                ("systematic", "الدراسة المنهجية", "Systematic study"),
-                ("foundation", "التأسيس اللغوي", "Language foundation"),
-                ("business", "لغة الأعمال والعمل", "Business and work language"),
-                ("travel", "السفر والسياحة", "Travel and tourism"),
-                ("exams", "التحضير للاختبارات", "Exam preparation"),
-                ("interviews", "المقابلات الوظيفية", "Job interviews"),
-                ("conversation", "المحادثة والممارسة", "Conversation and practice"),
-                ("children", "لغة للأطفال", "Language for children"),
-                ("dawah", "الدعوة والشريعة", "Dawah and sharia"),
-                ("stem", "العلوم والهندسة", "Science and engineering"),
-                ("health", "الصحة والطب", "Health and medicine"),
-                ("translation", "الترجمة", "Translation")
+                ("systematic", "الدراسة المنهجية", "Systematic study", null),
+                ("foundation", "التأسيس اللغوي", "Language foundation", null),
+                ("business", "لغة الأعمال والعمل", "Business and work language", null),
+                ("travel", "السفر والسياحة", "Travel and tourism", null),
+                ("exams", "التحضير للاختبارات", "Exam preparation", null),
+                ("interviews", "المقابلات الوظيفية", "Job interviews", null),
+                ("conversation", "المحادثة والممارسة", "Conversation and practice", null),
+                ("children", "لغة للأطفال", "Language for children", null),
+                ("dawah", "الدعوة والشريعة", "Dawah and sharia", null),
+                ("stem", "العلوم والهندسة", "Science and engineering", null),
+                ("health", "الصحة والطب", "Health and medicine", null),
+                ("translation", "الترجمة", "Translation", null)
             ]),
             (WritableFilterSlotCodes.LanguageCurriculum, "المنهج", "Curriculum",
                 WritableFilterAfterSteps.Grade, 4, false, null,
             [
-                ("oxford", "Oxford book", "Oxford book"),
-                ("headway", "Headway", "Headway"),
-                ("english-file", "English File", "English File"),
-                ("qcf", "QCF", "QCF"),
-                ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk")
+                ("oxford", "Oxford book", "Oxford book", "lang.en"),
+                ("headway", "Headway", "Headway", "lang.en"),
+                ("english-file", "English File", "English File", "lang.en"),
+                ("qcf", "QCF", "QCF", "lang.en"),
+                ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk", "lang.ar-nns")
             ])
         };
 
@@ -270,6 +271,7 @@ public static class LanguageExcelCatalogSeeder
                     NameAr = value.Ar,
                     NameEn = value.En,
                     NormalizedText = WritableFilterTextNormalizer.Normalize(value.Ar),
+                    SubjectCodeContains = value.SubjectScope,
                     IsSeeded = true,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
@@ -344,6 +346,47 @@ public static class LanguageExcelCatalogSeeder
         }
 
         if (dirtyAny)
+            await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Backfill SubjectCodeContains on curriculum books so English ≠ Arabic NNS catalogs.
+    /// </summary>
+    private static async Task EnsureLanguageCurriculumSubjectScopesAsync(ApplicationDBContext context, int domainId)
+    {
+        var curriculumSlot = await context.WritableFilterSlots
+            .FirstOrDefaultAsync(s =>
+                s.DomainId == domainId && s.Code == WritableFilterSlotCodes.LanguageCurriculum);
+        if (curriculumSlot is null)
+            return;
+
+        var scopes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["oxford"] = "lang.en",
+            ["headway"] = "lang.en",
+            ["english-file"] = "lang.en",
+            ["qcf"] = "lang.en",
+            ["arabiyya-bayna-yadayk"] = "lang.ar-nns"
+        };
+
+        var values = await context.WritableFilterValues
+            .Where(v => v.SlotId == curriculumSlot.Id && v.Code != null)
+            .ToListAsync();
+
+        var dirty = false;
+        foreach (var value in values)
+        {
+            if (value.Code is null || !scopes.TryGetValue(value.Code, out var scope))
+                continue;
+            if (string.Equals(value.SubjectCodeContains, scope, StringComparison.Ordinal))
+                continue;
+
+            value.SubjectCodeContains = scope;
+            value.UpdatedAt = DateTime.UtcNow;
+            dirty = true;
+        }
+
+        if (dirty)
             await context.SaveChangesAsync();
     }
 }

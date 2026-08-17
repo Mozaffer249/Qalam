@@ -16,6 +16,7 @@ public class WritableFilterValueConfiguration : IEntityTypeConfiguration<Writabl
         builder.Property(e => e.NameAr).IsRequired().HasMaxLength(200);
         builder.Property(e => e.NameEn).IsRequired().HasMaxLength(200);
         builder.Property(e => e.NormalizedText).IsRequired().HasMaxLength(200);
+        builder.Property(e => e.SubjectCodeContains).HasMaxLength(40);
         builder.Property(e => e.IsActive).HasDefaultValue(true);
 
         builder.HasIndex(e => new { e.SlotId, e.NormalizedText }).IsUnique();

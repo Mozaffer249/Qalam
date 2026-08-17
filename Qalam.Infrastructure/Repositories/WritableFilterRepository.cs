@@ -28,11 +28,28 @@ public class WritableFilterRepository : GenericRepositoryAsync<WritableFilterVal
             .ToListAsync(ct);
     }
 
-    public async Task<List<FilterOptionDto>> GetValuesAsOptionsAsync(int slotId, CancellationToken ct = default)
+    public async Task<List<FilterOptionDto>> GetValuesAsOptionsAsync(
+        int slotId,
+        string? subjectCode = null,
+        CancellationToken ct = default)
     {
-        return await _dbContext.WritableFilterValues
+        var query = _dbContext.WritableFilterValues
             .AsNoTracking()
-            .Where(v => v.SlotId == slotId && v.IsActive)
+            .Where(v => v.SlotId == slotId && v.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(subjectCode))
+        {
+            query = query.Where(v =>
+                string.IsNullOrEmpty(v.SubjectCodeContains)
+                || subjectCode.Contains(v.SubjectCodeContains));
+        }
+        else
+        {
+            // No subject yet: only unscoped values (skill/purpose stay shared).
+            query = query.Where(v => string.IsNullOrEmpty(v.SubjectCodeContains));
+        }
+
+        return await query
             .OrderByDescending(v => v.IsSeeded)
             .ThenBy(v =>
                 (v.Code != null && v.Code.EndsWith(".other")) ||

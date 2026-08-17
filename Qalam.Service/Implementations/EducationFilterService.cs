@@ -628,7 +628,7 @@ public class EducationFilterService : IEducationFilterService
                 continue;
             }
 
-            var options = await _writableFilterRepository.GetValuesAsOptionsAsync(slot.Id);
+            var options = await _writableFilterRepository.GetValuesAsOptionsAsync(slot.Id, subjectCode);
             return new FilterStepResult
             {
                 NextStep = "WritableFilter",
