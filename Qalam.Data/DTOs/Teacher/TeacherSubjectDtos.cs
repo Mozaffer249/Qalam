@@ -120,6 +120,25 @@ public class TeacherSubjectResponseDto
     public List<int> WritableFilterValueIds { get; set; } = new();
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
+
+    /// <summary>Human-readable coverage line (Arabic), e.g. التجويد · حفص عن عاصم · الصغار.</summary>
+    public string CoverageSummaryAr { get; set; } = "";
+
+    /// <summary>Human-readable coverage line (English).</summary>
+    public string CoverageSummaryEn { get; set; } = "";
+
+    public List<TeacherSubjectCoverageLabelDto> CoverageLabels { get; set; } = new();
+}
+
+/// <summary>
+/// A single coverage selection label for profile display.
+/// </summary>
+public class TeacherSubjectCoverageLabelDto
+{
+    public string NameAr { get; set; } = "";
+    public string NameEn { get; set; } = "";
+    /// <summary>QuranContentType | WritableFilter | EducationLevel | Unit</summary>
+    public string Kind { get; set; } = "";
 }
 
 /// <summary>

@@ -36,9 +36,12 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.QuranContentTypes)
+                .ThenInclude(q => q.QuranContentType)
             .Include(ts => ts.QuranLevels)
             .Include(ts => ts.EducationLevels)
-            .Include(ts => ts.WritableFilters);
+                .ThenInclude(el => el.EducationLevel)
+            .Include(ts => ts.WritableFilters)
+                .ThenInclude(wf => wf.WritableFilterValue);
 
     public async Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId)
     {

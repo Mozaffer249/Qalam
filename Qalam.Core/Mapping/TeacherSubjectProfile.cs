@@ -28,7 +28,8 @@ public class TeacherSubjectProfile : Profile
             .ForMember(dest => dest.QuranLevelIds, opt => opt.MapFrom(src => src.QuranLevels.Select(l => l.QuranLevelId).ToList()))
             .ForMember(dest => dest.EducationLevelIds, opt => opt.MapFrom(src => src.EducationLevels.Select(l => l.EducationLevelId).ToList()))
             .ForMember(dest => dest.WritableFilterValueIds, opt => opt.MapFrom(src => src.WritableFilters.Select(w => w.WritableFilterValueId).ToList()))
-            .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits));
+            .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits))
+            .AfterMap(TeacherSubjectCoverageMapper.ApplyCoverage);
 
         // TeacherSubjectUnit -> TeacherSubjectUnitResponseDto
         CreateMap<TeacherSubjectUnit, TeacherSubjectUnitResponseDto>()
