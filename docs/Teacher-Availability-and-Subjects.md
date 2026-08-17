@@ -16,24 +16,32 @@
 
 ## Subject wizard (teacher survey `/teacher/survey?phase=subjects`)
 
-Single page: **domain filter bar** at top, rule-driven step strip, multi-select panel, batch summary, **pending subjects list**, and **Continue** (one POST).
+Numbered **4-phase wizard** (survey UI only; same `filter-options` + `POST /TeacherSubject`):
+
+1. **Domain** — pick teaching domain  
+2. **Subjects** — path parents (if any) then multi-select subjects  
+3. **Coverage** — post-subject Excel steps (Age/CEFR/writables/units/Quran) with sub-progress `3.1 → 3.2…`  
+4. **Review & add** — batch summary + **Add subjects**; pending list always visible; **Continue** posts when pending is non-empty  
+
+Next/Back between phases; forward locked until the phase gate passes. Disabled Add shows short reasons (missing level, skill, units, …).
 
 ### Components (`apps/teacher/src/routes/teacher/survey/-components/`)
 
 | Component | Role |
 |-----------|------|
-| `SubjectSelection.tsx` | Orchestrator — domain, wizard state, POST |
+| `SubjectSelection.tsx` | Orchestrator — phases, coverage gates, POST |
+| `SurveyPhaseStepper.tsx` | Numbered Domain → Subjects → Coverage → Review |
+| `CoverageSubStrip.tsx` | Post-subject sub-progress inside phase 3 |
 | `DomainFilterBar.tsx` | Search + select domain (`GET /Education/Domains`) |
-| `EducationStepStrip.tsx` | Rule-driven steps + path tags |
 | `EducationMultiSelectPanel.tsx` | Checkbox multi-select; Quran branch |
-| `SelectionSummary.tsx` | Current batch summary + **Add subjects** |
+| `SelectionSummary.tsx` | Batch summary + **Add subjects** (phase 4) + blocked reasons |
 | `PendingSubjectsList.tsx` | Flat list of subjects to save; remove per row |
 
 ### Layout
 
-1. **Top** — Domain search + dropdown; step strip from `teacherSurveyStepsFromRule(rule)` (no Term or Lesson steps)
-2. **Main** — Active-step panel (single-select path steps; multi-select Subject and Unit)
-3. **Side** — Batch summary + **Add subjects**; pending subjects list
+1. **Side / top** — Phase stepper (Step N of 4)  
+2. **Center** — Current phase content only + Back/Next  
+3. **Side** — Draft summary + pending list (always visible)  
 4. **Footer** — **Continue** → `POST /Api/V1/Teacher/TeacherSubject`
 
 ### School domain: prefetch + inline terms
@@ -43,9 +51,18 @@ Single page: **domain filter bar** at top, rule-driven step strip, multi-select 
 - Changing terms (or **Show all units / all terms**) refetches units for affected subjects only.
 - **Lesson** is omitted from the teacher survey — repertoire is saved at **unit level** only (`POST /TeacherSubject` has no `lessonId`).
 
-### Skills / language domains
+### Skills / language / wave-1 domains
 
-Subjects without academic terms prefetch units immediately on toggle; the Unit step shows unit checkboxes with no term filter.
+Survey strip follows each domain’s `EducationRule` (Excel-aligned). Multi-select subjects, then complete coverage before **Add subjects**:
+
+| Profile | Strip (teacher survey) | Add requires |
+|---------|------------------------|--------------|
+| School / sharia / university | Institution/curriculum/level/grade → subjects → units (terms inline) | Parents picked; each subject has units or full-subject |
+| Language | Subject → Age → CEFR → skill → purpose → curriculum | Age + CEFR + skill + purpose; curriculum optional and scoped per language code |
+| Wave-1 skills | Subject → writables → level (when after subject) → units | Writable chain finished; level when on strip; units or full-subject |
+| Quran | Subject → (writable/audience) → units | Entries or full Quran as today |
+
+Pending rows show path tags for level/grade/writables even when Subject is first on the strip. `POST /TeacherSubject` is unchanged (`subjectId` + units/writables); student filter-options, courses, and OSR matching are not modified.
 
 ### Pending subjects (no named batches)
 
@@ -82,13 +99,16 @@ The teacher survey does not expose a Lesson step; units are selected directly.
 
 ### Verification checklist
 
-- [ ] Survey opens directly on subject wizard (no separate domain page)
-- [ ] Domain dropdown at top; panel resets on domain change; pending list preserved
-- [ ] Add subjects → flat pending list → Continue POST
+- [ ] Four-phase stepper: Domain → Subjects → Coverage → Review & add
+- [ ] Forward Next locked until phase complete; Back always allowed to prior phases
+- [ ] Add subjects only on Review; blocked reasons shown when incomplete
+- [ ] Pending list always visible; Continue POST when pending non-empty
+- [ ] Domain change resets draft panel; pending from other domains kept
 - [ ] Mixed-domain pending batch posts in one request
 - [ ] Quran null content-type/level allowed
-- [ ] School: units prefetched on subject select; terms inline on Unit step; no Lesson in strip
-- [ ] Skills: units shown on Unit step without term UI
-- [ ] No UI copy uses "group" / "مجموعة" for this flow
+- [ ] Skills / wave-1: writables completed before Add; units per subject
+- [ ] Language: Age+CEFR+skill+purpose required; curriculum scoped per language; multi-select languages
+- [ ] School: parents then subjects in phase 2; units in coverage; terms inline on Unit; no Lesson
+- [ ] RTL + mobile: stepper wraps horizontally; no “group” / “مجموعة” copy
 
 Admin catalog tree: [Education-Management-CRUD.md §12](Education-Management-CRUD.md).
