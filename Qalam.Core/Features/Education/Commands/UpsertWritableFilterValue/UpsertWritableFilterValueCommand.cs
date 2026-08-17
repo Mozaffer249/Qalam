@@ -8,6 +8,12 @@ public class UpsertWritableFilterValueCommand : IRequest<Response<WritableFilter
 {
     public int DomainId { get; set; }
     public string SlotCode { get; set; } = string.Empty;
-    public string Text { get; set; } = string.Empty;
+
+    /// <summary>Free-text path (teacher/admin quick add). Used as NameAr when NameAr is empty.</summary>
+    public string? Text { get; set; }
+
+    public string? NameAr { get; set; }
     public string? NameEn { get; set; }
+    public string? Code { get; set; }
+    public string? SubjectCodeContains { get; set; }
 }

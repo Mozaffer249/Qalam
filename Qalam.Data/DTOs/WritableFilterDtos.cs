@@ -9,4 +9,6 @@ public class WritableFilterValueDto
     public string NameAr { get; set; } = default!;
     public string NameEn { get; set; } = default!;
     public bool IsSeeded { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? SubjectCodeContains { get; set; }
 }

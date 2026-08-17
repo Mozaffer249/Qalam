@@ -77,6 +77,13 @@ public class WritableFilterRepository : GenericRepositoryAsync<WritableFilterVal
             .FirstOrDefaultAsync(s => s.DomainId == domainId && s.Code == slotCode && s.IsActive, ct);
     }
 
+    public Task<WritableFilterValue?> GetByIdWithSlotAsync(int id, CancellationToken ct = default)
+    {
+        return _dbContext.WritableFilterValues
+            .Include(v => v.Slot)
+            .FirstOrDefaultAsync(v => v.Id == id, ct);
+    }
+
     public Task<WritableFilterValue?> FindByNormalizedAsync(int slotId, string normalizedText, CancellationToken ct = default)
     {
         return _dbContext.WritableFilterValues

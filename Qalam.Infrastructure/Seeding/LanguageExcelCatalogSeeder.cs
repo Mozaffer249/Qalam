@@ -192,7 +192,7 @@ public static class LanguageExcelCatalogSeeder
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)
     {
         await EnsureLanguageWritableAfterStepsAsync(context, domainId);
-        await EnsureLanguageCurriculumSubjectScopesAsync(context, domainId);
+        await EnsureLanguageCurriculumValuesAsync(context, domainId);
 
         if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domainId))
             return;
@@ -235,13 +235,7 @@ public static class LanguageExcelCatalogSeeder
             ]),
             (WritableFilterSlotCodes.LanguageCurriculum, "المنهج", "Curriculum",
                 WritableFilterAfterSteps.Grade, 4, false, null,
-            [
-                ("oxford", "Oxford book", "Oxford book", "lang.en"),
-                ("headway", "Headway", "Headway", "lang.en"),
-                ("english-file", "English File", "English File", "lang.en"),
-                ("qcf", "QCF", "QCF", "lang.en"),
-                ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk", "lang.ar-nns")
-            ])
+                LanguageCurriculumCatalog)
         };
 
         foreach (var spec in specs)
@@ -350,9 +344,34 @@ public static class LanguageExcelCatalogSeeder
     }
 
     /// <summary>
-    /// Backfill SubjectCodeContains on curriculum books so English ≠ Arabic NNS catalogs.
+    /// Seeded curriculum books keyed by subject-code scope (lang.other = write-in only).
     /// </summary>
-    private static async Task EnsureLanguageCurriculumSubjectScopesAsync(ApplicationDBContext context, int domainId)
+    private static readonly (string Code, string Ar, string En, string SubjectScope)[] LanguageCurriculumCatalog =
+    [
+        ("oxford", "Oxford book", "Oxford book", "lang.en"),
+        ("headway", "Headway", "Headway", "lang.en"),
+        ("english-file", "English File", "English File", "lang.en"),
+        ("qcf", "QCF", "QCF", "lang.en"),
+        ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk", "lang.ar-nns"),
+        ("alter-ego", "Alter Ego", "Alter Ego", "lang.fr"),
+        ("echo", "Écho", "Echo", "lang.fr"),
+        ("nouvelle-edition", "Nouvelle édition", "Nouvelle edition", "lang.fr"),
+        ("aula-internacional", "Aula Internacional", "Aula Internacional", "lang.es"),
+        ("nuevo-prisma", "Nuevo Prisma", "Nuevo Prisma", "lang.es"),
+        ("yeni-hitit", "Yeni Hitit", "Yeni Hitit", "lang.tr"),
+        ("istanbul-kitabi", "İstanbul Kitabı", "Istanbul Kitabi", "lang.tr"),
+        ("hsk-standard", "HSK Standard Course", "HSK Standard Course", "lang.zh"),
+        ("integrated-chinese", "Integrated Chinese", "Integrated Chinese", "lang.zh"),
+        ("minna-no-nihongo", "みんなの日本語", "Minna no Nihongo", "lang.ja"),
+        ("genki", "Genki", "Genki", "lang.ja"),
+        ("sejong-korean", "세종한국어", "Sejong Korean", "lang.ko"),
+        ("integrated-korean", "Integrated Korean", "Integrated Korean", "lang.ko")
+    ];
+
+    /// <summary>
+    /// Upsert curriculum values for all language subjects (existing DBs + first seed).
+    /// </summary>
+    private static async Task EnsureLanguageCurriculumValuesAsync(ApplicationDBContext context, int domainId)
     {
         var curriculumSlot = await context.WritableFilterSlots
             .FirstOrDefaultAsync(s =>
@@ -360,29 +379,54 @@ public static class LanguageExcelCatalogSeeder
         if (curriculumSlot is null)
             return;
 
-        var scopes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["oxford"] = "lang.en",
-            ["headway"] = "lang.en",
-            ["english-file"] = "lang.en",
-            ["qcf"] = "lang.en",
-            ["arabiyya-bayna-yadayk"] = "lang.ar-nns"
-        };
-
-        var values = await context.WritableFilterValues
-            .Where(v => v.SlotId == curriculumSlot.Id && v.Code != null)
+        var existing = await context.WritableFilterValues
+            .Where(v => v.SlotId == curriculumSlot.Id)
             .ToListAsync();
+        var byCode = existing
+            .Where(v => !string.IsNullOrWhiteSpace(v.Code))
+            .ToDictionary(v => v.Code!, StringComparer.OrdinalIgnoreCase);
 
         var dirty = false;
-        foreach (var value in values)
+        foreach (var book in LanguageCurriculumCatalog)
         {
-            if (value.Code is null || !scopes.TryGetValue(value.Code, out var scope))
+            if (byCode.TryGetValue(book.Code, out var value))
+            {
+                var changed = false;
+                if (!string.Equals(value.SubjectCodeContains, book.SubjectScope, StringComparison.Ordinal))
+                {
+                    value.SubjectCodeContains = book.SubjectScope;
+                    changed = true;
+                }
+                if (!value.IsActive)
+                {
+                    value.IsActive = true;
+                    changed = true;
+                }
+                if (!value.IsSeeded)
+                {
+                    value.IsSeeded = true;
+                    changed = true;
+                }
+                if (changed)
+                {
+                    value.UpdatedAt = DateTime.UtcNow;
+                    dirty = true;
+                }
                 continue;
-            if (string.Equals(value.SubjectCodeContains, scope, StringComparison.Ordinal))
-                continue;
+            }
 
-            value.SubjectCodeContains = scope;
-            value.UpdatedAt = DateTime.UtcNow;
+            context.WritableFilterValues.Add(new WritableFilterValue
+            {
+                SlotId = curriculumSlot.Id,
+                Code = book.Code,
+                NameAr = book.Ar,
+                NameEn = book.En,
+                NormalizedText = WritableFilterTextNormalizer.Normalize(book.Ar),
+                SubjectCodeContains = book.SubjectScope,
+                IsSeeded = true,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
             dirty = true;
         }
 

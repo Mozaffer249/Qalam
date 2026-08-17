@@ -15,6 +15,8 @@ public interface IWritableFilterRepository : IGenericRepositoryAsync<WritableFil
 
     Task<WritableFilterSlot?> GetSlotByDomainAndCodeAsync(int domainId, string slotCode, CancellationToken ct = default);
 
+    Task<WritableFilterValue?> GetByIdWithSlotAsync(int id, CancellationToken ct = default);
+
     Task<WritableFilterValue?> FindByNormalizedAsync(int slotId, string normalizedText, CancellationToken ct = default);
 
     Task<List<WritableFilterValue>> GetByIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);

@@ -39,16 +39,43 @@ public class UpsertWritableFilterValueCommandHandler : ResponseHandler,
         if (slot == null)
             return BadRequest<WritableFilterValueDto>($"Unknown writable slot '{request.SlotCode}'");
 
-        var normalized = WritableFilterTextNormalizer.Normalize(request.Text);
+        var nameAr = (request.NameAr ?? request.Text ?? string.Empty).Trim();
+        var nameEn = string.IsNullOrWhiteSpace(request.NameEn) ? nameAr : request.NameEn.Trim();
+        var normalized = WritableFilterTextNormalizer.Normalize(nameAr);
         if (string.IsNullOrEmpty(normalized))
             return BadRequest<WritableFilterValueDto>("Text is required");
 
         var existing = await _writableFilterRepository.FindByNormalizedAsync(slot.Id, normalized, cancellationToken);
         if (existing != null)
         {
+            var dirty = false;
             if (!existing.IsActive)
             {
                 existing.IsActive = true;
+                dirty = true;
+            }
+            if (!string.IsNullOrWhiteSpace(request.Code) &&
+                !string.Equals(existing.Code, request.Code.Trim(), StringComparison.Ordinal))
+            {
+                existing.Code = request.Code.Trim();
+                dirty = true;
+            }
+            if (request.SubjectCodeContains != null &&
+                !string.Equals(existing.SubjectCodeContains, request.SubjectCodeContains, StringComparison.Ordinal))
+            {
+                existing.SubjectCodeContains = string.IsNullOrWhiteSpace(request.SubjectCodeContains)
+                    ? null
+                    : request.SubjectCodeContains.Trim();
+                dirty = true;
+            }
+            if (!string.Equals(existing.NameEn, nameEn, StringComparison.Ordinal))
+            {
+                existing.NameEn = nameEn;
+                dirty = true;
+            }
+
+            if (dirty)
+            {
                 existing.UpdatedAt = DateTime.UtcNow;
                 await _writableFilterRepository.UpdateAsync(existing);
             }
@@ -59,9 +86,13 @@ public class UpsertWritableFilterValueCommandHandler : ResponseHandler,
         var created = new WritableFilterValue
         {
             SlotId = slot.Id,
-            NameAr = request.Text.Trim(),
-            NameEn = string.IsNullOrWhiteSpace(request.NameEn) ? request.Text.Trim() : request.NameEn.Trim(),
+            Code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim(),
+            NameAr = nameAr,
+            NameEn = nameEn,
             NormalizedText = normalized,
+            SubjectCodeContains = string.IsNullOrWhiteSpace(request.SubjectCodeContains)
+                ? null
+                : request.SubjectCodeContains.Trim(),
             IsSeeded = false,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -79,6 +110,8 @@ public class UpsertWritableFilterValueCommandHandler : ResponseHandler,
         Code = value.Code,
         NameAr = value.NameAr,
         NameEn = value.NameEn,
-        IsSeeded = value.IsSeeded
+        IsSeeded = value.IsSeeded,
+        IsActive = value.IsActive,
+        SubjectCodeContains = value.SubjectCodeContains
     };
 }

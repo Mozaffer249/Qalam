@@ -20,7 +20,10 @@ using Qalam.Core.Features.Education.Queries.GetEducationDomainById;
 using Qalam.Core.Features.Education.Queries.GetEducationDomainsList;
 using Qalam.Core.Features.Education.Queries.GetEducationLevelById;
 using Qalam.Core.Features.Education.Commands.UpsertWritableFilterValue;
+using Qalam.Core.Features.Education.Commands.UpdateWritableFilterValue;
+using Qalam.Core.Features.Education.Commands.DeleteWritableFilterValue;
 using Qalam.Core.Features.Education.Queries.GetFilterOptions;
+using Qalam.Core.Features.Education.Queries.GetWritableFilterValueById;
 using Qalam.Core.Features.Education.Queries.GetGradeById;
 using Qalam.Core.Features.Education.Queries.GetGradesList;
 using Qalam.Core.Features.Education.Queries.GetLevelsList;
@@ -122,6 +125,34 @@ public class EducationController : AppControllerBase
     [HttpPost(Router.EducationWritableFilterValues)]
     public async Task<IActionResult> UpsertWritableFilterValue([FromBody] UpsertWritableFilterValueCommand command)
         => NewResult(await Mediator.Send(command));
+
+    /// <summary>
+    /// Get a writable filter value by id (Admin hierarchy edit).
+    /// </summary>
+    [HttpGet(Router.EducationWritableFilterValueById)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> GetWritableFilterValueById(int id)
+        => NewResult(await Mediator.Send(new GetWritableFilterValueByIdQuery { Id = id }));
+
+    /// <summary>
+    /// Update a writable filter value (Admin only).
+    /// </summary>
+    [HttpPut(Router.EducationWritableFilterValueById)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> UpdateWritableFilterValue(int id, [FromBody] UpdateWritableFilterValueCommand command)
+    {
+        if (id != command.Id)
+            return BadRequest("ID mismatch");
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Soft-delete a writable filter value (Admin only).
+    /// </summary>
+    [HttpDelete(Router.EducationWritableFilterValueById)]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public async Task<IActionResult> DeleteWritableFilterValue(int id)
+        => NewResult(await Mediator.Send(new DeleteWritableFilterValueCommand { Id = id }));
 
     #endregion
 
