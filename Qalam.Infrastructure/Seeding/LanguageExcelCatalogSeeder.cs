@@ -195,18 +195,8 @@ public static class LanguageExcelCatalogSeeder
 
         var specs = new (string Code, string Ar, string En, string After, int Order, bool Required, (string Code, string Ar, string En)[] Values)[]
         {
-            (WritableFilterSlotCodes.LanguageOtherLanguage, "لغة أخرى", "Other language",
-                WritableFilterAfterSteps.Subject, 1, false,
-            [
-                ("de", "الألمانية", "German"),
-                ("it", "الإيطالية", "Italian"),
-                ("ru", "الروسية", "Russian"),
-                ("ur", "الأردية", "Urdu"),
-                ("pt", "البرتغالية", "Portuguese"),
-                ("sw", "السواحيلية", "Swahili")
-            ]),
             (WritableFilterSlotCodes.LanguageSkill, "المهارة", "Skill",
-                WritableFilterAfterSteps.Subject, 2, true,
+                WritableFilterAfterSteps.Subject, 1, true,
             [
                 ("conversation", "المحادثة والممارسة", "Conversation and practice"),
                 ("rw", "القراءة والكتابة", "Reading and writing"),
@@ -214,7 +204,7 @@ public static class LanguageExcelCatalogSeeder
                 ("vocab", "المفردات", "Vocabulary")
             ]),
             (WritableFilterSlotCodes.LanguagePurpose, "الغرض / التخصص", "Purpose / specialization",
-                WritableFilterAfterSteps.Subject, 3, true,
+                WritableFilterAfterSteps.Subject, 2, true,
             [
                 ("systematic", "الدراسة المنهجية", "Systematic study"),
                 ("foundation", "التأسيس اللغوي", "Language foundation"),
@@ -230,13 +220,23 @@ public static class LanguageExcelCatalogSeeder
                 ("translation", "الترجمة", "Translation")
             ]),
             (WritableFilterSlotCodes.LanguageCurriculum, "المنهج", "Curriculum",
-                WritableFilterAfterSteps.Subject, 4, false,
+                WritableFilterAfterSteps.Subject, 3, false,
             [
                 ("oxford", "Oxford book", "Oxford book"),
                 ("headway", "Headway", "Headway"),
                 ("english-file", "English File", "English File"),
                 ("qcf", "QCF", "QCF"),
                 ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk")
+            ]),
+            (WritableFilterSlotCodes.LanguageOtherLanguage, "لغة أخرى", "Other language",
+                WritableFilterAfterSteps.Subject, 4, false,
+            [
+                ("de", "الألمانية", "German"),
+                ("it", "الإيطالية", "Italian"),
+                ("ru", "الروسية", "Russian"),
+                ("ur", "الأردية", "Urdu"),
+                ("pt", "البرتغالية", "Portuguese"),
+                ("sw", "السواحيلية", "Swahili")
             ])
         };
 

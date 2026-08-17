@@ -78,46 +78,46 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
 
     public IQueryable<Subject> GetSubjectsByGradeId(int gradeId)
     {
-        return _dbContext.Subjects
-            .AsNoTracking()
-            .Where(s => s.GradeId == gradeId)
-            .Include(s => s.Domain)
-            .OrderBy(s => s.NameEn)
+        return OrderSubjectsOtherLast(
+                _dbContext.Subjects
+                    .AsNoTracking()
+                    .Where(s => s.GradeId == gradeId)
+                    .Include(s => s.Domain))
             .AsQueryable();
     }
 
     public IQueryable<Subject> GetSubjectsByLevelId(int levelId)
     {
-        return _dbContext.Subjects
-            .AsNoTracking()
-            .Where(s => s.LevelId == levelId)
-            .Include(s => s.Domain)
-            .Include(s => s.Grade)
-            .OrderBy(s => s.NameEn)
+        return OrderSubjectsOtherLast(
+                _dbContext.Subjects
+                    .AsNoTracking()
+                    .Where(s => s.LevelId == levelId)
+                    .Include(s => s.Domain)
+                    .Include(s => s.Grade))
             .AsQueryable();
     }
 
     public IQueryable<Subject> GetSubjectsByCurriculumId(int curriculumId)
     {
-        return _dbContext.Subjects
-            .AsNoTracking()
-            .Where(s => s.CurriculumId == curriculumId)
-            .Include(s => s.Domain)
-            .Include(s => s.Grade)
-            .Include(s => s.Level)
-            .OrderBy(s => s.NameEn)
+        return OrderSubjectsOtherLast(
+                _dbContext.Subjects
+                    .AsNoTracking()
+                    .Where(s => s.CurriculumId == curriculumId)
+                    .Include(s => s.Domain)
+                    .Include(s => s.Grade)
+                    .Include(s => s.Level))
             .AsQueryable();
     }
 
     public IQueryable<Subject> GetSubjectsByTermId(int termId)
     {
-        return _dbContext.Subjects
-            .AsNoTracking()
-            .Where(s => s.TermId == termId)
-            .Include(s => s.Domain)
-            .Include(s => s.Grade)
-            .Include(s => s.Level)
-            .OrderBy(s => s.NameEn)
+        return OrderSubjectsOtherLast(
+                _dbContext.Subjects
+                    .AsNoTracking()
+                    .Where(s => s.TermId == termId)
+                    .Include(s => s.Domain)
+                    .Include(s => s.Grade)
+                    .Include(s => s.Level))
             .AsQueryable();
     }
 
@@ -144,11 +144,11 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
 
     public async Task<List<Subject>> GetSubjectsWithContentUnitsAsync(int gradeId)
     {
-        return await _dbContext.Subjects
-            .AsNoTracking()
-            .Where(s => s.GradeId == gradeId && s.IsActive)
-            .Include(s => s.ContentUnits.Where(cu => cu.IsActive))
-            .OrderBy(s => s.NameEn)
+        return await OrderSubjectsOtherLast(
+                _dbContext.Subjects
+                    .AsNoTracking()
+                    .Where(s => s.GradeId == gradeId && s.IsActive)
+                    .Include(s => s.ContentUnits.Where(cu => cu.IsActive)))
             .ToListAsync();
     }
 
@@ -194,8 +194,7 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
                 query = query.Where(s => s.TermId == termId);
         }
 
-        return await query
-            .OrderBy(s => s.NameEn)
+        return await OrderSubjectsOtherLast(query)
             .Select(s => new FilterOptionDto
             {
                 Id = s.Id,
@@ -206,4 +205,20 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             })
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Put «أخرى» / Other / *.other last, then alphabetical English name.
+    /// Expression is inlined so EF can translate it to SQL.
+    /// </summary>
+    private static IQueryable<Subject> OrderSubjectsOtherLast(IQueryable<Subject> query) =>
+        query
+            .OrderBy(s =>
+                (s.Code != null && s.Code.EndsWith(".other")) ||
+                s.NameAr == "أخرى" ||
+                s.NameAr.Contains("أخرى") ||
+                s.NameEn == "Other" ||
+                s.NameEn.StartsWith("Other ")
+                    ? 1
+                    : 0)
+            .ThenBy(s => s.NameEn);
 }

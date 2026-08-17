@@ -96,8 +96,8 @@ public class EducationDomainsSeeder
                         HasEducationLevel = true,
                         HasGrade = true,
                         HasAcademicTerm = false,
-                        HasContentUnits = false,
-                        HasLessons = false,
+                        HasContentUnits = true,
+                        HasLessons = true,
                         HasWritableFilters = true,
                         RulesConfigured = true,
                         RequiresQuranContentType = false,
@@ -161,8 +161,8 @@ public class EducationDomainsSeeder
                         HasGrade = false,
                         HasAcademicTerm = true,
                         AcademicTermOptional = true,
-                        HasContentUnits = false,
-                        HasLessons = false,
+                        HasContentUnits = true,
+                        HasLessons = true,
                         HasUniversity = true,
                         HasCollege = true,
                         HasDepartment = true,
@@ -208,8 +208,8 @@ public class EducationDomainsSeeder
             if (!uniRule.AcademicTermOptional) { uniRule.AcademicTermOptional = true; dirty = true; }
             if (uniRule.HasCurriculum) { uniRule.HasCurriculum = false; dirty = true; }
             if (uniRule.HasGrade) { uniRule.HasGrade = false; dirty = true; }
-            if (uniRule.HasContentUnits) { uniRule.HasContentUnits = false; dirty = true; }
-            if (uniRule.HasLessons) { uniRule.HasLessons = false; dirty = true; }
+            if (!uniRule.HasContentUnits) { uniRule.HasContentUnits = true; dirty = true; }
+            if (!uniRule.HasLessons) { uniRule.HasLessons = true; dirty = true; }
             if (!uniRule.RulesConfigured) { uniRule.RulesConfigured = true; dirty = true; }
             if (dirty)
             {
@@ -347,8 +347,8 @@ public class EducationDomainsSeeder
                 HasWritableFilters = true,
                 HasEducationLevel = true,
                 EducationLevelAfterSubject = true,
-                HasContentUnits = false,
-                HasLessons = false,
+                HasContentUnits = true,
+                HasLessons = true,
                 RulesConfigured = true,
                 MinSessions = 1,
                 MaxSessions = 100,
@@ -382,8 +382,8 @@ public class EducationDomainsSeeder
         if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
         if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
         if (!rule.EducationLevelAfterSubject) { rule.EducationLevelAfterSubject = true; dirty = true; }
-        if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
-        if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+        if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+        if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
         if (!rule.RulesConfigured) { rule.RulesConfigured = true; dirty = true; }
         if (dirty)
         {
@@ -423,16 +423,16 @@ public class EducationDomainsSeeder
                     if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
                     if (!rule.HasGrade) { rule.HasGrade = true; dirty = true; }
                     if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
-                    if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
-                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+                    if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+                    if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
                     break;
                 case "school":
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
                     if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
                     break;
                 case "university":
-                    if (rule.HasContentUnits) { rule.HasContentUnits = false; dirty = true; }
-                    if (rule.HasLessons) { rule.HasLessons = false; dirty = true; }
+                    if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
+                    if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
                     break;
             }
 

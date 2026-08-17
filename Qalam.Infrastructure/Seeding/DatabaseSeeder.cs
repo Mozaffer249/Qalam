@@ -53,11 +53,14 @@ public class DatabaseSeeder
         // Sharia (Excel domain 4)
         await ShariaCatalogSeeder.SeedAsync(context);
 
-        // Language & skills catalog (units + lessons)
+        // Legacy language/skills catalog (skills only when active; language units via ExcelDomainsUnitsLessonsSeeder)
         await LanguageSkillsCatalogSeeder.SeedAsync(context);
 
         // University institution catalog (KSU, KAU, KFUPM)
         await UniversityCatalogSeeder.SeedAsync(context);
+
+        // Excel domains 1–5 leftovers: sharia / flat language / university units + lessons
+        await ExcelDomainsUnitsLessonsSeeder.SeedAsync(context);
 
         // Legal documents (terms, privacy, refund, pricing)
         await LegalDocumentsSeeder.SeedAsync(context);

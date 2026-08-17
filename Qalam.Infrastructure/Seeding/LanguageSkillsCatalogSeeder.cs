@@ -5,7 +5,8 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds LanguageModule units and lessons for language (all subjects) and skills (all subjects) domains.
+/// Seeds LanguageModule units and lessons for the legacy skills domain when still active.
+/// Language (lang.*) units are owned by <see cref="ExcelDomainsUnitsLessonsSeeder"/>.
 /// </summary>
 public static class LanguageSkillsCatalogSeeder
 {
@@ -13,84 +14,8 @@ public static class LanguageSkillsCatalogSeeder
 
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        await SeedLanguageCatalogAsync(context);
+        // Flat Excel language subjects (lang.*) are seeded by ExcelDomainsUnitsLessonsSeeder.
         await SeedSkillsCatalogAsync(context);
-    }
-
-    private static async Task SeedLanguageCatalogAsync(ApplicationDBContext context)
-    {
-        var languageDomain = await context.EducationDomains
-            .Include(d => d.EducationRule)
-            .FirstOrDefaultAsync(d => d.Code == "language")
-            ?? throw new InvalidOperationException("Language domain must be seeded before language catalog content");
-
-        // Excel language path has no units/lessons — skip catalog modules when rule says so.
-        if (languageDomain.EducationRule is { HasContentUnits: false })
-            return;
-        var curatedOverrides = new Dictionary<string, List<CatalogModule>>
-        {
-            ["Spanish - Conversation (A1 - Basic Beginner)"] =
-            [
-                new(
-                    "الوحدة 1 — التحيات",
-                    "Module 1 — Greetings",
-                    [
-                        ("الدرس 1 — مرحباً", "Lesson 1 — Hello"),
-                        ("الدرس 2 — التعريف بالنفس", "Lesson 2 — Introducing Yourself")
-                    ]),
-                new(
-                    "الوحدة 2 — الأرقام",
-                    "Module 2 — Numbers",
-                    [
-                        ("الدرس 1 — الأرقام من 1 إلى 20", "Lesson 1 — Numbers 1–20"),
-                        ("الدرس 2 — الأرقام في الحياة اليومية", "Lesson 2 — Numbers in Daily Life")
-                    ])
-            ],
-            ["English - Conversation (A1 - Basic Beginner)"] =
-            [
-                new(
-                    "الوحدة 1 — التعارف",
-                    "Module 1 — Introductions",
-                    [
-                        ("الدرس 1 — التحية والتعارف", "Lesson 1 — Greetings and Introductions"),
-                        ("الدرس 2 — السؤال عن الحال", "Lesson 2 — Asking How Someone Is")
-                    ])
-            ]
-        };
-
-        var subjects = await context.Subjects
-            .Where(s => s.DomainId == languageDomain.Id && s.IsActive)
-            .OrderBy(s => s.Id)
-            .ToListAsync();
-
-        if (subjects.Count == 0)
-        {
-            throw new InvalidOperationException("Language subjects must be seeded before language catalog content");
-        }
-
-        var catalogBySubject = new Dictionary<string, List<CatalogModule>>();
-
-        foreach (var subject in subjects)
-        {
-            if (curatedOverrides.TryGetValue(subject.NameEn, out var modules))
-            {
-                catalogBySubject[subject.NameEn] = modules;
-                continue;
-            }
-
-            catalogBySubject[subject.NameEn] =
-            [
-                new(
-                    $"الوحدة 1 — مقدمة {subject.NameAr}",
-                    $"Module 1 — {subject.NameEn} Introduction",
-                    [
-                        ("الدرس 1 — مقدمة", "Lesson 1 — Introduction"),
-                        ("الدرس 2 — تطبيق عملي", "Lesson 2 — Practice")
-                    ])
-            ];
-        }
-
-        await SeedCatalogForSubjectsAsync(context, languageDomain.Id, catalogBySubject);
     }
 
     private static async Task SeedSkillsCatalogAsync(ApplicationDBContext context)

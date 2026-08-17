@@ -185,18 +185,15 @@ public static class SkillsSplitCatalogSeeder
             ],
             EducationDomainCodes.TechSkills =>
             [
-                new(WritableFilterSlotCodes.TechOtherPath, "مسار آخر", "Other path",
-                    WritableFilterAfterSteps.Subject, 1, false, ".other",
-                    [("blockchain", "البلوك تشين", "Blockchain")]),
                 new(WritableFilterSlotCodes.TechSpecialty, "التخصص", "Specialty",
-                    WritableFilterAfterSteps.Level, 2, false, null,
+                    WritableFilterAfterSteps.Level, 1, false, null,
                     [("5g", "5G الجيل الخامس", "5G"),
                      ("react", "React", "React"),
                      ("flutter", "Flutter", "Flutter"),
                      ("k8s", "Kubernetes", "Kubernetes"),
                      ("pentest", "اختبار الاختراق", "Pentesting")]),
                 new(WritableFilterSlotCodes.TechTool, "التقنية / البرنامج", "Tool / program",
-                    WritableFilterAfterSteps.Level, 3, false, null,
+                    WritableFilterAfterSteps.Level, 2, false, null,
                     [("huawei", "HUAWEI", "HUAWEI"),
                      ("packet-tracer", "Cisco Packet Tracer", "Cisco Packet Tracer"),
                      ("vscode", "VS Code", "VS Code"),
@@ -204,9 +201,12 @@ public static class SkillsSplitCatalogSeeder
                      ("premiere", "Adobe Premiere", "Adobe Premiere"),
                      ("aws", "AWS", "AWS")]),
                 new(WritableFilterSlotCodes.TechCurriculum, "المنهج", "Curriculum",
-                    WritableFilterAfterSteps.Level, 4, false, null,
+                    WritableFilterAfterSteps.Level, 3, false, null,
                     [("ccna", "CCNA", "CCNA"),
-                     ("aws-cp", "AWS Cloud Practitioner", "AWS Cloud Practitioner")])
+                     ("aws-cp", "AWS Cloud Practitioner", "AWS Cloud Practitioner")]),
+                new(WritableFilterSlotCodes.TechOtherPath, "مسار آخر", "Other path",
+                    WritableFilterAfterSteps.Subject, 4, false, ".other",
+                    [("blockchain", "البلوك تشين", "Blockchain")])
             ],
             EducationDomainCodes.Hobbies =>
             [
@@ -234,13 +234,13 @@ public static class SkillsSplitCatalogSeeder
             ],
             EducationDomainCodes.Knowledge =>
             [
-                new(WritableFilterSlotCodes.KnowledgeOtherField, "مجال معرفي آخر", "Other knowledge field",
-                    WritableFilterAfterSteps.Subject, 1, false, ".other",
-                    [("comparative-religion", "مقارنة الأديان", "Comparative religion")]),
                 new(WritableFilterSlotCodes.KnowledgePreciseTopic, "المنهج والمجال الدقيق", "Precise topic or curriculum",
-                    WritableFilterAfterSteps.Level, 2, false, null,
+                    WritableFilterAfterSteps.Level, 1, false, null,
                     [("umayyad-bidaya", "الدولة الأموية — البداية والنهاية", "Umayyad period — Al-Bidaya wa-l-Nihaya"),
-                     ("newton-mechanics", "ميكانيكا نيوتن", "Newtonian mechanics")])
+                     ("newton-mechanics", "ميكانيكا نيوتن", "Newtonian mechanics")]),
+                new(WritableFilterSlotCodes.KnowledgeOtherField, "مجال معرفي آخر", "Other knowledge field",
+                    WritableFilterAfterSteps.Subject, 2, false, ".other",
+                    [("comparative-religion", "مقارنة الأديان", "Comparative religion")])
             ],
             _ => []
         };

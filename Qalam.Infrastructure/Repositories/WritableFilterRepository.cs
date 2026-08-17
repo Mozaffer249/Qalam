@@ -16,7 +16,15 @@ public class WritableFilterRepository : GenericRepositoryAsync<WritableFilterVal
         return await _dbContext.WritableFilterSlots
             .AsNoTracking()
             .Where(s => s.DomainId == domainId && s.IsActive)
-            .OrderBy(s => s.OrderIndex)
+            .OrderBy(s =>
+                (s.Code != null && s.Code.EndsWith(".other")) ||
+                s.NameAr == "أخرى" ||
+                s.NameAr.Contains("أخرى") ||
+                s.NameEn == "Other" ||
+                s.NameEn.StartsWith("Other ")
+                    ? 1
+                    : 0)
+            .ThenBy(s => s.OrderIndex)
             .ToListAsync(ct);
     }
 
@@ -26,6 +34,14 @@ public class WritableFilterRepository : GenericRepositoryAsync<WritableFilterVal
             .AsNoTracking()
             .Where(v => v.SlotId == slotId && v.IsActive)
             .OrderByDescending(v => v.IsSeeded)
+            .ThenBy(v =>
+                (v.Code != null && v.Code.EndsWith(".other")) ||
+                v.NameAr == "أخرى" ||
+                v.NameAr.Contains("أخرى") ||
+                v.NameEn == "Other" ||
+                v.NameEn.StartsWith("Other ")
+                    ? 1
+                    : 0)
             .ThenBy(v => v.NameEn)
             .Select(v => new FilterOptionDto
             {
