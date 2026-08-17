@@ -122,7 +122,8 @@ public class TeacherSubjectController : AppControllerBase
             CanTeachFullSubject = dto.CanTeachFullSubject,
             Units = dto.Units,
             QuranContentTypeIds = dto.QuranContentTypeIds,
-            QuranLevelIds = dto.QuranLevelIds
+            QuranLevelIds = dto.QuranLevelIds,
+            EducationLevelIds = dto.EducationLevelIds
         }));
     }
 
@@ -142,7 +143,8 @@ public class TeacherSubjectController : AppControllerBase
             CanTeachFullSubject = dto.CanTeachFullSubject,
             Units = dto.Units,
             QuranContentTypeIds = dto.QuranContentTypeIds,
-            QuranLevelIds = dto.QuranLevelIds
+            QuranLevelIds = dto.QuranLevelIds,
+            EducationLevelIds = dto.EducationLevelIds
         };
 
         return NewResult(await Mediator.Send(command));

@@ -37,6 +37,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.QuranContentTypes)
             .Include(ts => ts.QuranLevels)
+            .Include(ts => ts.EducationLevels)
             .Include(ts => ts.WritableFilters);
 
     public async Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId)
@@ -272,8 +273,9 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         _teacherSubjectUnits.RemoveRange(teacherSubject.TeacherSubjectUnits);
         _context.TeacherSubjectQuranContentTypes.RemoveRange(teacherSubject.QuranContentTypes);
-        _context.TeacherSubjectQuranLevels.RemoveRange(teacherSubject.QuranLevels);
-        _context.TeacherSubjectWritableFilters.RemoveRange(teacherSubject.WritableFilters);
+            _context.TeacherSubjectQuranLevels.RemoveRange(teacherSubject.QuranLevels);
+            _context.TeacherSubjectEducationLevels.RemoveRange(teacherSubject.EducationLevels);
+            _context.TeacherSubjectWritableFilters.RemoveRange(teacherSubject.WritableFilters);
         _teacherSubjects.Remove(teacherSubject);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
@@ -286,6 +288,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         List<TeacherSubjectUnitItemDto> units,
         IReadOnlyList<int>? quranContentTypeIds = null,
         IReadOnlyList<int>? quranLevelIds = null,
+        IReadOnlyList<int>? educationLevelIds = null,
         CancellationToken cancellationToken = default)
     {
         var teacherSubject = await _teacherSubjects
@@ -293,6 +296,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.TeacherSubjectUnits)
             .Include(ts => ts.QuranContentTypes)
             .Include(ts => ts.QuranLevels)
+            .Include(ts => ts.EducationLevels)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (teacherSubject == null)
@@ -318,6 +322,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         }
 
         ReplaceQuranCoverage(teacherSubject, quranContentTypeIds ?? Array.Empty<int>(), quranLevelIds ?? Array.Empty<int>());
+        ReplaceEducationLevels(teacherSubject, educationLevelIds ?? Array.Empty<int>());
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -427,6 +432,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         }
 
         ApplyQuranCoverage(teacherSubject, dto.QuranContentTypeIds, dto.QuranLevelIds);
+        ApplyEducationLevels(teacherSubject, dto.EducationLevelIds);
         ApplyWritableFilters(teacherSubject, dto.WritableFilterValueIds);
         return teacherSubject;
     }
@@ -452,6 +458,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         }
 
         ReplaceQuranCoverage(existing, dto.QuranContentTypeIds, dto.QuranLevelIds);
+        ReplaceEducationLevels(existing, dto.EducationLevelIds);
         ReplaceWritableFilters(existing, dto.WritableFilterValueIds);
     }
 
@@ -493,6 +500,31 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         foreach (var row in teacherSubject.QuranContentTypes)
             row.TeacherSubjectId = teacherSubject.Id;
         foreach (var row in teacherSubject.QuranLevels)
+            row.TeacherSubjectId = teacherSubject.Id;
+    }
+
+    private static void ApplyEducationLevels(
+        TeacherSubject teacherSubject,
+        IEnumerable<int>? educationLevelIds)
+    {
+        foreach (var levelId in (educationLevelIds ?? Array.Empty<int>()).Distinct())
+        {
+            teacherSubject.EducationLevels.Add(new TeacherSubjectEducationLevel
+            {
+                EducationLevelId = levelId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private void ReplaceEducationLevels(
+        TeacherSubject teacherSubject,
+        IReadOnlyList<int> educationLevelIds)
+    {
+        _context.TeacherSubjectEducationLevels.RemoveRange(teacherSubject.EducationLevels);
+        teacherSubject.EducationLevels.Clear();
+        ApplyEducationLevels(teacherSubject, educationLevelIds);
+        foreach (var row in teacherSubject.EducationLevels)
             row.TeacherSubjectId = teacherSubject.Id;
     }
 

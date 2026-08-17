@@ -31,5 +31,9 @@ public class UpdateTeacherSubjectCommandValidator : AbstractValidator<UpdateTeac
         RuleForEach(x => x.QuranLevelIds)
             .GreaterThan(0)
             .WithMessage("Quran level ID must be greater than 0");
+
+        RuleForEach(x => x.EducationLevelIds)
+            .GreaterThan(0)
+            .WithMessage("Education level ID must be greater than 0");
     }
 }

@@ -38,6 +38,11 @@ public class TeacherSubjectItemDto
     /// </summary>
     public List<int> QuranLevelIds { get; set; } = new();
 
+    /// <summary>
+    /// Quran audience bands (EducationLevel). Empty = all audiences.
+    /// </summary>
+    public List<int> EducationLevelIds { get; set; } = new();
+
     public List<int> WritableFilterValueIds { get; set; } = new();
 }
 
@@ -61,6 +66,8 @@ public class UpdateTeacherSubjectDto
     public List<int> QuranContentTypeIds { get; set; } = new();
 
     public List<int> QuranLevelIds { get; set; } = new();
+
+    public List<int> EducationLevelIds { get; set; } = new();
 
     public List<int> WritableFilterValueIds { get; set; } = new();
 }
@@ -109,6 +116,7 @@ public class TeacherSubjectResponseDto
 
     public List<int> QuranContentTypeIds { get; set; } = new();
     public List<int> QuranLevelIds { get; set; } = new();
+    public List<int> EducationLevelIds { get; set; } = new();
     public List<int> WritableFilterValueIds { get; set; } = new();
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();

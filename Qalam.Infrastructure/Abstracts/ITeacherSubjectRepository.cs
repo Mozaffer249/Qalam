@@ -60,6 +60,7 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
         List<TeacherSubjectUnitItemDto> units,
         IReadOnlyList<int>? quranContentTypeIds = null,
         IReadOnlyList<int>? quranLevelIds = null,
+        IReadOnlyList<int>? educationLevelIds = null,
         CancellationToken cancellationToken = default);
 
     Task<PaginatedResult<TeacherSubject>> GetPagedForAdminAsync(

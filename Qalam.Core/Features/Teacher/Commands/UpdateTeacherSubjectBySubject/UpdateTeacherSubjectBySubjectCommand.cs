@@ -23,4 +23,6 @@ public class UpdateTeacherSubjectBySubjectCommand : IRequest<Response<TeacherSub
     public List<int> QuranContentTypeIds { get; set; } = new();
 
     public List<int> QuranLevelIds { get; set; } = new();
+
+    public List<int> EducationLevelIds { get; set; } = new();
 }

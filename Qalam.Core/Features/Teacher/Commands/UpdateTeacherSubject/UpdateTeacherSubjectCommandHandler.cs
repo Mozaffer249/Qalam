@@ -41,6 +41,7 @@ public class UpdateTeacherSubjectCommandHandler : ResponseHandler,
             request.Units,
             request.QuranContentTypeIds,
             request.QuranLevelIds,
+            request.EducationLevelIds,
             cancellationToken);
 
         if (updated == null)

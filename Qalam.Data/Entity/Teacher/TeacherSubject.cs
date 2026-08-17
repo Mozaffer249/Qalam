@@ -27,5 +27,6 @@ public class TeacherSubject : AuditableEntity
     public ICollection<TeacherSubjectUnit> TeacherSubjectUnits { get; set; } = new List<TeacherSubjectUnit>();
     public ICollection<TeacherSubjectQuranContentType> QuranContentTypes { get; set; } = new List<TeacherSubjectQuranContentType>();
     public ICollection<TeacherSubjectQuranLevel> QuranLevels { get; set; } = new List<TeacherSubjectQuranLevel>();
+    public ICollection<TeacherSubjectEducationLevel> EducationLevels { get; set; } = new List<TeacherSubjectEducationLevel>();
     public ICollection<TeacherSubjectWritableFilter> WritableFilters { get; set; } = new List<TeacherSubjectWritableFilter>();
 }

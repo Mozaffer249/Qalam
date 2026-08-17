@@ -106,6 +106,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<TeacherSubjectUnit> TeacherSubjectUnits { get; set; }
         public DbSet<TeacherSubjectQuranContentType> TeacherSubjectQuranContentTypes { get; set; }
         public DbSet<TeacherSubjectQuranLevel> TeacherSubjectQuranLevels { get; set; }
+        public DbSet<TeacherSubjectEducationLevel> TeacherSubjectEducationLevels { get; set; }
         public DbSet<TeacherSubjectWritableFilter> TeacherSubjectWritableFilters { get; set; }
         public DbSet<TeacherAvailability> TeacherAvailabilities { get; set; }
         public DbSet<TeacherAvailabilityException> TeacherAvailabilityExceptions { get; set; }
