@@ -27,6 +27,7 @@ public class TeacherSubjectProfile : Profile
             .ForMember(dest => dest.QuranContentTypeIds, opt => opt.MapFrom(src => src.QuranContentTypes.Select(c => c.QuranContentTypeId).ToList()))
             .ForMember(dest => dest.QuranLevelIds, opt => opt.MapFrom(src => src.QuranLevels.Select(l => l.QuranLevelId).ToList()))
             .ForMember(dest => dest.EducationLevelIds, opt => opt.MapFrom(src => src.EducationLevels.Select(l => l.EducationLevelId).ToList()))
+            .ForMember(dest => dest.GradeIds, opt => opt.MapFrom(src => src.Grades.Select(g => g.GradeId).ToList()))
             .ForMember(dest => dest.WritableFilterValueIds, opt => opt.MapFrom(src => src.WritableFilters.Select(w => w.WritableFilterValueId).ToList()))
             .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits))
             .AfterMap(TeacherSubjectCoverageMapper.ApplyCoverage);

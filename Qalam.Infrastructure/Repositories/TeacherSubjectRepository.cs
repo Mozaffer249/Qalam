@@ -49,6 +49,9 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.QuranLevels)
             .Include(ts => ts.EducationLevels)
                 .ThenInclude(el => el.EducationLevel)
+            .Include(ts => ts.Grades)
+                .ThenInclude(g => g.Grade)
+                    .ThenInclude(gr => gr.Level)
             .Include(ts => ts.WritableFilters)
                 .ThenInclude(wf => wf.WritableFilterValue);
 
@@ -158,6 +161,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.TeacherSubjectUnits)
             .Include(ts => ts.QuranContentTypes)
             .Include(ts => ts.QuranLevels)
+            .Include(ts => ts.EducationLevels)
+            .Include(ts => ts.Grades)
             .Include(ts => ts.WritableFilters)
             .ToListAsync();
 
@@ -277,6 +282,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.TeacherSubjectUnits)
             .Include(ts => ts.QuranContentTypes)
             .Include(ts => ts.QuranLevels)
+            .Include(ts => ts.EducationLevels)
+            .Include(ts => ts.Grades)
             .Include(ts => ts.WritableFilters)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -287,6 +294,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         _context.TeacherSubjectQuranContentTypes.RemoveRange(teacherSubject.QuranContentTypes);
             _context.TeacherSubjectQuranLevels.RemoveRange(teacherSubject.QuranLevels);
             _context.TeacherSubjectEducationLevels.RemoveRange(teacherSubject.EducationLevels);
+            _context.TeacherSubjectGrades.RemoveRange(teacherSubject.Grades);
             _context.TeacherSubjectWritableFilters.RemoveRange(teacherSubject.WritableFilters);
         _teacherSubjects.Remove(teacherSubject);
         await _context.SaveChangesAsync(cancellationToken);
@@ -445,6 +453,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         ApplyQuranCoverage(teacherSubject, dto.QuranContentTypeIds, dto.QuranLevelIds);
         ApplyEducationLevels(teacherSubject, dto.EducationLevelIds);
+        ApplyGrades(teacherSubject, dto.GradeIds);
         ApplyWritableFilters(teacherSubject, dto.WritableFilterValueIds);
         return teacherSubject;
     }
@@ -471,6 +480,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         ReplaceQuranCoverage(existing, dto.QuranContentTypeIds, dto.QuranLevelIds);
         ReplaceEducationLevels(existing, dto.EducationLevelIds);
+        ReplaceGrades(existing, dto.GradeIds);
         ReplaceWritableFilters(existing, dto.WritableFilterValueIds);
     }
 
@@ -537,6 +547,31 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         teacherSubject.EducationLevels.Clear();
         ApplyEducationLevels(teacherSubject, educationLevelIds);
         foreach (var row in teacherSubject.EducationLevels)
+            row.TeacherSubjectId = teacherSubject.Id;
+    }
+
+    private static void ApplyGrades(
+        TeacherSubject teacherSubject,
+        IEnumerable<int>? gradeIds)
+    {
+        foreach (var gradeId in (gradeIds ?? Array.Empty<int>()).Distinct())
+        {
+            teacherSubject.Grades.Add(new TeacherSubjectGrade
+            {
+                GradeId = gradeId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private void ReplaceGrades(
+        TeacherSubject teacherSubject,
+        IReadOnlyList<int> gradeIds)
+    {
+        _context.TeacherSubjectGrades.RemoveRange(teacherSubject.Grades);
+        teacherSubject.Grades.Clear();
+        ApplyGrades(teacherSubject, gradeIds);
+        foreach (var row in teacherSubject.Grades)
             row.TeacherSubjectId = teacherSubject.Id;
     }
 

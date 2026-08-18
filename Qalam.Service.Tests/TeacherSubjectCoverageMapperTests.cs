@@ -214,4 +214,65 @@ public class TeacherSubjectCoverageMapperTests
         Assert.Contains(dest.CoverageLabels, l => l.Kind == "AcademicProgram");
         Assert.Single(dest.CoverageLabels.Where(l => l.NameAr == "السنة الأولى"));
     }
+
+    [Fact]
+    public void ApplyCoverage_Language_GroupsGradesByAgeBandThenWritables()
+    {
+        var children = new EducationLevel { Id = 1, NameAr = "أطفال", NameEn = "Children", OrderIndex = 1 };
+        var youth = new EducationLevel { Id = 2, NameAr = "شباب", NameEn = "Youth", OrderIndex = 2 };
+        var src = new TeacherSubject
+        {
+            CanTeachFullSubject = true,
+            Subject = new Subject
+            {
+                NameAr = "اللغة العربية لغير الناطقين بها",
+                NameEn = "Arabic for non-native speakers",
+                Domain = new EducationDomain { Code = "language", NameAr = "اللغات", NameEn = "Languages" },
+            },
+            EducationLevels =
+            {
+                new TeacherSubjectEducationLevel { EducationLevelId = 1, EducationLevel = children },
+                new TeacherSubjectEducationLevel { EducationLevelId = 2, EducationLevel = youth },
+            },
+            Grades =
+            {
+                new TeacherSubjectGrade
+                {
+                    Grade = new Grade { NameAr = "A2", NameEn = "A2", OrderIndex = 2, LevelId = 1, Level = children },
+                },
+                new TeacherSubjectGrade
+                {
+                    Grade = new Grade { NameAr = "A1", NameEn = "A1", OrderIndex = 1, LevelId = 1, Level = children },
+                },
+                new TeacherSubjectGrade
+                {
+                    Grade = new Grade { NameAr = "B1", NameEn = "B1", OrderIndex = 3, LevelId = 2, Level = youth },
+                },
+            },
+            WritableFilters =
+            {
+                new TeacherSubjectWritableFilter
+                {
+                    WritableFilterValue = new WritableFilterValue { NameAr = "المحادثة والممارسة", NameEn = "Conversation" },
+                },
+                new TeacherSubjectWritableFilter
+                {
+                    WritableFilterValue = new WritableFilterValue { NameAr = "لغة الأعمال والعمل", NameEn = "Business" },
+                },
+            },
+        };
+
+        var dest = new TeacherSubjectResponseDto();
+        TeacherSubjectCoverageMapper.ApplyCoverage(src, dest);
+
+        Assert.Equal(
+            "أطفال (A1، A2) · شباب (B1) · المحادثة والممارسة · لغة الأعمال والعمل",
+            dest.CoverageSummaryAr);
+        Assert.Equal(
+            "Children (A1, A2) · Youth (B1) · Conversation · Business",
+            dest.CoverageSummaryEn);
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "LevelGrade" && l.NameAr == "أطفال (A1، A2)");
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "WritableFilter");
+        Assert.DoesNotContain(dest.CoverageLabels, l => l.Kind == "EducationLevel");
+    }
 }

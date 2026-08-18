@@ -62,15 +62,7 @@ public static class TeacherSubjectCoverageMapper
                     segmentsEn);
             }
 
-            var catalogLevelId = src.Subject?.LevelId;
-            AppendSegment(
-                src.EducationLevels
-                    .Where(l => l.EducationLevel != null && l.EducationLevelId != catalogLevelId)
-                    .Select(l => (l.EducationLevel!.NameAr, l.EducationLevel.NameEn)),
-                "EducationLevel",
-                labels,
-                segmentsAr,
-                segmentsEn);
+            AppendLevelGradeCoverage(src, labels, segmentsAr, segmentsEn);
 
             AppendSegment(
                 src.WritableFilters
@@ -154,7 +146,8 @@ public static class TeacherSubjectCoverageMapper
                 segmentsEn);
         }
 
-        if (subject.Level != null)
+        var coverageGrades = src.Grades.Any(g => g.Grade != null);
+        if (!coverageGrades && subject.Level != null)
         {
             AppendSegment(
                 [(subject.Level.NameAr, subject.Level.NameEn)],
@@ -164,7 +157,7 @@ public static class TeacherSubjectCoverageMapper
                 segmentsEn);
         }
 
-        if (subject.Grade != null)
+        if (!coverageGrades && subject.Grade != null)
         {
             AppendSegment(
                 [(subject.Grade.NameAr, subject.Grade.NameEn)],
@@ -173,6 +166,54 @@ public static class TeacherSubjectCoverageMapper
                 segmentsAr,
                 segmentsEn);
         }
+    }
+
+    /// <summary>
+    /// Language-style coverage: أطفال (A1، A2) · شباب (B1). Falls back to education-level names.
+    /// </summary>
+    private static void AppendLevelGradeCoverage(
+        TeacherSubject src,
+        List<TeacherSubjectCoverageLabelDto> labels,
+        List<string> segmentsAr,
+        List<string> segmentsEn)
+    {
+        var catalogLevelId = src.Subject?.LevelId;
+        var grades = src.Grades
+            .Where(g => g.Grade != null)
+            .ToList();
+
+        if (grades.Count > 0)
+        {
+            var groups = grades
+                .GroupBy(g => g.Grade.LevelId)
+                .OrderBy(grp => grp.Select(g => g.Grade.Level?.OrderIndex).FirstOrDefault() ?? 0)
+                .Select(grp =>
+                {
+                    var ordered = grp.OrderBy(g => g.Grade.OrderIndex).ToList();
+                    var level = ordered.Select(g => g.Grade.Level).FirstOrDefault(l => l != null);
+                    var levelAr = level?.NameAr ?? ordered[0].Grade.NameAr;
+                    var levelEn = level?.NameEn ?? ordered[0].Grade.NameEn;
+                    var gradeAr = string.Join("، ", ordered.Select(g => g.Grade.NameAr));
+                    var gradeEn = string.Join(", ", ordered.Select(g => g.Grade.NameEn));
+                    return (
+                        NameAr: $"{levelAr} ({gradeAr})",
+                        NameEn: $"{levelEn} ({gradeEn})"
+                    );
+                })
+                .ToList();
+
+            AppendSegment(groups, "LevelGrade", labels, segmentsAr, segmentsEn);
+            return;
+        }
+
+        AppendSegment(
+            src.EducationLevels
+                .Where(l => l.EducationLevel != null && l.EducationLevelId != catalogLevelId)
+                .Select(l => (l.EducationLevel!.NameAr, l.EducationLevel.NameEn)),
+            "EducationLevel",
+            labels,
+            segmentsAr,
+            segmentsEn);
     }
 
     private static void AppendSegment(
