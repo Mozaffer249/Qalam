@@ -13,7 +13,9 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Results;
+using Qalam.Data.DTOs.Auth;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 using System.Security.Claims;
 using Xunit;
 using TeacherEntity = Qalam.Data.Entity.Teacher.Teacher;
@@ -267,10 +269,22 @@ public class TeacherDashboardQueryHandlerTests
             .Setup(l => l[It.IsAny<string>()])
             .Returns((string key) => new LocalizedString(key, key));
 
+        var userProfileService = new Mock<IUserProfileService>();
+        userProfileService
+            .Setup(s => s.GetRelatedAccountsAsync(99, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RelatedAccountsDto());
+
+        var mediaUrlResolver = new Mock<IMediaUrlResolver>();
+        mediaUrlResolver
+            .Setup(r => r.ToPublicUrl(It.IsAny<string?>()))
+            .Returns((string? url) => url);
+
         var handler = new GetProfileQueryHandler(
             userManager.Object,
             httpContextAccessor.Object,
-            authLocalizer.Object);
+            authLocalizer.Object,
+            userProfileService.Object,
+            mediaUrlResolver.Object);
 
         var response = await handler.Handle(new GetProfileQuery(), CancellationToken.None);
 

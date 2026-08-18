@@ -48,8 +48,29 @@ public static class TeacherSubjectCoverageMapper
                 segmentsAr,
                 segmentsEn);
         }
-        else if (src.WritableFilters.Count > 0)
+        else
         {
+            AppendCatalogPath(src, labels, segmentsAr, segmentsEn);
+
+            if (src.Subject?.ParentSubject != null)
+            {
+                AppendSegment(
+                    [(src.Subject.ParentSubject.NameAr, src.Subject.ParentSubject.NameEn)],
+                    "ParentSubject",
+                    labels,
+                    segmentsAr,
+                    segmentsEn);
+            }
+
+            AppendSegment(
+                src.EducationLevels
+                    .Where(l => l.EducationLevel != null)
+                    .Select(l => (l.EducationLevel!.NameAr, l.EducationLevel.NameEn)),
+                "EducationLevel",
+                labels,
+                segmentsAr,
+                segmentsEn);
+
             AppendSegment(
                 src.WritableFilters
                     .Where(w => w.WritableFilterValue != null)
@@ -75,6 +96,43 @@ public static class TeacherSubjectCoverageMapper
         dest.CoverageLabels = labels;
         dest.CoverageSummaryAr = string.Join(Separator, segmentsAr);
         dest.CoverageSummaryEn = string.Join(Separator, segmentsEn);
+    }
+
+    private static void AppendCatalogPath(
+        TeacherSubject src,
+        List<TeacherSubjectCoverageLabelDto> labels,
+        List<string> segmentsAr,
+        List<string> segmentsEn)
+    {
+        if (src.Subject?.Curriculum != null)
+        {
+            AppendSegment(
+                [(src.Subject.Curriculum.NameAr, src.Subject.Curriculum.NameEn)],
+                "Curriculum",
+                labels,
+                segmentsAr,
+                segmentsEn);
+        }
+
+        if (src.Subject?.Level != null)
+        {
+            AppendSegment(
+                [(src.Subject.Level.NameAr, src.Subject.Level.NameEn)],
+                "Stage",
+                labels,
+                segmentsAr,
+                segmentsEn);
+        }
+
+        if (src.Subject?.Grade != null)
+        {
+            AppendSegment(
+                [(src.Subject.Grade.NameAr, src.Subject.Grade.NameEn)],
+                "Grade",
+                labels,
+                segmentsAr,
+                segmentsEn);
+        }
     }
 
     private static void AppendSegment(

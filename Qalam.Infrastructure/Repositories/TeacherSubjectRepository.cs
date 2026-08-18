@@ -33,6 +33,8 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .ThenInclude(s => s.Level)
             .Include(ts => ts.Subject)
                 .ThenInclude(s => s.Grade)
+            .Include(ts => ts.Subject)
+                .ThenInclude(s => s.ParentSubject)
             .Include(ts => ts.TeacherSubjectUnits)
                 .ThenInclude(tsu => tsu.Unit)
             .Include(ts => ts.QuranContentTypes)
