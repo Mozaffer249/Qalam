@@ -62,9 +62,10 @@ public static class TeacherSubjectCoverageMapper
                     segmentsEn);
             }
 
+            var catalogLevelId = src.Subject?.LevelId;
             AppendSegment(
                 src.EducationLevels
-                    .Where(l => l.EducationLevel != null)
+                    .Where(l => l.EducationLevel != null && l.EducationLevelId != catalogLevelId)
                     .Select(l => (l.EducationLevel!.NameAr, l.EducationLevel.NameEn)),
                 "EducationLevel",
                 labels,
@@ -104,30 +105,69 @@ public static class TeacherSubjectCoverageMapper
         List<string> segmentsAr,
         List<string> segmentsEn)
     {
-        if (src.Subject?.Curriculum != null)
+        var subject = src.Subject;
+        if (subject == null)
+        {
+            return;
+        }
+
+        var college = subject.AcademicProgram?.Department?.College;
+        var university = subject.University ?? college?.University;
+
+        if (university != null)
+        {
+            AppendSegment([(university.NameAr, university.NameEn)], "University", labels, segmentsAr, segmentsEn);
+        }
+
+        if (college != null)
+        {
+            AppendSegment([(college.NameAr, college.NameEn)], "College", labels, segmentsAr, segmentsEn);
+        }
+
+        if (subject.AcademicProgram?.Department != null)
         {
             AppendSegment(
-                [(src.Subject.Curriculum.NameAr, src.Subject.Curriculum.NameEn)],
+                [(subject.AcademicProgram.Department.NameAr, subject.AcademicProgram.Department.NameEn)],
+                "Department",
+                labels,
+                segmentsAr,
+                segmentsEn);
+        }
+
+        if (subject.AcademicProgram != null)
+        {
+            AppendSegment(
+                [(subject.AcademicProgram.NameAr, subject.AcademicProgram.NameEn)],
+                "AcademicProgram",
+                labels,
+                segmentsAr,
+                segmentsEn);
+        }
+
+        if (subject.Curriculum != null)
+        {
+            AppendSegment(
+                [(subject.Curriculum.NameAr, subject.Curriculum.NameEn)],
                 "Curriculum",
                 labels,
                 segmentsAr,
                 segmentsEn);
         }
 
-        if (src.Subject?.Level != null)
+        if (subject.Level != null)
         {
             AppendSegment(
-                [(src.Subject.Level.NameAr, src.Subject.Level.NameEn)],
+                [(subject.Level.NameAr, subject.Level.NameEn)],
                 "Stage",
                 labels,
                 segmentsAr,
                 segmentsEn);
         }
 
-        if (src.Subject?.Grade != null)
+        if (subject.Grade != null)
         {
             AppendSegment(
-                [(src.Subject.Grade.NameAr, src.Subject.Grade.NameEn)],
+                [(subject.Grade.NameAr, subject.Grade.NameEn)],
                 "Grade",
                 labels,
                 segmentsAr,
@@ -142,14 +182,25 @@ public static class TeacherSubjectCoverageMapper
         List<string> segmentsAr,
         List<string> segmentsEn)
     {
-        var list = items.ToList();
+        var list = items
+            .Where(i => !string.IsNullOrWhiteSpace(i.NameAr) || !string.IsNullOrWhiteSpace(i.NameEn))
+            .ToList();
         if (list.Count == 0)
         {
             return;
         }
 
+        var lastAr = segmentsAr.Count > 0 ? segmentsAr[^1] : null;
+        var lastEn = segmentsEn.Count > 0 ? segmentsEn[^1] : null;
+
         foreach (var (nameAr, nameEn) in list)
         {
+            if (string.Equals(nameAr, lastAr, StringComparison.Ordinal)
+                && string.Equals(nameEn, lastEn, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             labels.Add(new TeacherSubjectCoverageLabelDto
             {
                 NameAr = nameAr,
@@ -158,7 +209,15 @@ public static class TeacherSubjectCoverageMapper
             });
         }
 
-        segmentsAr.Add(string.Join(Separator, list.Select(i => i.NameAr)));
-        segmentsEn.Add(string.Join(Separator, list.Select(i => i.NameEn)));
+        var joinedAr = string.Join(Separator, list.Select(i => i.NameAr));
+        var joinedEn = string.Join(Separator, list.Select(i => i.NameEn));
+        if (string.Equals(joinedAr, lastAr, StringComparison.Ordinal)
+            && string.Equals(joinedEn, lastEn, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        segmentsAr.Add(joinedAr);
+        segmentsEn.Add(joinedEn);
     }
 }

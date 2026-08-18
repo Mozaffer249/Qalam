@@ -160,4 +160,58 @@ public class TeacherSubjectCoverageMapperTests
         Assert.Contains(dest.CoverageLabels, l => l.Kind == "Stage");
         Assert.Contains(dest.CoverageLabels, l => l.Kind == "Grade");
     }
+
+    [Fact]
+    public void ApplyCoverage_University_IncludesInstitutionPathAndDoesNotDuplicateYear()
+    {
+        var year = new EducationLevel { Id = 10, NameAr = "السنة الأولى", NameEn = "Year 1" };
+        var src = new TeacherSubject
+        {
+            CanTeachFullSubject = true,
+            Subject = new Subject
+            {
+                NameAr = "قواعد البيانات",
+                NameEn = "Databases",
+                Domain = new EducationDomain { Code = "university", NameAr = "جامعي", NameEn = "University" },
+                University = new University { NameAr = "جامعة الملك سعود", NameEn = "King Saud University" },
+                AcademicProgram = new AcademicProgram
+                {
+                    NameAr = "علوم الحاسب",
+                    NameEn = "Computer Science",
+                    Department = new Department
+                    {
+                        NameAr = "الحاسب الآلي",
+                        NameEn = "Computer",
+                        College = new College
+                        {
+                            NameAr = "كلية علوم الحاسب",
+                            NameEn = "College of Computer Science",
+                        },
+                    },
+                },
+                LevelId = 10,
+                Level = year,
+            },
+            EducationLevels =
+            {
+                new TeacherSubjectEducationLevel
+                {
+                    EducationLevelId = 10,
+                    EducationLevel = year,
+                },
+            },
+        };
+
+        var dest = new TeacherSubjectResponseDto();
+        TeacherSubjectCoverageMapper.ApplyCoverage(src, dest);
+
+        Assert.Equal(
+            "جامعة الملك سعود · كلية علوم الحاسب · الحاسب الآلي · علوم الحاسب · السنة الأولى",
+            dest.CoverageSummaryAr);
+        Assert.DoesNotContain("السنة الأولى · السنة الأولى", dest.CoverageSummaryAr);
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "University");
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "College");
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "AcademicProgram");
+        Assert.Single(dest.CoverageLabels.Where(l => l.NameAr == "السنة الأولى"));
+    }
 }
