@@ -29,6 +29,11 @@ public class TeacherSubjectProfile : Profile
             .ForMember(dest => dest.EducationLevelIds, opt => opt.MapFrom(src => src.EducationLevels.Select(l => l.EducationLevelId).ToList()))
             .ForMember(dest => dest.GradeIds, opt => opt.MapFrom(src => src.Grades.Select(g => g.GradeId).ToList()))
             .ForMember(dest => dest.WritableFilterValueIds, opt => opt.MapFrom(src => src.WritableFilters.Select(w => w.WritableFilterValueId).ToList()))
+            .ForMember(dest => dest.FieldLevels, opt => opt.MapFrom(src => src.FieldLevels.Select(f => new TeacherSubjectFieldLevelItemDto
+            {
+                WritableFilterValueId = f.WritableFilterValueId,
+                EducationLevelId = f.EducationLevelId
+            }).ToList()))
             .ForMember(dest => dest.Units, opt => opt.MapFrom(src => src.TeacherSubjectUnits))
             .AfterMap(TeacherSubjectCoverageMapper.ApplyCoverage);
 

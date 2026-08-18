@@ -275,4 +275,79 @@ public class TeacherSubjectCoverageMapperTests
         Assert.Contains(dest.CoverageLabels, l => l.Kind == "WritableFilter");
         Assert.DoesNotContain(dest.CoverageLabels, l => l.Kind == "EducationLevel");
     }
+
+    [Fact]
+    public void ApplyCoverage_Finance_GroupsLevelsUnderEachField()
+    {
+        var beginner = new EducationLevel { Id = 1, NameAr = "مبتدئ", NameEn = "Beginner", OrderIndex = 1 };
+        var intermediate = new EducationLevel { Id = 2, NameAr = "متوسط", NameEn = "Intermediate", OrderIndex = 2 };
+        var advanced = new EducationLevel { Id = 3, NameAr = "متقدم", NameEn = "Advanced", OrderIndex = 3 };
+        var investing = new WritableFilterValue { Id = 10, NameAr = "الاستثمار", NameEn = "Investing" };
+        var currencies = new WritableFilterValue { Id = 11, NameAr = "العملات", NameEn = "Currencies" };
+        var src = new TeacherSubject
+        {
+            CanTeachFullSubject = true,
+            Subject = new Subject
+            {
+                NameAr = "المال والاستثمار",
+                NameEn = "Money and Investment",
+                Domain = new EducationDomain { Code = "finance", NameAr = "المال والاستثمار", NameEn = "Finance" },
+            },
+            EducationLevels =
+            {
+                new TeacherSubjectEducationLevel { EducationLevelId = 1, EducationLevel = beginner },
+                new TeacherSubjectEducationLevel { EducationLevelId = 2, EducationLevel = intermediate },
+                new TeacherSubjectEducationLevel { EducationLevelId = 3, EducationLevel = advanced },
+            },
+            WritableFilters =
+            {
+                new TeacherSubjectWritableFilter { WritableFilterValueId = 10, WritableFilterValue = investing },
+                new TeacherSubjectWritableFilter { WritableFilterValueId = 11, WritableFilterValue = currencies },
+            },
+            FieldLevels =
+            {
+                new TeacherSubjectFieldLevel
+                {
+                    WritableFilterValueId = 10,
+                    WritableFilterValue = investing,
+                    EducationLevelId = 3,
+                    EducationLevel = advanced,
+                },
+                new TeacherSubjectFieldLevel
+                {
+                    WritableFilterValueId = 10,
+                    WritableFilterValue = investing,
+                    EducationLevelId = 1,
+                    EducationLevel = beginner,
+                },
+                new TeacherSubjectFieldLevel
+                {
+                    WritableFilterValueId = 11,
+                    WritableFilterValue = currencies,
+                    EducationLevelId = 1,
+                    EducationLevel = beginner,
+                },
+                new TeacherSubjectFieldLevel
+                {
+                    WritableFilterValueId = 11,
+                    WritableFilterValue = currencies,
+                    EducationLevelId = 2,
+                    EducationLevel = intermediate,
+                },
+            },
+        };
+
+        var dest = new TeacherSubjectResponseDto();
+        TeacherSubjectCoverageMapper.ApplyCoverage(src, dest);
+
+        Assert.Equal(
+            "الاستثمار ← مبتدئ - متقدم · العملات ← مبتدئ - متوسط",
+            dest.CoverageSummaryAr);
+        Assert.Equal(
+            "Investing ← Beginner - Advanced · Currencies ← Beginner - Intermediate",
+            dest.CoverageSummaryEn);
+        Assert.Contains(dest.CoverageLabels, l => l.Kind == "FieldLevel");
+        Assert.DoesNotContain(dest.CoverageLabels, l => l.Kind == "EducationLevel");
+        Assert.DoesNotContain(dest.CoverageLabels, l => l.Kind == "WritableFilter");
+    }
 }

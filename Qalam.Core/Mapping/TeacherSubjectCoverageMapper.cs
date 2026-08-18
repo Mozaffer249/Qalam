@@ -62,16 +62,23 @@ public static class TeacherSubjectCoverageMapper
                     segmentsEn);
             }
 
-            AppendLevelGradeCoverage(src, labels, segmentsAr, segmentsEn);
+            if (AppendFinanceFieldLevels(src, labels, segmentsAr, segmentsEn))
+            {
+                // Field ← level groups replace flat education-level + writable lines.
+            }
+            else
+            {
+                AppendLevelGradeCoverage(src, labels, segmentsAr, segmentsEn);
 
-            AppendSegment(
-                src.WritableFilters
-                    .Where(w => w.WritableFilterValue != null)
-                    .Select(w => (w.WritableFilterValue!.NameAr, w.WritableFilterValue.NameEn)),
-                "WritableFilter",
-                labels,
-                segmentsAr,
-                segmentsEn);
+                AppendSegment(
+                    src.WritableFilters
+                        .Where(w => w.WritableFilterValue != null)
+                        .Select(w => (w.WritableFilterValue!.NameAr, w.WritableFilterValue.NameEn)),
+                    "WritableFilter",
+                    labels,
+                    segmentsAr,
+                    segmentsEn);
+            }
         }
 
         if (!src.CanTeachFullSubject && src.TeacherSubjectUnits.Count > 0)
@@ -214,6 +221,45 @@ public static class TeacherSubjectCoverageMapper
             labels,
             segmentsAr,
             segmentsEn);
+    }
+
+    /// <summary>
+    /// Finance-style coverage: الاستثمار ← مبتدئ - متقدم · العملات ← مبتدئ - متوسط.
+    /// </summary>
+    private static bool AppendFinanceFieldLevels(
+        TeacherSubject src,
+        List<TeacherSubjectCoverageLabelDto> labels,
+        List<string> segmentsAr,
+        List<string> segmentsEn)
+    {
+        var pairs = src.FieldLevels
+            .Where(f => f.WritableFilterValue != null && f.EducationLevel != null)
+            .ToList();
+        if (pairs.Count == 0)
+        {
+            return false;
+        }
+
+        var groups = pairs
+            .GroupBy(f => f.WritableFilterValueId)
+            .Select(grp =>
+            {
+                var field = grp.First().WritableFilterValue;
+                var ordered = grp
+                    .OrderBy(f => f.EducationLevel.OrderIndex)
+                    .Select(f => f.EducationLevel)
+                    .ToList();
+                var levelsAr = string.Join(" - ", ordered.Select(l => l.NameAr));
+                var levelsEn = string.Join(" - ", ordered.Select(l => l.NameEn));
+                return (
+                    NameAr: $"{field.NameAr} ← {levelsAr}",
+                    NameEn: $"{field.NameEn} ← {levelsEn}"
+                );
+            })
+            .ToList();
+
+        AppendSegment(groups, "FieldLevel", labels, segmentsAr, segmentsEn);
+        return true;
     }
 
     private static void AppendSegment(

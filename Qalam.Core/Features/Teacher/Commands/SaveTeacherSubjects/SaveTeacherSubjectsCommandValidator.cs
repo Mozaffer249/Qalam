@@ -45,6 +45,16 @@ public class SaveTeacherSubjectsCommandValidator : AbstractValidator<SaveTeacher
             subject.RuleForEach(s => s.GradeIds)
                 .GreaterThan(0)
                 .WithMessage("Grade ID must be greater than 0");
+
+            subject.RuleForEach(s => s.FieldLevels).ChildRules(pair =>
+            {
+                pair.RuleFor(p => p.WritableFilterValueId)
+                    .GreaterThan(0)
+                    .WithMessage("Writable filter value ID must be greater than 0");
+                pair.RuleFor(p => p.EducationLevelId)
+                    .GreaterThan(0)
+                    .WithMessage("Education level ID must be greater than 0");
+            });
         });
     }
 }

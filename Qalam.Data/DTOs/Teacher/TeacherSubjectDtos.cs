@@ -49,6 +49,11 @@ public class TeacherSubjectItemDto
     public List<int> GradeIds { get; set; } = new();
 
     public List<int> WritableFilterValueIds { get; set; } = new();
+
+    /// <summary>
+    /// Finance field × education-level pairs. Empty = not specified.
+    /// </summary>
+    public List<TeacherSubjectFieldLevelItemDto> FieldLevels { get; set; } = new();
 }
 
 /// <summary>
@@ -57,6 +62,15 @@ public class TeacherSubjectItemDto
 public class TeacherSubjectUnitItemDto
 {
     public int UnitId { get; set; }
+}
+
+/// <summary>
+/// Finance coverage pair: a field (writable) with one education level.
+/// </summary>
+public class TeacherSubjectFieldLevelItemDto
+{
+    public int WritableFilterValueId { get; set; }
+    public int EducationLevelId { get; set; }
 }
 
 /// <summary>
@@ -126,6 +140,7 @@ public class TeacherSubjectResponseDto
     public List<int> EducationLevelIds { get; set; } = new();
     public List<int> GradeIds { get; set; } = new();
     public List<int> WritableFilterValueIds { get; set; } = new();
+    public List<TeacherSubjectFieldLevelItemDto> FieldLevels { get; set; } = new();
 
     public List<TeacherSubjectUnitResponseDto> Units { get; set; } = new();
 

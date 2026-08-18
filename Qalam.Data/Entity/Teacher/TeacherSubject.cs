@@ -30,4 +30,5 @@ public class TeacherSubject : AuditableEntity
     public ICollection<TeacherSubjectEducationLevel> EducationLevels { get; set; } = new List<TeacherSubjectEducationLevel>();
     public ICollection<TeacherSubjectGrade> Grades { get; set; } = new List<TeacherSubjectGrade>();
     public ICollection<TeacherSubjectWritableFilter> WritableFilters { get; set; } = new List<TeacherSubjectWritableFilter>();
+    public ICollection<TeacherSubjectFieldLevel> FieldLevels { get; set; } = new List<TeacherSubjectFieldLevel>();
 }

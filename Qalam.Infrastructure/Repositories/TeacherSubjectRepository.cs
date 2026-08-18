@@ -53,7 +53,11 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                 .ThenInclude(g => g.Grade)
                     .ThenInclude(gr => gr.Level)
             .Include(ts => ts.WritableFilters)
-                .ThenInclude(wf => wf.WritableFilterValue);
+                .ThenInclude(wf => wf.WritableFilterValue)
+            .Include(ts => ts.FieldLevels)
+                .ThenInclude(fl => fl.WritableFilterValue)
+            .Include(ts => ts.FieldLevels)
+                .ThenInclude(fl => fl.EducationLevel);
 
     public async Task<List<TeacherSubject>> GetTeacherSubjectsWithUnitsAsync(int teacherId)
     {
@@ -164,6 +168,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.EducationLevels)
             .Include(ts => ts.Grades)
             .Include(ts => ts.WritableFilters)
+            .Include(ts => ts.FieldLevels)
             .ToListAsync();
 
         var existingBySubjectId = existingSubjects.ToDictionary(ts => ts.SubjectId);
@@ -285,6 +290,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             .Include(ts => ts.EducationLevels)
             .Include(ts => ts.Grades)
             .Include(ts => ts.WritableFilters)
+            .Include(ts => ts.FieldLevels)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (teacherSubject == null)
@@ -296,6 +302,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
             _context.TeacherSubjectEducationLevels.RemoveRange(teacherSubject.EducationLevels);
             _context.TeacherSubjectGrades.RemoveRange(teacherSubject.Grades);
             _context.TeacherSubjectWritableFilters.RemoveRange(teacherSubject.WritableFilters);
+            _context.TeacherSubjectFieldLevels.RemoveRange(teacherSubject.FieldLevels);
         _teacherSubjects.Remove(teacherSubject);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
@@ -455,6 +462,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         ApplyEducationLevels(teacherSubject, dto.EducationLevelIds);
         ApplyGrades(teacherSubject, dto.GradeIds);
         ApplyWritableFilters(teacherSubject, dto.WritableFilterValueIds);
+        ApplyFieldLevels(teacherSubject, dto.FieldLevels);
         return teacherSubject;
     }
 
@@ -482,6 +490,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
         ReplaceEducationLevels(existing, dto.EducationLevelIds);
         ReplaceGrades(existing, dto.GradeIds);
         ReplaceWritableFilters(existing, dto.WritableFilterValueIds);
+        ReplaceFieldLevels(existing, dto.FieldLevels);
     }
 
     private static void ApplyQuranCoverage(
@@ -598,6 +607,37 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
 
         ApplyWritableFilters(teacherSubject, writableFilterValueIds);
         foreach (var row in teacherSubject.WritableFilters)
+            row.TeacherSubjectId = teacherSubject.Id;
+    }
+
+    private static void ApplyFieldLevels(
+        TeacherSubject teacherSubject,
+        IEnumerable<TeacherSubjectFieldLevelItemDto>? pairs)
+    {
+        var seen = new HashSet<(int FieldId, int LevelId)>();
+        foreach (var pair in pairs ?? Array.Empty<TeacherSubjectFieldLevelItemDto>())
+        {
+            if (pair.WritableFilterValueId <= 0 || pair.EducationLevelId <= 0)
+                continue;
+            if (!seen.Add((pair.WritableFilterValueId, pair.EducationLevelId)))
+                continue;
+            teacherSubject.FieldLevels.Add(new TeacherSubjectFieldLevel
+            {
+                WritableFilterValueId = pair.WritableFilterValueId,
+                EducationLevelId = pair.EducationLevelId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private void ReplaceFieldLevels(
+        TeacherSubject teacherSubject,
+        IReadOnlyList<TeacherSubjectFieldLevelItemDto>? pairs)
+    {
+        _context.TeacherSubjectFieldLevels.RemoveRange(teacherSubject.FieldLevels);
+        teacherSubject.FieldLevels.Clear();
+        ApplyFieldLevels(teacherSubject, pairs);
+        foreach (var row in teacherSubject.FieldLevels)
             row.TeacherSubjectId = teacherSubject.Id;
     }
 }
