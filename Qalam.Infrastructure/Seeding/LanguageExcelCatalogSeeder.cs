@@ -7,7 +7,7 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Seeding;
 
 /// <summary>
-/// Excel language path: age levels, CEFR grades, one subject per language, writable skill/purpose/curriculum.
+/// Excel language path: age levels, CEFR grades, one subject per language, writable skill/purpose/curriculum (write-in).
 /// Deactivates legacy cartesian language×CEFR×skill subjects (rows kept for FKs).
 /// </summary>
 public static class LanguageExcelCatalogSeeder
@@ -192,7 +192,7 @@ public static class LanguageExcelCatalogSeeder
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)
     {
         await EnsureLanguageWritableAfterStepsAsync(context, domainId);
-        await EnsureLanguageCurriculumValuesAsync(context, domainId);
+        await DeactivateSeededLanguageCurriculumAsync(context, domainId);
 
         if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domainId))
             return;
@@ -233,9 +233,9 @@ public static class LanguageExcelCatalogSeeder
                 ("health", "الصحة والطب", "Health and medicine", null),
                 ("translation", "الترجمة", "Translation", null)
             ]),
-            (WritableFilterSlotCodes.LanguageCurriculum, "المنهج", "Curriculum",
+            (WritableFilterSlotCodes.LanguageCurriculum, "المنهج (كتابة)", "Curriculum (write-in)",
                 WritableFilterAfterSteps.Grade, 4, false, null,
-                LanguageCurriculumCatalog)
+                []),
         };
 
         foreach (var spec in specs)
@@ -330,6 +330,19 @@ public static class LanguageExcelCatalogSeeder
                     slot.OrderIndex = desiredOrder;
                     dirty = true;
                 }
+                if (slot.Code == WritableFilterSlotCodes.LanguageCurriculum)
+                {
+                    if (slot.NameAr != "المنهج (كتابة)")
+                    {
+                        slot.NameAr = "المنهج (كتابة)";
+                        dirty = true;
+                    }
+                    if (slot.NameEn != "Curriculum (write-in)")
+                    {
+                        slot.NameEn = "Curriculum (write-in)";
+                        dirty = true;
+                    }
+                }
             }
 
             if (dirty)
@@ -344,34 +357,9 @@ public static class LanguageExcelCatalogSeeder
     }
 
     /// <summary>
-    /// Seeded curriculum books keyed by subject-code scope (lang.other = write-in only).
+    /// Excel: المنهج (كتابة). Stop offering seeded books; keep teacher-typed values.
     /// </summary>
-    private static readonly (string Code, string Ar, string En, string SubjectScope)[] LanguageCurriculumCatalog =
-    [
-        ("oxford", "Oxford book", "Oxford book", "lang.en"),
-        ("headway", "Headway", "Headway", "lang.en"),
-        ("english-file", "English File", "English File", "lang.en"),
-        ("qcf", "QCF", "QCF", "lang.en"),
-        ("arabiyya-bayna-yadayk", "العربية بين يديك", "Al-Arabiyya bayna yadayk", "lang.ar-nns"),
-        ("alter-ego", "Alter Ego", "Alter Ego", "lang.fr"),
-        ("echo", "Écho", "Echo", "lang.fr"),
-        ("nouvelle-edition", "Nouvelle édition", "Nouvelle edition", "lang.fr"),
-        ("aula-internacional", "Aula Internacional", "Aula Internacional", "lang.es"),
-        ("nuevo-prisma", "Nuevo Prisma", "Nuevo Prisma", "lang.es"),
-        ("yeni-hitit", "Yeni Hitit", "Yeni Hitit", "lang.tr"),
-        ("istanbul-kitabi", "İstanbul Kitabı", "Istanbul Kitabi", "lang.tr"),
-        ("hsk-standard", "HSK Standard Course", "HSK Standard Course", "lang.zh"),
-        ("integrated-chinese", "Integrated Chinese", "Integrated Chinese", "lang.zh"),
-        ("minna-no-nihongo", "みんなの日本語", "Minna no Nihongo", "lang.ja"),
-        ("genki", "Genki", "Genki", "lang.ja"),
-        ("sejong-korean", "세종한국어", "Sejong Korean", "lang.ko"),
-        ("integrated-korean", "Integrated Korean", "Integrated Korean", "lang.ko")
-    ];
-
-    /// <summary>
-    /// Upsert curriculum values for all language subjects (existing DBs + first seed).
-    /// </summary>
-    private static async Task EnsureLanguageCurriculumValuesAsync(ApplicationDBContext context, int domainId)
+    private static async Task DeactivateSeededLanguageCurriculumAsync(ApplicationDBContext context, int domainId)
     {
         var curriculumSlot = await context.WritableFilterSlots
             .FirstOrDefaultAsync(s =>
@@ -379,58 +367,30 @@ public static class LanguageExcelCatalogSeeder
         if (curriculumSlot is null)
             return;
 
-        var existing = await context.WritableFilterValues
-            .Where(v => v.SlotId == curriculumSlot.Id)
-            .ToListAsync();
-        var byCode = existing
-            .Where(v => !string.IsNullOrWhiteSpace(v.Code))
-            .ToDictionary(v => v.Code!, StringComparer.OrdinalIgnoreCase);
-
         var dirty = false;
-        foreach (var book in LanguageCurriculumCatalog)
+        if (curriculumSlot.NameAr != "المنهج (كتابة)")
         {
-            if (byCode.TryGetValue(book.Code, out var value))
-            {
-                var changed = false;
-                if (!string.Equals(value.SubjectCodeContains, book.SubjectScope, StringComparison.Ordinal))
-                {
-                    value.SubjectCodeContains = book.SubjectScope;
-                    changed = true;
-                }
-                if (!value.IsActive)
-                {
-                    value.IsActive = true;
-                    changed = true;
-                }
-                if (!value.IsSeeded)
-                {
-                    value.IsSeeded = true;
-                    changed = true;
-                }
-                if (changed)
-                {
-                    value.UpdatedAt = DateTime.UtcNow;
-                    dirty = true;
-                }
-                continue;
-            }
-
-            context.WritableFilterValues.Add(new WritableFilterValue
-            {
-                SlotId = curriculumSlot.Id,
-                Code = book.Code,
-                NameAr = book.Ar,
-                NameEn = book.En,
-                NormalizedText = WritableFilterTextNormalizer.Normalize(book.Ar),
-                SubjectCodeContains = book.SubjectScope,
-                IsSeeded = true,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            });
+            curriculumSlot.NameAr = "المنهج (كتابة)";
             dirty = true;
         }
-
+        if (curriculumSlot.NameEn != "Curriculum (write-in)")
+        {
+            curriculumSlot.NameEn = "Curriculum (write-in)";
+            dirty = true;
+        }
         if (dirty)
+            curriculumSlot.UpdatedAt = DateTime.UtcNow;
+
+        var seeded = await context.WritableFilterValues
+            .Where(v => v.SlotId == curriculumSlot.Id && v.IsSeeded && v.IsActive)
+            .ToListAsync();
+        foreach (var value in seeded)
+        {
+            value.IsActive = false;
+            value.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (dirty || seeded.Count > 0)
             await context.SaveChangesAsync();
     }
 }

@@ -66,7 +66,8 @@ Teacher: *أدرس الإنجليزية للأطفال والشباب، من A1 
  │    └── C1
  └── بالغون   (unchecked — not in this batch)
 المهارات على المادة: محادثة، قراءة، كتابة، قواعد
-المنهج: اختياري ومقيّد برمز اللغة
+الغرض / التخصص: التأسيس اللغوي
+المنهج: اختياري كتابة (مثال: Oxford book)
 ```
 
 French can be a second root in the same domain session. POST: one row per language `subjectId` + `writableFilterValueIds`. `canTeachFullSubject: true`, empty units.
