@@ -104,6 +104,16 @@ namespace Qalam.Infrastructure
                     }
                 });
                 c.EnableAnnotations();
+
+                // Same route + verb with different Content-Type (e.g. AddChild JSON vs multipart) breaks OpenAPI unless resolved.
+                c.ResolveConflictingActions(apiDescriptions =>
+                {
+                    var jsonAction = apiDescriptions.FirstOrDefault(d =>
+                        d.SupportedRequestFormats.Any(f =>
+                            string.Equals(f.MediaType, "application/json", StringComparison.OrdinalIgnoreCase)));
+                    return jsonAction ?? apiDescriptions.First();
+                });
+
                 c.OperationFilter<AllowAnonymousOperationFilter>();
                 c.OperationFilter<AuthConfigOpenApiOperationFilter>();
                 c.OperationFilter<TeacherRegistrationOpenApiOperationFilter>();
