@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Pricing.Commands.ApproveLevelUpgradeSuggestion;
+using Qalam.Core.Features.Admin.Pricing.Commands.BackfillStarterTeacherLevels;
 using Qalam.Core.Features.Admin.Pricing.Commands.RejectLevelUpgradeSuggestion;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDomainSessionPrice;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevel;
@@ -68,4 +69,8 @@ public class PricingController : AppControllerBase
         int id,
         [FromBody] ReviewLevelUpgradeSuggestionDto? data)
         => NewResult(await Mediator.Send(new RejectLevelUpgradeSuggestionCommand { Id = id, Data = data }));
+
+    [HttpPost("teachers/backfill-starter-level")]
+    public async Task<IActionResult> BackfillStarterTeacherLevels()
+        => NewResult(await Mediator.Send(new BackfillStarterTeacherLevelsCommand()));
 }

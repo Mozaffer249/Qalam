@@ -38,4 +38,8 @@ public class TeacherDetailsDto
     public TeacherSubjectSummaryDto SubjectSummary { get; set; } = new();
 
     public TeacherReviewSummaryDto ReviewSummary { get; set; } = new();
+
+    public int? TeacherLevelId { get; set; }
+    public string? TeacherLevelCode { get; set; }
+    public decimal? CustomTeacherSharePct { get; set; }
 }

@@ -231,6 +231,20 @@ public class PricingAdminServiceTests
 
         Assert.Contains("Invalid status filter", ex.Message);
     }
+
+    [Fact]
+    public async Task BackfillStarterTeacherLevelsAsync_DelegatesToRepository()
+    {
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo
+            .Setup(r => r.BackfillStarterLevelForTeachersWithoutLevelAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2500);
+
+        var service = CreateSut(out _, out _, out _, teacherRepo, out _);
+        var result = await service.BackfillStarterTeacherLevelsAsync();
+
+        Assert.Equal(2500, result.UpdatedCount);
+    }
 }
 
 public class PricingDefaultsTests

@@ -21,6 +21,9 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     Task<List<PendingTeacherDto>> GetPendingTeachersDtoAsync(int pageNumber, int pageSize);
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
 
+    /// <summary>Set starter level on all teachers where <see cref="Teacher.TeacherLevelId"/> is null.</summary>
+    Task<int> BackfillStarterLevelForTeachersWithoutLevelAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Admin paginated teacher browse with optional filters (status, location, subject, domain, dates, search).
     /// </summary>
@@ -148,7 +151,8 @@ public record AdminTeacherListFilters(
     DateTime? CreatedFrom = null,
     DateTime? CreatedTo = null,
     string? RequirementCode = null,
-    TeacherRequirementFilterStatus? RequirementStatus = null);
+    TeacherRequirementFilterStatus? RequirementStatus = null,
+    bool? MissingTeacherLevel = null);
 
 /// <summary>Submission/verification filter for a registration requirement code.</summary>
 public enum TeacherRequirementFilterStatus

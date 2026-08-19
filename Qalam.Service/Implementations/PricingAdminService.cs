@@ -224,6 +224,13 @@ public class PricingAdminService : IPricingAdminService
         return true;
     }
 
+    public async Task<BackfillStarterTeacherLevelsResultDto> BackfillStarterTeacherLevelsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var updatedCount = await _teacherRepository.BackfillStarterLevelForTeachersWithoutLevelAsync(cancellationToken);
+        return new BackfillStarterTeacherLevelsResultDto { UpdatedCount = updatedCount };
+    }
+
     private static DomainSessionPriceAdminDto MapDomainSessionPrice(DomainSessionPrice row) =>
         MapDomainSessionPrice(row, row.Domain?.Code, row.Domain?.NameEn, row.Domain?.NameAr);
 

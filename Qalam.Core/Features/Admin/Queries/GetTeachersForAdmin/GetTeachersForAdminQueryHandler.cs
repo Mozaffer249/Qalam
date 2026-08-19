@@ -79,7 +79,8 @@ public class GetTeachersForAdminQueryHandler : ResponseHandler,
             CreatedFrom: request.CreatedFrom?.Date,
             CreatedTo: createdTo,
             RequirementCode: request.RequirementCode,
-            RequirementStatus: requirementStatus);
+            RequirementStatus: requirementStatus,
+            MissingTeacherLevel: request.MissingTeacherLevel);
 
         var result = await _teacherRepository.SearchForAdminAsync(filters, cancellationToken);
 

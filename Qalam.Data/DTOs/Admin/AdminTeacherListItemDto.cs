@@ -39,6 +39,10 @@ public class AdminTeacherListItemDto
 
     /// <summary>Per-requirement registration checklist (same shape as teacher detail).</summary>
     public List<TeacherRegistrationSubmissionStatusDto> RegistrationRequirements { get; set; } = new();
+
+    public int? TeacherLevelId { get; set; }
+    public string? TeacherLevelCode { get; set; }
+    public decimal? CustomTeacherSharePct { get; set; }
 }
 
 /// <summary>CSV file payload for admin teacher export.</summary>

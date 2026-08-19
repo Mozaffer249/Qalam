@@ -23,4 +23,5 @@ public class GetTeachersForAdminQuery : IRequest<Response<List<AdminTeacherListI
     public AdminTeacherListSort SortBy { get; set; } = AdminTeacherListSort.Newest;
     public string? RequirementCode { get; set; }
     public string? RequirementStatus { get; set; }
+    public bool? MissingTeacherLevel { get; set; }
 }

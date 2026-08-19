@@ -199,6 +199,9 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 (t.User.Email != null && t.User.Email.Contains(s))));
         }
 
+        if (filters.MissingTeacherLevel == true)
+            query = query.Where(t => t.TeacherLevelId == null);
+
         if (!string.IsNullOrWhiteSpace(filters.RequirementCode)
             || filters.RequirementStatus.HasValue)
         {
@@ -486,6 +489,9 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
                 ApprovedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Approved),
                 RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected),
+                TeacherLevelId = t.TeacherLevelId,
+                TeacherLevelCode = t.TeacherLevel != null ? t.TeacherLevel.Code : null,
+                CustomTeacherSharePct = t.CustomTeacherSharePct,
                 Documents = t.TeacherDocuments.Select(d => new TeacherDocumentReviewDto
                 {
                     Id = d.Id,
@@ -504,6 +510,23 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 }).ToList()
             })
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<int> BackfillStarterLevelForTeachersWithoutLevelAsync(CancellationToken cancellationToken = default)
+    {
+        var starter = await _context.TeacherLevels.AsNoTracking()
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.OrderIndex)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (starter == null)
+            return 0;
+
+        return await _teachers
+            .Where(t => t.TeacherLevelId == null)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(t => t.TeacherLevelId, starter.Id)
+                    .SetProperty(t => t.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
     }
 
     public async Task<List<(int TeacherId, string Email)>> GetEmailsByTeacherIdsAsync(IReadOnlyCollection<int> teacherIds, CancellationToken cancellationToken = default)
@@ -943,6 +966,9 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         public int PendingDocuments { get; init; }
         public int ApprovedDocuments { get; init; }
         public int RejectedDocuments { get; init; }
+        public int? TeacherLevelId { get; init; }
+        public string? TeacherLevelCode { get; init; }
+        public decimal? CustomTeacherSharePct { get; init; }
     }
 
     private static System.Linq.Expressions.Expression<Func<Teacher, AdminTeacherListRow>> ProjectToAdminListRow() =>
@@ -962,7 +988,10 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             TotalDocuments = t.TeacherDocuments.Count,
             PendingDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Pending),
             ApprovedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Approved),
-            RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected)
+            RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected),
+            TeacherLevelId = t.TeacherLevelId,
+            TeacherLevelCode = t.TeacherLevel != null ? t.TeacherLevel.Code : null,
+            CustomTeacherSharePct = t.CustomTeacherSharePct
         };
 
     private static AdminTeacherListItemDto ToAdminListItemDto(AdminTeacherListRow row) =>
@@ -980,7 +1009,10 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             TotalDocuments = row.TotalDocuments,
             PendingDocuments = row.PendingDocuments,
             ApprovedDocuments = row.ApprovedDocuments,
-            RejectedDocuments = row.RejectedDocuments
+            RejectedDocuments = row.RejectedDocuments,
+            TeacherLevelId = row.TeacherLevelId,
+            TeacherLevelCode = row.TeacherLevelCode,
+            CustomTeacherSharePct = row.CustomTeacherSharePct
         };
 
     private static System.Linq.Expressions.Expression<Func<Teacher, TeacherCardDto>> ProjectToCard() =>

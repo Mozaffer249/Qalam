@@ -75,6 +75,11 @@ public class ReviewLevelUpgradeSuggestionDto
     public string? ReviewNotes { get; set; }
 }
 
+public class BackfillStarterTeacherLevelsResultDto
+{
+    public int UpdatedCount { get; set; }
+}
+
 public class PricingEstimateDto
 {
     public decimal PricePerHour { get; set; }

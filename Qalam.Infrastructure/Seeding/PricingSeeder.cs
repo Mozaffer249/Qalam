@@ -82,19 +82,16 @@ public static class PricingSeeder
     private static async Task AssignStarterLevelToTeachersWithoutLevelAsync(ApplicationDBContext context)
     {
         var starter = await context.TeacherLevels.AsNoTracking()
+            .Where(l => l.IsActive)
             .OrderBy(l => l.OrderIndex)
             .FirstOrDefaultAsync();
         if (starter == null)
             return;
 
-        var teachers = await context.Teachers
+        await context.Teachers
             .Where(t => t.TeacherLevelId == null)
-            .ToListAsync();
-
-        foreach (var teacher in teachers)
-            teacher.TeacherLevelId = starter.Id;
-
-        if (teachers.Count > 0)
-            await context.SaveChangesAsync();
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.TeacherLevelId, starter.Id)
+                .SetProperty(t => t.UpdatedAt, DateTime.UtcNow));
     }
 }

@@ -62,7 +62,8 @@ public class TeacherManagementController : AppControllerBase
 		DateTime? createdTo = null,
 		AdminTeacherListSort sortBy = AdminTeacherListSort.Newest,
 		string? requirementCode = null,
-		string? requirementStatus = null)
+		string? requirementStatus = null,
+		bool? missingTeacherLevel = null)
 	{
 		var query = new GetTeachersForAdminQuery
 		{
@@ -77,7 +78,8 @@ public class TeacherManagementController : AppControllerBase
 			CreatedTo = createdTo,
 			SortBy = sortBy,
 			RequirementCode = requirementCode,
-			RequirementStatus = requirementStatus
+			RequirementStatus = requirementStatus,
+			MissingTeacherLevel = missingTeacherLevel
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
