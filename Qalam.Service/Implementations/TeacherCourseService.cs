@@ -19,6 +19,7 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly ICourseSessionUnitRepository _courseSessionUnitRepository;
     private readonly ITeacherSubjectRepertoireService _repertoireService;
     private readonly IMediaUrlResolver _mediaUrlResolver;
+    private readonly IPricingEngine _pricingEngine;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
@@ -28,7 +29,8 @@ public class TeacherCourseService : ITeacherCourseService
         ISessionTypeRepository sessionTypeRepository,
         ICourseSessionUnitRepository courseSessionUnitRepository,
         ITeacherSubjectRepertoireService repertoireService,
-        IMediaUrlResolver mediaUrlResolver)
+        IMediaUrlResolver mediaUrlResolver,
+        IPricingEngine pricingEngine)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
@@ -38,6 +40,7 @@ public class TeacherCourseService : ITeacherCourseService
         _courseSessionUnitRepository = courseSessionUnitRepository;
         _repertoireService = repertoireService;
         _mediaUrlResolver = mediaUrlResolver;
+        _pricingEngine = pricingEngine;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -142,6 +145,13 @@ public class TeacherCourseService : ITeacherCourseService
         if (quranError != null)
             throw new InvalidOperationException(quranError);
 
+        var domainId = teacherSubject.Subject?.DomainId
+            ?? throw new InvalidOperationException("Subject domain is required for pricing.");
+        var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
+            domainId,
+            sessionType.Code,
+            cancellationToken: cancellationToken);
+
         var course = new Course
         {
             Title = dto.Title,
@@ -153,7 +163,7 @@ public class TeacherCourseService : ITeacherCourseService
             SessionTypeId = dto.SessionTypeId,
             IsFlexible = false,
             SessionDurationMinutes = dto.SessionDurationMinutes,
-            Price = dto.Price,
+            Price = pricePerHour,
             MaxStudents = dto.MaxStudents,
             CanIncludeInPackages = dto.CanIncludeInPackages,
             ImageUrl = dto.ImageUrl,
@@ -223,9 +233,9 @@ public class TeacherCourseService : ITeacherCourseService
             throw new InvalidOperationException("Flexible courses are not supported. Keep the course fixed with a session plan.");
         }
 
-        var teacherSubject = await _teacherSubjectRepository.GetByIdAsync(dto.TeacherSubjectId);
+        var teacherSubject = await _teacherSubjectRepository.GetByIdForTeacherAsync(
+            teacher.Id, dto.TeacherSubjectId, cancellationToken);
         if (teacherSubject == null
-            || teacherSubject.TeacherId != teacher.Id
             || !teacherSubject.IsActive)
             throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
 
@@ -246,6 +256,13 @@ public class TeacherCourseService : ITeacherCourseService
             throw new InvalidOperationException("MaxStudents must be null for individual courses.");
         }
 
+        var domainId = teacherSubject.Subject?.DomainId
+            ?? throw new InvalidOperationException("Subject domain is required for pricing.");
+        var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
+            domainId,
+            sessionType.Code,
+            cancellationToken: cancellationToken);
+
         course.Title = dto.Title;
         course.Description = dto.Description;
         course.TeacherSubjectId = dto.TeacherSubjectId;
@@ -253,7 +270,7 @@ public class TeacherCourseService : ITeacherCourseService
         course.SessionTypeId = dto.SessionTypeId;
         course.IsFlexible = false;
         course.SessionDurationMinutes = dto.SessionDurationMinutes;
-        course.Price = dto.Price;
+        course.Price = pricePerHour;
         course.MaxStudents = dto.MaxStudents;
         course.CanIncludeInPackages = dto.CanIncludeInPackages;
         if (dto.ImageUrl != null)

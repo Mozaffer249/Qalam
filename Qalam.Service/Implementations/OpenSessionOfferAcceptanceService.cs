@@ -154,6 +154,7 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 PaymentDeadline = paymentDeadline,
                 EnrollmentStatus = EnrollmentStatus.PendingPayment,
                 AmountDue = offer.Price,
+                PricingSnapshotId = offer.PricingSnapshotId,
                 OwnerUserId = request.RequestedByUserId,
                 PreferredStartDate = preferredStart,
                 PreferredEndDate = preferredEnd,

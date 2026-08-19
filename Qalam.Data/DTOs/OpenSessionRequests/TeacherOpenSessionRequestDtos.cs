@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.OpenSessionRequests;
@@ -63,6 +64,9 @@ public class TeacherAvailableRequestDetailDto
 
     public DateTime ExpiresAt { get; set; }
     public DateTime PublishedAt { get; set; }
+
+    /// <summary>Computed offer price and teacher earnings preview for the calling teacher.</summary>
+    public PricingEstimateDto? PricingEstimate { get; set; }
 }
 
 public class RequestContentDto

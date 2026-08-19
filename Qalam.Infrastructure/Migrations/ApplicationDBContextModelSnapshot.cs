@@ -571,6 +571,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<DateOnly>("PreferredStartDate")
                         .HasColumnType("date");
 
+                    b.Property<int?>("PricingSnapshotId")
+                        .HasColumnType("int");
+
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -598,6 +601,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("CourseId");
 
                     b.HasIndex("PreferredStartDate");
+
+                    b.HasIndex("PricingSnapshotId");
 
                     b.HasIndex("RequestedByUserId");
 
@@ -1148,6 +1153,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<DateOnly?>("PreferredStartDate")
                         .HasColumnType("date");
 
+                    b.Property<int?>("PricingSnapshotId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("SessionOfferId")
                         .HasColumnType("int");
 
@@ -1180,6 +1188,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("OwnerUserId");
 
                     b.HasIndex("PaidByUserId");
+
+                    b.HasIndex("PricingSnapshotId");
 
                     b.HasIndex("SessionOfferId");
 
@@ -3577,6 +3587,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("PricingSnapshotId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("RejectedAt")
                         .HasColumnType("datetime2");
 
@@ -3610,6 +3623,8 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PricingSnapshotId");
 
                     b.HasIndex("Status");
 
@@ -4172,6 +4187,126 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("PaymentId");
 
                     b.ToTable("PaymentItems");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.DomainSessionPrice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DomainId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("PricePerHour")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SessionTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DomainId", "SessionTypeCode", "EffectiveFrom");
+
+                    b.HasIndex("DomainId", "SessionTypeCode", "EffectiveTo");
+
+                    b.ToTable("DomainSessionPrices", "pricing");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Context")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ContextEntityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DomainId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DomainSessionPriceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PlatformShare")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PricePerHour")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SessionTypeCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("TeacherEarnings")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TeacherLevelId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TeacherSharePct")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("TotalMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DomainSessionPriceId");
+
+                    b.HasIndex("Context", "ContextEntityId")
+                        .IsUnique();
+
+                    b.ToTable("PricingSnapshots", "pricing");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Quran.QuranContentType", b =>
@@ -4823,6 +4958,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("CustomTeacherSharePct")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -4854,6 +4992,9 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int?>("StatusBeforeBlock")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TeacherLevelId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -4867,6 +5008,8 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TeacherLevelId");
 
                     b.HasIndex("UserId");
 
@@ -5462,6 +5605,122 @@ namespace Qalam.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("TeacherDomainQuestionSubmissionDocuments", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherLevel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TeacherSharePct")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("OrderIndex");
+
+                    b.ToTable("TeacherLevels", "teacher");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherLevelUpgradeSuggestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AttendanceRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("AvgRating")
+                        .HasColumnType("decimal(3,2)");
+
+                    b.Property<int>("CompletedSessions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CurrentLevelId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SuggestedLevelId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentLevelId");
+
+                    b.HasIndex("SuggestedLevelId");
+
+                    b.HasIndex("TeacherId", "Status");
+
+                    b.ToTable("TeacherLevelUpgradeSuggestions", "teacher");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherRegistrationRequirement", b =>
@@ -6310,6 +6569,10 @@ namespace Qalam.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Qalam.Data.Entity.Pricing.PricingSnapshot", "PricingSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PricingSnapshotId");
+
                     b.HasOne("Qalam.Data.Entity.Identity.User", "RequestedByUser")
                         .WithMany()
                         .HasForeignKey("RequestedByUserId")
@@ -6317,6 +6580,8 @@ namespace Qalam.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+
+                    b.Navigation("PricingSnapshot");
 
                     b.Navigation("RequestedByUser");
                 });
@@ -6594,6 +6859,10 @@ namespace Qalam.Infrastructure.Migrations
                         .HasForeignKey("PaidByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Qalam.Data.Entity.Pricing.PricingSnapshot", "PricingSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PricingSnapshotId");
+
                     b.HasOne("Qalam.Data.Entity.OpenSessionRequests.OpenSessionOffer", "OpenSessionOffer")
                         .WithMany()
                         .HasForeignKey("SessionOfferId")
@@ -6621,6 +6890,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("OwnerUser");
 
                     b.Navigation("PaidByUser");
+
+                    b.Navigation("PricingSnapshot");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentConversation", b =>
@@ -7223,6 +7494,10 @@ namespace Qalam.Infrastructure.Migrations
 
             modelBuilder.Entity("Qalam.Data.Entity.OpenSessionRequests.OpenSessionOffer", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Pricing.PricingSnapshot", "PricingSnapshot")
+                        .WithMany()
+                        .HasForeignKey("PricingSnapshotId");
+
                     b.HasOne("Qalam.Data.Entity.OpenSessionRequests.OpenSessionRequest", "OpenSessionRequest")
                         .WithMany("Offers")
                         .HasForeignKey("SessionRequestId")
@@ -7236,6 +7511,8 @@ namespace Qalam.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("OpenSessionRequest");
+
+                    b.Navigation("PricingSnapshot");
 
                     b.Navigation("Teacher");
                 });
@@ -7506,6 +7783,27 @@ namespace Qalam.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.DomainSessionPrice", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Education.EducationDomain", "Domain")
+                        .WithMany()
+                        .HasForeignKey("DomainId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Domain");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingSnapshot", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Pricing.DomainSessionPrice", "DomainSessionPrice")
+                        .WithMany()
+                        .HasForeignKey("DomainSessionPriceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DomainSessionPrice");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Session.ScheduledSession", b =>
@@ -7779,9 +8077,16 @@ namespace Qalam.Infrastructure.Migrations
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.Teacher", b =>
                 {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherLevel", "TeacherLevel")
+                        .WithMany()
+                        .HasForeignKey("TeacherLevelId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Qalam.Data.Entity.Identity.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
+
+                    b.Navigation("TeacherLevel");
 
                     b.Navigation("User");
                 });
@@ -7982,6 +8287,33 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Submission");
 
                     b.Navigation("TeacherDocument");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherLevelUpgradeSuggestion", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherLevel", "CurrentLevel")
+                        .WithMany()
+                        .HasForeignKey("CurrentLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.TeacherLevel", "SuggestedLevel")
+                        .WithMany()
+                        .HasForeignKey("SuggestedLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CurrentLevel");
+
+                    b.Navigation("SuggestedLevel");
+
+                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Teacher.TeacherRegistrationSubmission", b =>

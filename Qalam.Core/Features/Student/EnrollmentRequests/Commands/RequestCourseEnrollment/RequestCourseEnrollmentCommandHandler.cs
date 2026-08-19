@@ -10,6 +10,7 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
 
@@ -27,6 +28,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly IEnrollmentApprovalService _approvalService;
     private readonly IContentUnitRepository _contentUnitRepository;
     private readonly ILessonRepository _lessonRepository;
+    private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
     private readonly EnrollmentSettings _settings;
 
     public RequestCourseEnrollmentCommandHandler(
@@ -41,6 +44,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         IEnrollmentApprovalService approvalService,
         IContentUnitRepository contentUnitRepository,
         ILessonRepository lessonRepository,
+        IPricingEngine pricingEngine,
+        IPricingSnapshotWriter pricingSnapshotWriter,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -55,6 +60,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _approvalService = approvalService;
         _contentUnitRepository = contentUnitRepository;
         _lessonRepository = lessonRepository;
+        _pricingEngine = pricingEngine;
+        _pricingSnapshotWriter = pricingSnapshotWriter;
         _settings = settings.Value;
     }
 
@@ -262,7 +269,15 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             return BadRequest<EnrollmentRequestDetailDto>("Total duration must be greater than zero." + hint);
         }
 
-        var estimatedTotalPrice = Math.Round((totalMinutes / 60m) * course.Price, 2, MidpointRounding.AwayFromZero);
+        var sessionTypeCode = course.SessionType?.Code ?? "individual";
+        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = course.DomainId,
+            SessionTypeCode = sessionTypeCode,
+            TotalMinutes = totalMinutes,
+            TeacherId = course.TeacherId
+        }, cancellationToken);
+        var estimatedTotalPrice = estimate.TotalPrice;
 
         var calendarPairs = selectedSlots
             .Select(s => (s.Date, s.TeacherAvailabilityId))
@@ -447,6 +462,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             {
                 await _requestRepository.AddAsync(enrollmentRequest);
                 await _requestRepository.SaveChangesAsync();
+                await AttachPricingSnapshotAsync(
+                    enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, cancellationToken);
 
                 if (!hasPendingInvitees)
                 {
@@ -470,6 +487,8 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         {
             await _requestRepository.AddAsync(enrollmentRequest);
             await _requestRepository.SaveChangesAsync();
+            await AttachPricingSnapshotAsync(
+                enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, cancellationToken);
         }
 
         // 11. Build response
@@ -630,5 +649,28 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             return sumSessions;
 
         return uniformProduct;
+    }
+
+    private async Task AttachPricingSnapshotAsync(
+        Qalam.Data.Entity.Course.CourseEnrollmentRequest enrollmentRequest,
+        int domainId,
+        string sessionTypeCode,
+        int totalMinutes,
+        int teacherId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
+        {
+            Context = PricingSnapshotContext.CourseEnrollmentRequest,
+            ContextEntityId = enrollmentRequest.Id,
+            DomainId = domainId,
+            SessionTypeCode = sessionTypeCode,
+            TotalMinutes = totalMinutes,
+            TeacherId = teacherId
+        }, cancellationToken);
+
+        enrollmentRequest.PricingSnapshotId = snapshot.Id;
+        await _requestRepository.UpdateAsync(enrollmentRequest);
+        await _requestRepository.SaveChangesAsync();
     }
 }

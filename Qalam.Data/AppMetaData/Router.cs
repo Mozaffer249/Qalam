@@ -42,6 +42,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminTeacherRegistrationRequirements = Rule + "Admin/TeacherRegistrationRequirements";
         public const string AdminTeacherDomainQuestions = Rule + "Admin/TeacherDomainQuestions";
         public const string AdminNationalities = Rule + "Admin/Nationalities";
+        public const string AdminPricing = Rule + "Admin/Pricing";
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";

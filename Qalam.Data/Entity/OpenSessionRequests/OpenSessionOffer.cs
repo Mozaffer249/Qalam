@@ -21,6 +21,9 @@ public class OpenSessionOffer : AuditableEntity
     /// </summary>
     public decimal Price { get; set; }
 
+    /// <summary>Immutable pricing breakdown computed when the offer was submitted.</summary>
+    public int? PricingSnapshotId { get; set; }
+
     /// <summary>
     /// نوع المجموعة (للعروض على طلبات جماعية).
     /// </summary>
@@ -52,6 +55,7 @@ public class OpenSessionOffer : AuditableEntity
     // Navigation Properties
     public OpenSessionRequest OpenSessionRequest { get; set; } = null!;
     public Teacher.Teacher Teacher { get; set; } = null!;
+    public Pricing.PricingSnapshot? PricingSnapshot { get; set; }
 
     // Note: the teacher does NOT propose a schedule. The student-requested timing on
     // OpenSessionRequestSession is what the teacher implicitly accepts when offering.

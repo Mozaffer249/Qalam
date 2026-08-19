@@ -10,7 +10,6 @@ public class CreateSessionOfferCommandValidator : AbstractValidator<CreateSessio
         When(x => x.Data != null, () =>
         {
             RuleFor(x => x.Data.SessionRequestId).GreaterThan(0);
-            RuleFor(x => x.Data.Price).GreaterThan(0).WithMessage("MUST_BE_POSITIVE");
             RuleFor(x => x.Data.TeacherNotes).MaximumLength(1000);
             // ValidityHours is ignored; expiry is owned by OpenSessionRequestSettings.
             RuleFor(x => x.Data.CommitmentConfirmed)

@@ -32,6 +32,11 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             .FirstOrDefaultAsync(t => t.UserId == userId);
     }
 
+    public Task<Teacher?> GetByIdWithLevelAsync(int teacherId, CancellationToken cancellationToken = default) =>
+        _teachers
+            .Include(t => t.TeacherLevel)
+            .FirstOrDefaultAsync(t => t.Id == teacherId, cancellationToken);
+
     public async Task UpdateStatusAsync(int teacherId, TeacherStatus status)
     {
         var teacher = await _teachers.FindAsync(teacherId);

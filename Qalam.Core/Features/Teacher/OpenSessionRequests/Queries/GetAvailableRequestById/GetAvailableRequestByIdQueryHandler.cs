@@ -3,8 +3,11 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestById;
 
@@ -15,18 +18,21 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
     private readonly IOpenSessionRequestRepository _requestRepo;
     private readonly IOpenSessionRequestTargetRepository _targetRepo;
     private readonly IOpenSessionOfferRepository _offerRepo;
+    private readonly IPricingEngine _pricingEngine;
 
     public GetAvailableRequestByIdQueryHandler(
         IStringLocalizer<SharedResources> localizer,
         ITeacherRepository teacherRepo,
         IOpenSessionRequestRepository requestRepo,
         IOpenSessionRequestTargetRepository targetRepo,
-        IOpenSessionOfferRepository offerRepo) : base(localizer)
+        IOpenSessionOfferRepository offerRepo,
+        IPricingEngine pricingEngine) : base(localizer)
     {
         _teacherRepo = teacherRepo;
         _requestRepo = requestRepo;
         _targetRepo = targetRepo;
         _offerRepo = offerRepo;
+        _pricingEngine = pricingEngine;
     }
 
     public async Task<Response<TeacherAvailableRequestDetailDto>> Handle(
@@ -61,6 +67,39 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
         {
             detail.MyOfferId = existing.Value.OfferId;
             detail.MyOfferStatus = existing.Value.Status;
+        }
+
+        if (existing == null)
+        {
+            var totalMinutes = detail.Sessions.Sum(s => s.DurationMinutes);
+            if (totalMinutes > 0)
+            {
+                var sessionTypeCode = detail.GeneralSettings.GroupType.HasValue ? "group" : "individual";
+                try
+                {
+                    var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                    {
+                        DomainId = detail.Content.DomainId,
+                        SessionTypeCode = sessionTypeCode,
+                        TotalMinutes = totalMinutes,
+                        TeacherId = teacher.Id
+                    }, cancellationToken);
+
+                    detail.PricingEstimate = new PricingEstimateDto
+                    {
+                        PricePerHour = estimate.PricePerHour,
+                        TotalMinutes = estimate.TotalMinutes,
+                        TotalPrice = estimate.TotalPrice,
+                        TeacherSharePct = estimate.TeacherSharePct,
+                        TeacherEarnings = estimate.TeacherEarnings,
+                        PlatformShare = estimate.PlatformShare
+                    };
+                }
+                catch (InvalidOperationException)
+                {
+                    // No configured rate — UI falls back without a preview.
+                }
+            }
         }
 
         return Success(entity: detail);

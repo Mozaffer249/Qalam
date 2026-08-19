@@ -52,6 +52,7 @@ public class EnrollmentApprovalService : IEnrollmentApprovalService
             PaymentDeadline = paymentDeadline,
             EnrollmentStatus = EnrollmentStatus.PendingPayment,
             AmountDue = request.EstimatedTotalPrice,
+            PricingSnapshotId = request.PricingSnapshotId,
             OwnerUserId = request.RequestedByUserId,
             PreferredStartDate = request.PreferredStartDate,
             PreferredEndDate = request.PreferredEndDate,

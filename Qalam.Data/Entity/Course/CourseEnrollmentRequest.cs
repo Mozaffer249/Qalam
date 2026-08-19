@@ -29,6 +29,9 @@ public class CourseEnrollmentRequest : AuditableEntity
 
     public decimal EstimatedTotalPrice { get; set; }
 
+    /// <summary>Immutable pricing breakdown computed when the request was created.</summary>
+    public int? PricingSnapshotId { get; set; }
+
     /// <summary>
     /// التاريخ المفضل لبدء الدورة (مطلوب)
     /// </summary>
@@ -48,6 +51,7 @@ public class CourseEnrollmentRequest : AuditableEntity
     // Navigation Properties
     public Course Course { get; set; } = null!;
     public Identity.User RequestedByUser { get; set; } = null!;
+    public Pricing.PricingSnapshot? PricingSnapshot { get; set; }
 
     public ICollection<CourseRequestSelectedAvailability> SelectedAvailabilities { get; set; } = new List<CourseRequestSelectedAvailability>();
     public ICollection<CourseRequestSelectedSessionSlot> SelectedSessionSlots { get; set; } = new List<CourseRequestSelectedSessionSlot>();

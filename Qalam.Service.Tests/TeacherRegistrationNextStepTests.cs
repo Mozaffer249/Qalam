@@ -731,7 +731,8 @@ public class TeacherRegistrationNextStepTests
             completionService.Object,
             reviewCorrectionService.Object,
             domainQuestionStatusService.Object,
-            accessSettings.Object);
+            accessSettings.Object,
+            Mock.Of<ITeacherLevelRepository>());
     }
 }
 

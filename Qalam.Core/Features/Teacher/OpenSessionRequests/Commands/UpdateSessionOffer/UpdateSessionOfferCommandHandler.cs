@@ -88,18 +88,15 @@ public class UpdateSessionOfferCommandHandler : ResponseHandler,
         }
 
         var now = DateTime.UtcNow;
-        if (request.Data.Price.HasValue) offer.Price = request.Data.Price.Value;
         if (request.Data.TeacherNotes != null) offer.TeacherNotes = request.Data.TeacherNotes;
-        // ValidityHours from the client is ignored — offer expiry is system-owned at create time.
+        // Price is computed by the pricing engine at offer creation and cannot be changed manually.
         offer.Version += 1;
         offer.UpdatedAt = now;
 
         await _offerRepo.UpdateAsync(offer);
         await _offerRepo.SaveChangesAsync();
 
-        var systemMessage = request.Data.Price.HasValue
-            ? $"تم تحديث العرض - السعر الجديد: {offer.Price} ر.س"
-            : "تم تحديث العرض";
+        var systemMessage = "تم تحديث العرض";
 
         var summary = await _requestRepo.GetStatusSummaryAsync(offer.SessionRequestId, cancellationToken);
         var isOfferScoped = summary?.TargetedTeacherId == null;

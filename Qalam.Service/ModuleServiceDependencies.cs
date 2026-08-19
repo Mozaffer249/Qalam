@@ -116,6 +116,12 @@ namespace Qalam.Service
             services.AddTransient<IOpenSessionRequestReleaseService, OpenSessionRequestReleaseService>();
             services.AddTransient<ISessionAvailabilityMatchService, SessionAvailabilityMatchService>();
 
+            // Pricing
+            services.AddTransient<IPricingEngine, PricingEngine>();
+            services.AddTransient<IPricingSnapshotWriter, PricingSnapshotWriter>();
+            services.AddTransient<IPricingAdminService, PricingAdminService>();
+            services.AddTransient<ITeacherLevelProgressionService, TeacherLevelProgressionService>();
+
             return services;
         }
     }

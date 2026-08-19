@@ -11,6 +11,7 @@ namespace Qalam.Infrastructure.Abstracts;
 public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
 {
     Task<Teacher?> GetByUserIdAsync(int userId);
+    Task<Teacher?> GetByIdWithLevelAsync(int teacherId, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int teacherId, TeacherStatus status);
     Task UpdateLocationAsync(int teacherId, TeacherLocation location);
 

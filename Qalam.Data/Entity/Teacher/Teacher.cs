@@ -53,7 +53,14 @@ public class Teacher : AuditableEntity
 
     public int YearsOfExperience { get; set; }
 
+    /// <summary>Commission tier; defaults to starter level on registration.</summary>
+    public int? TeacherLevelId { get; set; }
+
+    /// <summary>Per-teacher share override (0–100). Null = use TeacherLevel.TeacherSharePct.</summary>
+    public decimal? CustomTeacherSharePct { get; set; }
+
     // Navigation Properties
+    public TeacherLevel? TeacherLevel { get; set; }
     public User? User { get; set; }
     public ICollection<TeacherDocument> TeacherDocuments { get; set; } = new List<TeacherDocument>();
     public ICollection<TeacherSubject> TeacherSubjects { get; set; } = new List<TeacherSubject>();

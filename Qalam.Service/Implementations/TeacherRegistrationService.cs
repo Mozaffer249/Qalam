@@ -25,6 +25,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
     private readonly ITeacherReviewCorrectionService _reviewCorrectionService;
     private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
     private readonly ITeacherAccessSettingsProvider _teacherAccessSettingsProvider;
+    private readonly ITeacherLevelRepository _teacherLevelRepository;
 
     public TeacherRegistrationService(
         UserManager<User> userManager,
@@ -39,7 +40,8 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         ITeacherRegistrationCompletionService completionService,
         ITeacherReviewCorrectionService reviewCorrectionService,
         ITeacherDomainQuestionStatusService domainQuestionStatusService,
-        ITeacherAccessSettingsProvider teacherAccessSettingsProvider)
+        ITeacherAccessSettingsProvider teacherAccessSettingsProvider,
+        ITeacherLevelRepository teacherLevelRepository)
     {
         _userManager = userManager;
         _teacherRepository = teacherRepository;
@@ -54,6 +56,7 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         _reviewCorrectionService = reviewCorrectionService;
         _domainQuestionStatusService = domainQuestionStatusService;
         _teacherAccessSettingsProvider = teacherAccessSettingsProvider;
+        _teacherLevelRepository = teacherLevelRepository;
     }
 
     public async Task<PhoneVerificationDto> CreateBasicAccountAsync(
@@ -176,11 +179,13 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         var existingTeacher = await _teacherRepository.GetByUserIdAsync(user.Id);
         if (existingTeacher == null)
         {
+            var starterLevel = await _teacherLevelRepository.GetStarterLevelAsync();
             var teacher = new Teacher
             {
                 UserId = user.Id,
                 Status = TeacherStatus.AwaitingDocuments,
-                IsActive = true
+                IsActive = true,
+                TeacherLevelId = starterLevel?.Id
             };
 
             await _teacherRepository.AddAsync(teacher);

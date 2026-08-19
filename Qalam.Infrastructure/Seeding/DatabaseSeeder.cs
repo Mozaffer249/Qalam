@@ -64,6 +64,7 @@ public class DatabaseSeeder
 
         // Legal documents (terms, privacy, refund, pricing)
         await LegalDocumentsSeeder.SeedAsync(context);
+        await PricingSeeder.SeedAsync(context);
     }
 }
 

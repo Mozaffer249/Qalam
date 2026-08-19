@@ -16,7 +16,7 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
             .WithMessage("Please select a subject from your profile");
         RuleFor(x => x.Data.TeachingModeId).GreaterThan(0).When(x => x.Data != null);
         RuleFor(x => x.Data.SessionTypeId).GreaterThan(0).When(x => x.Data != null);
-        RuleFor(x => x.Data.Price).GreaterThanOrEqualTo(0).When(x => x.Data != null);
+        // Price is computed by the pricing engine from admin domain rates.
         RuleFor(x => x.Data.SessionDurationMinutes)
             .GreaterThan(0)
             .When(x => x.Data != null && !x.Data.IsFlexible && x.Data.SessionDurationMinutes.HasValue);

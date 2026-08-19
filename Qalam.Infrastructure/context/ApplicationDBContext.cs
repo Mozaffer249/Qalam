@@ -15,6 +15,7 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Session;
 using Qalam.Data.Entity.Payment;
+using Qalam.Data.Entity.Pricing;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Entity.Legal;
 using Microsoft.Extensions.Configuration;
@@ -101,6 +102,8 @@ namespace Qalam.Infrastructure.context
 
         // Teacher Schema DbSets
         public DbSet<Teacher> Teachers { get; set; }
+        public DbSet<TeacherLevel> TeacherLevels { get; set; }
+        public DbSet<TeacherLevelUpgradeSuggestion> TeacherLevelUpgradeSuggestions { get; set; }
         public DbSet<TeacherDocument> TeacherDocuments { get; set; }
         public DbSet<TeacherSubject> TeacherSubjects { get; set; }
         public DbSet<TeacherSubjectUnit> TeacherSubjectUnits { get; set; }
@@ -169,6 +172,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<Qalam.Data.Entity.Course.EnrollmentConversationMessage> EnrollmentConversationMessages { get; set; }
 
         // Payment Schema DbSets
+        public DbSet<DomainSessionPrice> DomainSessionPrices { get; set; }
+        public DbSet<PricingSnapshot> PricingSnapshots { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<PaymentItem> PaymentItems { get; set; }
         public DbSet<EnrollmentPayment> EnrollmentPayments { get; set; }

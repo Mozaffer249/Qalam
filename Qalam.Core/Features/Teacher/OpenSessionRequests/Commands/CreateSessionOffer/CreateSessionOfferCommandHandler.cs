@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Messaging;
@@ -13,6 +14,7 @@ using Qalam.Data.Entity.OpenSessionRequests;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.CreateSessionOffer;
 
@@ -25,6 +27,8 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
     private readonly IOpenSessionOfferRepository _offerRepo;
     private readonly ISessionAvailabilityMatchService _availabilityMatch;
     private readonly IOfferConversationService _conversationService;
+    private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
     private readonly OpenSessionRequestSettings _osrSettings;
@@ -38,6 +42,8 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         IOpenSessionOfferRepository offerRepo,
         ISessionAvailabilityMatchService availabilityMatch,
         IOfferConversationService conversationService,
+        IPricingEngine pricingEngine,
+        IPricingSnapshotWriter pricingSnapshotWriter,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
         IOptions<OpenSessionRequestSettings> osrSettings,
@@ -49,6 +55,8 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         _offerRepo = offerRepo;
         _availabilityMatch = availabilityMatch;
         _conversationService = conversationService;
+        _pricingEngine = pricingEngine;
+        _pricingSnapshotWriter = pricingSnapshotWriter;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
         _osrSettings = osrSettings.Value;
@@ -116,11 +124,31 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
 
         var now = DateTime.UtcNow;
         var requestExpiresAt = await _requestRepo.GetExpiresAtAsync(request.Data.SessionRequestId, cancellationToken);
+
+        var osr = await _requestRepo.GetByIdAsync(request.Data.SessionRequestId);
+        if (osr == null)
+            return NotFound<TeacherOfferDetailDto>("Request not found.");
+
+        var scheduleSlots = await _requestRepo.GetSessionScheduleSlotsAsync(
+            request.Data.SessionRequestId, cancellationToken);
+        var totalMinutes = scheduleSlots.Sum(s => s.DurationMinutes);
+        if (totalMinutes <= 0)
+            return BadRequest<TeacherOfferDetailDto>("Total session duration must be greater than zero.");
+
+        var sessionTypeCode = osr.GroupType.HasValue ? "group" : "individual";
+        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = osr.DomainId,
+            SessionTypeCode = sessionTypeCode,
+            TotalMinutes = totalMinutes,
+            TeacherId = teacher.Id
+        }, cancellationToken);
+
         var offer = new OpenSessionOffer
         {
             SessionRequestId = request.Data.SessionRequestId,
             TeacherId = teacher.Id,
-            Price = request.Data.Price,
+            Price = estimate.TotalPrice,
             TeacherNotes = request.Data.TeacherNotes,
             Status = OpenSessionOfferStatus.Pending,
             Version = 1,
@@ -130,6 +158,20 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         };
 
         await _offerRepo.AddAsync(offer);
+        await _offerRepo.SaveChangesAsync();
+
+        var snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
+        {
+            Context = PricingSnapshotContext.OpenSessionOffer,
+            ContextEntityId = offer.Id,
+            DomainId = osr.DomainId,
+            SessionTypeCode = sessionTypeCode,
+            TotalMinutes = totalMinutes,
+            TeacherId = teacher.Id
+        }, cancellationToken);
+
+        offer.PricingSnapshotId = snapshot.Id;
+        await _offerRepo.UpdateAsync(offer);
         await _offerRepo.SaveChangesAsync();
 
         await _targetRepo.SetStatusAsync(request.Data.SessionRequestId, teacher.Id, OpenSessionRequestTargetStatus.OfferSubmitted, cancellationToken);
