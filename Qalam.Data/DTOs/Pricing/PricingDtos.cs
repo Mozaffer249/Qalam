@@ -80,6 +80,13 @@ public class BackfillStarterTeacherLevelsResultDto
     public int UpdatedCount { get; set; }
 }
 
+public class CourseHourlyRatePreviewDto
+{
+    public decimal PricePerHour { get; set; }
+    public int? TotalMinutes { get; set; }
+    public decimal? EstimatedPackageTotal { get; set; }
+}
+
 public class PricingEstimateDto
 {
     public decimal PricePerHour { get; set; }

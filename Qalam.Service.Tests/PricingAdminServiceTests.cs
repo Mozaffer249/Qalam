@@ -235,12 +235,11 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task BackfillStarterTeacherLevelsAsync_DelegatesToRepository()
     {
-        var teacherRepo = new Mock<ITeacherRepository>();
+        var service = CreateSut(out _, out _, out _, out var teacherRepo, out _);
         teacherRepo
             .Setup(r => r.BackfillStarterLevelForTeachersWithoutLevelAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(2500);
 
-        var service = CreateSut(out _, out _, out _, teacherRepo, out _);
         var result = await service.BackfillStarterTeacherLevelsAsync();
 
         Assert.Equal(2500, result.UpdatedCount);
