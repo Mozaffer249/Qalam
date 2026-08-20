@@ -20,6 +20,7 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly ITeacherSubjectRepertoireService _repertoireService;
     private readonly IMediaUrlResolver _mediaUrlResolver;
     private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
@@ -30,7 +31,8 @@ public class TeacherCourseService : ITeacherCourseService
         ICourseSessionUnitRepository courseSessionUnitRepository,
         ITeacherSubjectRepertoireService repertoireService,
         IMediaUrlResolver mediaUrlResolver,
-        IPricingEngine pricingEngine)
+        IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
@@ -41,6 +43,7 @@ public class TeacherCourseService : ITeacherCourseService
         _repertoireService = repertoireService;
         _mediaUrlResolver = mediaUrlResolver;
         _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -53,7 +56,7 @@ public class TeacherCourseService : ITeacherCourseService
         if (course == null || course.TeacherId != teacher.Id)
             return null;
 
-        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(course));
+        return await EnrichWithTeacherMarketAsync(userId, WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(course)), course, cancellationToken);
     }
 
     public async Task<PaginatedResult<CourseListItemDto>> GetCoursesForTeacherAsync(
@@ -85,7 +88,15 @@ public class TeacherCourseService : ITeacherCourseService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var items = courses.Select(CourseDtoMapper.MapToListItemDto).ToList();
+        var items = new List<CourseListItemDto>();
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
+        foreach (var course in courses)
+        {
+            var item = CourseDtoMapper.MapToListItemDto(course);
+            item.Currency = market.Currency;
+            item.MarketCode = market.MarketCode;
+            items.Add(item);
+        }
         return new PaginatedResult<CourseListItemDto>(items, totalCount, pageNumber, pageSize);
     }
 
@@ -147,9 +158,11 @@ public class TeacherCourseService : ITeacherCourseService
 
         var domainId = teacherSubject.Subject?.DomainId
             ?? throw new InvalidOperationException("Subject domain is required for pricing.");
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
         var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
             domainId,
             sessionType.Code,
+            market.MarketCode,
             cancellationToken: cancellationToken);
 
         var course = new Course
@@ -208,7 +221,11 @@ public class TeacherCourseService : ITeacherCourseService
         await _courseRepository.SaveChangesAsync();
 
         var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
-        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course));
+        return await EnrichWithTeacherMarketAsync(
+            userId,
+            WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
+            withDetails ?? course,
+            cancellationToken);
     }
 
     public async Task<CourseDetailDto?> UpdateCourseAsync(int userId, int courseId, UpdateCourseDto dto, CancellationToken cancellationToken = default)
@@ -258,9 +275,11 @@ public class TeacherCourseService : ITeacherCourseService
 
         var domainId = teacherSubject.Subject?.DomainId
             ?? throw new InvalidOperationException("Subject domain is required for pricing.");
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
         var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
             domainId,
             sessionType.Code,
+            market.MarketCode,
             cancellationToken: cancellationToken);
 
         course.Title = dto.Title;
@@ -281,7 +300,11 @@ public class TeacherCourseService : ITeacherCourseService
         await _courseRepository.SaveChangesAsync();
 
         var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
-        return WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course));
+        return await EnrichWithTeacherMarketAsync(
+            userId,
+            WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
+            withDetails ?? course,
+            cancellationToken);
     }
 
     public async Task<List<CourseSessionUnitDto>?> ReplaceSessionUnitsAsync(
@@ -471,6 +494,18 @@ public class TeacherCourseService : ITeacherCourseService
     private CourseDetailDto WithPublicImageUrl(CourseDetailDto dto)
     {
         dto.ImageUrl = _mediaUrlResolver.ToPublicUrl(dto.ImageUrl);
+        return dto;
+    }
+
+    private async Task<CourseDetailDto> EnrichWithTeacherMarketAsync(
+        int userId,
+        CourseDetailDto dto,
+        Course course,
+        CancellationToken cancellationToken)
+    {
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
+        dto.Currency = market.Currency;
+        dto.MarketCode = market.MarketCode;
         return dto;
     }
 }

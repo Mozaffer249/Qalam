@@ -6,6 +6,7 @@ public sealed class PricingEstimateRequest
 {
     public int DomainId { get; init; }
     public string SessionTypeCode { get; init; } = default!;
+    public string MarketCode { get; init; } = default!;
     public int TotalMinutes { get; init; }
     public int TeacherId { get; init; }
     public DateTime? AsOf { get; init; }
@@ -19,7 +20,9 @@ public sealed record PriceEstimate(
     decimal TeacherEarnings,
     decimal PlatformShare,
     int? DomainSessionPriceId,
-    int? TeacherLevelId);
+    int? TeacherLevelId,
+    string MarketCode,
+    string Currency);
 
 public sealed class CreatePricingSnapshotRequest
 {
@@ -27,6 +30,7 @@ public sealed class CreatePricingSnapshotRequest
     public int ContextEntityId { get; init; }
     public int DomainId { get; init; }
     public string SessionTypeCode { get; init; } = default!;
+    public string MarketCode { get; init; } = default!;
     public int TotalMinutes { get; init; }
     public int TeacherId { get; init; }
     public DateTime? AsOf { get; init; }

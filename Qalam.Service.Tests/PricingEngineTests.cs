@@ -13,16 +13,30 @@ public class PricingEngineTests
     private const int DomainId = 1;
     private const int TeacherId = 10;
     private const string SessionType = "individual";
+    private const string MarketCode = "sa";
+    private const string Currency = "SAR";
 
     private static DomainSessionPrice CreateRate(decimal pricePerHour = 100m, int id = 5) =>
         new()
         {
             Id = id,
+            MarketCode = MarketCode,
             DomainId = DomainId,
             SessionTypeCode = SessionType,
             PricePerHour = pricePerHour,
             EffectiveFrom = DateTime.UtcNow.AddDays(-1),
             IsActive = true
+        };
+
+    private static PricingMarket CreateMarket(string code = MarketCode, string currency = Currency) =>
+        new()
+        {
+            Code = code,
+            Currency = currency,
+            NameEn = "Saudi Arabia",
+            NameAr = "السعودية",
+            IsActive = true,
+            IsDefault = code == MarketCode
         };
 
     private static Teacher CreateTeacher(
@@ -51,11 +65,11 @@ public class PricingEngineTests
     }
 
     private static (PricingEngine Engine, Mock<IDomainSessionPriceRepository> PriceRepo, Mock<ITeacherRepository> TeacherRepo)
-        CreateSut(Teacher? teacher = null, DomainSessionPrice? rate = null, bool missingRate = false)
+        CreateSut(Teacher? teacher = null, DomainSessionPrice? rate = null, bool missingRate = false, PricingMarket? market = null)
     {
         var priceRepo = new Mock<IDomainSessionPriceRepository>();
         priceRepo
-            .Setup(r => r.GetEffectiveRateAsync(DomainId, SessionType, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetEffectiveRateAsync(DomainId, SessionType, MarketCode, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(missingRate ? null : (rate ?? CreateRate()));
 
         var teacherRepo = new Mock<ITeacherRepository>();
@@ -63,24 +77,34 @@ public class PricingEngineTests
             .Setup(r => r.GetByIdWithLevelAsync(TeacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(teacher ?? CreateTeacher());
 
-        var engine = new PricingEngine(priceRepo.Object, teacherRepo.Object);
+        var marketRepo = new Mock<IPricingMarketRepository>();
+        marketRepo
+            .Setup(r => r.GetByCodeAsync(MarketCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(market ?? CreateMarket());
+
+        var engine = new PricingEngine(priceRepo.Object, teacherRepo.Object, marketRepo.Object);
         return (engine, priceRepo, teacherRepo);
     }
+
+    private static PricingEstimateRequest CreateRequest(int totalMinutes) => new()
+    {
+        DomainId = DomainId,
+        SessionTypeCode = SessionType,
+        MarketCode = MarketCode,
+        TotalMinutes = totalMinutes,
+        TeacherId = TeacherId
+    };
 
     [Fact]
     public async Task EstimateAsync_TwoHoursAt100PerHourWith60PctShare_SplitsCorrectly()
     {
         var (engine, _, _) = CreateSut();
 
-        var estimate = await engine.EstimateAsync(new PricingEstimateRequest
-        {
-            DomainId = DomainId,
-            SessionTypeCode = SessionType,
-            TotalMinutes = 120,
-            TeacherId = TeacherId
-        });
+        var estimate = await engine.EstimateAsync(CreateRequest(120));
 
         Assert.Equal(100m, estimate.PricePerHour);
+        Assert.Equal(MarketCode, estimate.MarketCode);
+        Assert.Equal(Currency, estimate.Currency);
         Assert.Equal(120, estimate.TotalMinutes);
         Assert.Equal(200m, estimate.TotalPrice);
         Assert.Equal(60m, estimate.TeacherSharePct);
@@ -90,17 +114,46 @@ public class PricingEngineTests
     }
 
     [Fact]
-    public async Task EstimateAsync_45Minutes_RoundsAwayFromZero()
+    public async Task EstimateAsync_DifferentMarkets_ReturnDifferentCurrency()
     {
-        var (engine, _, _) = CreateSut(rate: CreateRate(100m));
+        var egRate = CreateRate(800m);
+        egRate.MarketCode = "eg";
+        var priceRepo = new Mock<IDomainSessionPriceRepository>();
+        priceRepo
+            .Setup(r => r.GetEffectiveRateAsync(DomainId, SessionType, "eg", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(egRate);
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo
+            .Setup(r => r.GetByIdWithLevelAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateTeacher());
+
+        var marketRepo = new Mock<IPricingMarketRepository>();
+        marketRepo.Setup(r => r.GetByCodeAsync("eg", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMarket("eg", "EGP"));
+
+        var engine = new PricingEngine(priceRepo.Object, teacherRepo.Object, marketRepo.Object);
 
         var estimate = await engine.EstimateAsync(new PricingEstimateRequest
         {
             DomainId = DomainId,
             SessionTypeCode = SessionType,
-            TotalMinutes = 45,
+            MarketCode = "eg",
+            TotalMinutes = 60,
             TeacherId = TeacherId
         });
+
+        Assert.Equal("EGP", estimate.Currency);
+        Assert.Equal("eg", estimate.MarketCode);
+        Assert.Equal(800m, estimate.TotalPrice);
+    }
+
+    [Fact]
+    public async Task EstimateAsync_45Minutes_RoundsAwayFromZero()
+    {
+        var (engine, _, _) = CreateSut(rate: CreateRate(100m));
+
+        var estimate = await engine.EstimateAsync(CreateRequest(45));
 
         Assert.Equal(75m, estimate.TotalPrice);
         Assert.Equal(45m, estimate.TeacherEarnings);
@@ -112,13 +165,7 @@ public class PricingEngineTests
     {
         var (engine, _, _) = CreateSut(teacher: CreateTeacher(customShare: 85m, levelShare: 60m));
 
-        var estimate = await engine.EstimateAsync(new PricingEstimateRequest
-        {
-            DomainId = DomainId,
-            SessionTypeCode = SessionType,
-            TotalMinutes = 60,
-            TeacherId = TeacherId
-        });
+        var estimate = await engine.EstimateAsync(CreateRequest(60));
 
         Assert.Equal(85m, estimate.TeacherSharePct);
         Assert.Equal(85m, estimate.TeacherEarnings);
@@ -130,13 +177,7 @@ public class PricingEngineTests
     {
         var (engine, _, _) = CreateSut(teacher: CreateTeacher(levelShare: 80m, levelId: 3));
 
-        var estimate = await engine.EstimateAsync(new PricingEstimateRequest
-        {
-            DomainId = DomainId,
-            SessionTypeCode = SessionType,
-            TotalMinutes = 60,
-            TeacherId = TeacherId
-        });
+        var estimate = await engine.EstimateAsync(CreateRequest(60));
 
         Assert.Equal(80m, estimate.TeacherSharePct);
         Assert.Equal(80m, estimate.TeacherEarnings);
@@ -150,13 +191,7 @@ public class PricingEngineTests
         var (engine, _, _) = CreateSut();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            engine.EstimateAsync(new PricingEstimateRequest
-            {
-                DomainId = DomainId,
-                SessionTypeCode = SessionType,
-                TotalMinutes = 0,
-                TeacherId = TeacherId
-            }));
+            engine.EstimateAsync(CreateRequest(0)));
     }
 
     [Fact]
@@ -165,13 +200,7 @@ public class PricingEngineTests
         var (engine, _, _) = CreateSut(missingRate: true);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            engine.EstimateAsync(new PricingEstimateRequest
-            {
-                DomainId = DomainId,
-                SessionTypeCode = SessionType,
-                TotalMinutes = 60,
-                TeacherId = TeacherId
-            }));
+            engine.EstimateAsync(CreateRequest(60)));
 
         Assert.Contains("No active pricing rule", ex.Message);
     }
@@ -185,13 +214,7 @@ public class PricingEngineTests
             .ReturnsAsync((Teacher?)null);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            engine.EstimateAsync(new PricingEstimateRequest
-            {
-                DomainId = DomainId,
-                SessionTypeCode = SessionType,
-                TotalMinutes = 60,
-                TeacherId = TeacherId
-            }));
+            engine.EstimateAsync(CreateRequest(60)));
 
         Assert.Contains($"Teacher {TeacherId} not found", ex.Message);
     }
@@ -204,13 +227,7 @@ public class PricingEngineTests
         var (engine, _, _) = CreateSut(teacher: teacher);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            engine.EstimateAsync(new PricingEstimateRequest
-            {
-                DomainId = DomainId,
-                SessionTypeCode = SessionType,
-                TotalMinutes = 60,
-                TeacherId = TeacherId
-            }));
+            engine.EstimateAsync(CreateRequest(60)));
 
         Assert.Contains("has no assigned level", ex.Message);
     }
@@ -220,7 +237,7 @@ public class PricingEngineTests
     {
         var (engine, _, _) = CreateSut(rate: CreateRate(150m));
 
-        var price = await engine.ResolvePricePerHourAsync(DomainId, SessionType);
+        var price = await engine.ResolvePricePerHourAsync(DomainId, SessionType, MarketCode);
 
         Assert.Equal(150m, price);
     }
@@ -236,6 +253,7 @@ public class PricingEngineTests
             ContextEntityId = 99,
             DomainId = DomainId,
             SessionTypeCode = SessionType,
+            MarketCode = MarketCode,
             TotalMinutes = 120,
             TeacherId = TeacherId
         });
@@ -244,6 +262,8 @@ public class PricingEngineTests
         Assert.Equal(99, snapshot.ContextEntityId);
         Assert.Equal(DomainId, snapshot.DomainId);
         Assert.Equal(SessionType, snapshot.SessionTypeCode);
+        Assert.Equal(MarketCode, snapshot.MarketCode);
+        Assert.Equal(Currency, snapshot.Currency);
         Assert.Equal(TeacherId, snapshot.TeacherId);
         Assert.Equal(200m, snapshot.TotalPrice);
         Assert.Equal(120m, snapshot.TeacherEarnings);

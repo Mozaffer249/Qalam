@@ -38,7 +38,8 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
             teacherRepo.Object,
             subjectRepo.Object,
             Mock.Of<ISessionTypeRepository>(),
-            Mock.Of<IPricingEngine>());
+            Mock.Of<IPricingEngine>(),
+            Mock.Of<IPricingMarketResolver>());
 
         var response = await handler.Handle(
             new GetCourseHourlyRatePreviewQuery
@@ -75,9 +76,21 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
             .Setup(r => r.GetByIdAsync(2))
             .ReturnsAsync(new SessionType { Id = 2, Code = "individual" });
 
+        var marketResolver = new Mock<IPricingMarketResolver>();
+        marketResolver
+            .Setup(r => r.ResolveForUserAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ResolvedPricingMarket
+            {
+                MarketCode = "sa",
+                Currency = "SAR",
+                NameEn = "Saudi Arabia",
+                NameAr = "السعودية",
+                Source = PricingMarketResolutionSource.Default
+            });
+
         var pricingEngine = new Mock<IPricingEngine>();
         pricingEngine
-            .Setup(e => e.ResolvePricePerHourAsync(7, "individual", null, It.IsAny<CancellationToken>()))
+            .Setup(e => e.ResolvePricePerHourAsync(7, "individual", "sa", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100m);
 
         var handler = new GetCourseHourlyRatePreviewQueryHandler(
@@ -85,7 +98,8 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
             teacherRepo.Object,
             subjectRepo.Object,
             sessionTypeRepo.Object,
-            pricingEngine.Object);
+            pricingEngine.Object,
+            marketResolver.Object);
 
         var response = await handler.Handle(
             new GetCourseHourlyRatePreviewQuery
@@ -99,6 +113,8 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
 
         Assert.True(response.Succeeded);
         Assert.Equal(100m, response.Data!.PricePerHour);
+        Assert.Equal("SAR", response.Data.Currency);
+        Assert.Equal("sa", response.Data.MarketCode);
         Assert.Equal(120, response.Data.TotalMinutes);
         Assert.Equal(200m, response.Data.EstimatedPackageTotal);
     }

@@ -14,6 +14,8 @@ public class PricingSnapshotConfiguration : IEntityTypeConfiguration<PricingSnap
         builder.HasIndex(e => new { e.Context, e.ContextEntityId }).IsUnique();
 
         builder.Property(e => e.SessionTypeCode).HasMaxLength(30).IsRequired();
+        builder.Property(e => e.MarketCode).HasMaxLength(10).IsRequired();
+        builder.Property(e => e.Currency).HasMaxLength(3).IsRequired();
         builder.Property(e => e.PricePerHour).HasColumnType("decimal(18,2)").IsRequired();
         builder.Property(e => e.TotalPrice).HasColumnType("decimal(18,2)").IsRequired();
         builder.Property(e => e.TeacherSharePct).HasColumnType("decimal(5,2)").IsRequired();

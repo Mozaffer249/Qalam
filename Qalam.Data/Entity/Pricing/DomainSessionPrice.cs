@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Commons;
 using Qalam.Data.Entity.Education;
 
@@ -15,10 +16,13 @@ public class DomainSessionPrice : AuditableEntity
 
     public int DomainId { get; set; }
 
+    [Required, MaxLength(10)]
+    public string MarketCode { get; set; } = PricingMarketDefaults.DefaultMarketCode;
+
     [Required, MaxLength(30)]
     public string SessionTypeCode { get; set; } = default!;
 
-    /// <summary>SAR per hour charged to the student.</summary>
+    /// <summary>Hourly rate in the market currency charged to the student.</summary>
     public decimal PricePerHour { get; set; }
 
     public DateTime EffectiveFrom { get; set; }
@@ -29,4 +33,6 @@ public class DomainSessionPrice : AuditableEntity
     public bool IsActive { get; set; } = true;
 
     public EducationDomain Domain { get; set; } = null!;
+
+    public PricingMarket Market { get; set; } = null!;
 }

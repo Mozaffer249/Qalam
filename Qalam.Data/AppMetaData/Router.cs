@@ -47,6 +47,9 @@ namespace Qalam.Data.AppMetaData
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
         public const string Nationalities = Rule + "Nationalities";
+        public const string CommonPricing = Rule + "Common/Pricing";
+        public const string CommonPricingMarkets = CommonPricing + "/markets";
+        public const string CommonPricingMyMarket = CommonPricing + "/my-market";
         public const string Contact = Rule + "Contact";
         public const string AdminContactMessages = Rule + "Admin/ContactMessages";
         public const string AdminContactMessageById = Rule + "Admin/ContactMessages/{id}";

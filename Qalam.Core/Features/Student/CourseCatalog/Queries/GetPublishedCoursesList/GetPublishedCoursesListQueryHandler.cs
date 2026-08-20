@@ -19,6 +19,8 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IMapper _mapper;
     private readonly IMediaUrlResolver _mediaUrlResolver;
+    private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
 
     public GetPublishedCoursesListQueryHandler(
         ICourseRepository courseRepository,
@@ -26,6 +28,8 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         IGuardianRepository guardianRepository,
         IMapper mapper,
         IMediaUrlResolver mediaUrlResolver,
+        IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
@@ -33,6 +37,8 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         _guardianRepository = guardianRepository;
         _mapper = mapper;
         _mediaUrlResolver = mediaUrlResolver;
+        _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
     }
 
     public async Task<Response<List<CourseCatalogIndexItemDto>>> Handle(
@@ -78,15 +84,19 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
             .Equals("ar", StringComparison.OrdinalIgnoreCase);
 
-        var items = await query
+        var rows = await query
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(c => new CourseCatalogIndexItemDto
+            .Select(c => new CatalogPricingRow
             {
                 Id = c.Id,
                 Title = c.Title,
                 ImageUrl = c.ImageUrl,
-                Price = c.Price,
+                StoredPrice = c.Price,
+                DomainId = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                    ? c.TeacherSubject.Subject.DomainId
+                    : c.DomainId,
+                SessionTypeCode = c.SessionType != null ? c.SessionType.Code : "individual",
                 TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
                     ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
                     : null,
@@ -151,8 +161,46 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
             })
             .ToListAsync(cancellationToken);
 
-        foreach (var item in items)
-            item.ImageUrl = _mediaUrlResolver.ToPublicUrl(item.ImageUrl);
+        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
+        var items = new List<CourseCatalogIndexItemDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            var price = row.StoredPrice;
+            try
+            {
+                price = await _pricingEngine.ResolvePricePerHourAsync(
+                    row.DomainId,
+                    row.SessionTypeCode,
+                    market.MarketCode,
+                    cancellationToken: cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // Keep stored price fallback.
+            }
+
+            items.Add(new CourseCatalogIndexItemDto
+            {
+                Id = row.Id,
+                Title = row.Title,
+                ImageUrl = _mediaUrlResolver.ToPublicUrl(row.ImageUrl),
+                Price = price,
+                Currency = market.Currency,
+                MarketCode = market.MarketCode,
+                TeacherDisplayName = row.TeacherDisplayName,
+                TeacherAverageReview = row.TeacherAverageReview,
+                DomainName = row.DomainName,
+                CurriculumName = row.CurriculumName,
+                LevelName = row.LevelName,
+                GradeName = row.GradeName,
+                SubjectName = row.SubjectName,
+                TeachingModeName = row.TeachingModeName,
+                SessionTypeName = row.SessionTypeName,
+                SessionsCount = row.SessionsCount,
+                SessionDurationMinutes = row.SessionDurationMinutes,
+                TotalDurationMinutes = row.TotalDurationMinutes
+            });
+        }
 
         var totalPages = request.PageSize > 0
             ? (int)Math.Ceiling(totalCount / (double)request.PageSize)
@@ -169,5 +217,27 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         };
 
         return Success(entity: items, Meta: meta);
+    }
+
+    private sealed class CatalogPricingRow
+    {
+        public int Id { get; init; }
+        public string Title { get; init; } = default!;
+        public string? ImageUrl { get; init; }
+        public decimal StoredPrice { get; init; }
+        public int DomainId { get; init; }
+        public string SessionTypeCode { get; init; } = default!;
+        public string? TeacherDisplayName { get; init; }
+        public decimal TeacherAverageReview { get; init; }
+        public string? DomainName { get; init; }
+        public string? CurriculumName { get; init; }
+        public string? LevelName { get; init; }
+        public string? GradeName { get; init; }
+        public string? SubjectName { get; init; }
+        public string? TeachingModeName { get; init; }
+        public string? SessionTypeName { get; init; }
+        public int? SessionsCount { get; init; }
+        public int? SessionDurationMinutes { get; init; }
+        public int? TotalDurationMinutes { get; init; }
     }
 }

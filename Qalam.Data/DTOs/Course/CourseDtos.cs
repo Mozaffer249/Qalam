@@ -16,6 +16,8 @@ public class CreateCourseDto
     public bool IsFlexible { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
     public string? ImageUrl { get; set; }
@@ -96,6 +98,8 @@ public class UpdateCourseDto
     public bool IsFlexible { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
     public string? ImageUrl { get; set; }
@@ -129,6 +133,8 @@ public class CourseListItemDto
     public CourseStatus Status { get; set; }
     public bool IsActive { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
 }
 
 /// <summary>
@@ -160,6 +166,8 @@ public class CourseDetailDto
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
     public int? MaxStudents { get; set; }
     public bool CanIncludeInPackages { get; set; }
     public string? ImageUrl { get; set; }
@@ -193,6 +201,8 @@ public class CourseCatalogItemDto
     public int SessionTypeId { get; set; }
     public string? SessionTypeName { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
     public bool IsFlexible { get; set; }
@@ -232,6 +242,8 @@ public class CourseCatalogDetailDto
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
     public List<CourseSessionDto>? Sessions { get; set; }
@@ -247,6 +259,8 @@ public class CourseCatalogIndexItemDto
     public string Title { get; set; } = default!;
     public string? ImageUrl { get; set; }
     public decimal Price { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
 
     public string? TeacherDisplayName { get; set; }
     public decimal TeacherAverageReview { get; set; }

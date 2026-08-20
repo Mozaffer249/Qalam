@@ -10,6 +10,7 @@ using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherShareOverride;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListDomainSessionPrices;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListLevelUpgradeSuggestions;
+using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListTeacherLevelTiers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
@@ -24,15 +25,21 @@ public class PricingController : AppControllerBase
 {
     [HttpGet("domain-session-prices")]
     public async Task<IActionResult> ListDomainSessionPrices(
+        [FromQuery] string marketCode,
         [FromQuery] int? domainId,
         [FromQuery] string? sessionTypeCode,
         [FromQuery] bool includeHistory = false)
         => NewResult(await Mediator.Send(new ListDomainSessionPricesQuery
         {
+            MarketCode = marketCode,
             DomainId = domainId,
             SessionTypeCode = sessionTypeCode,
             IncludeHistory = includeHistory
         }));
+
+    [HttpGet("pricing-markets")]
+    public async Task<IActionResult> ListPricingMarkets()
+        => NewResult(await Mediator.Send(new ListAdminPricingMarketsQuery()));
 
     [HttpPut("domain-session-prices")]
     public async Task<IActionResult> SetDomainSessionPrice([FromBody] SetDomainSessionPriceDto data)

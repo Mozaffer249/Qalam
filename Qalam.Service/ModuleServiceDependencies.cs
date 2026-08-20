@@ -118,8 +118,10 @@ namespace Qalam.Service
 
             // Pricing
             services.AddTransient<IPricingEngine, PricingEngine>();
+            services.AddTransient<IPricingMarketResolver, PricingMarketResolver>();
             services.AddTransient<IPricingSnapshotWriter, PricingSnapshotWriter>();
             services.AddTransient<IPricingAdminService, PricingAdminService>();
+            services.AddTransient<IPricingMarketService, PricingMarketService>();
             services.AddTransient<ITeacherLevelProgressionService, TeacherLevelProgressionService>();
 
             return services;

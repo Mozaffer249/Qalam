@@ -172,6 +172,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<Qalam.Data.Entity.Course.EnrollmentConversationMessage> EnrollmentConversationMessages { get; set; }
 
         // Payment Schema DbSets
+        public DbSet<PricingMarket> PricingMarkets { get; set; }
         public DbSet<DomainSessionPrice> DomainSessionPrices { get; set; }
         public DbSet<PricingSnapshot> PricingSnapshots { get; set; }
         public DbSet<Payment> Payments { get; set; }

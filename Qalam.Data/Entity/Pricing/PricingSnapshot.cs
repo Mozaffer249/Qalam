@@ -20,6 +20,12 @@ public class PricingSnapshot : AuditableEntity
     [Required, MaxLength(30)]
     public string SessionTypeCode { get; set; } = default!;
 
+    [Required, MaxLength(10)]
+    public string MarketCode { get; set; } = default!;
+
+    [Required, MaxLength(3)]
+    public string Currency { get; set; } = default!;
+
     public int? DomainSessionPriceId { get; set; }
 
     public decimal PricePerHour { get; set; }

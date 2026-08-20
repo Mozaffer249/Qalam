@@ -14,6 +14,7 @@ public interface IPricingEngine
     Task<decimal> ResolvePricePerHourAsync(
         int domainId,
         string sessionTypeCode,
+        string marketCode,
         DateTime? asOf = null,
         CancellationToken cancellationToken = default);
 }

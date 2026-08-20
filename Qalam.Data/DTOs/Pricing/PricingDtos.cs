@@ -1,8 +1,34 @@
 namespace Qalam.Data.DTOs.Pricing;
 
+public class PricingMarketDto
+{
+    public string Code { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+}
+
+public class MyPricingMarketDto
+{
+    public string MarketCode { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Source { get; set; } = default!;
+    public string? PreferredMarketCode { get; set; }
+}
+
+public class SetMyPricingMarketDto
+{
+    /// <summary>Null clears preference and restores auto-resolve.</summary>
+    public string? MarketCode { get; set; }
+}
+
 public class DomainSessionPriceAdminDto
 {
     public int Id { get; set; }
+    public string MarketCode { get; set; } = default!;
+    public string? Currency { get; set; }
     public int DomainId { get; set; }
     public string? DomainCode { get; set; }
     public string? DomainNameEn { get; set; }
@@ -17,6 +43,7 @@ public class DomainSessionPriceAdminDto
 
 public class SetDomainSessionPriceDto
 {
+    public string MarketCode { get; set; } = default!;
     public int DomainId { get; set; }
     public string SessionTypeCode { get; set; } = default!;
     public decimal PricePerHour { get; set; }
@@ -83,6 +110,8 @@ public class BackfillStarterTeacherLevelsResultDto
 public class CourseHourlyRatePreviewDto
 {
     public decimal PricePerHour { get; set; }
+    public string Currency { get; set; } = default!;
+    public string MarketCode { get; set; } = default!;
     public int? TotalMinutes { get; set; }
     public decimal? EstimatedPackageTotal { get; set; }
 }
@@ -90,6 +119,8 @@ public class CourseHourlyRatePreviewDto
 public class PricingEstimateDto
 {
     public decimal PricePerHour { get; set; }
+    public string Currency { get; set; } = default!;
+    public string MarketCode { get; set; } = default!;
     public int TotalMinutes { get; set; }
     public decimal TotalPrice { get; set; }
     public decimal TeacherSharePct { get; set; }
@@ -101,6 +132,8 @@ public class PricingSnapshotDto
 {
     public int Id { get; set; }
     public decimal PricePerHour { get; set; }
+    public string Currency { get; set; } = default!;
+    public string MarketCode { get; set; } = default!;
     public int TotalMinutes { get; set; }
     public decimal TotalPrice { get; set; }
     public decimal TeacherSharePct { get; set; }

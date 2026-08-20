@@ -14,19 +14,26 @@ public class PricingAdminServiceTests
 {
     private static PricingAdminService CreateSut(
         out Mock<IDomainSessionPriceRepository> priceRepo,
+        out Mock<IPricingMarketRepository> marketRepo,
         out Mock<IEducationDomainRepository> domainRepo,
         out Mock<ITeacherLevelRepository> levelRepo,
         out Mock<ITeacherRepository> teacherRepo,
         out Mock<ITeacherLevelUpgradeSuggestionRepository> suggestionRepo)
     {
         priceRepo = new Mock<IDomainSessionPriceRepository>();
+        marketRepo = new Mock<IPricingMarketRepository>();
         domainRepo = new Mock<IEducationDomainRepository>();
         levelRepo = new Mock<ITeacherLevelRepository>();
         teacherRepo = new Mock<ITeacherRepository>();
         suggestionRepo = new Mock<ITeacherLevelUpgradeSuggestionRepository>();
 
+        marketRepo
+            .Setup(r => r.ExistsActiveAsync("sa", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         return new PricingAdminService(
             priceRepo.Object,
+            marketRepo.Object,
             domainRepo.Object,
             levelRepo.Object,
             teacherRepo.Object,
@@ -36,11 +43,12 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDomainSessionPriceAsync_DomainNotFound_ReturnsNull()
     {
-        var service = CreateSut(out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync((EducationDomain?)null);
 
         var result = await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
         {
+            MarketCode = "sa",
             DomainId = 1,
             SessionTypeCode = "individual",
             PricePerHour = 100m
@@ -52,7 +60,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDomainSessionPriceAsync_InvalidSessionType_Throws()
     {
-        var service = CreateSut(out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -64,6 +72,7 @@ public class PricingAdminServiceTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
             {
+                MarketCode = "sa",
                 DomainId = 1,
                 SessionTypeCode = "pair",
                 PricePerHour = 100m
@@ -85,7 +94,7 @@ public class PricingAdminServiceTests
             IsActive = true
         };
 
-        var service = CreateSut(out var priceRepo, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out var priceRepo, out _, out var domainRepo, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -93,11 +102,12 @@ public class PricingAdminServiceTests
             NameEn = "School",
             NameAr = "مدرسة"
         });
-        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "individual", It.IsAny<CancellationToken>()))
+        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "individual", "sa", It.IsAny<CancellationToken>()))
             .ReturnsAsync(current);
 
         var result = await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
         {
+            MarketCode = "sa",
             DomainId = 1,
             SessionTypeCode = "Individual",
             PricePerHour = 100m
@@ -107,14 +117,14 @@ public class PricingAdminServiceTests
         Assert.Equal(7, result!.Id);
         Assert.Equal(100m, result.PricePerHour);
         priceRepo.Verify(r => r.AddAsync(It.IsAny<DomainSessionPrice>()), Times.Never);
-        priceRepo.Verify(r => r.CloseCurrentRateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+        priceRepo.Verify(r => r.CloseCurrentRateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task SetDomainSessionPriceAsync_NewPrice_ClosesCurrentAndAddsRow()
     {
         DomainSessionPrice? added = null;
-        var service = CreateSut(out var priceRepo, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out var priceRepo, out _, out var domainRepo, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -122,7 +132,7 @@ public class PricingAdminServiceTests
             NameEn = "School",
             NameAr = "مدرسة"
         });
-        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "group", It.IsAny<CancellationToken>()))
+        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "group", "sa", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DomainSessionPrice
             {
                 Id = 3,
@@ -136,6 +146,7 @@ public class PricingAdminServiceTests
 
         var result = await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
         {
+            MarketCode = "sa",
             DomainId = 1,
             SessionTypeCode = "group",
             PricePerHour = 90m
@@ -145,14 +156,14 @@ public class PricingAdminServiceTests
         Assert.NotNull(added);
         Assert.Equal("group", added!.SessionTypeCode);
         Assert.Equal(90m, added.PricePerHour);
-        priceRepo.Verify(r => r.CloseCurrentRateAsync(1, "group", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
+        priceRepo.Verify(r => r.CloseCurrentRateAsync(1, "group", "sa", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         priceRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
     [Fact]
     public async Task SetTeacherLevelAsync_InactiveLevel_Throws()
     {
-        var service = CreateSut(out _, out _, out var levelRepo, out var teacherRepo, out _);
+        var service = CreateSut(out _, out _, out _, out var levelRepo, out var teacherRepo, out _);
         teacherRepo.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Teacher { Id = 5 });
         levelRepo.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new TeacherLevel
         {
@@ -186,7 +197,7 @@ public class PricingAdminServiceTests
             Teacher = new Teacher { Id = 5 }
         };
 
-        var service = CreateSut(out _, out _, out _, out var teacherRepo, out var suggestionRepo);
+        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out var suggestionRepo);
         suggestionRepo.Setup(r => r.GetByIdAsync(11)).ReturnsAsync(suggestion);
         teacherRepo.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Teacher { Id = 5, TeacherLevelId = 1 });
         teacherRepo.Setup(r => r.UpdateAsync(It.IsAny<Teacher>()))
@@ -208,7 +219,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task RejectLevelUpgradeSuggestionAsync_NotPending_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out _, out var suggestionRepo);
+        var service = CreateSut(out _, out _, out _, out _, out _, out var suggestionRepo);
         suggestionRepo.Setup(r => r.GetByIdAsync(11)).ReturnsAsync(new TeacherLevelUpgradeSuggestion
         {
             Id = 11,
@@ -224,7 +235,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task ListLevelUpgradeSuggestionsAsync_InvalidStatus_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out _, out _);
+        var service = CreateSut(out _, out _, out _, out _, out _, out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ListLevelUpgradeSuggestionsAsync("unknown"));
@@ -235,7 +246,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task BackfillStarterTeacherLevelsAsync_DelegatesToRepository()
     {
-        var service = CreateSut(out _, out _, out _, out var teacherRepo, out _);
+        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out _);
         teacherRepo
             .Setup(r => r.BackfillStarterLevelForTeachersWithoutLevelAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(2500);

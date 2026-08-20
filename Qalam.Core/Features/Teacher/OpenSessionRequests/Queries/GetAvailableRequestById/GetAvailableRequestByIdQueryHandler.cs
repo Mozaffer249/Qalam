@@ -19,6 +19,7 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
     private readonly IOpenSessionRequestTargetRepository _targetRepo;
     private readonly IOpenSessionOfferRepository _offerRepo;
     private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
 
     public GetAvailableRequestByIdQueryHandler(
         IStringLocalizer<SharedResources> localizer,
@@ -26,13 +27,15 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
         IOpenSessionRequestRepository requestRepo,
         IOpenSessionRequestTargetRepository targetRepo,
         IOpenSessionOfferRepository offerRepo,
-        IPricingEngine pricingEngine) : base(localizer)
+        IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver) : base(localizer)
     {
         _teacherRepo = teacherRepo;
         _requestRepo = requestRepo;
         _targetRepo = targetRepo;
         _offerRepo = offerRepo;
         _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
     }
 
     public async Task<Response<TeacherAvailableRequestDetailDto>> Handle(
@@ -77,10 +80,12 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
                 var sessionTypeCode = detail.GeneralSettings.GroupType.HasValue ? "group" : "individual";
                 try
                 {
+                    var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
                     var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
                     {
                         DomainId = detail.Content.DomainId,
                         SessionTypeCode = sessionTypeCode,
+                        MarketCode = market.MarketCode,
                         TotalMinutes = totalMinutes,
                         TeacherId = teacher.Id
                     }, cancellationToken);
@@ -88,6 +93,8 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
                     detail.PricingEstimate = new PricingEstimateDto
                     {
                         PricePerHour = estimate.PricePerHour,
+                        Currency = estimate.Currency,
+                        MarketCode = estimate.MarketCode,
                         TotalMinutes = estimate.TotalMinutes,
                         TotalPrice = estimate.TotalPrice,
                         TeacherSharePct = estimate.TeacherSharePct,

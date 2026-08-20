@@ -24,6 +24,7 @@ public class ListDomainSessionPricesQueryHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var dtos = await _pricingAdminService.ListDomainSessionPricesAsync(
+            request.MarketCode,
             request.DomainId,
             request.SessionTypeCode,
             request.IncludeHistory,

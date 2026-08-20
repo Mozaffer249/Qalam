@@ -28,6 +28,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
     private readonly ISessionAvailabilityMatchService _availabilityMatch;
     private readonly IOfferConversationService _conversationService;
     private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
     private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
@@ -43,6 +44,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         ISessionAvailabilityMatchService availabilityMatch,
         IOfferConversationService conversationService,
         IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver,
         IPricingSnapshotWriter pricingSnapshotWriter,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
@@ -56,6 +58,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         _availabilityMatch = availabilityMatch;
         _conversationService = conversationService;
         _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
         _pricingSnapshotWriter = pricingSnapshotWriter;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
@@ -136,10 +139,12 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             return BadRequest<TeacherOfferDetailDto>("Total session duration must be greater than zero.");
 
         var sessionTypeCode = osr.GroupType.HasValue ? "group" : "individual";
+        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
         var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
         {
             DomainId = osr.DomainId,
             SessionTypeCode = sessionTypeCode,
+            MarketCode = market.MarketCode,
             TotalMinutes = totalMinutes,
             TeacherId = teacher.Id
         }, cancellationToken);
@@ -166,6 +171,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             ContextEntityId = offer.Id,
             DomainId = osr.DomainId,
             SessionTypeCode = sessionTypeCode,
+            MarketCode = market.MarketCode,
             TotalMinutes = totalMinutes,
             TeacherId = teacher.Id
         }, cancellationToken);

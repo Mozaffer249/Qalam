@@ -4,7 +4,10 @@ namespace Qalam.Service.Abstracts;
 
 public interface IPricingAdminService
 {
+    Task<List<PricingMarketDto>> ListPricingMarketsAsync(CancellationToken cancellationToken = default);
+
     Task<List<DomainSessionPriceAdminDto>> ListDomainSessionPricesAsync(
+        string marketCode,
         int? domainId,
         string? sessionTypeCode,
         bool includeHistory,

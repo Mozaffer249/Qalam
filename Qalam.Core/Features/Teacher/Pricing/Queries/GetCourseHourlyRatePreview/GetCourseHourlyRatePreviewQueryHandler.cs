@@ -15,18 +15,21 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ISessionTypeRepository _sessionTypeRepository;
     private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
 
     public GetCourseHourlyRatePreviewQueryHandler(
         IStringLocalizer<SharedResources> localizer,
         ITeacherRepository teacherRepository,
         ITeacherSubjectRepository teacherSubjectRepository,
         ISessionTypeRepository sessionTypeRepository,
-        IPricingEngine pricingEngine) : base(localizer)
+        IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _teacherSubjectRepository = teacherSubjectRepository;
         _sessionTypeRepository = sessionTypeRepository;
         _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
     }
 
     public async Task<Response<CourseHourlyRatePreviewDto>> Handle(
@@ -52,9 +55,11 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
         if (domainId is null or <= 0)
             return BadRequest<CourseHourlyRatePreviewDto>("Subject domain is required for pricing.");
 
+        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
         var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
             domainId.Value,
             sessionType.Code,
+            market.MarketCode,
             cancellationToken: cancellationToken);
 
         decimal? estimatedPackageTotal = null;
@@ -69,6 +74,8 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
         return Success(entity: new CourseHourlyRatePreviewDto
         {
             PricePerHour = pricePerHour,
+            Currency = market.Currency,
+            MarketCode = market.MarketCode,
             TotalMinutes = request.TotalMinutes,
             EstimatedPackageTotal = estimatedPackageTotal,
         });

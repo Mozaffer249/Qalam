@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Qalam.Data.Entity.Identity;
+using Qalam.Data.Entity.Pricing;
 using StudentEntity = Qalam.Data.Entity.Student.Student;
 using GuardianEntity = Qalam.Data.Entity.Student.Guardian;
 
@@ -21,5 +22,13 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                .WithOne(g => g.User)
                .HasForeignKey<GuardianEntity>(g => g.UserId)
                .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(u => u.PreferredMarketCode).HasMaxLength(10);
+
+        builder.HasOne<PricingMarket>()
+               .WithMany()
+               .HasForeignKey(u => u.PreferredMarketCode)
+               .HasPrincipalKey(m => m.Code)
+               .OnDelete(DeleteBehavior.SetNull);
     }
 }

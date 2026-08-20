@@ -18,11 +18,14 @@ public class DomainSessionPriceRepository : GenericRepositoryAsync<DomainSession
     public Task<DomainSessionPrice?> GetEffectiveRateAsync(
         int domainId,
         string sessionTypeCode,
+        string marketCode,
         DateTime asOf,
         CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
+            .Include(p => p.Market)
             .Where(p =>
-                p.DomainId == domainId
+                p.MarketCode == marketCode
+                && p.DomainId == domainId
                 && p.SessionTypeCode == sessionTypeCode
                 && p.IsActive
                 && p.EffectiveFrom <= asOf
@@ -33,23 +36,32 @@ public class DomainSessionPriceRepository : GenericRepositoryAsync<DomainSession
     public Task<DomainSessionPrice?> GetCurrentRateAsync(
         int domainId,
         string sessionTypeCode,
+        string marketCode,
         CancellationToken cancellationToken = default) =>
-        GetEffectiveRateAsync(domainId, sessionTypeCode, DateTime.UtcNow, cancellationToken);
+        GetEffectiveRateAsync(domainId, sessionTypeCode, marketCode, DateTime.UtcNow, cancellationToken);
 
     public Task<List<DomainSessionPrice>> ListHistoryAsync(
         int domainId,
         string sessionTypeCode,
+        string marketCode,
         CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
             .Include(p => p.Domain)
-            .Where(p => p.DomainId == domainId && p.SessionTypeCode == sessionTypeCode)
+            .Include(p => p.Market)
+            .Where(p =>
+                p.MarketCode == marketCode
+                && p.DomainId == domainId
+                && p.SessionTypeCode == sessionTypeCode)
             .OrderByDescending(p => p.EffectiveFrom)
             .ToListAsync(cancellationToken);
 
-    public Task<List<DomainSessionPrice>> ListCurrentRatesAsync(CancellationToken cancellationToken = default) =>
+    public Task<List<DomainSessionPrice>> ListCurrentRatesAsync(
+        string marketCode,
+        CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
             .Include(p => p.Domain)
-            .Where(p => p.IsActive && p.EffectiveTo == null)
+            .Include(p => p.Market)
+            .Where(p => p.MarketCode == marketCode && p.IsActive && p.EffectiveTo == null)
             .OrderBy(p => p.DomainId)
             .ThenBy(p => p.SessionTypeCode)
             .ToListAsync(cancellationToken);
@@ -57,12 +69,14 @@ public class DomainSessionPriceRepository : GenericRepositoryAsync<DomainSession
     public async Task CloseCurrentRateAsync(
         int domainId,
         string sessionTypeCode,
+        string marketCode,
         DateTime effectiveTo,
         CancellationToken cancellationToken = default)
     {
         var current = await _set
             .Where(p =>
-                p.DomainId == domainId
+                p.MarketCode == marketCode
+                && p.DomainId == domainId
                 && p.SessionTypeCode == sessionTypeCode
                 && p.EffectiveTo == null)
             .ToListAsync(cancellationToken);

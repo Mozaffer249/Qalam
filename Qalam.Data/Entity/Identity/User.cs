@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.EncryptColumn.Attribute;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,10 @@ namespace Qalam.Data.Entity.Identity
         public string? LastName { get; set; }
         public string? Address { get; set; }
         public string? Nationality { get; set; }
+
+        /// <summary>User-selected pricing market; null = auto-resolve from nationality/phone/default.</summary>
+        [MaxLength(10)]
+        public string? PreferredMarketCode { get; set; }
 
         [EncryptColumn]
         public string? Code { get; set; }

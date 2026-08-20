@@ -3021,6 +3021,10 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("PreferredMarketCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("ProfilePictureUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -3046,6 +3050,8 @@ namespace Qalam.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.HasIndex("PreferredMarketCode");
 
                     b.ToTable("Users", "security");
                 });
@@ -4215,6 +4221,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("MarketCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<decimal>("PricePerHour")
                         .HasColumnType("decimal(18,2)");
 
@@ -4231,11 +4242,59 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DomainId", "SessionTypeCode", "EffectiveFrom");
+                    b.HasIndex("DomainId");
 
-                    b.HasIndex("DomainId", "SessionTypeCode", "EffectiveTo");
+                    b.HasIndex("MarketCode", "DomainId", "SessionTypeCode", "EffectiveFrom");
+
+                    b.HasIndex("MarketCode", "DomainId", "SessionTypeCode", "EffectiveTo");
 
                     b.ToTable("DomainSessionPrices", "pricing");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingMarket", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("IsDefault");
+
+                    b.ToTable("PricingMarkets", "pricing");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingSnapshot", b =>
@@ -4258,11 +4317,21 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<int?>("CreatedBy")
                         .HasColumnType("int");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<int>("DomainId")
                         .HasColumnType("int");
 
                     b.Property<int?>("DomainSessionPriceId")
                         .HasColumnType("int");
+
+                    b.Property<string>("MarketCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<decimal>("PlatformShare")
                         .HasColumnType("decimal(18,2)");
@@ -7371,6 +7440,14 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Identity.User", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Pricing.PricingMarket", null)
+                        .WithMany()
+                        .HasForeignKey("PreferredMarketCode")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Identity.UserRefreshToken", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Identity.User", "User")
@@ -7793,7 +7870,15 @@ namespace Qalam.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Qalam.Data.Entity.Pricing.PricingMarket", "Market")
+                        .WithMany("DomainSessionPrices")
+                        .HasForeignKey("MarketCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Domain");
+
+                    b.Navigation("Market");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingSnapshot", b =>
@@ -8779,6 +8864,11 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("EnrollmentPayments");
 
                     b.Navigation("PaymentItems");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Pricing.PricingMarket", b =>
+                {
+                    b.Navigation("DomainSessionPrices");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Session.Session", b =>

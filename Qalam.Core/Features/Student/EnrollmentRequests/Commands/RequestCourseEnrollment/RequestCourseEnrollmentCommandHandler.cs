@@ -29,6 +29,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly IContentUnitRepository _contentUnitRepository;
     private readonly ILessonRepository _lessonRepository;
     private readonly IPricingEngine _pricingEngine;
+    private readonly IPricingMarketResolver _marketResolver;
     private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
     private readonly EnrollmentSettings _settings;
 
@@ -45,6 +46,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         IContentUnitRepository contentUnitRepository,
         ILessonRepository lessonRepository,
         IPricingEngine pricingEngine,
+        IPricingMarketResolver marketResolver,
         IPricingSnapshotWriter pricingSnapshotWriter,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
@@ -61,6 +63,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _contentUnitRepository = contentUnitRepository;
         _lessonRepository = lessonRepository;
         _pricingEngine = pricingEngine;
+        _marketResolver = marketResolver;
         _pricingSnapshotWriter = pricingSnapshotWriter;
         _settings = settings.Value;
     }
@@ -270,10 +273,12 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         }
 
         var sessionTypeCode = course.SessionType?.Code ?? "individual";
+        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
         var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
         {
             DomainId = course.DomainId,
             SessionTypeCode = sessionTypeCode,
+            MarketCode = market.MarketCode,
             TotalMinutes = totalMinutes,
             TeacherId = course.TeacherId
         }, cancellationToken);
@@ -463,7 +468,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                 await _requestRepository.AddAsync(enrollmentRequest);
                 await _requestRepository.SaveChangesAsync();
                 await AttachPricingSnapshotAsync(
-                    enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, cancellationToken);
+                    enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, request.UserId, cancellationToken);
 
                 if (!hasPendingInvitees)
                 {
@@ -488,7 +493,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             await _requestRepository.AddAsync(enrollmentRequest);
             await _requestRepository.SaveChangesAsync();
             await AttachPricingSnapshotAsync(
-                enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, cancellationToken);
+                enrollmentRequest, course.DomainId, sessionTypeCode, totalMinutes, course.TeacherId, request.UserId, cancellationToken);
         }
 
         // 11. Build response
@@ -657,14 +662,17 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         string sessionTypeCode,
         int totalMinutes,
         int teacherId,
+        int userId,
         CancellationToken cancellationToken)
     {
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
         var snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
         {
             Context = PricingSnapshotContext.CourseEnrollmentRequest,
             ContextEntityId = enrollmentRequest.Id,
             DomainId = domainId,
             SessionTypeCode = sessionTypeCode,
+            MarketCode = market.MarketCode,
             TotalMinutes = totalMinutes,
             TeacherId = teacherId
         }, cancellationToken);
