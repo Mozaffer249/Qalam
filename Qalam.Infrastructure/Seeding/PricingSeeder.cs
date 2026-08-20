@@ -74,12 +74,6 @@ public static class PricingSeeder
         if (!await SeederHelper.TableExistsAsync(context, "pricing", "DomainSessionPrices"))
             return;
 
-        var domains = await context.EducationDomains
-            .AsNoTracking()
-            .Where(d => d.IsActive)
-            .Select(d => new { d.Id, d.Code })
-            .ToListAsync();
-
         var markets = await context.PricingMarkets
             .AsNoTracking()
             .Where(m => m.IsActive)
@@ -87,77 +81,7 @@ public static class PricingSeeder
             .ToListAsync();
 
         foreach (var marketCode in markets)
-        {
-            foreach (var domain in domains)
-            {
-                var (individual, group) = PricingDefaults.GetDomainRates(domain.Code);
-                var placeholderMultiplier = marketCode == PricingMarketDefaults.DefaultMarketCode
-                    ? 1m
-                    : GetPlaceholderMultiplier(marketCode);
-
-                await EnsureRateAsync(
-                    context,
-                    marketCode,
-                    domain.Id,
-                    PricingDefaults.SessionTypeIndividual,
-                    Math.Round(individual * placeholderMultiplier, 2, MidpointRounding.AwayFromZero),
-                    now);
-                await EnsureRateAsync(
-                    context,
-                    marketCode,
-                    domain.Id,
-                    PricingDefaults.SessionTypeGroup,
-                    Math.Round(group * placeholderMultiplier, 2, MidpointRounding.AwayFromZero),
-                    now);
-            }
-        }
-
-        await context.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Non-SA placeholder rates — not FX conversions; admin should set native prices before go-live.
-    /// </summary>
-    private static decimal GetPlaceholderMultiplier(string marketCode) => marketCode switch
-    {
-        "ae" => 1.0m,
-        "kw" => 0.08m,
-        "qa" => 1.0m,
-        "bh" => 0.10m,
-        "om" => 0.10m,
-        "eg" => 8.0m,
-        "jo" => 0.19m,
-        _ => 1.0m
-    };
-
-    private static async Task EnsureRateAsync(
-        ApplicationDBContext context,
-        string marketCode,
-        int domainId,
-        string sessionTypeCode,
-        decimal pricePerHour,
-        DateTime now)
-    {
-        var hasCurrent = await context.DomainSessionPrices.AnyAsync(p =>
-            p.MarketCode == marketCode
-            && p.DomainId == domainId
-            && p.SessionTypeCode == sessionTypeCode
-            && p.EffectiveTo == null);
-
-        if (hasCurrent)
-            return;
-
-        await context.DomainSessionPrices.AddAsync(new DomainSessionPrice
-        {
-            MarketCode = marketCode,
-            DomainId = domainId,
-            SessionTypeCode = sessionTypeCode,
-            PricePerHour = pricePerHour,
-            EffectiveFrom = now,
-            EffectiveTo = null,
-            IsActive = true,
-            CreatedAt = now
-        });
+            await PricingMarketRateSeeder.SeedPlaceholderRatesForMarketAsync(context, marketCode, now);
     }
 
     private static async Task AssignStarterLevelToTeachersWithoutLevelAsync(ApplicationDBContext context)

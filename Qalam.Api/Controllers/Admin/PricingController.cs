@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Pricing.Commands.ApproveLevelUpgradeSuggestion;
 using Qalam.Core.Features.Admin.Pricing.Commands.BackfillStarterTeacherLevels;
+using Qalam.Core.Features.Admin.Pricing.Commands.CreatePricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Commands.RejectLevelUpgradeSuggestion;
+using Qalam.Core.Features.Admin.Pricing.Commands.SetDefaultPricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDomainSessionPrice;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevel;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherShareOverride;
+using Qalam.Core.Features.Admin.Pricing.Commands.UpdatePricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListDomainSessionPrices;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListLevelUpgradeSuggestions;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
@@ -40,6 +43,18 @@ public class PricingController : AppControllerBase
     [HttpGet("pricing-markets")]
     public async Task<IActionResult> ListPricingMarkets()
         => NewResult(await Mediator.Send(new ListAdminPricingMarketsQuery()));
+
+    [HttpPost("pricing-markets")]
+    public async Task<IActionResult> CreatePricingMarket([FromBody] CreatePricingMarketDto data)
+        => NewResult(await Mediator.Send(new CreatePricingMarketCommand { Data = data }));
+
+    [HttpPut("pricing-markets/{code}")]
+    public async Task<IActionResult> UpdatePricingMarket(string code, [FromBody] UpdatePricingMarketDto data)
+        => NewResult(await Mediator.Send(new UpdatePricingMarketCommand { Code = code, Data = data }));
+
+    [HttpPut("pricing-markets/{code}/set-default")]
+    public async Task<IActionResult> SetDefaultPricingMarket(string code)
+        => NewResult(await Mediator.Send(new SetDefaultPricingMarketCommand { Code = code }));
 
     [HttpPut("domain-session-prices")]
     public async Task<IActionResult> SetDomainSessionPrice([FromBody] SetDomainSessionPriceDto data)

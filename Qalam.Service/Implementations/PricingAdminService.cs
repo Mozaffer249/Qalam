@@ -2,18 +2,24 @@ using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Pricing;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Seeding;
 using Qalam.Service.Abstracts;
+using System.Text.RegularExpressions;
 
 namespace Qalam.Service.Implementations;
 
 public class PricingAdminService : IPricingAdminService
 {
+    private static readonly Regex MarketCodePattern = new("^[a-z0-9]{2,10}$", RegexOptions.Compiled);
+
     private readonly IDomainSessionPriceRepository _domainSessionPriceRepository;
     private readonly IPricingMarketRepository _marketRepository;
     private readonly IEducationDomainRepository _domainRepository;
     private readonly ITeacherLevelRepository _teacherLevelRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherLevelUpgradeSuggestionRepository _suggestionRepository;
+    private readonly ApplicationDBContext _dbContext;
 
     public PricingAdminService(
         IDomainSessionPriceRepository domainSessionPriceRepository,
@@ -21,7 +27,8 @@ public class PricingAdminService : IPricingAdminService
         IEducationDomainRepository domainRepository,
         ITeacherLevelRepository teacherLevelRepository,
         ITeacherRepository teacherRepository,
-        ITeacherLevelUpgradeSuggestionRepository suggestionRepository)
+        ITeacherLevelUpgradeSuggestionRepository suggestionRepository,
+        ApplicationDBContext dbContext)
     {
         _domainSessionPriceRepository = domainSessionPriceRepository;
         _marketRepository = marketRepository;
@@ -29,19 +36,103 @@ public class PricingAdminService : IPricingAdminService
         _teacherLevelRepository = teacherLevelRepository;
         _teacherRepository = teacherRepository;
         _suggestionRepository = suggestionRepository;
+        _dbContext = dbContext;
     }
 
     public async Task<List<PricingMarketDto>> ListPricingMarketsAsync(
         CancellationToken cancellationToken = default)
     {
         var rows = await _marketRepository.ListActiveAsync(cancellationToken);
-        return rows.Select(m => new PricingMarketDto
+        return rows.Select(MapPricingMarket).ToList();
+    }
+
+    public async Task<List<PricingMarketAdminDto>> ListPricingMarketsAdminAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _marketRepository.ListAllAsync(cancellationToken);
+        return rows.Select(MapPricingMarketAdmin).ToList();
+    }
+
+    public async Task<PricingMarketAdminDto> CreatePricingMarketAsync(
+        CreatePricingMarketDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var code = NormalizeMarketCode(dto.Code);
+        ValidateMarketCode(code);
+        var currency = NormalizeCurrency(dto.Currency);
+
+        if (await _marketRepository.ExistsAsync(code, cancellationToken))
+            throw new InvalidOperationException($"Pricing market '{code}' already exists.");
+
+        if (dto.IsDefault)
+            await _marketRepository.ClearDefaultFlagAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var market = new PricingMarket
         {
-            Code = m.Code,
-            NameEn = m.NameEn,
-            NameAr = m.NameAr,
-            Currency = m.Currency
-        }).ToList();
+            Code = code,
+            NameEn = dto.NameEn.Trim(),
+            NameAr = dto.NameAr.Trim(),
+            Currency = currency,
+            IsActive = true,
+            IsDefault = dto.IsDefault,
+            CreatedAt = now
+        };
+
+        await _marketRepository.AddAsync(market);
+        await _marketRepository.SaveChangesAsync();
+
+        await PricingMarketRateSeeder.SeedPlaceholderRatesForMarketAsync(
+            _dbContext, code, now, cancellationToken);
+
+        return MapPricingMarketAdmin(market);
+    }
+
+    public async Task<PricingMarketAdminDto?> UpdatePricingMarketAsync(
+        string code,
+        UpdatePricingMarketDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = NormalizeMarketCode(code);
+        var market = await _marketRepository.GetByCodeTrackedAsync(normalizedCode, cancellationToken);
+        if (market == null)
+            return null;
+
+        if (!dto.IsActive && market.IsDefault)
+            throw new InvalidOperationException("Cannot deactivate the platform default market. Set another market as default first.");
+
+        market.NameEn = dto.NameEn.Trim();
+        market.NameAr = dto.NameAr.Trim();
+        market.Currency = NormalizeCurrency(dto.Currency);
+        market.IsActive = dto.IsActive;
+        market.UpdatedAt = DateTime.UtcNow;
+
+        await _marketRepository.UpdateAsync(market);
+        await _marketRepository.SaveChangesAsync();
+
+        return MapPricingMarketAdmin(market);
+    }
+
+    public async Task<PricingMarketAdminDto?> SetDefaultPricingMarketAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = NormalizeMarketCode(code);
+        var market = await _marketRepository.GetByCodeTrackedAsync(normalizedCode, cancellationToken);
+        if (market == null)
+            return null;
+
+        if (!market.IsActive)
+            throw new InvalidOperationException("Cannot set an inactive market as the platform default.");
+
+        await _marketRepository.ClearDefaultFlagAsync(cancellationToken);
+
+        market.IsDefault = true;
+        market.UpdatedAt = DateTime.UtcNow;
+        await _marketRepository.UpdateAsync(market);
+        await _marketRepository.SaveChangesAsync();
+
+        return MapPricingMarketAdmin(market);
     }
 
     public async Task<List<DomainSessionPriceAdminDto>> ListDomainSessionPricesAsync(
@@ -258,6 +349,38 @@ public class PricingAdminService : IPricingAdminService
     {
         var updatedCount = await _teacherRepository.BackfillStarterLevelForTeachersWithoutLevelAsync(cancellationToken);
         return new BackfillStarterTeacherLevelsResultDto { UpdatedCount = updatedCount };
+    }
+
+    private static PricingMarketDto MapPricingMarket(PricingMarket m) =>
+        new()
+        {
+            Code = m.Code,
+            NameEn = m.NameEn,
+            NameAr = m.NameAr,
+            Currency = m.Currency
+        };
+
+    private static PricingMarketAdminDto MapPricingMarketAdmin(PricingMarket m) =>
+        new()
+        {
+            Code = m.Code,
+            NameEn = m.NameEn,
+            NameAr = m.NameAr,
+            Currency = m.Currency,
+            IsActive = m.IsActive,
+            IsDefault = m.IsDefault
+        };
+
+    private static string NormalizeMarketCode(string code) =>
+        code.Trim().ToLowerInvariant();
+
+    private static string NormalizeCurrency(string currency) =>
+        currency.Trim().ToUpperInvariant();
+
+    private static void ValidateMarketCode(string code)
+    {
+        if (!MarketCodePattern.IsMatch(code))
+            throw new InvalidOperationException("Market code must be 2–10 lowercase letters or digits.");
     }
 
     private static DomainSessionPriceAdminDto MapDomainSessionPrice(DomainSessionPrice row) =>

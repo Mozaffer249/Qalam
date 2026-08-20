@@ -8,7 +8,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
 
 public class ListAdminPricingMarketsQueryHandler : ResponseHandler,
-    IRequestHandler<ListAdminPricingMarketsQuery, Response<List<PricingMarketDto>>>
+    IRequestHandler<ListAdminPricingMarketsQuery, Response<List<PricingMarketAdminDto>>>
 {
     private readonly IPricingAdminService _pricingAdminService;
 
@@ -19,11 +19,11 @@ public class ListAdminPricingMarketsQueryHandler : ResponseHandler,
         _pricingAdminService = pricingAdminService;
     }
 
-    public async Task<Response<List<PricingMarketDto>>> Handle(
+    public async Task<Response<List<PricingMarketAdminDto>>> Handle(
         ListAdminPricingMarketsQuery request,
         CancellationToken cancellationToken)
     {
-        var markets = await _pricingAdminService.ListPricingMarketsAsync(cancellationToken);
+        var markets = await _pricingAdminService.ListPricingMarketsAdminAsync(cancellationToken);
         return Success(entity: markets);
     }
 }

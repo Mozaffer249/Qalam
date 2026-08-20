@@ -8,6 +8,33 @@ public class PricingMarketDto
     public string Currency { get; set; } = default!;
 }
 
+public class PricingMarketAdminDto
+{
+    public string Code { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+    public bool IsActive { get; set; }
+    public bool IsDefault { get; set; }
+}
+
+public class CreatePricingMarketDto
+{
+    public string Code { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+    public bool IsDefault { get; set; }
+}
+
+public class UpdatePricingMarketDto
+{
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+    public bool IsActive { get; set; }
+}
+
 public class MyPricingMarketDto
 {
     public string MarketCode { get; set; } = default!;

@@ -6,6 +6,21 @@ public interface IPricingAdminService
 {
     Task<List<PricingMarketDto>> ListPricingMarketsAsync(CancellationToken cancellationToken = default);
 
+    Task<List<PricingMarketAdminDto>> ListPricingMarketsAdminAsync(CancellationToken cancellationToken = default);
+
+    Task<PricingMarketAdminDto> CreatePricingMarketAsync(
+        CreatePricingMarketDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<PricingMarketAdminDto?> UpdatePricingMarketAsync(
+        string code,
+        UpdatePricingMarketDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<PricingMarketAdminDto?> SetDefaultPricingMarketAsync(
+        string code,
+        CancellationToken cancellationToken = default);
+
     Task<List<DomainSessionPriceAdminDto>> ListDomainSessionPricesAsync(
         string marketCode,
         int? domainId,

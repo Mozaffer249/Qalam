@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
@@ -6,19 +9,40 @@ using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Pricing;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Repositories;
+using Qalam.Infrastructure.Seeding;
 using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Tests;
 
 public class PricingAdminServiceTests
 {
+    private static ApplicationDBContext CreateDb(string? databaseName = null)
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["EncryptionSettings:Key"] = "0123456789abcdef0123456789abcdef",
+            })
+            .Build();
+
+        var options = new DbContextOptionsBuilder<ApplicationDBContext>()
+            .UseInMemoryDatabase(databaseName ?? Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        return new ApplicationDBContext(options, config);
+    }
+
     private static PricingAdminService CreateSut(
         out Mock<IDomainSessionPriceRepository> priceRepo,
         out Mock<IPricingMarketRepository> marketRepo,
         out Mock<IEducationDomainRepository> domainRepo,
         out Mock<ITeacherLevelRepository> levelRepo,
         out Mock<ITeacherRepository> teacherRepo,
-        out Mock<ITeacherLevelUpgradeSuggestionRepository> suggestionRepo)
+        out Mock<ITeacherLevelUpgradeSuggestionRepository> suggestionRepo,
+        ApplicationDBContext? dbContext = null)
     {
         priceRepo = new Mock<IDomainSessionPriceRepository>();
         marketRepo = new Mock<IPricingMarketRepository>();
@@ -37,7 +61,8 @@ public class PricingAdminServiceTests
             domainRepo.Object,
             levelRepo.Object,
             teacherRepo.Object,
-            suggestionRepo.Object);
+            suggestionRepo.Object,
+            dbContext ?? CreateDb());
     }
 
     [Fact]
@@ -254,6 +279,190 @@ public class PricingAdminServiceTests
         var result = await service.BackfillStarterTeacherLevelsAsync();
 
         Assert.Equal(2500, result.UpdatedCount);
+    }
+
+    [Fact]
+    public async Task CreatePricingMarketAsync_DuplicateCode_Throws()
+    {
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        marketRepo.Setup(r => r.ExistsAsync("ma", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreatePricingMarketAsync(new CreatePricingMarketDto
+            {
+                Code = "ma",
+                NameEn = "Morocco",
+                NameAr = "المغرب",
+                Currency = "MAD"
+            }));
+
+        Assert.Contains("already exists", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdatePricingMarketAsync_DeactivateDefault_Throws()
+    {
+        var market = new PricingMarket
+        {
+            Code = "sa",
+            NameEn = "Saudi Arabia",
+            NameAr = "السعودية",
+            Currency = "SAR",
+            IsActive = true,
+            IsDefault = true
+        };
+
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        marketRepo.Setup(r => r.GetByCodeTrackedAsync("sa", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(market);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdatePricingMarketAsync("sa", new UpdatePricingMarketDto
+            {
+                NameEn = market.NameEn,
+                NameAr = market.NameAr,
+                Currency = market.Currency,
+                IsActive = false
+            }));
+
+        Assert.Contains("default market", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SetDefaultPricingMarketAsync_InactiveMarket_Throws()
+    {
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        marketRepo.Setup(r => r.GetByCodeTrackedAsync("eg", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PricingMarket
+            {
+                Code = "eg",
+                NameEn = "Egypt",
+                NameAr = "مصر",
+                Currency = "EGP",
+                IsActive = false
+            });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SetDefaultPricingMarketAsync("eg"));
+
+        Assert.Contains("inactive", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreatePricingMarketAsync_SeedsPlaceholderRatesForAllDomains()
+    {
+        await using var db = CreateDb();
+        var now = new DateTime(2026, 8, 20, 0, 0, 0, DateTimeKind.Utc);
+        db.EducationDomains.AddRange(
+            new EducationDomain { Id = 1, Code = "school", NameEn = "School", NameAr = "مدرسة", IsActive = true, CreatedAt = now },
+            new EducationDomain { Id = 2, Code = "quran", NameEn = "Quran", NameAr = "قرآن", IsActive = true, CreatedAt = now });
+        await db.SaveChangesAsync();
+
+        var marketRepo = new PricingMarketRepository(db);
+        var service = new PricingAdminService(
+            new Mock<IDomainSessionPriceRepository>().Object,
+            marketRepo,
+            new Mock<IEducationDomainRepository>().Object,
+            new Mock<ITeacherLevelRepository>().Object,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
+            db);
+
+        var result = await service.CreatePricingMarketAsync(new CreatePricingMarketDto
+        {
+            Code = "ma",
+            NameEn = "Morocco",
+            NameAr = "المغرب",
+            Currency = "MAD"
+        });
+
+        Assert.Equal("ma", result.Code);
+        Assert.True(result.IsActive);
+
+        var rates = db.DomainSessionPrices.Where(p => p.MarketCode == "ma").ToList();
+        Assert.Equal(4, rates.Count);
+        Assert.Contains(rates, r => r.DomainId == 1 && r.SessionTypeCode == PricingDefaults.SessionTypeIndividual);
+        Assert.Contains(rates, r => r.DomainId == 1 && r.SessionTypeCode == PricingDefaults.SessionTypeGroup);
+    }
+
+    [Fact]
+    public async Task SetDefaultPricingMarketAsync_SetsDefaultAndClearsOthers()
+    {
+        var sa = new PricingMarket
+        {
+            Code = "sa",
+            NameEn = "SA",
+            NameAr = "SA",
+            Currency = "SAR",
+            IsActive = true,
+            IsDefault = true,
+        };
+        var eg = new PricingMarket
+        {
+            Code = "eg",
+            NameEn = "EG",
+            NameAr = "EG",
+            Currency = "EGP",
+            IsActive = true,
+            IsDefault = false,
+        };
+
+        PricingMarket? updated = null;
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        marketRepo.Setup(r => r.GetByCodeTrackedAsync("eg", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(eg);
+        marketRepo.Setup(r => r.ClearDefaultFlagAsync(It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                sa.IsDefault = false;
+                eg.IsDefault = true;
+            })
+            .Returns(Task.CompletedTask);
+        marketRepo.Setup(r => r.UpdateAsync(It.IsAny<PricingMarket>()))
+            .Callback<PricingMarket>(m => updated = m)
+            .Returns(Task.CompletedTask);
+
+        var result = await service.SetDefaultPricingMarketAsync("eg");
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsDefault);
+        Assert.Equal("eg", updated!.Code);
+        marketRepo.Verify(r => r.ClearDefaultFlagAsync(It.IsAny<CancellationToken>()), Times.Once);
+        marketRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePricingMarketAsync_PersistsNamesAndCurrency()
+    {
+        PricingMarket? updated = null;
+        var market = new PricingMarket
+        {
+            Code = "ae",
+            NameEn = "UAE",
+            NameAr = "الإمارات",
+            Currency = "AED",
+            IsActive = true,
+            IsDefault = false
+        };
+
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        marketRepo.Setup(r => r.GetByCodeTrackedAsync("ae", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(market);
+        marketRepo.Setup(r => r.UpdateAsync(It.IsAny<PricingMarket>()))
+            .Callback<PricingMarket>(m => updated = m)
+            .Returns(Task.CompletedTask);
+
+        var result = await service.UpdatePricingMarketAsync("ae", new UpdatePricingMarketDto
+        {
+            NameEn = "United Arab Emirates",
+            NameAr = "الإمارات العربية",
+            Currency = "AED",
+            IsActive = true
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal("United Arab Emirates", updated!.NameEn);
+        marketRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 }
 
