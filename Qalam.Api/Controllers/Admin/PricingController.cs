@@ -10,9 +10,11 @@ using Qalam.Core.Features.Admin.Pricing.Commands.SetDomainSessionPrice;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevel;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherShareOverride;
+using Qalam.Core.Features.Admin.Pricing.Commands.UpdatePricingExchangeRate;
 using Qalam.Core.Features.Admin.Pricing.Commands.UpdatePricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListDomainSessionPrices;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListLevelUpgradeSuggestions;
+using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingExchangeRates;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListTeacherLevelTiers;
 using Qalam.Data.AppMetaData;
@@ -59,6 +61,14 @@ public class PricingController : AppControllerBase
     [HttpPut("domain-session-prices")]
     public async Task<IActionResult> SetDomainSessionPrice([FromBody] SetDomainSessionPriceDto data)
         => NewResult(await Mediator.Send(new SetDomainSessionPriceCommand { Data = data }));
+
+    [HttpGet("exchange-rates")]
+    public async Task<IActionResult> ListExchangeRates()
+        => NewResult(await Mediator.Send(new ListPricingExchangeRatesQuery()));
+
+    [HttpPut("exchange-rates/{code}")]
+    public async Task<IActionResult> UpdateExchangeRate(string code, [FromBody] UpdatePricingExchangeRateDto data)
+        => NewResult(await Mediator.Send(new UpdatePricingExchangeRateCommand { Code = code, Data = data }));
 
     [HttpGet("teacher-level-tiers")]
     public async Task<IActionResult> ListTeacherLevelTiers()

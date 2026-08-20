@@ -4268,6 +4268,10 @@ namespace Qalam.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("nvarchar(3)");
 
+                    b.Property<decimal>("ExchangeRateFromBase")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 

@@ -32,6 +32,14 @@ public interface IPricingAdminService
         SetDomainSessionPriceDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<List<PricingExchangeRateAdminDto>> ListPricingExchangeRatesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<PricingExchangeRateAdminDto?> UpdatePricingExchangeRateAsync(
+        string code,
+        UpdatePricingExchangeRateDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<List<TeacherLevelTierAdminDto>> ListTeacherLevelTiersAsync(
         CancellationToken cancellationToken = default);
 

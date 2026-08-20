@@ -25,6 +25,8 @@ public class CreatePricingMarketDto
     public string NameAr { get; set; } = default!;
     public string Currency { get; set; } = default!;
     public bool IsDefault { get; set; }
+    /// <summary>Units of market currency per 1 SAR. Defaults to 1.0.</summary>
+    public decimal? ExchangeRateFromBase { get; set; }
 }
 
 public class UpdatePricingMarketDto
@@ -62,6 +64,8 @@ public class DomainSessionPriceAdminDto
     public string? DomainNameAr { get; set; }
     public string SessionTypeCode { get; set; } = default!;
     public decimal PricePerHour { get; set; }
+    public decimal? BasePricePerHour { get; set; }
+    public bool IsDerived { get; set; }
     public DateTime EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
     public bool IsActive { get; set; }
@@ -70,12 +74,28 @@ public class DomainSessionPriceAdminDto
 
 public class SetDomainSessionPriceDto
 {
-    public string MarketCode { get; set; } = default!;
+    /// <summary>Ignored — base rates are always stored in SAR (sa market).</summary>
+    public string? MarketCode { get; set; }
     public int DomainId { get; set; }
     public string SessionTypeCode { get; set; } = default!;
     public decimal PricePerHour { get; set; }
     /// <summary>When the new rate takes effect. Defaults to UTC now if omitted.</summary>
     public DateTime? EffectiveFrom { get; set; }
+}
+
+public class PricingExchangeRateAdminDto
+{
+    public string Code { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public string Currency { get; set; } = default!;
+    public decimal ExchangeRateFromBase { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class UpdatePricingExchangeRateDto
+{
+    public decimal ExchangeRateFromBase { get; set; }
 }
 
 public class TeacherLevelTierAdminDto

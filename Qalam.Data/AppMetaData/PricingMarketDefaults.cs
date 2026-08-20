@@ -11,16 +11,29 @@ public static class PricingMarketDefaults
         var now = createdAt ?? DateTime.UtcNow;
         return
         [
-            new("sa", "SAR", "Saudi Arabia", "المملكة العربية السعودية", true, now),
-            new("ae", "AED", "United Arab Emirates", "الإمارات العربية المتحدة", false, now),
-            new("kw", "KWD", "Kuwait", "الكويت", false, now),
-            new("qa", "QAR", "Qatar", "قطر", false, now),
-            new("bh", "BHD", "Bahrain", "البحرين", false, now),
-            new("om", "OMR", "Oman", "عُمان", false, now),
-            new("eg", "EGP", "Egypt", "مصر", false, now),
-            new("jo", "JOD", "Jordan", "الأردن", false, now),
+            new("sa", "SAR", "Saudi Arabia", "المملكة العربية السعودية", true, 1m, now),
+            new("ae", "AED", "United Arab Emirates", "الإمارات العربية المتحدة", false, 1.0m, now),
+            new("kw", "KWD", "Kuwait", "الكويت", false, 0.08m, now),
+            new("qa", "QAR", "Qatar", "قطر", false, 1.0m, now),
+            new("bh", "BHD", "Bahrain", "البحرين", false, 0.10m, now),
+            new("om", "OMR", "Oman", "عُمان", false, 0.10m, now),
+            new("eg", "EGP", "Egypt", "مصر", false, 8.0m, now),
+            new("jo", "JOD", "Jordan", "الأردن", false, 0.19m, now),
         ];
     }
+
+    public static decimal GetDefaultExchangeRateFromBase(string marketCode) =>
+        marketCode == DefaultMarketCode ? 1m : marketCode switch
+        {
+            "ae" => 1.0m,
+            "kw" => 0.08m,
+            "qa" => 1.0m,
+            "bh" => 0.10m,
+            "om" => 0.10m,
+            "eg" => 8.0m,
+            "jo" => 0.19m,
+            _ => 1.0m
+        };
 
     /// <summary>ISO 3166-1 alpha-2 country code → market code.</summary>
     public static IReadOnlyDictionary<string, string> CountryToMarket { get; } =
@@ -83,5 +96,6 @@ public static class PricingMarketDefaults
         string NameEn,
         string NameAr,
         bool IsDefault,
+        decimal ExchangeRateFromBase,
         DateTime CreatedAt);
 }

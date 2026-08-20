@@ -24,5 +24,8 @@ public class PricingMarket : AuditableEntity
 
     public bool IsDefault { get; set; }
 
+    /// <summary>Units of this market's currency per 1 SAR. Base market (sa) is always 1.</summary>
+    public decimal ExchangeRateFromBase { get; set; } = 1m;
+
     public ICollection<DomainSessionPrice> DomainSessionPrices { get; set; } = new List<DomainSessionPrice>();
 }

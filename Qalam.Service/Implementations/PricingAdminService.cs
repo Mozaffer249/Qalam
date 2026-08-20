@@ -1,3 +1,4 @@
+using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Pricing;
@@ -19,6 +20,7 @@ public class PricingAdminService : IPricingAdminService
     private readonly ITeacherLevelRepository _teacherLevelRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherLevelUpgradeSuggestionRepository _suggestionRepository;
+    private readonly IDomainRatePropagationService _propagationService;
     private readonly ApplicationDBContext _dbContext;
 
     public PricingAdminService(
@@ -28,6 +30,7 @@ public class PricingAdminService : IPricingAdminService
         ITeacherLevelRepository teacherLevelRepository,
         ITeacherRepository teacherRepository,
         ITeacherLevelUpgradeSuggestionRepository suggestionRepository,
+        IDomainRatePropagationService propagationService,
         ApplicationDBContext dbContext)
     {
         _domainSessionPriceRepository = domainSessionPriceRepository;
@@ -36,6 +39,7 @@ public class PricingAdminService : IPricingAdminService
         _teacherLevelRepository = teacherLevelRepository;
         _teacherRepository = teacherRepository;
         _suggestionRepository = suggestionRepository;
+        _propagationService = propagationService;
         _dbContext = dbContext;
     }
 
@@ -68,6 +72,10 @@ public class PricingAdminService : IPricingAdminService
             await _marketRepository.ClearDefaultFlagAsync(cancellationToken);
 
         var now = DateTime.UtcNow;
+        var exchangeRate = code == PricingMarketDefaults.DefaultMarketCode
+            ? 1m
+            : dto.ExchangeRateFromBase is > 0 ? dto.ExchangeRateFromBase.Value : 1m;
+
         var market = new PricingMarket
         {
             Code = code,
@@ -76,6 +84,7 @@ public class PricingAdminService : IPricingAdminService
             Currency = currency,
             IsActive = true,
             IsDefault = dto.IsDefault,
+            ExchangeRateFromBase = exchangeRate,
             CreatedAt = now
         };
 
@@ -165,16 +174,20 @@ public class PricingAdminService : IPricingAdminService
                 rows = rows.Where(r => r.SessionTypeCode == sessionTypeCode.Trim()).ToList();
         }
 
-        return rows.Select(MapDomainSessionPrice).ToList();
+        var baseRateLookup = await BuildBaseRateLookupAsync(cancellationToken);
+        return rows.Select(r => MapDomainSessionPrice(r, baseRateLookup)).ToList();
     }
 
     public async Task<DomainSessionPriceAdminDto?> SetDomainSessionPriceAsync(
         SetDomainSessionPriceDto dto,
         CancellationToken cancellationToken = default)
     {
-        var marketCode = dto.MarketCode.Trim().ToLowerInvariant();
-        if (!await _marketRepository.ExistsActiveAsync(marketCode, cancellationToken))
-            throw new InvalidOperationException($"Pricing market '{marketCode}' is not available.");
+        if (!string.IsNullOrWhiteSpace(dto.MarketCode))
+        {
+            var requestedMarket = dto.MarketCode.Trim().ToLowerInvariant();
+            if (requestedMarket != PricingMarketDefaults.DefaultMarketCode)
+                throw new InvalidOperationException("Domain rates must be set in the base market (SAR). Other markets are derived automatically.");
+        }
 
         var domain = await _domainRepository.GetByIdAsync(dto.DomainId);
         if (domain == null)
@@ -187,32 +200,73 @@ public class PricingAdminService : IPricingAdminService
         var effectiveFrom = dto.EffectiveFrom?.ToUniversalTime() ?? DateTime.UtcNow;
 
         var current = await _domainSessionPriceRepository.GetCurrentRateAsync(
-            dto.DomainId, sessionTypeCode, marketCode, cancellationToken);
+            dto.DomainId, sessionTypeCode, PricingMarketDefaults.DefaultMarketCode, cancellationToken);
         if (current != null && current.PricePerHour == dto.PricePerHour)
             return MapDomainSessionPrice(current, domain.Code, domain.NameEn, domain.NameAr);
 
-        await _domainSessionPriceRepository.CloseCurrentRateAsync(
-            dto.DomainId, sessionTypeCode, marketCode, effectiveFrom, cancellationToken);
+        var baseRow = await _propagationService.PropagateBaseRateAsync(
+            dto.DomainId,
+            sessionTypeCode,
+            dto.PricePerHour,
+            effectiveFrom,
+            cancellationToken);
 
-        var row = new DomainSessionPrice
-        {
-            MarketCode = marketCode,
-            DomainId = dto.DomainId,
-            SessionTypeCode = sessionTypeCode,
-            PricePerHour = dto.PricePerHour,
-            EffectiveFrom = effectiveFrom,
-            EffectiveTo = null,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _domainSessionPriceRepository.AddAsync(row);
-        await _domainSessionPriceRepository.SaveChangesAsync();
-
-        var market = await _marketRepository.GetByCodeAsync(marketCode, cancellationToken);
-        row.Market = market!;
-        return MapDomainSessionPrice(row, domain.Code, domain.NameEn, domain.NameAr);
+        var market = await _marketRepository.GetByCodeAsync(PricingMarketDefaults.DefaultMarketCode, cancellationToken);
+        baseRow.Market = market!;
+        return MapDomainSessionPrice(baseRow, domain.Code, domain.NameEn, domain.NameAr);
     }
+
+    public async Task<List<PricingExchangeRateAdminDto>> ListPricingExchangeRatesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _marketRepository.ListAllAsync(cancellationToken);
+        return rows.Select(MapExchangeRate).ToList();
+    }
+
+    public async Task<PricingExchangeRateAdminDto?> UpdatePricingExchangeRateAsync(
+        string code,
+        UpdatePricingExchangeRateDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = NormalizeMarketCode(code);
+        if (normalizedCode == PricingMarketDefaults.DefaultMarketCode)
+            throw new InvalidOperationException("The base market exchange rate is fixed at 1 and cannot be changed.");
+
+        if (dto.ExchangeRateFromBase <= 0)
+            throw new InvalidOperationException("Exchange rate must be greater than zero.");
+
+        var market = await _marketRepository.GetByCodeTrackedAsync(normalizedCode, cancellationToken);
+        if (market == null)
+            return null;
+
+        market.ExchangeRateFromBase = dto.ExchangeRateFromBase;
+        market.UpdatedAt = DateTime.UtcNow;
+        await _marketRepository.UpdateAsync(market);
+        await _marketRepository.SaveChangesAsync();
+
+        await _propagationService.RecalculateMarketFromBaseAsync(
+            normalizedCode,
+            DateTime.UtcNow,
+            cancellationToken);
+
+        return MapExchangeRate(market);
+    }
+
+    private async Task<IReadOnlyDictionary<(int DomainId, string SessionTypeCode), decimal>> BuildBaseRateLookupAsync(
+        CancellationToken cancellationToken)
+    {
+        var baseRates = await _domainSessionPriceRepository.ListCurrentRatesAsync(
+            PricingMarketDefaults.DefaultMarketCode,
+            cancellationToken);
+        return baseRates.ToDictionary(
+            r => (r.DomainId, r.SessionTypeCode),
+            r => r.PricePerHour);
+    }
+
+    private List<DomainSessionPriceAdminDto> MapDomainSessionPrices(
+        List<DomainSessionPrice> rows,
+        IReadOnlyDictionary<(int DomainId, string SessionTypeCode), decimal> baseRateLookup)
+        => rows.Select(r => MapDomainSessionPrice(r, baseRateLookup)).ToList();
 
     public async Task<List<TeacherLevelTierAdminDto>> ListTeacherLevelTiersAsync(
         CancellationToken cancellationToken = default)
@@ -388,10 +442,25 @@ public class PricingAdminService : IPricingAdminService
 
     private static DomainSessionPriceAdminDto MapDomainSessionPrice(
         DomainSessionPrice row,
+        IReadOnlyDictionary<(int DomainId, string SessionTypeCode), decimal> baseRateLookup) =>
+        MapDomainSessionPrice(row, row.Domain?.Code, row.Domain?.NameEn, row.Domain?.NameAr, baseRateLookup);
+
+    private static DomainSessionPriceAdminDto MapDomainSessionPrice(
+        DomainSessionPrice row,
         string? domainCode,
         string? domainNameEn,
-        string? domainNameAr) =>
-        new()
+        string? domainNameAr,
+        IReadOnlyDictionary<(int DomainId, string SessionTypeCode), decimal>? baseRateLookup = null)
+    {
+        var isBase = row.MarketCode == PricingMarketDefaults.DefaultMarketCode;
+        decimal? basePrice = isBase
+            ? row.PricePerHour
+            : baseRateLookup != null
+                && baseRateLookup.TryGetValue((row.DomainId, row.SessionTypeCode), out var bp)
+                ? bp
+                : null;
+
+        return new DomainSessionPriceAdminDto
         {
             Id = row.Id,
             MarketCode = row.MarketCode,
@@ -402,10 +471,24 @@ public class PricingAdminService : IPricingAdminService
             DomainNameAr = domainNameAr,
             SessionTypeCode = row.SessionTypeCode,
             PricePerHour = row.PricePerHour,
+            BasePricePerHour = basePrice,
+            IsDerived = !isBase,
             EffectiveFrom = row.EffectiveFrom,
             EffectiveTo = row.EffectiveTo,
             IsActive = row.IsActive,
             IsCurrent = row.EffectiveTo == null
+        };
+    }
+
+    private static PricingExchangeRateAdminDto MapExchangeRate(PricingMarket m) =>
+        new()
+        {
+            Code = m.Code,
+            NameEn = m.NameEn,
+            NameAr = m.NameAr,
+            Currency = m.Currency,
+            ExchangeRateFromBase = m.ExchangeRateFromBase,
+            IsActive = m.IsActive
         };
 
     private static TeacherLevelTierAdminDto MapTeacherLevelTier(Data.Entity.Teacher.TeacherLevel level) =>

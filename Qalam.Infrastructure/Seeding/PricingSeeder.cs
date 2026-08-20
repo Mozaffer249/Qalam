@@ -52,6 +52,7 @@ public static class PricingSeeder
                 NameAr = seed.NameAr,
                 IsActive = true,
                 IsDefault = seed.IsDefault,
+                ExchangeRateFromBase = seed.ExchangeRateFromBase,
                 CreatedAt = seed.CreatedAt
             });
         }
@@ -77,6 +78,7 @@ public static class PricingSeeder
         var markets = await context.PricingMarkets
             .AsNoTracking()
             .Where(m => m.IsActive)
+            .OrderBy(m => m.Code == PricingMarketDefaults.DefaultMarketCode ? 0 : 1)
             .Select(m => m.Code)
             .ToListAsync();
 

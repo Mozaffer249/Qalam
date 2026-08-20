@@ -14,6 +14,7 @@ public class PricingMarketConfiguration : IEntityTypeConfiguration<PricingMarket
         builder.Property(e => e.NameEn).HasMaxLength(100).IsRequired();
         builder.Property(e => e.NameAr).HasMaxLength(100).IsRequired();
         builder.Property(e => e.Currency).HasMaxLength(3).IsRequired();
+        builder.Property(e => e.ExchangeRateFromBase).HasPrecision(18, 6);
         builder.HasIndex(e => e.IsDefault);
     }
 }

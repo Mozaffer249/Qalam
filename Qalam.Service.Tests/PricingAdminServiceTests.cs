@@ -62,6 +62,7 @@ public class PricingAdminServiceTests
             levelRepo.Object,
             teacherRepo.Object,
             suggestionRepo.Object,
+            new DomainRatePropagationService(priceRepo.Object, marketRepo.Object),
             dbContext ?? CreateDb());
     }
 
@@ -146,10 +147,28 @@ public class PricingAdminServiceTests
     }
 
     [Fact]
-    public async Task SetDomainSessionPriceAsync_NewPrice_ClosesCurrentAndAddsRow()
+    public async Task SetDomainSessionPriceAsync_NonBaseMarket_Throws()
     {
-        DomainSessionPrice? added = null;
-        var service = CreateSut(out var priceRepo, out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
+        domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain { Id = 1, Code = "school", NameEn = "School", NameAr = "مدرسة" });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
+            {
+                MarketCode = "ae",
+                DomainId = 1,
+                SessionTypeCode = "individual",
+                PricePerHour = 100m
+            }));
+
+        Assert.Contains("base market", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SetDomainSessionPriceAsync_NewPrice_ClosesCurrentAndPropagates()
+    {
+        var addedRows = new List<DomainSessionPrice>();
+        var service = CreateSut(out var priceRepo, out var marketRepo, out var domainRepo, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -157,6 +176,14 @@ public class PricingAdminServiceTests
             NameEn = "School",
             NameAr = "مدرسة"
         });
+        marketRepo.Setup(r => r.ListActiveAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new PricingMarket { Code = "sa", Currency = "SAR", ExchangeRateFromBase = 1m, IsActive = true },
+                new PricingMarket { Code = "ae", Currency = "AED", ExchangeRateFromBase = 1m, IsActive = true },
+            ]);
+        marketRepo.Setup(r => r.GetByCodeAsync("sa", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PricingMarket { Code = "sa", Currency = "SAR", ExchangeRateFromBase = 1m });
         priceRepo.Setup(r => r.GetCurrentRateAsync(1, "group", "sa", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DomainSessionPrice
             {
@@ -165,22 +192,22 @@ public class PricingAdminServiceTests
                 SessionTypeCode = "group",
                 PricePerHour = 75m
             });
+        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "group", "ae", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DomainSessionPrice?)null);
         priceRepo.Setup(r => r.AddAsync(It.IsAny<DomainSessionPrice>()))
-            .Callback<DomainSessionPrice>(p => added = p)
+            .Callback<DomainSessionPrice>(p => addedRows.Add(p))
             .ReturnsAsync((DomainSessionPrice p) => p);
 
         var result = await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
         {
-            MarketCode = "sa",
             DomainId = 1,
             SessionTypeCode = "group",
             PricePerHour = 90m
         });
 
         Assert.NotNull(result);
-        Assert.NotNull(added);
-        Assert.Equal("group", added!.SessionTypeCode);
-        Assert.Equal(90m, added.PricePerHour);
+        Assert.Contains(addedRows, r => r.MarketCode == "sa" && r.PricePerHour == 90m);
+        Assert.Contains(addedRows, r => r.MarketCode == "ae" && r.PricePerHour == 90m);
         priceRepo.Verify(r => r.CloseCurrentRateAsync(1, "group", "sa", It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         priceRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
@@ -359,13 +386,15 @@ public class PricingAdminServiceTests
         await db.SaveChangesAsync();
 
         var marketRepo = new PricingMarketRepository(db);
+        var priceRepo = new DomainSessionPriceRepository(db);
         var service = new PricingAdminService(
-            new Mock<IDomainSessionPriceRepository>().Object,
+            priceRepo,
             marketRepo,
             new Mock<IEducationDomainRepository>().Object,
             new Mock<ITeacherLevelRepository>().Object,
             new Mock<ITeacherRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
+            new DomainRatePropagationService(priceRepo, marketRepo),
             db);
 
         var result = await service.CreatePricingMarketAsync(new CreatePricingMarketDto
@@ -464,6 +493,51 @@ public class PricingAdminServiceTests
         Assert.Equal("United Arab Emirates", updated!.NameEn);
         marketRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task UpdatePricingExchangeRateAsync_BaseMarket_Throws()
+    {
+        var service = CreateSut(out _, out _, out _, out _, out _, out _);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdatePricingExchangeRateAsync("sa", new UpdatePricingExchangeRateDto { ExchangeRateFromBase = 2m }));
+
+        Assert.Contains("base market", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UpdatePricingExchangeRateAsync_RecalculatesDerivedRates()
+    {
+        await using var db = CreateDb();
+        var now = DateTime.UtcNow;
+        db.PricingMarkets.AddRange(
+            new PricingMarket { Code = "sa", NameEn = "SA", NameAr = "SA", Currency = "SAR", IsActive = true, IsDefault = true, ExchangeRateFromBase = 1m, CreatedAt = now },
+            new PricingMarket { Code = "ae", NameEn = "AE", NameAr = "AE", Currency = "AED", IsActive = true, IsDefault = false, ExchangeRateFromBase = 1m, CreatedAt = now });
+        db.EducationDomains.Add(new EducationDomain { Id = 1, Code = "school", NameEn = "School", NameAr = "مدرسة", IsActive = true, CreatedAt = now });
+        db.DomainSessionPrices.AddRange(
+            new DomainSessionPrice { MarketCode = "sa", DomainId = 1, SessionTypeCode = "individual", PricePerHour = 100m, EffectiveFrom = now, IsActive = true, CreatedAt = now },
+            new DomainSessionPrice { MarketCode = "ae", DomainId = 1, SessionTypeCode = "individual", PricePerHour = 100m, EffectiveFrom = now, IsActive = true, CreatedAt = now });
+        await db.SaveChangesAsync();
+
+        var marketRepo = new PricingMarketRepository(db);
+        var priceRepo = new DomainSessionPriceRepository(db);
+        var service = new PricingAdminService(
+            priceRepo,
+            marketRepo,
+            new Mock<IEducationDomainRepository>().Object,
+            new Mock<ITeacherLevelRepository>().Object,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
+            new DomainRatePropagationService(priceRepo, marketRepo),
+            db);
+
+        await service.UpdatePricingExchangeRateAsync("ae", new UpdatePricingExchangeRateDto { ExchangeRateFromBase = 2m });
+
+        var aeRate = db.DomainSessionPrices
+            .Where(p => p.MarketCode == "ae" && p.DomainId == 1 && p.SessionTypeCode == "individual" && p.EffectiveTo == null)
+            .Single();
+        Assert.Equal(200m, aeRate.PricePerHour);
+    }
 }
 
 public class PricingDefaultsTests
@@ -490,5 +564,14 @@ public class PricingDefaultsTests
 
         Assert.Equal(individual, rates.Individual);
         Assert.Equal(group, rates.Group);
+    }
+
+    [Theory]
+    [InlineData(100, 1, 100)]
+    [InlineData(100, 0.08, 8)]
+    [InlineData(100, 8, 800)]
+    public void DeriveLocalPrice_RoundsAwayFromZero(decimal basePrice, decimal rate, decimal expected)
+    {
+        Assert.Equal(expected, PricingExchangeRateHelper.DeriveLocalPrice(basePrice, rate));
     }
 }

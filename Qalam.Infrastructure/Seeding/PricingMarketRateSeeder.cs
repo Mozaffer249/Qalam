@@ -6,8 +6,7 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds placeholder domain session rates for a pricing market.
-/// Non-SA rates are placeholders — admin should set native prices before go-live.
+/// Seeds domain session rates for a pricing market from SAR base rates × exchange rate.
 /// </summary>
 public static class PricingMarketRateSeeder
 {
@@ -18,51 +17,84 @@ public static class PricingMarketRateSeeder
         CancellationToken cancellationToken = default)
     {
         var now = asOf ?? DateTime.UtcNow;
+        var normalized = marketCode.Trim().ToLowerInvariant();
+        var market = await context.PricingMarkets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Code == normalized, cancellationToken);
+
+        if (market == null)
+            return;
+
         var domains = await context.EducationDomains
             .AsNoTracking()
             .Where(d => d.IsActive)
             .Select(d => new { d.Id, d.Code })
             .ToListAsync(cancellationToken);
 
-        foreach (var domain in domains)
+        if (normalized == PricingMarketDefaults.DefaultMarketCode)
         {
-            var (individual, group) = PricingDefaults.GetDomainRates(domain.Code);
-            var multiplier = marketCode == PricingMarketDefaults.DefaultMarketCode
-                ? 1m
-                : GetPlaceholderMultiplier(marketCode);
+            foreach (var domain in domains)
+            {
+                var (individual, group) = PricingDefaults.GetDomainRates(domain.Code);
+                await EnsureRateAsync(context, normalized, domain.Id, PricingDefaults.SessionTypeIndividual, individual, now, cancellationToken);
+                await EnsureRateAsync(context, normalized, domain.Id, PricingDefaults.SessionTypeGroup, group, now, cancellationToken);
+            }
+        }
+        else
+        {
+            var baseRates = await context.DomainSessionPrices
+                .AsNoTracking()
+                .Where(p =>
+                    p.MarketCode == PricingMarketDefaults.DefaultMarketCode
+                    && p.IsActive
+                    && p.EffectiveTo == null)
+                .Select(p => new { p.DomainId, p.SessionTypeCode, p.PricePerHour })
+                .ToListAsync(cancellationToken);
 
-            await EnsureRateAsync(
-                context,
-                marketCode,
-                domain.Id,
-                PricingDefaults.SessionTypeIndividual,
-                Math.Round(individual * multiplier, 2, MidpointRounding.AwayFromZero),
-                now,
-                cancellationToken);
-            await EnsureRateAsync(
-                context,
-                marketCode,
-                domain.Id,
-                PricingDefaults.SessionTypeGroup,
-                Math.Round(group * multiplier, 2, MidpointRounding.AwayFromZero),
-                now,
-                cancellationToken);
+            if (baseRates.Count > 0)
+            {
+                foreach (var baseRate in baseRates)
+                {
+                    var derived = PricingExchangeRateHelper.DeriveLocalPrice(
+                        baseRate.PricePerHour,
+                        market.ExchangeRateFromBase);
+                    await EnsureRateAsync(
+                        context,
+                        normalized,
+                        baseRate.DomainId,
+                        baseRate.SessionTypeCode,
+                        derived,
+                        now,
+                        cancellationToken);
+                }
+            }
+            else
+            {
+                foreach (var domain in domains)
+                {
+                    var (individual, group) = PricingDefaults.GetDomainRates(domain.Code);
+                    await EnsureRateAsync(
+                        context,
+                        normalized,
+                        domain.Id,
+                        PricingDefaults.SessionTypeIndividual,
+                        PricingExchangeRateHelper.DeriveLocalPrice(individual, market.ExchangeRateFromBase),
+                        now,
+                        cancellationToken);
+                    await EnsureRateAsync(
+                        context,
+                        normalized,
+                        domain.Id,
+                        PricingDefaults.SessionTypeGroup,
+                        PricingExchangeRateHelper.DeriveLocalPrice(group, market.ExchangeRateFromBase),
+                        now,
+                        cancellationToken);
+                }
+            }
         }
 
         await context.SaveChangesAsync(cancellationToken);
     }
-
-    internal static decimal GetPlaceholderMultiplier(string marketCode) => marketCode switch
-    {
-        "ae" => 1.0m,
-        "kw" => 0.08m,
-        "qa" => 1.0m,
-        "bh" => 0.10m,
-        "om" => 0.10m,
-        "eg" => 8.0m,
-        "jo" => 0.19m,
-        _ => 1.0m
-    };
 
     private static async Task EnsureRateAsync(
         ApplicationDBContext context,
