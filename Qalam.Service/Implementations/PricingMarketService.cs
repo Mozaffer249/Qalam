@@ -74,6 +74,7 @@ public class PricingMarketService : IPricingMarketService
         }
 
         var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
             throw new InvalidOperationException(string.Join("; ", result.Errors.Select(e => e.Description)));
 
         return await GetMyMarketAsync(userId, cancellationToken);
