@@ -24,6 +24,128 @@ public static class SkillsSplitCatalogSeeder
             await SeedLevelsAsync(context, domain);
             await SeedSubjectsAsync(context, domain);
             await SeedWritableSlotsAsync(context, domain);
+            await EnsureMissingOtherCatalogAsync(context, domain);
+        }
+    }
+
+    /// <summary>
+    /// Idempotent backfill for «أخرى» / empty parents and their write-in slots on existing DBs
+    /// (initial seed returns early once any subject/slot rows exist).
+    /// </summary>
+    private static async Task EnsureMissingOtherCatalogAsync(ApplicationDBContext context, EducationDomain domain)
+    {
+        await EnsureMissingSubjectsAsync(context, domain);
+        await EnsureMissingWritableSlotsAsync(context, domain);
+    }
+
+    private static async Task EnsureMissingSubjectsAsync(ApplicationDBContext context, EducationDomain domain)
+    {
+        var needed = domain.Code switch
+        {
+            EducationDomainCodes.LifeSkills => new (string Code, string Ar, string En)[]
+            {
+                ("life.other", "أخرى", "Other")
+            },
+            EducationDomainCodes.SoftSkills =>
+            [
+                ("soft.other", "أخرى", "Other")
+            ],
+            EducationDomainCodes.Hobbies =>
+            [
+                ("hobby.interest", "مجموعات الاهتمام المشترك", "Shared interest groups"),
+                ("hobby.other", "مهارات وهوايات أخرى", "Other skills and hobbies")
+            ],
+            EducationDomainCodes.Knowledge =>
+            [
+                ("know.other", "أخرى", "Other")
+            ],
+            EducationDomainCodes.TechSkills =>
+            [
+                ("tech.other", "أخرى", "Other")
+            ],
+            _ => []
+        };
+
+        if (needed.Length == 0)
+            return;
+
+        var codes = needed.Select(n => n.Code).ToList();
+        var existing = await context.Subjects
+            .Where(s => s.DomainId == domain.Id && codes.Contains(s.Code!))
+            .Select(s => s.Code!)
+            .ToListAsync();
+        var have = new HashSet<string>(existing, StringComparer.OrdinalIgnoreCase);
+
+        var added = false;
+        foreach (var (code, ar, en) in needed)
+        {
+            if (have.Contains(code))
+                continue;
+            context.Subjects.Add(new Subject
+            {
+                DomainId = domain.Id,
+                Code = code,
+                NameAr = ar,
+                NameEn = en,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            added = true;
+        }
+
+        if (added)
+            await context.SaveChangesAsync();
+    }
+
+    private static async Task EnsureMissingWritableSlotsAsync(ApplicationDBContext context, EducationDomain domain)
+    {
+        var specs = SlotSpecsForDomain(domain.Code);
+        if (specs.Length == 0)
+            return;
+
+        var existingCodes = await context.WritableFilterSlots
+            .Where(s => s.DomainId == domain.Id)
+            .Select(s => s.Code)
+            .ToListAsync();
+        var have = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var spec in specs)
+        {
+            if (have.Contains(spec.Code))
+                continue;
+
+            var slot = new WritableFilterSlot
+            {
+                DomainId = domain.Id,
+                Code = spec.Code,
+                NameAr = spec.NameAr,
+                NameEn = spec.NameEn,
+                AfterStep = spec.AfterStep,
+                OrderIndex = spec.OrderIndex,
+                IsRequired = spec.IsRequired,
+                RequiredWhenSubjectCodeContains = spec.RequiredWhen,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.WritableFilterSlots.Add(slot);
+            await context.SaveChangesAsync();
+
+            foreach (var value in spec.Values)
+            {
+                context.WritableFilterValues.Add(new WritableFilterValue
+                {
+                    SlotId = slot.Id,
+                    Code = value.Code,
+                    NameAr = value.Ar,
+                    NameEn = value.En,
+                    NormalizedText = WritableFilterTextNormalizer.Normalize(value.Ar),
+                    IsSeeded = true,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await context.SaveChangesAsync();
         }
     }
 
@@ -167,15 +289,53 @@ public static class SkillsSplitCatalogSeeder
         if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domain.Id))
             return;
 
-        var specs = domain.Code switch
+        foreach (var spec in SlotSpecsForDomain(domain.Code))
         {
-            EducationDomainCodes.SoftSkills => new SlotSpec[]
+            var slot = new WritableFilterSlot
             {
+                DomainId = domain.Id,
+                Code = spec.Code,
+                NameAr = spec.NameAr,
+                NameEn = spec.NameEn,
+                AfterStep = spec.AfterStep,
+                OrderIndex = spec.OrderIndex,
+                IsRequired = spec.IsRequired,
+                RequiredWhenSubjectCodeContains = spec.RequiredWhen,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.WritableFilterSlots.Add(slot);
+            await context.SaveChangesAsync();
+
+            foreach (var value in spec.Values)
+            {
+                context.WritableFilterValues.Add(new WritableFilterValue
+                {
+                    SlotId = slot.Id,
+                    Code = value.Code,
+                    NameAr = value.Ar,
+                    NameEn = value.En,
+                    NormalizedText = WritableFilterTextNormalizer.Normalize(value.Ar),
+                    IsSeeded = true,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await context.SaveChangesAsync();
+        }
+    }
+
+    private static SlotSpec[] SlotSpecsForDomain(string domainCode) =>
+        domainCode switch
+        {
+            EducationDomainCodes.SoftSkills =>
+            [
                 new(WritableFilterSlotCodes.SoftOtherSkill, "مهارة أخرى", "Other skill",
                     WritableFilterAfterSteps.Subject, 1, false, ".other",
                     [("change-mgmt", "إدارة التغيير", "Change management"),
                      ("coaching", "الكوتشينغ المهني", "Career coaching")])
-            },
+            ],
             EducationDomainCodes.LifeSkills =>
             [
                 new(WritableFilterSlotCodes.LifeOtherSkill, "مهارة أخرى", "Other skill",
@@ -244,43 +404,6 @@ public static class SkillsSplitCatalogSeeder
             ],
             _ => []
         };
-
-        foreach (var spec in specs)
-        {
-            var slot = new WritableFilterSlot
-            {
-                DomainId = domain.Id,
-                Code = spec.Code,
-                NameAr = spec.NameAr,
-                NameEn = spec.NameEn,
-                AfterStep = spec.AfterStep,
-                OrderIndex = spec.OrderIndex,
-                IsRequired = spec.IsRequired,
-                RequiredWhenSubjectCodeContains = spec.RequiredWhen,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.WritableFilterSlots.Add(slot);
-            await context.SaveChangesAsync();
-
-            foreach (var value in spec.Values)
-            {
-                context.WritableFilterValues.Add(new WritableFilterValue
-                {
-                    SlotId = slot.Id,
-                    Code = value.Code,
-                    NameAr = value.Ar,
-                    NameEn = value.En,
-                    NormalizedText = WritableFilterTextNormalizer.Normalize(value.Ar),
-                    IsSeeded = true,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-
-            await context.SaveChangesAsync();
-        }
-    }
 
     private sealed record SlotSpec(
         string Code,

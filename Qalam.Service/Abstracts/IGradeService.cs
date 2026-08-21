@@ -47,6 +47,11 @@ public interface IGradeService
         int pageNumber, int pageSize, int? curriculumId = null);
 
     // Validation
-    Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null);
+    Task<bool> IsLevelCodeUniqueAsync(
+        string code,
+        int domainId,
+        int? curriculumId,
+        int? academicProgramId,
+        int? excludeId = null);
     Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null);
 }

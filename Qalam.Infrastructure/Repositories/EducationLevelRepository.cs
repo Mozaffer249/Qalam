@@ -83,11 +83,24 @@ public class EducationLevelRepository : GenericRepositoryAsync<EducationLevel>, 
             .FirstOrDefaultAsync(el => el.Id == id);
     }
 
-    public async Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null)
+    public async Task<bool> IsLevelCodeUniqueAsync(
+        string code,
+        int domainId,
+        int? curriculumId,
+        int? academicProgramId,
+        int? excludeId = null)
     {
-        var query = _context.EducationLevels.Where(el => el.NameEn == code);
+        // NameEn must be unique within the same parent scope (domain + curriculum + program),
+        // so university programs can each have "Year 1".
+        var query = _context.EducationLevels.Where(el =>
+            el.NameEn == code &&
+            el.DomainId == domainId &&
+            el.CurriculumId == curriculumId &&
+            el.AcademicProgramId == academicProgramId);
+
         if (excludeId.HasValue)
             query = query.Where(el => el.Id != excludeId.Value);
+
         return !await query.AnyAsync();
     }
 

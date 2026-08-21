@@ -12,7 +12,12 @@ public interface IEducationLevelRepository : IGenericRepositoryAsync<EducationLe
     IQueryable<EducationLevel> GetLevelsByCurriculumId(int curriculumId);
     Task<EducationLevel> GetLevelWithGradesAsync(int id);
     Task<EducationLevelDto?> GetLevelDtoByIdAsync(int id);
-    Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null);
+    Task<bool> IsLevelCodeUniqueAsync(
+        string code,
+        int domainId,
+        int? curriculumId,
+        int? academicProgramId,
+        int? excludeId = null);
 
     // Filter options
     Task<List<FilterOptionDto>> GetLevelsAsOptionsAsync(int domainId, int? curriculumId, int? academicProgramId = null);

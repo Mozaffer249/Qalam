@@ -60,7 +60,8 @@ public class GradeService : IGradeService
 
     public async Task<EducationLevel> CreateLevelAsync(EducationLevel level)
     {
-        if (!await IsLevelCodeUniqueAsync(level.NameEn))
+        if (!await IsLevelCodeUniqueAsync(
+                level.NameEn, level.DomainId, level.CurriculumId, level.AcademicProgramId))
             throw new InvalidOperationException("Level name already exists");
 
         level.CreatedAt = DateTime.UtcNow;
@@ -73,7 +74,12 @@ public class GradeService : IGradeService
         if (existing == null)
             throw new InvalidOperationException("Level not found");
 
-        if (!await IsLevelCodeUniqueAsync(level.NameEn, level.Id))
+        if (!await IsLevelCodeUniqueAsync(
+                level.NameEn,
+                level.DomainId,
+                level.CurriculumId,
+                level.AcademicProgramId,
+                level.Id))
             throw new InvalidOperationException("Level name already exists");
 
         existing.NameAr = level.NameAr;
@@ -317,9 +323,15 @@ public class GradeService : IGradeService
 
     #region Validation
 
-    public async Task<bool> IsLevelCodeUniqueAsync(string code, int? excludeId = null)
+    public async Task<bool> IsLevelCodeUniqueAsync(
+        string code,
+        int domainId,
+        int? curriculumId,
+        int? academicProgramId,
+        int? excludeId = null)
     {
-        return await _levelRepository.IsLevelCodeUniqueAsync(code, excludeId);
+        return await _levelRepository.IsLevelCodeUniqueAsync(
+            code, domainId, curriculumId, academicProgramId, excludeId);
     }
 
     public async Task<bool> IsGradeCodeUniqueAsync(string code, int levelId, int? excludeId = null)
