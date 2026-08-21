@@ -117,6 +117,16 @@ public class SetTeacherLevelTierDto
     public bool? IsActive { get; set; }
 }
 
+public class CreateTeacherLevelTierDto
+{
+    public string Code { get; set; } = default!;
+    public string NameEn { get; set; } = default!;
+    public string NameAr { get; set; } = default!;
+    public decimal TeacherSharePct { get; set; }
+    public int? OrderIndex { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
 public class SetTeacherLevelDto
 {
     public int TeacherLevelId { get; set; }
@@ -186,4 +196,12 @@ public class PricingSnapshotDto
     public decimal TeacherSharePct { get; set; }
     public decimal TeacherEarnings { get; set; }
     public decimal PlatformShare { get; set; }
+}
+
+public class FreeSessionPolicyStatsDto
+{
+    public int TeachersPendingInterview { get; set; }
+    public int TeachersInterviewCompleted { get; set; }
+    public int StudentsUsedFreeTrial { get; set; }
+    public int StudentsEligibleForFreeTrial { get; set; }
 }

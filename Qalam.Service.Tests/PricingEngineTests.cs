@@ -60,7 +60,8 @@ public class PricingEngineTests
             Id = TeacherId,
             TeacherLevelId = levelId,
             TeacherLevel = level,
-            CustomTeacherSharePct = customShare
+            CustomTeacherSharePct = customShare,
+            HasCompletedInterviewSession = true
         };
     }
 
@@ -220,16 +221,17 @@ public class PricingEngineTests
     }
 
     [Fact]
-    public async Task EstimateAsync_TeacherNoLevel_Throws()
+    public async Task EstimateAsync_TeacherNoLevel_UsesZeroShare()
     {
         var teacher = CreateTeacher();
         teacher.TeacherLevel = null;
         var (engine, _, _) = CreateSut(teacher: teacher);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            engine.EstimateAsync(CreateRequest(60)));
+        var result = await engine.EstimateAsync(CreateRequest(60));
 
-        Assert.Contains("has no assigned level", ex.Message);
+        Assert.Equal(0m, result.TeacherSharePct);
+        Assert.Equal(0m, result.TeacherEarnings);
+        Assert.Equal(100m, result.TotalPrice);
     }
 
     [Fact]
@@ -269,5 +271,23 @@ public class PricingEngineTests
         Assert.Equal(120m, snapshot.TeacherEarnings);
         Assert.Equal(80m, snapshot.PlatformShare);
         Assert.Equal(5, snapshot.DomainSessionPriceId);
+    }
+
+    [Fact]
+    public async Task EstimateAsync_InterviewPendingTeacher_UsesZeroShare()
+    {
+        var teacher = CreateTeacher();
+        teacher.HasCompletedInterviewSession = false;
+        teacher.TeacherLevelId = null;
+        teacher.TeacherLevel = null;
+
+        var (engine, _, _) = CreateSut(teacher);
+
+        var result = await engine.EstimateAsync(CreateRequest(60));
+
+        Assert.Equal(0m, result.TeacherSharePct);
+        Assert.Equal(0m, result.TeacherEarnings);
+        Assert.Equal(100m, result.TotalPrice);
+        Assert.Equal(100m, result.PlatformShare);
     }
 }

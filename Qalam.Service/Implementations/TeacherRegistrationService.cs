@@ -179,13 +179,13 @@ public class TeacherRegistrationService : ITeacherRegistrationService
         var existingTeacher = await _teacherRepository.GetByUserIdAsync(user.Id);
         if (existingTeacher == null)
         {
-            var starterLevel = await _teacherLevelRepository.GetStarterLevelAsync();
             var teacher = new Teacher
             {
                 UserId = user.Id,
                 Status = TeacherStatus.AwaitingDocuments,
                 IsActive = true,
-                TeacherLevelId = starterLevel?.Id
+                TeacherLevelId = null,
+                HasCompletedInterviewSession = false
             };
 
             await _teacherRepository.AddAsync(teacher);

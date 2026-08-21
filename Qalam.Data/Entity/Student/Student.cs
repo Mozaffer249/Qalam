@@ -54,6 +54,9 @@ public class Student : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>True after the student has consumed their one lifetime free individual trial session.</summary>
+    public bool HasUsedFreeTrialSession { get; set; }
+
     // Navigation Properties
     public User User { get; set; } = null!;
     public EducationDomain? Domain { get; set; }

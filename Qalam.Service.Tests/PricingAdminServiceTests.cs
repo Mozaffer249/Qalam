@@ -538,6 +538,43 @@ public class PricingAdminServiceTests
             .Single();
         Assert.Equal(200m, aeRate.PricePerHour);
     }
+
+    [Fact]
+    public async Task CreateTeacherLevelTierAsync_AppendsAboveSeededLevels()
+    {
+        await using var db = CreateDb();
+        var now = DateTime.UtcNow;
+        db.TeacherLevels.AddRange(PricingDefaults.CreateTeacherLevels(now));
+        await db.SaveChangesAsync();
+
+        var levelRepo = new TeacherLevelRepository(db);
+        var service = new PricingAdminService(
+            new Mock<IDomainSessionPriceRepository>().Object,
+            new Mock<IPricingMarketRepository>().Object,
+            new Mock<IEducationDomainRepository>().Object,
+            levelRepo,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
+            new Mock<IDomainRatePropagationService>().Object,
+            db);
+
+        var created = await service.CreateTeacherLevelTierAsync(new CreateTeacherLevelTierDto
+        {
+            Code = "expert",
+            NameEn = "Expert",
+            NameAr = "خبير",
+            TeacherSharePct = 85m,
+            IsActive = true
+        });
+
+        Assert.Equal("expert", created.Code);
+        Assert.Equal(85m, created.TeacherSharePct);
+        Assert.Equal(4, created.OrderIndex);
+
+        var ordered = await levelRepo.ListOrderedAsync();
+        Assert.Equal(4, ordered.Count);
+        Assert.Equal("starter", (await levelRepo.GetStarterLevelAsync())!.Code);
+    }
 }
 
 public class PricingDefaultsTests

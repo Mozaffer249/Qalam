@@ -14,15 +14,18 @@ public class SessionLifecycleHelper : ISessionLifecycleService
 {
     private readonly ICourseScheduleRepository _courseScheduleRepository;
     private readonly ILiveSessionProvider _liveSessionProvider;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
         ICourseScheduleRepository courseScheduleRepository,
         ILiveSessionProvider liveSessionProvider,
+        IFreeSessionPolicyService freeSessionPolicy,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
         _liveSessionProvider = liveSessionProvider;
+        _freeSessionPolicy = freeSessionPolicy;
         _logger = logger;
     }
 
@@ -54,6 +57,22 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         _logger.LogInformation(
             "Completed CourseSchedule {ScheduleId}; auto-attendance default=Absent for never-joined.",
             schedule.Id);
+
+        var teacherId = schedule.Enrollment?.ApprovedByTeacherId
+            ?? schedule.Enrollment?.Course?.TeacherId;
+        if (teacherId.HasValue)
+        {
+            try
+            {
+                await _freeSessionPolicy.TryCompleteTeacherInterviewAsync(teacherId.Value, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to unlock teacher interview after completing CourseSchedule {ScheduleId}",
+                    schedule.Id);
+            }
+        }
 
         // Close the LiveKit room so connected clients disconnect (soft-fail inside provider).
         var roomName = LiveSessionRoomNames.ForSchedule(schedule.Id);

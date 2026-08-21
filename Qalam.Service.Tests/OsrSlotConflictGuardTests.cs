@@ -322,6 +322,7 @@ public class OsrSlotConflictGuardTests
             db,
             match,
             scheduleRepo,
+            new Mock<IFreeSessionPolicyService>().Object,
             Options.Create(new EnrollmentSettings()),
             Options.Create(new OpenSessionRequestSettings()));
     }

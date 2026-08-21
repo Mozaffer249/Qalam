@@ -120,8 +120,9 @@ public class PricingEngine : IPricingEngine
         if (teacher.CustomTeacherSharePct.HasValue)
             return (teacher.CustomTeacherSharePct.Value, teacher.TeacherLevelId);
 
-        if (teacher.TeacherLevel == null)
-            throw new InvalidOperationException($"Teacher {teacherId} has no assigned level.");
+        // Interview / probation: first platform session unpaid for the teacher.
+        if (!teacher.HasCompletedInterviewSession || teacher.TeacherLevel == null)
+            return (0m, teacher.TeacherLevelId);
 
         return (teacher.TeacherLevel.TeacherSharePct, teacher.TeacherLevelId);
     }

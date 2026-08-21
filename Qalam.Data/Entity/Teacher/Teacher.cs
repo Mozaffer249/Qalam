@@ -53,11 +53,14 @@ public class Teacher : AuditableEntity
 
     public int YearsOfExperience { get; set; }
 
-    /// <summary>Commission tier; defaults to starter level on registration.</summary>
+    /// <summary>Commission tier; null until interview session completed (then lowest active level).</summary>
     public int? TeacherLevelId { get; set; }
 
     /// <summary>Per-teacher share override (0–100). Null = use TeacherLevel.TeacherSharePct.</summary>
     public decimal? CustomTeacherSharePct { get; set; }
+
+    /// <summary>False until first completed session unlocks min tier (or admin assigns a level).</summary>
+    public bool HasCompletedInterviewSession { get; set; }
 
     // Navigation Properties
     public TeacherLevel? TeacherLevel { get; set; }

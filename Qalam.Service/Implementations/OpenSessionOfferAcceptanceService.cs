@@ -17,6 +17,7 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
     private readonly ApplicationDBContext _db;
     private readonly ISessionAvailabilityMatchService _availabilityMatch;
     private readonly ICourseScheduleRepository _scheduleRepo;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly EnrollmentSettings _enrollmentSettings;
     private readonly OpenSessionRequestSettings _osrSettings;
 
@@ -24,12 +25,14 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
         ApplicationDBContext db,
         ISessionAvailabilityMatchService availabilityMatch,
         ICourseScheduleRepository scheduleRepo,
+        IFreeSessionPolicyService freeSessionPolicy,
         IOptions<EnrollmentSettings> enrollmentSettings,
         IOptions<OpenSessionRequestSettings> osrSettings)
     {
         _db = db;
         _availabilityMatch = availabilityMatch;
         _scheduleRepo = scheduleRepo;
+        _freeSessionPolicy = freeSessionPolicy;
         _enrollmentSettings = enrollmentSettings.Value;
         _osrSettings = osrSettings.Value;
     }
@@ -132,14 +135,20 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             var isGroup = studentIds.Count > 1
                 || request.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly;
 
+            var applyFreeTrial = !isGroup
+                && sessions.Count == 1
+                && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(request.StudentId, cancellationToken);
+
             var preferredStart = sessions.Min(s => s.PreferredDate!.Value);
             var preferredEnd = sessions.Max(s => s.PreferredDate!.Value);
-            var paymentDeadline = OpenSessionRequestExpiry.ResolvePaymentDeadline(
-                now,
-                _enrollmentSettings.PaymentDeadlineHours,
-                firstSessionStartUtc,
-                _osrSettings,
-                isTargeted: request.TargetedTeacherId != null);
+            var paymentDeadline = applyFreeTrial
+                ? (DateTime?)null
+                : OpenSessionRequestExpiry.ResolvePaymentDeadline(
+                    now,
+                    _enrollmentSettings.PaymentDeadlineHours,
+                    firstSessionStartUtc,
+                    _osrSettings,
+                    isTargeted: request.TargetedTeacherId != null);
 
             var enrollment = new Enrollment
             {
@@ -152,8 +161,8 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 ApprovedByTeacherId = offer.TeacherId,
                 ApprovedAt = now,
                 PaymentDeadline = paymentDeadline,
-                EnrollmentStatus = EnrollmentStatus.PendingPayment,
-                AmountDue = offer.Price,
+                EnrollmentStatus = applyFreeTrial ? EnrollmentStatus.PendingPayment : EnrollmentStatus.PendingPayment,
+                AmountDue = applyFreeTrial ? 0m : offer.Price,
                 PricingSnapshotId = offer.PricingSnapshotId,
                 OwnerUserId = request.RequestedByUserId,
                 PreferredStartDate = preferredStart,
@@ -180,6 +189,44 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
 
             request.Status = OpenSessionRequestStatus.PaymentPending;
             request.UpdatedAt = now;
+
+            if (applyFreeTrial)
+            {
+                var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == request.StudentId, cancellationToken);
+                if (student != null)
+                {
+                    student.HasUsedFreeTrialSession = true;
+                    student.UpdatedAt = now;
+                }
+
+                // Platform bears teacher pay: student total 0; keep notional teacher earnings unless interview.
+                if (offer.PricingSnapshotId.HasValue)
+                {
+                    var snapshot = await _db.PricingSnapshots
+                        .FirstOrDefaultAsync(s => s.Id == offer.PricingSnapshotId.Value, cancellationToken);
+                    if (snapshot != null)
+                    {
+                        var teacher = await _db.Teachers
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(t => t.Id == offer.TeacherId, cancellationToken);
+                        var interviewPending = teacher is not { HasCompletedInterviewSession: true };
+                        var notionalTeacherEarnings = snapshot.TeacherEarnings;
+                        snapshot.TotalPrice = 0m;
+                        if (interviewPending)
+                        {
+                            snapshot.TeacherSharePct = 0m;
+                            snapshot.TeacherEarnings = 0m;
+                            snapshot.PlatformShare = 0m;
+                        }
+                        else
+                        {
+                            // Platform cost = teacher earnings; student paid 0.
+                            snapshot.PlatformShare = -notionalTeacherEarnings;
+                        }
+                        snapshot.UpdatedAt = now;
+                    }
+                }
+            }
 
             var availabilityIds = resolvedSlots.Select(r => r.TeacherAvailabilityId).Distinct().ToList();
             var occupied = await _scheduleRepo.GetScheduledSlotsAsync(
@@ -222,7 +269,8 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 ParticipantId = primaryParticipant.Id,
                 AmountDue = enrollment.AmountDue,
                 PaymentDeadline = enrollment.PaymentDeadline,
-                RequestStatus = request.Status
+                RequestStatus = request.Status,
+                IsFreeTrial = applyFreeTrial
             };
         }
         catch

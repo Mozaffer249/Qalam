@@ -492,6 +492,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 TeacherLevelId = t.TeacherLevelId,
                 TeacherLevelCode = t.TeacherLevel != null ? t.TeacherLevel.Code : null,
                 CustomTeacherSharePct = t.CustomTeacherSharePct,
+                HasCompletedInterviewSession = t.HasCompletedInterviewSession,
                 Documents = t.TeacherDocuments.Select(d => new TeacherDocumentReviewDto
                 {
                     Id = d.Id,
@@ -525,6 +526,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             .Where(t => t.TeacherLevelId == null)
             .ExecuteUpdateAsync(
                 s => s.SetProperty(t => t.TeacherLevelId, starter.Id)
+                    .SetProperty(t => t.HasCompletedInterviewSession, true)
                     .SetProperty(t => t.UpdatedAt, DateTime.UtcNow),
                 cancellationToken);
     }
@@ -969,6 +971,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         public int? TeacherLevelId { get; init; }
         public string? TeacherLevelCode { get; init; }
         public decimal? CustomTeacherSharePct { get; init; }
+        public bool HasCompletedInterviewSession { get; init; }
     }
 
     private static System.Linq.Expressions.Expression<Func<Teacher, AdminTeacherListRow>> ProjectToAdminListRow() =>
@@ -991,7 +994,8 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             RejectedDocuments = t.TeacherDocuments.Count(d => d.VerificationStatus == DocumentVerificationStatus.Rejected),
             TeacherLevelId = t.TeacherLevelId,
             TeacherLevelCode = t.TeacherLevel != null ? t.TeacherLevel.Code : null,
-            CustomTeacherSharePct = t.CustomTeacherSharePct
+            CustomTeacherSharePct = t.CustomTeacherSharePct,
+            HasCompletedInterviewSession = t.HasCompletedInterviewSession
         };
 
     private static AdminTeacherListItemDto ToAdminListItemDto(AdminTeacherListRow row) =>
@@ -1012,7 +1016,8 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             RejectedDocuments = row.RejectedDocuments,
             TeacherLevelId = row.TeacherLevelId,
             TeacherLevelCode = row.TeacherLevelCode,
-            CustomTeacherSharePct = row.CustomTeacherSharePct
+            CustomTeacherSharePct = row.CustomTeacherSharePct,
+            HasCompletedInterviewSession = row.HasCompletedInterviewSession
         };
 
     private static System.Linq.Expressions.Expression<Func<Teacher, TeacherCardDto>> ProjectToCard() =>

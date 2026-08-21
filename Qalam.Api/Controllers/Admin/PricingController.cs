@@ -4,6 +4,7 @@ using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Pricing.Commands.ApproveLevelUpgradeSuggestion;
 using Qalam.Core.Features.Admin.Pricing.Commands.BackfillStarterTeacherLevels;
 using Qalam.Core.Features.Admin.Pricing.Commands.CreatePricingMarket;
+using Qalam.Core.Features.Admin.Pricing.Commands.CreateTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.RejectLevelUpgradeSuggestion;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDefaultPricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDomainSessionPrice;
@@ -16,6 +17,7 @@ using Qalam.Core.Features.Admin.Pricing.Queries.ListDomainSessionPrices;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListLevelUpgradeSuggestions;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingExchangeRates;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
+using Qalam.Core.Features.Admin.Pricing.Queries.GetFreeSessionPolicyStats;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListTeacherLevelTiers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
@@ -74,6 +76,10 @@ public class PricingController : AppControllerBase
     public async Task<IActionResult> ListTeacherLevelTiers()
         => NewResult(await Mediator.Send(new ListTeacherLevelTiersQuery()));
 
+    [HttpPost("teacher-level-tiers")]
+    public async Task<IActionResult> CreateTeacherLevelTier([FromBody] CreateTeacherLevelTierDto data)
+        => NewResult(await Mediator.Send(new CreateTeacherLevelTierCommand { Data = data }));
+
     [HttpPut("teacher-level-tiers/{id:int}")]
     public async Task<IActionResult> SetTeacherLevelTier(int id, [FromBody] SetTeacherLevelTierDto data)
         => NewResult(await Mediator.Send(new SetTeacherLevelTierCommand { Id = id, Data = data }));
@@ -105,4 +111,8 @@ public class PricingController : AppControllerBase
     [HttpPost("teachers/backfill-starter-level")]
     public async Task<IActionResult> BackfillStarterTeacherLevels()
         => NewResult(await Mediator.Send(new BackfillStarterTeacherLevelsCommand()));
+
+    [HttpGet("free-session-policy-stats")]
+    public async Task<IActionResult> GetFreeSessionPolicyStats()
+        => NewResult(await Mediator.Send(new GetFreeSessionPolicyStatsQuery()));
 }

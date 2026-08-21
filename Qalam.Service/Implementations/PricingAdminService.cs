@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
@@ -313,11 +314,46 @@ public class PricingAdminService : IPricingAdminService
             throw new InvalidOperationException("Teacher level not found or inactive.");
 
         teacher.TeacherLevelId = level.Id;
+        teacher.HasCompletedInterviewSession = true;
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<TeacherLevelTierAdminDto> CreateTeacherLevelTierAsync(
+        CreateTeacherLevelTierDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var code = dto.Code.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(code) || code.Length > 50)
+            throw new InvalidOperationException("Level code is required (max 50 characters).");
+
+        if (await _teacherLevelRepository.GetByCodeAsync(code, cancellationToken) != null)
+            throw new InvalidOperationException($"Teacher level '{code}' already exists.");
+
+        if (dto.TeacherSharePct is < 0 or > 100)
+            throw new InvalidOperationException("Teacher share % must be between 0 and 100.");
+
+        var existing = await _teacherLevelRepository.ListOrderedAsync(cancellationToken);
+        var orderIndex = dto.OrderIndex
+            ?? (existing.Count == 0 ? 1 : existing.Max(l => l.OrderIndex) + 1);
+
+        var level = new Data.Entity.Teacher.TeacherLevel
+        {
+            Code = code,
+            NameEn = dto.NameEn.Trim(),
+            NameAr = dto.NameAr.Trim(),
+            TeacherSharePct = dto.TeacherSharePct,
+            OrderIndex = orderIndex,
+            IsActive = dto.IsActive,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _teacherLevelRepository.AddAsync(level);
+        await _teacherLevelRepository.SaveChangesAsync();
+        return MapTeacherLevelTier(level);
     }
 
     public async Task<bool> SetTeacherShareOverrideAsync(
@@ -403,6 +439,27 @@ public class PricingAdminService : IPricingAdminService
     {
         var updatedCount = await _teacherRepository.BackfillStarterLevelForTeachersWithoutLevelAsync(cancellationToken);
         return new BackfillStarterTeacherLevelsResultDto { UpdatedCount = updatedCount };
+    }
+
+    public async Task<FreeSessionPolicyStatsDto> GetFreeSessionPolicyStatsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var pendingInterview = await _dbContext.Teachers
+            .CountAsync(t => !t.HasCompletedInterviewSession, cancellationToken);
+        var interviewDone = await _dbContext.Teachers
+            .CountAsync(t => t.HasCompletedInterviewSession, cancellationToken);
+        var trialUsed = await _dbContext.Students
+            .CountAsync(s => s.HasUsedFreeTrialSession, cancellationToken);
+        var trialEligible = await _dbContext.Students
+            .CountAsync(s => !s.HasUsedFreeTrialSession && s.IsActive, cancellationToken);
+
+        return new FreeSessionPolicyStatsDto
+        {
+            TeachersPendingInterview = pendingInterview,
+            TeachersInterviewCompleted = interviewDone,
+            StudentsUsedFreeTrial = trialUsed,
+            StudentsEligibleForFreeTrial = trialEligible
+        };
     }
 
     private static PricingMarketDto MapPricingMarket(PricingMarket m) =>

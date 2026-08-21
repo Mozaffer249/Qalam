@@ -43,6 +43,7 @@ public class AdminTeacherListItemDto
     public int? TeacherLevelId { get; set; }
     public string? TeacherLevelCode { get; set; }
     public decimal? CustomTeacherSharePct { get; set; }
+    public bool HasCompletedInterviewSession { get; set; }
 }
 
 /// <summary>CSV file payload for admin teacher export.</summary>

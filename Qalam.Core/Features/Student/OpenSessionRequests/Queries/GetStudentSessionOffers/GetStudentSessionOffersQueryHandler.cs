@@ -43,6 +43,19 @@ public class GetStudentSessionOffersQueryHandler
         if (!await _accessGuard.CanActOnRequestAsync(request.UserId, entity, cancellationToken))
             return Unauthorized<List<StudentOfferListItemDto>>("Forbidden");
 
+        var sessionCount = await _db.OpenSessionRequestSessions
+            .AsNoTracking()
+            .CountAsync(s => s.SessionRequestId == request.RequestId, cancellationToken);
+        var student = await _db.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == entity.StudentId, cancellationToken);
+        var isGroup = entity.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly
+            || await _db.OpenSessionRequestInvitations.AsNoTracking()
+                .AnyAsync(i => i.SessionRequestId == request.RequestId
+                    && i.Status == OpenSessionRequestInvitationStatus.Accepted, cancellationToken);
+        var freeTrialEligible = !isGroup
+            && sessionCount == 1
+            && student is { HasUsedFreeTrialSession: false };
+
         var offers = await _db.OpenSessionOffers
             .AsNoTracking()
             .Where(o => o.SessionRequestId == request.RequestId)
@@ -64,6 +77,7 @@ public class GetStudentSessionOffersQueryHandler
                     : 0,
                 IsVerified = o.Teacher != null && o.Teacher.Status == TeacherStatus.Active,
                 Price = o.Price,
+                IsFreeTrialEligible = freeTrialEligible,
                 Status = o.Status,
                 Version = o.Version,
                 TeacherNotes = o.TeacherNotes,

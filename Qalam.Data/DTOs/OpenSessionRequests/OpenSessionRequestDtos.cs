@@ -85,6 +85,8 @@ public class StudentOfferListItemDto
     /// <summary>True when the teacher account is fully verified (<see cref="TeacherStatus.Active"/>).</summary>
     public bool IsVerified { get; set; }
     public decimal Price { get; set; }
+    /// <summary>True when accepting this individual offer would consume the student's free trial (AmountDue=0).</summary>
+    public bool IsFreeTrialEligible { get; set; }
     public OpenSessionOfferStatus Status { get; set; }
     public int Version { get; set; }
     public string? TeacherNotes { get; set; }
@@ -132,6 +134,8 @@ public class AcceptSessionOfferResultDto
     public decimal AmountDue { get; set; }
     public DateTime? PaymentDeadline { get; set; }
     public OpenSessionRequestStatus RequestStatus { get; set; }
+    /// <summary>True when this accept consumed the student's one free individual trial.</summary>
+    public bool IsFreeTrial { get; set; }
 }
 
 public class CreateOpenSessionRequestSessionDto

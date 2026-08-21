@@ -27,4 +27,8 @@ public class TeacherMyProfileDto
     public TeacherStatus Status { get; set; }
     public decimal RatingAverage { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    public int? TeacherLevelId { get; set; }
+    public string? TeacherLevelCode { get; set; }
+    public bool HasCompletedInterviewSession { get; set; }
 }

@@ -42,4 +42,5 @@ public class TeacherDetailsDto
     public int? TeacherLevelId { get; set; }
     public string? TeacherLevelCode { get; set; }
     public decimal? CustomTeacherSharePct { get; set; }
+    public bool HasCompletedInterviewSession { get; set; }
 }

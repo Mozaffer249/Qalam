@@ -74,19 +74,23 @@ public class GradeService : IGradeService
         if (existing == null)
             throw new InvalidOperationException("Level not found");
 
+        // Clients sometimes omit curriculum/program FKs on edit; never wipe an existing parent scope.
+        var curriculumId = level.CurriculumId ?? existing.CurriculumId;
+        var academicProgramId = level.AcademicProgramId ?? existing.AcademicProgramId;
+
         if (!await IsLevelCodeUniqueAsync(
                 level.NameEn,
                 level.DomainId,
-                level.CurriculumId,
-                level.AcademicProgramId,
+                curriculumId,
+                academicProgramId,
                 level.Id))
             throw new InvalidOperationException("Level name already exists");
 
         existing.NameAr = level.NameAr;
         existing.NameEn = level.NameEn;
         existing.DomainId = level.DomainId;
-        existing.CurriculumId = level.CurriculumId;
-        existing.AcademicProgramId = level.AcademicProgramId;
+        existing.CurriculumId = curriculumId;
+        existing.AcademicProgramId = academicProgramId;
         existing.OrderIndex = level.OrderIndex;
         existing.IsActive = level.IsActive;
         existing.UpdatedAt = DateTime.UtcNow;

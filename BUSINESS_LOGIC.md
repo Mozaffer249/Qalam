@@ -1450,6 +1450,27 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 
 ---
 
+## Pricing / Free first session
+
+### Teacher interview session (unpaid)
+
+1. New teachers register **without** a paid commission level (`TeacherLevelId = null`, `HasCompletedInterviewSession = false`).
+2. Until the interview is completed, `PricingEngine` resolves **teacher share = 0%** (platform keeps the full student charge when the student pays).
+3. **First completed session** on the platform (any student, S1 or S2) unlocks the **lowest active** `TeacherLevel` by `OrderIndex` (seed: `starter`) and sets `HasCompletedInterviewSession = true`.
+4. Admins may bypass by assigning a level (also marks interview complete).
+5. Further promotion uses existing metrics + admin upgrade suggestions. Levels are **admin-expandable** (`POST` new tiers); min/max follow active `OrderIndex` order.
+6. Formal dispute/complaint workflow is out of scope; teachers use support/contact channels.
+
+### Student free trial (Model 1 — true free)
+
+1. Each **student** account gets **one lifetime** individual free trial (`HasUsedFreeTrialSession`).
+2. Eligible: individual OSR accept (or individual direct enroll when wired) while unused.
+3. Student `AmountDue = 0`; enrollment activates without payment; trial flag set when the free enrollment is created.
+4. Teacher payout on that session: if teacher still in interview → 0%; otherwise normal share of the **notional** market price (platform bears the cost; student total remains 0).
+5. **Model 2 (later, not built):** pay full package; refund first session if dissatisfied — requires refund APIs.
+
+---
+
 ## المصطلحات
 
 | المصطلح | الترجمة | الشرح |

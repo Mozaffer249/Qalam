@@ -48,6 +48,10 @@ public interface IPricingAdminService
         SetTeacherLevelTierDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<TeacherLevelTierAdminDto> CreateTeacherLevelTierAsync(
+        CreateTeacherLevelTierDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<bool> SetTeacherLevelAsync(
         int teacherId,
         SetTeacherLevelDto dto,
@@ -73,5 +77,8 @@ public interface IPricingAdminService
         CancellationToken cancellationToken = default);
 
     Task<BackfillStarterTeacherLevelsResultDto> BackfillStarterTeacherLevelsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<FreeSessionPolicyStatsDto> GetFreeSessionPolicyStatsAsync(
         CancellationToken cancellationToken = default);
 }

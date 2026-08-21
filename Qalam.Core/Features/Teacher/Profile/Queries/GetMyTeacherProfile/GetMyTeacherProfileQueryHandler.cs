@@ -44,6 +44,10 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
             teacher.Id,
             cancellationToken);
 
+        // Ensure level nav is available for response fields.
+        var teacherWithLevel = await _teacherRepository.GetByIdWithLevelAsync(teacher.Id, cancellationToken)
+            ?? teacher;
+
         return Success(entity: new TeacherMyProfileDto
         {
             TeacherId = teacher.Id,
@@ -69,6 +73,9 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
             Status = teacher.Status,
             RatingAverage = teacher.RatingAverage,
             CreatedAt = teacher.CreatedAt,
+            TeacherLevelId = teacherWithLevel.TeacherLevelId,
+            TeacherLevelCode = teacherWithLevel.TeacherLevel?.Code,
+            HasCompletedInterviewSession = teacherWithLevel.HasCompletedInterviewSession,
         });
     }
 }

@@ -88,8 +88,16 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             ? enrollment.AmountDue
             : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0;
 
-        if (totalAmount <= 0)
+        // AmountDue == 0 is the free-trial path (student first individual session).
+        var isFreeTrial = enrollment.AmountDue == 0
+            && enrollment.Source == EnrollmentSource.SessionRequest
+            && enrollment.Kind == EnrollmentKind.Individual;
+
+        if (totalAmount < 0 || (!isFreeTrial && totalAmount <= 0))
             return BadRequest<PaymentResultDto>("Enrollment amount due must be greater than zero.");
+
+        if (isFreeTrial)
+            totalAmount = 0;
 
         var pendingParticipants = enrollment.Participants
             .Where(p => p.PaymentStatus == PaymentStatus.Pending)
