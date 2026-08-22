@@ -17,12 +17,15 @@ public class TeacherLevelUpgradeSuggestionRepository
         _set = context.Set<TeacherLevelUpgradeSuggestion>();
     }
 
-    public Task<TeacherLevelUpgradeSuggestion?> GetPendingForTeacherAsync(
+    public Task<TeacherLevelUpgradeSuggestion?> GetPendingForTeacherDomainAsync(
         int teacherId,
+        int domainId,
         CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
             .FirstOrDefaultAsync(
-                s => s.TeacherId == teacherId && s.Status == TeacherLevelUpgradeSuggestionStatus.Pending,
+                s => s.TeacherId == teacherId
+                     && s.DomainId == domainId
+                     && s.Status == TeacherLevelUpgradeSuggestionStatus.Pending,
                 cancellationToken);
 
     public Task<List<TeacherLevelUpgradeSuggestion>> ListByStatusAsync(
@@ -30,6 +33,7 @@ public class TeacherLevelUpgradeSuggestionRepository
         CancellationToken cancellationToken = default) =>
         _set.AsNoTracking()
             .Include(s => s.Teacher).ThenInclude(t => t.User)
+            .Include(s => s.Domain)
             .Include(s => s.CurrentLevel)
             .Include(s => s.SuggestedLevel)
             .Where(s => s.Status == status)

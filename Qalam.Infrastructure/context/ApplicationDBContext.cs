@@ -103,6 +103,7 @@ namespace Qalam.Infrastructure.context
         // Teacher Schema DbSets
         public DbSet<Teacher> Teachers { get; set; }
         public DbSet<TeacherLevel> TeacherLevels { get; set; }
+        public DbSet<TeacherDomainPricing> TeacherDomainPricings { get; set; }
         public DbSet<TeacherLevelUpgradeSuggestion> TeacherLevelUpgradeSuggestions { get; set; }
         public DbSet<TeacherDocument> TeacherDocuments { get; set; }
         public DbSet<TeacherSubject> TeacherSubjects { get; set; }

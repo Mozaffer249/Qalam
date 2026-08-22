@@ -62,6 +62,16 @@ public interface IPricingAdminService
         SetTeacherShareOverrideDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<List<TeacherDomainPricingAdminDto>> ListTeacherDomainPricingsAsync(
+        int? domainId,
+        int? teacherId,
+        CancellationToken cancellationToken = default);
+
+    Task<TeacherDomainPricingAdminDto?> SetTeacherDomainPricingAsync(
+        int teacherId,
+        SetTeacherDomainPricingDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<List<TeacherLevelUpgradeSuggestionAdminDto>> ListLevelUpgradeSuggestionsAsync(
         string status,
         CancellationToken cancellationToken = default);

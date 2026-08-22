@@ -11,7 +11,7 @@ public class TeacherLevelUpgradeSuggestionConfiguration : IEntityTypeConfigurati
         builder.ToTable("TeacherLevelUpgradeSuggestions", "teacher");
 
         builder.HasKey(e => e.Id);
-        builder.HasIndex(e => new { e.TeacherId, e.Status });
+        builder.HasIndex(e => new { e.TeacherId, e.DomainId, e.Status });
 
         builder.Property(e => e.AvgRating).HasColumnType("decimal(3,2)");
         builder.Property(e => e.AttendanceRate).HasColumnType("decimal(5,2)");
@@ -20,6 +20,11 @@ public class TeacherLevelUpgradeSuggestionConfiguration : IEntityTypeConfigurati
         builder.HasOne(e => e.Teacher)
             .WithMany()
             .HasForeignKey(e => e.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.Domain)
+            .WithMany()
+            .HasForeignKey(e => e.DomainId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.CurrentLevel)

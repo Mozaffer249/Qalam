@@ -22,7 +22,9 @@ public sealed record PriceEstimate(
     int? DomainSessionPriceId,
     int? TeacherLevelId,
     string MarketCode,
-    string Currency);
+    string Currency,
+    bool ReflectCustomPriceToStudent = false,
+    decimal? EarningsPricePerHour = null);
 
 public sealed class CreatePricingSnapshotRequest
 {

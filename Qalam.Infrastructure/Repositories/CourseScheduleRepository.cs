@@ -71,6 +71,7 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
         return await _context.CourseSchedules
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Course)
+                .ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
             .Include(cs => cs.Attendances)
             .Include(cs => cs.TeachingMode)
             .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
@@ -86,6 +87,8 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
 
         var candidates = await _context.CourseSchedules
             .Include(cs => cs.Enrollment).ThenInclude(e => e.Participants)
+            .Include(cs => cs.Enrollment).ThenInclude(e => e.Course)
+                .ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
             .Include(cs => cs.Attendances)
             .Include(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
             .Where(cs =>

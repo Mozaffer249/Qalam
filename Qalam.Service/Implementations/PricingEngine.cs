@@ -1,4 +1,6 @@
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Pricing;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Models.Pricing;
@@ -9,15 +11,18 @@ public class PricingEngine : IPricingEngine
 {
     private readonly IDomainSessionPriceRepository _priceRepository;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherDomainPricingRepository _domainPricingRepository;
     private readonly IPricingMarketRepository _marketRepository;
 
     public PricingEngine(
         IDomainSessionPriceRepository priceRepository,
         ITeacherRepository teacherRepository,
+        ITeacherDomainPricingRepository domainPricingRepository,
         IPricingMarketRepository marketRepository)
     {
         _priceRepository = priceRepository;
         _teacherRepository = teacherRepository;
+        _domainPricingRepository = domainPricingRepository;
         _marketRepository = marketRepository;
     }
 
@@ -44,8 +49,33 @@ public class PricingEngine : IPricingEngine
             throw new InvalidOperationException(
                 $"No active pricing rule for market '{request.MarketCode}', domain {request.DomainId} and session type '{request.SessionTypeCode}'.");
 
-        var share = await ResolveTeacherShareAsync(request.TeacherId, cancellationToken);
-        return BuildEstimate(rate, request.TotalMinutes, share.SharePct, share.LevelId, market.Currency);
+        var teacher = await _teacherRepository.GetByIdAsync(request.TeacherId);
+        if (teacher == null)
+            throw new InvalidOperationException($"Teacher {request.TeacherId} not found.");
+
+        var domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
+            request.TeacherId,
+            request.DomainId,
+            cancellationToken);
+
+        var share = ResolveTeacherShare(domainPricing);
+        var platformPricePerHour = rate.PricePerHour;
+        var customLocal = ResolveCustomPriceInMarket(domainPricing, market);
+        var reflect = domainPricing is { CustomPricePerHour: not null, ReflectCustomPriceToStudent: true };
+
+        var studentPricePerHour = reflect && customLocal.HasValue ? customLocal.Value : platformPricePerHour;
+        var earningsPricePerHour = customLocal ?? platformPricePerHour;
+
+        return BuildEstimate(
+            studentPricePerHour,
+            earningsPricePerHour,
+            request.TotalMinutes,
+            share.SharePct,
+            share.LevelId,
+            rate.Id,
+            market.Code,
+            market.Currency,
+            reflect);
     }
 
     public async Task<PricingSnapshot> CreateSnapshotAsync(
@@ -109,45 +139,58 @@ public class PricingEngine : IPricingEngine
         return rate.PricePerHour;
     }
 
-    private async Task<(decimal SharePct, int? LevelId)> ResolveTeacherShareAsync(
-        int teacherId,
-        CancellationToken cancellationToken)
+    private static (decimal SharePct, int? LevelId) ResolveTeacherShare(TeacherDomainPricing? pricing)
     {
-        var teacher = await _teacherRepository.GetByIdWithLevelAsync(teacherId, cancellationToken);
-        if (teacher == null)
-            throw new InvalidOperationException($"Teacher {teacherId} not found.");
+        if (pricing?.CustomTeacherSharePct.HasValue == true)
+            return (pricing.CustomTeacherSharePct.Value, pricing.TeacherLevelId);
 
-        if (teacher.CustomTeacherSharePct.HasValue)
-            return (teacher.CustomTeacherSharePct.Value, teacher.TeacherLevelId);
+        // Interview / probation for this domain: unpaid until unlocked with a level.
+        if (pricing == null
+            || !pricing.HasCompletedInterviewSession
+            || pricing.TeacherLevel == null)
+            return (0m, pricing?.TeacherLevelId);
 
-        // Interview / probation: first platform session unpaid for the teacher.
-        if (!teacher.HasCompletedInterviewSession || teacher.TeacherLevel == null)
-            return (0m, teacher.TeacherLevelId);
+        return (pricing.TeacherLevel.TeacherSharePct, pricing.TeacherLevelId);
+    }
 
-        return (teacher.TeacherLevel.TeacherSharePct, teacher.TeacherLevelId);
+    private static decimal? ResolveCustomPriceInMarket(TeacherDomainPricing? pricing, PricingMarket market)
+    {
+        if (pricing?.CustomPricePerHour is not > 0)
+            return null;
+
+        var fx = market.ExchangeRateFromBase > 0 ? market.ExchangeRateFromBase : 1m;
+        return PricingExchangeRateHelper.DeriveLocalPrice(pricing.CustomPricePerHour.Value, fx);
     }
 
     private static PriceEstimate BuildEstimate(
-        DomainSessionPrice rate,
+        decimal studentPricePerHour,
+        decimal earningsPricePerHour,
         int totalMinutes,
         decimal teacherSharePct,
         int? teacherLevelId,
-        string currency)
+        int? domainSessionPriceId,
+        string marketCode,
+        string currency,
+        bool reflectedCustomPrice)
     {
-        var totalPrice = Math.Round((totalMinutes / 60m) * rate.PricePerHour, 2, MidpointRounding.AwayFromZero);
-        var teacherEarnings = Math.Round(totalPrice * teacherSharePct / 100m, 2, MidpointRounding.AwayFromZero);
+        var hours = totalMinutes / 60m;
+        var totalPrice = Math.Round(hours * studentPricePerHour, 2, MidpointRounding.AwayFromZero);
+        var earningsBase = Math.Round(hours * earningsPricePerHour, 2, MidpointRounding.AwayFromZero);
+        var teacherEarnings = Math.Round(earningsBase * teacherSharePct / 100m, 2, MidpointRounding.AwayFromZero);
         var platformShare = totalPrice - teacherEarnings;
 
         return new PriceEstimate(
-            rate.PricePerHour,
+            studentPricePerHour,
             totalMinutes,
             totalPrice,
             teacherSharePct,
             teacherEarnings,
             platformShare,
-            rate.Id,
+            domainSessionPriceId,
             teacherLevelId,
-            rate.MarketCode,
-            currency);
+            marketCode,
+            currency,
+            reflectedCustomPrice,
+            earningsPricePerHour);
     }
 }

@@ -7,6 +7,7 @@ public class SetTeacherLevelCommandValidator : AbstractValidator<SetTeacherLevel
     public SetTeacherLevelCommandValidator()
     {
         RuleFor(x => x.TeacherId).GreaterThan(0);
+        RuleFor(x => x.Data.DomainId).GreaterThan(0);
         RuleFor(x => x.Data.TeacherLevelId).GreaterThan(0);
     }
 }

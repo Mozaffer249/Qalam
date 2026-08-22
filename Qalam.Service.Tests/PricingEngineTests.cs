@@ -28,7 +28,10 @@ public class PricingEngineTests
             IsActive = true
         };
 
-    private static PricingMarket CreateMarket(string code = MarketCode, string currency = Currency) =>
+    private static PricingMarket CreateMarket(
+        string code = MarketCode,
+        string currency = Currency,
+        decimal exchangeRateFromBase = 1m) =>
         new()
         {
             Code = code,
@@ -36,37 +39,62 @@ public class PricingEngineTests
             NameEn = "Saudi Arabia",
             NameAr = "السعودية",
             IsActive = true,
-            IsDefault = code == MarketCode
+            IsDefault = code == MarketCode,
+            ExchangeRateFromBase = exchangeRateFromBase
         };
 
-    private static Teacher CreateTeacher(
-        decimal? customShare = null,
-        decimal levelShare = 60m,
-        int levelId = 1)
-    {
-        var level = new TeacherLevel
-        {
-            Id = levelId,
-            Code = "starter",
-            NameAr = "مبتدئ",
-            NameEn = "Starter",
-            OrderIndex = 1,
-            TeacherSharePct = levelShare,
-            IsActive = true
-        };
-
-        return new Teacher
+    private static Teacher CreateTeacher() =>
+        new()
         {
             Id = TeacherId,
-            TeacherLevelId = levelId,
+            HasCompletedInterviewSession = true
+        };
+
+    private static TeacherDomainPricing CreateDomainPricing(
+        decimal? customShare = null,
+        decimal levelShare = 60m,
+        int levelId = 1,
+        bool interviewDone = true,
+        decimal? customPrice = null,
+        bool reflect = false)
+    {
+        var level = interviewDone
+            ? new TeacherLevel
+            {
+                Id = levelId,
+                Code = "starter",
+                NameAr = "مبتدئ",
+                NameEn = "Starter",
+                OrderIndex = 1,
+                TeacherSharePct = levelShare,
+                IsActive = true
+            }
+            : null;
+
+        return new TeacherDomainPricing
+        {
+            TeacherId = TeacherId,
+            DomainId = DomainId,
+            TeacherLevelId = interviewDone ? levelId : null,
             TeacherLevel = level,
             CustomTeacherSharePct = customShare,
-            HasCompletedInterviewSession = true
+            CustomPricePerHour = customPrice,
+            ReflectCustomPriceToStudent = reflect,
+            HasCompletedInterviewSession = interviewDone
         };
     }
 
-    private static (PricingEngine Engine, Mock<IDomainSessionPriceRepository> PriceRepo, Mock<ITeacherRepository> TeacherRepo)
-        CreateSut(Teacher? teacher = null, DomainSessionPrice? rate = null, bool missingRate = false, PricingMarket? market = null)
+    private static (
+        PricingEngine Engine,
+        Mock<IDomainSessionPriceRepository> PriceRepo,
+        Mock<ITeacherRepository> TeacherRepo,
+        Mock<ITeacherDomainPricingRepository> DomainPricingRepo)
+        CreateSut(
+            Teacher? teacher = null,
+            TeacherDomainPricing? domainPricing = null,
+            DomainSessionPrice? rate = null,
+            bool missingRate = false,
+            PricingMarket? market = null)
     {
         var priceRepo = new Mock<IDomainSessionPriceRepository>();
         priceRepo
@@ -75,16 +103,25 @@ public class PricingEngineTests
 
         var teacherRepo = new Mock<ITeacherRepository>();
         teacherRepo
-            .Setup(r => r.GetByIdWithLevelAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(TeacherId))
             .ReturnsAsync(teacher ?? CreateTeacher());
+
+        var domainPricingRepo = new Mock<ITeacherDomainPricingRepository>();
+        domainPricingRepo
+            .Setup(r => r.GetByTeacherAndDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(domainPricing ?? CreateDomainPricing());
 
         var marketRepo = new Mock<IPricingMarketRepository>();
         marketRepo
             .Setup(r => r.GetByCodeAsync(MarketCode, It.IsAny<CancellationToken>()))
             .ReturnsAsync(market ?? CreateMarket());
 
-        var engine = new PricingEngine(priceRepo.Object, teacherRepo.Object, marketRepo.Object);
-        return (engine, priceRepo, teacherRepo);
+        var engine = new PricingEngine(
+            priceRepo.Object,
+            teacherRepo.Object,
+            domainPricingRepo.Object,
+            marketRepo.Object);
+        return (engine, priceRepo, teacherRepo, domainPricingRepo);
     }
 
     private static PricingEstimateRequest CreateRequest(int totalMinutes) => new()
@@ -99,7 +136,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_TwoHoursAt100PerHourWith60PctShare_SplitsCorrectly()
     {
-        var (engine, _, _) = CreateSut();
+        var (engine, _, _, _) = CreateSut();
 
         var estimate = await engine.EstimateAsync(CreateRequest(120));
 
@@ -125,15 +162,19 @@ public class PricingEngineTests
             .ReturnsAsync(egRate);
 
         var teacherRepo = new Mock<ITeacherRepository>();
-        teacherRepo
-            .Setup(r => r.GetByIdWithLevelAsync(TeacherId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CreateTeacher());
+        teacherRepo.Setup(r => r.GetByIdAsync(TeacherId)).ReturnsAsync(CreateTeacher());
+
+        var domainPricingRepo = new Mock<ITeacherDomainPricingRepository>();
+        domainPricingRepo
+            .Setup(r => r.GetByTeacherAndDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDomainPricing());
 
         var marketRepo = new Mock<IPricingMarketRepository>();
         marketRepo.Setup(r => r.GetByCodeAsync("eg", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CreateMarket("eg", "EGP"));
+            .ReturnsAsync(CreateMarket("eg", "EGP", 8m));
 
-        var engine = new PricingEngine(priceRepo.Object, teacherRepo.Object, marketRepo.Object);
+        var engine = new PricingEngine(
+            priceRepo.Object, teacherRepo.Object, domainPricingRepo.Object, marketRepo.Object);
 
         var estimate = await engine.EstimateAsync(new PricingEstimateRequest
         {
@@ -152,7 +193,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_45Minutes_RoundsAwayFromZero()
     {
-        var (engine, _, _) = CreateSut(rate: CreateRate(100m));
+        var (engine, _, _, _) = CreateSut(rate: CreateRate(100m));
 
         var estimate = await engine.EstimateAsync(CreateRequest(45));
 
@@ -164,7 +205,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_UsesCustomTeacherShareOverride_WhenSet()
     {
-        var (engine, _, _) = CreateSut(teacher: CreateTeacher(customShare: 85m, levelShare: 60m));
+        var (engine, _, _, _) = CreateSut(domainPricing: CreateDomainPricing(customShare: 85m, levelShare: 60m));
 
         var estimate = await engine.EstimateAsync(CreateRequest(60));
 
@@ -176,7 +217,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_UsesTeacherLevelShare_WhenNoOverride()
     {
-        var (engine, _, _) = CreateSut(teacher: CreateTeacher(levelShare: 80m, levelId: 3));
+        var (engine, _, _, _) = CreateSut(domainPricing: CreateDomainPricing(levelShare: 80m, levelId: 3));
 
         var estimate = await engine.EstimateAsync(CreateRequest(60));
 
@@ -187,9 +228,43 @@ public class PricingEngineTests
     }
 
     [Fact]
+    public async Task EstimateAsync_ReflectOn_StudentPaysTeacherCustomPrice()
+    {
+        var (engine, _, _, _) = CreateSut(
+            domainPricing: CreateDomainPricing(customPrice: 150m, reflect: true, levelShare: 60m),
+            rate: CreateRate(100m));
+
+        var estimate = await engine.EstimateAsync(CreateRequest(60));
+
+        Assert.Equal(150m, estimate.PricePerHour);
+        Assert.Equal(150m, estimate.TotalPrice);
+        Assert.Equal(90m, estimate.TeacherEarnings);
+        Assert.Equal(60m, estimate.PlatformShare);
+        Assert.True(estimate.ReflectCustomPriceToStudent);
+        Assert.Equal(150m, estimate.EarningsPricePerHour);
+    }
+
+    [Fact]
+    public async Task EstimateAsync_ReflectOff_StudentPaysPlatform_EarningsFromTeacherPrice()
+    {
+        var (engine, _, _, _) = CreateSut(
+            domainPricing: CreateDomainPricing(customPrice: 150m, reflect: false, levelShare: 60m),
+            rate: CreateRate(100m));
+
+        var estimate = await engine.EstimateAsync(CreateRequest(60));
+
+        Assert.Equal(100m, estimate.PricePerHour);
+        Assert.Equal(100m, estimate.TotalPrice);
+        Assert.Equal(90m, estimate.TeacherEarnings);
+        Assert.Equal(10m, estimate.PlatformShare);
+        Assert.False(estimate.ReflectCustomPriceToStudent);
+        Assert.Equal(150m, estimate.EarningsPricePerHour);
+    }
+
+    [Fact]
     public async Task EstimateAsync_ZeroMinutes_Throws()
     {
-        var (engine, _, _) = CreateSut();
+        var (engine, _, _, _) = CreateSut();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             engine.EstimateAsync(CreateRequest(0)));
@@ -198,7 +273,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_NoRate_Throws()
     {
-        var (engine, _, _) = CreateSut(missingRate: true);
+        var (engine, _, _, _) = CreateSut(missingRate: true);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             engine.EstimateAsync(CreateRequest(60)));
@@ -209,9 +284,9 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_TeacherNotFound_Throws()
     {
-        var (engine, _, teacherRepo) = CreateSut();
+        var (engine, _, teacherRepo, _) = CreateSut();
         teacherRepo
-            .Setup(r => r.GetByIdWithLevelAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(TeacherId))
             .ReturnsAsync((Teacher?)null);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -223,9 +298,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_TeacherNoLevel_UsesZeroShare()
     {
-        var teacher = CreateTeacher();
-        teacher.TeacherLevel = null;
-        var (engine, _, _) = CreateSut(teacher: teacher);
+        var (engine, _, _, _) = CreateSut(domainPricing: CreateDomainPricing(interviewDone: false));
 
         var result = await engine.EstimateAsync(CreateRequest(60));
 
@@ -237,7 +310,7 @@ public class PricingEngineTests
     [Fact]
     public async Task ResolvePricePerHourAsync_ReturnsEffectiveRate()
     {
-        var (engine, _, _) = CreateSut(rate: CreateRate(150m));
+        var (engine, _, _, _) = CreateSut(rate: CreateRate(150m));
 
         var price = await engine.ResolvePricePerHourAsync(DomainId, SessionType, MarketCode);
 
@@ -247,7 +320,7 @@ public class PricingEngineTests
     [Fact]
     public async Task CreateSnapshotAsync_CopiesEstimateFields()
     {
-        var (engine, _, _) = CreateSut();
+        var (engine, _, _, _) = CreateSut();
 
         var snapshot = await engine.CreateSnapshotAsync(new CreatePricingSnapshotRequest
         {
@@ -276,12 +349,7 @@ public class PricingEngineTests
     [Fact]
     public async Task EstimateAsync_InterviewPendingTeacher_UsesZeroShare()
     {
-        var teacher = CreateTeacher();
-        teacher.HasCompletedInterviewSession = false;
-        teacher.TeacherLevelId = null;
-        teacher.TeacherLevel = null;
-
-        var (engine, _, _) = CreateSut(teacher);
+        var (engine, _, _, _) = CreateSut(domainPricing: CreateDomainPricing(interviewDone: false));
 
         var result = await engine.EstimateAsync(CreateRequest(60));
 
@@ -289,5 +357,34 @@ public class PricingEngineTests
         Assert.Equal(0m, result.TeacherEarnings);
         Assert.Equal(100m, result.TotalPrice);
         Assert.Equal(100m, result.PlatformShare);
+    }
+
+    [Fact]
+    public async Task EstimateAsync_MissingDomainPricing_UsesZeroShare()
+    {
+        var priceRepo = new Mock<IDomainSessionPriceRepository>();
+        priceRepo
+            .Setup(r => r.GetEffectiveRateAsync(DomainId, SessionType, MarketCode, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateRate());
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo.Setup(r => r.GetByIdAsync(TeacherId)).ReturnsAsync(CreateTeacher());
+
+        var domainPricingRepo = new Mock<ITeacherDomainPricingRepository>();
+        domainPricingRepo
+            .Setup(r => r.GetByTeacherAndDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TeacherDomainPricing?)null);
+
+        var marketRepo = new Mock<IPricingMarketRepository>();
+        marketRepo.Setup(r => r.GetByCodeAsync(MarketCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMarket());
+
+        var engine = new PricingEngine(
+            priceRepo.Object, teacherRepo.Object, domainPricingRepo.Object, marketRepo.Object);
+
+        var result = await engine.EstimateAsync(CreateRequest(60));
+
+        Assert.Equal(0m, result.TeacherSharePct);
+        Assert.Equal(100m, result.TotalPrice);
     }
 }

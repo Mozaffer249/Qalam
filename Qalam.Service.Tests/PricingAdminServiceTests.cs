@@ -42,6 +42,7 @@ public class PricingAdminServiceTests
         out Mock<ITeacherLevelRepository> levelRepo,
         out Mock<ITeacherRepository> teacherRepo,
         out Mock<ITeacherLevelUpgradeSuggestionRepository> suggestionRepo,
+        out Mock<ITeacherDomainPricingRepository> domainPricingRepo,
         ApplicationDBContext? dbContext = null)
     {
         priceRepo = new Mock<IDomainSessionPriceRepository>();
@@ -50,6 +51,7 @@ public class PricingAdminServiceTests
         levelRepo = new Mock<ITeacherLevelRepository>();
         teacherRepo = new Mock<ITeacherRepository>();
         suggestionRepo = new Mock<ITeacherLevelUpgradeSuggestionRepository>();
+        domainPricingRepo = new Mock<ITeacherDomainPricingRepository>();
 
         marketRepo
             .Setup(r => r.ExistsActiveAsync("sa", It.IsAny<CancellationToken>()))
@@ -61,6 +63,7 @@ public class PricingAdminServiceTests
             domainRepo.Object,
             levelRepo.Object,
             teacherRepo.Object,
+            domainPricingRepo.Object,
             suggestionRepo.Object,
             new DomainRatePropagationService(priceRepo.Object, marketRepo.Object),
             dbContext ?? CreateDb());
@@ -69,7 +72,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDomainSessionPriceAsync_DomainNotFound_ReturnsNull()
     {
-        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync((EducationDomain?)null);
 
         var result = await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
@@ -86,7 +89,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDomainSessionPriceAsync_InvalidSessionType_Throws()
     {
-        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -120,7 +123,7 @@ public class PricingAdminServiceTests
             IsActive = true
         };
 
-        var service = CreateSut(out var priceRepo, out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out var priceRepo, out _, out var domainRepo, out _, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -149,7 +152,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDomainSessionPriceAsync_NonBaseMarket_Throws()
     {
-        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out _, out _, out var domainRepo, out _, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain { Id = 1, Code = "school", NameEn = "School", NameAr = "مدرسة" });
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -168,7 +171,7 @@ public class PricingAdminServiceTests
     public async Task SetDomainSessionPriceAsync_NewPrice_ClosesCurrentAndPropagates()
     {
         var addedRows = new List<DomainSessionPrice>();
-        var service = CreateSut(out var priceRepo, out var marketRepo, out var domainRepo, out _, out _, out _);
+        var service = CreateSut(out var priceRepo, out var marketRepo, out var domainRepo, out _, out _, out _, out _);
         domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
         {
             Id = 1,
@@ -215,7 +218,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetTeacherLevelAsync_InactiveLevel_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out var levelRepo, out var teacherRepo, out _);
+        var service = CreateSut(out _, out _, out _, out var levelRepo, out var teacherRepo, out _, out _);
         teacherRepo.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Teacher { Id = 5 });
         levelRepo.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new TeacherLevel
         {
@@ -226,7 +229,7 @@ public class PricingAdminServiceTests
         });
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.SetTeacherLevelAsync(5, new SetTeacherLevelDto { TeacherLevelId = 2 }));
+            service.SetTeacherLevelAsync(5, new SetTeacherLevelDto { DomainId = 1, TeacherLevelId = 2 }));
 
         Assert.Contains("inactive", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -241,6 +244,7 @@ public class PricingAdminServiceTests
         {
             Id = 11,
             TeacherId = 5,
+            DomainId = 3,
             CurrentLevelId = 1,
             SuggestedLevelId = 2,
             Status = TeacherLevelUpgradeSuggestionStatus.Pending,
@@ -249,7 +253,7 @@ public class PricingAdminServiceTests
             Teacher = new Teacher { Id = 5 }
         };
 
-        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out var suggestionRepo);
+        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out var suggestionRepo, out var domainPricingRepo);
         suggestionRepo.Setup(r => r.GetByIdAsync(11)).ReturnsAsync(suggestion);
         teacherRepo.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Teacher { Id = 5, TeacherLevelId = 1 });
         teacherRepo.Setup(r => r.UpdateAsync(It.IsAny<Teacher>()))
@@ -258,6 +262,10 @@ public class PricingAdminServiceTests
         suggestionRepo.Setup(r => r.UpdateAsync(It.IsAny<TeacherLevelUpgradeSuggestion>()))
             .Callback<TeacherLevelUpgradeSuggestion>(s => updatedSuggestion = s)
             .Returns(Task.CompletedTask);
+        domainPricingRepo
+            .Setup(r => r.GetOrCreateAsync(5, 3, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TeacherDomainPricing { TeacherId = 5, DomainId = 3, TeacherLevelId = 1 });
+        domainPricingRepo.Setup(r => r.UpdateAsync(It.IsAny<TeacherDomainPricing>())).Returns(Task.CompletedTask);
 
         var success = await service.ApproveLevelUpgradeSuggestionAsync(11, "Looks good");
 
@@ -271,7 +279,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task RejectLevelUpgradeSuggestionAsync_NotPending_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out _, out _, out var suggestionRepo);
+        var service = CreateSut(out _, out _, out _, out _, out _, out var suggestionRepo, out _);
         suggestionRepo.Setup(r => r.GetByIdAsync(11)).ReturnsAsync(new TeacherLevelUpgradeSuggestion
         {
             Id = 11,
@@ -287,7 +295,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task ListLevelUpgradeSuggestionsAsync_InvalidStatus_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out _, out _, out _);
+        var service = CreateSut(out _, out _, out _, out _, out _, out _, out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.ListLevelUpgradeSuggestionsAsync("unknown"));
@@ -298,7 +306,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task BackfillStarterTeacherLevelsAsync_DelegatesToRepository()
     {
-        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out _);
+        var service = CreateSut(out _, out _, out _, out _, out var teacherRepo, out _, out _);
         teacherRepo
             .Setup(r => r.BackfillStarterLevelForTeachersWithoutLevelAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(2500);
@@ -311,7 +319,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task CreatePricingMarketAsync_DuplicateCode_Throws()
     {
-        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _, out _);
         marketRepo.Setup(r => r.ExistsAsync("ma", It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -339,7 +347,7 @@ public class PricingAdminServiceTests
             IsDefault = true
         };
 
-        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _, out _);
         marketRepo.Setup(r => r.GetByCodeTrackedAsync("sa", It.IsAny<CancellationToken>()))
             .ReturnsAsync(market);
 
@@ -358,7 +366,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task SetDefaultPricingMarketAsync_InactiveMarket_Throws()
     {
-        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _, out _);
         marketRepo.Setup(r => r.GetByCodeTrackedAsync("eg", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PricingMarket
             {
@@ -393,6 +401,7 @@ public class PricingAdminServiceTests
             new Mock<IEducationDomainRepository>().Object,
             new Mock<ITeacherLevelRepository>().Object,
             new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new DomainRatePropagationService(priceRepo, marketRepo),
             db);
@@ -437,7 +446,7 @@ public class PricingAdminServiceTests
         };
 
         PricingMarket? updated = null;
-        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _, out _);
         marketRepo.Setup(r => r.GetByCodeTrackedAsync("eg", It.IsAny<CancellationToken>()))
             .ReturnsAsync(eg);
         marketRepo.Setup(r => r.ClearDefaultFlagAsync(It.IsAny<CancellationToken>()))
@@ -474,7 +483,7 @@ public class PricingAdminServiceTests
             IsDefault = false
         };
 
-        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _);
+        var service = CreateSut(out _, out var marketRepo, out _, out _, out _, out _, out _);
         marketRepo.Setup(r => r.GetByCodeTrackedAsync("ae", It.IsAny<CancellationToken>()))
             .ReturnsAsync(market);
         marketRepo.Setup(r => r.UpdateAsync(It.IsAny<PricingMarket>()))
@@ -497,7 +506,7 @@ public class PricingAdminServiceTests
     [Fact]
     public async Task UpdatePricingExchangeRateAsync_BaseMarket_Throws()
     {
-        var service = CreateSut(out _, out _, out _, out _, out _, out _);
+        var service = CreateSut(out _, out _, out _, out _, out _, out _, out _);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.UpdatePricingExchangeRateAsync("sa", new UpdatePricingExchangeRateDto { ExchangeRateFromBase = 2m }));
@@ -527,6 +536,7 @@ public class PricingAdminServiceTests
             new Mock<IEducationDomainRepository>().Object,
             new Mock<ITeacherLevelRepository>().Object,
             new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new DomainRatePropagationService(priceRepo, marketRepo),
             db);
@@ -554,6 +564,7 @@ public class PricingAdminServiceTests
             new Mock<IEducationDomainRepository>().Object,
             levelRepo,
             new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new Mock<IDomainRatePropagationService>().Object,
             db);

@@ -20,6 +20,7 @@ public class PricingAdminService : IPricingAdminService
     private readonly IEducationDomainRepository _domainRepository;
     private readonly ITeacherLevelRepository _teacherLevelRepository;
     private readonly ITeacherRepository _teacherRepository;
+    private readonly ITeacherDomainPricingRepository _teacherDomainPricingRepository;
     private readonly ITeacherLevelUpgradeSuggestionRepository _suggestionRepository;
     private readonly IDomainRatePropagationService _propagationService;
     private readonly ApplicationDBContext _dbContext;
@@ -30,6 +31,7 @@ public class PricingAdminService : IPricingAdminService
         IEducationDomainRepository domainRepository,
         ITeacherLevelRepository teacherLevelRepository,
         ITeacherRepository teacherRepository,
+        ITeacherDomainPricingRepository teacherDomainPricingRepository,
         ITeacherLevelUpgradeSuggestionRepository suggestionRepository,
         IDomainRatePropagationService propagationService,
         ApplicationDBContext dbContext)
@@ -39,6 +41,7 @@ public class PricingAdminService : IPricingAdminService
         _domainRepository = domainRepository;
         _teacherLevelRepository = teacherLevelRepository;
         _teacherRepository = teacherRepository;
+        _teacherDomainPricingRepository = teacherDomainPricingRepository;
         _suggestionRepository = suggestionRepository;
         _propagationService = propagationService;
         _dbContext = dbContext;
@@ -305,6 +308,9 @@ public class PricingAdminService : IPricingAdminService
         SetTeacherLevelDto dto,
         CancellationToken cancellationToken = default)
     {
+        if (dto.DomainId <= 0)
+            throw new InvalidOperationException("DomainId is required.");
+
         var teacher = await _teacherRepository.GetByIdAsync(teacherId);
         if (teacher == null)
             return false;
@@ -312,6 +318,13 @@ public class PricingAdminService : IPricingAdminService
         var level = await _teacherLevelRepository.GetByIdAsync(dto.TeacherLevelId);
         if (level == null || !level.IsActive)
             throw new InvalidOperationException("Teacher level not found or inactive.");
+
+        var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
+            teacherId, dto.DomainId, cancellationToken);
+        pricing.TeacherLevelId = level.Id;
+        pricing.HasCompletedInterviewSession = true;
+        pricing.UpdatedAt = DateTime.UtcNow;
+        await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
         teacher.TeacherLevelId = level.Id;
         teacher.HasCompletedInterviewSession = true;
@@ -361,16 +374,107 @@ public class PricingAdminService : IPricingAdminService
         SetTeacherShareOverrideDto dto,
         CancellationToken cancellationToken = default)
     {
+        if (dto.DomainId <= 0)
+            throw new InvalidOperationException("DomainId is required.");
+
         var teacher = await _teacherRepository.GetByIdAsync(teacherId);
         if (teacher == null)
             return false;
 
+        if (dto.CustomTeacherSharePct is < 0 or > 100)
+            throw new InvalidOperationException("Custom teacher share % must be between 0 and 100.");
+
+        var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
+            teacherId, dto.DomainId, cancellationToken);
+        pricing.CustomTeacherSharePct = dto.CustomTeacherSharePct;
+        pricing.UpdatedAt = DateTime.UtcNow;
+        await _teacherDomainPricingRepository.UpdateAsync(pricing);
+
+        // Keep legacy column as last-written domain override for display fallback.
         teacher.CustomTeacherSharePct = dto.CustomTeacherSharePct;
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<List<TeacherDomainPricingAdminDto>> ListTeacherDomainPricingsAsync(
+        int? domainId,
+        int? teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.TeacherDomainPricings
+            .AsNoTracking()
+            .Include(p => p.Teacher).ThenInclude(t => t.User)
+            .Include(p => p.Domain)
+            .Include(p => p.TeacherLevel)
+            .AsQueryable();
+
+        if (domainId.HasValue)
+            query = query.Where(p => p.DomainId == domainId.Value);
+        if (teacherId.HasValue)
+            query = query.Where(p => p.TeacherId == teacherId.Value);
+
+        var rows = await query
+            .OrderBy(p => p.TeacherId)
+            .ThenBy(p => p.DomainId)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(MapTeacherDomainPricing).ToList();
+    }
+
+    public async Task<TeacherDomainPricingAdminDto?> SetTeacherDomainPricingAsync(
+        int teacherId,
+        SetTeacherDomainPricingDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        if (dto.DomainId <= 0)
+            throw new InvalidOperationException("DomainId is required.");
+
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null)
+            return null;
+
+        if (dto.CustomTeacherSharePct is < 0 or > 100)
+            throw new InvalidOperationException("Custom teacher share % must be between 0 and 100.");
+        if (dto.CustomPricePerHour is < 0)
+            throw new InvalidOperationException("Custom price per hour cannot be negative.");
+
+        if (dto.TeacherLevelId.HasValue)
+        {
+            var level = await _teacherLevelRepository.GetByIdAsync(dto.TeacherLevelId.Value);
+            if (level == null || !level.IsActive)
+                throw new InvalidOperationException("Teacher level not found or inactive.");
+        }
+
+        var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
+            teacherId, dto.DomainId, cancellationToken);
+
+        if (dto.TeacherLevelId.HasValue)
+        {
+            pricing.TeacherLevelId = dto.TeacherLevelId;
+            pricing.HasCompletedInterviewSession = true;
+            teacher.TeacherLevelId = dto.TeacherLevelId;
+            teacher.HasCompletedInterviewSession = true;
+        }
+
+        pricing.CustomTeacherSharePct = dto.CustomTeacherSharePct;
+        pricing.CustomPricePerHour = dto.CustomPricePerHour;
+        // Default safe: reflect off unless admin explicitly enables (and only meaningful with custom price).
+        pricing.ReflectCustomPriceToStudent =
+            dto.CustomPricePerHour.HasValue && dto.ReflectCustomPriceToStudent;
+        pricing.UpdatedAt = DateTime.UtcNow;
+        await _teacherDomainPricingRepository.UpdateAsync(pricing);
+
+        teacher.CustomTeacherSharePct = dto.CustomTeacherSharePct;
+        teacher.UpdatedAt = DateTime.UtcNow;
+        await _teacherRepository.UpdateAsync(teacher);
+        await _teacherRepository.SaveChangesAsync();
+
+        var refreshed = await _teacherDomainPricingRepository.GetByTeacherAndDomainAsync(
+            teacherId, dto.DomainId, cancellationToken);
+        return refreshed == null ? null : MapTeacherDomainPricing(refreshed);
     }
 
     public async Task<List<TeacherLevelUpgradeSuggestionAdminDto>> ListLevelUpgradeSuggestionsAsync(
@@ -398,6 +502,13 @@ public class PricingAdminService : IPricingAdminService
         var teacher = await _teacherRepository.GetByIdAsync(suggestion.TeacherId);
         if (teacher == null)
             return false;
+
+        var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
+            suggestion.TeacherId, suggestion.DomainId, cancellationToken);
+        pricing.TeacherLevelId = suggestion.SuggestedLevelId;
+        pricing.HasCompletedInterviewSession = true;
+        pricing.UpdatedAt = DateTime.UtcNow;
+        await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
         teacher.TeacherLevelId = suggestion.SuggestedLevelId;
         teacher.UpdatedAt = DateTime.UtcNow;
@@ -560,6 +671,28 @@ public class PricingAdminService : IPricingAdminService
             IsActive = level.IsActive
         };
 
+    private static TeacherDomainPricingAdminDto MapTeacherDomainPricing(
+        Data.Entity.Teacher.TeacherDomainPricing pricing) =>
+        new()
+        {
+            Id = pricing.Id,
+            TeacherId = pricing.TeacherId,
+            TeacherName = string.Join(" ",
+                new[] { pricing.Teacher?.User?.FirstName, pricing.Teacher?.User?.LastName }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))),
+            DomainId = pricing.DomainId,
+            DomainCode = pricing.Domain?.Code,
+            DomainNameEn = pricing.Domain?.NameEn,
+            DomainNameAr = pricing.Domain?.NameAr,
+            TeacherLevelId = pricing.TeacherLevelId,
+            TeacherLevelCode = pricing.TeacherLevel?.Code,
+            LevelSharePct = pricing.TeacherLevel?.TeacherSharePct,
+            CustomTeacherSharePct = pricing.CustomTeacherSharePct,
+            CustomPricePerHour = pricing.CustomPricePerHour,
+            ReflectCustomPriceToStudent = pricing.ReflectCustomPriceToStudent,
+            HasCompletedInterviewSession = pricing.HasCompletedInterviewSession
+        };
+
     private static TeacherLevelUpgradeSuggestionAdminDto MapUpgradeSuggestion(
         Data.Entity.Teacher.TeacherLevelUpgradeSuggestion suggestion) =>
         new()
@@ -569,6 +702,10 @@ public class PricingAdminService : IPricingAdminService
             TeacherName = string.Join(" ",
                 new[] { suggestion.Teacher.User?.FirstName, suggestion.Teacher.User?.LastName }
                     .Where(x => !string.IsNullOrWhiteSpace(x))),
+            DomainId = suggestion.DomainId,
+            DomainCode = suggestion.Domain?.Code,
+            DomainNameEn = suggestion.Domain?.NameEn,
+            DomainNameAr = suggestion.Domain?.NameAr,
             CurrentLevelId = suggestion.CurrentLevelId,
             CurrentLevelCode = suggestion.CurrentLevel.Code,
             SuggestedLevelId = suggestion.SuggestedLevelId,

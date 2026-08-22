@@ -1452,13 +1452,29 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 
 ## Pricing / Free first session
 
-### Teacher interview session (unpaid)
+### Per-domain teacher pricing (hybrid)
 
-1. New teachers register **without** a paid commission level (`TeacherLevelId = null`, `HasCompletedInterviewSession = false`).
-2. Until the interview is completed, `PricingEngine` resolves **teacher share = 0%** (platform keeps the full student charge when the student pays).
-3. **First completed session** on the platform (any student, S1 or S2) unlocks the **lowest active** `TeacherLevel` by `OrderIndex` (seed: `starter`) and sets `HasCompletedInterviewSession = true`.
-4. Admins may bypass by assigning a level (also marks interview complete).
-5. Further promotion uses existing metrics + admin upgrade suggestions. Levels are **admin-expandable** (`POST` new tiers); min/max follow active `OrderIndex` order.
+1. Commission **level is per educational domain**, stored on `TeacherDomainPricing` (`TeacherId` + `DomainId`). Shared catalog: `TeacherLevel`.
+2. Platform base rate remains `DomainSessionPrice` (domain × market × session type).
+3. Admin may set per teacher×domain: `TeacherLevelId`, optional `CustomTeacherSharePct`, optional `CustomPricePerHour` (SAR base), and `ReflectCustomPriceToStudent`.
+4. **Share resolution:** custom share → else no level / interview not unlocked for that domain → `0%` → else domain level share.
+5. **Student price:** if `CustomPricePerHour` is set **and** `ReflectCustomPriceToStudent` → student pays teacher rate (FX to market); otherwise student pays platform `DomainSessionPrice`.
+6. **Teacher earnings base:** `CustomPricePerHour` (FX) if set, else platform rate — even when the student still pays the platform rate (`Reflect = false`).
+7. Default when assigning a new custom teacher price: `ReflectCustomPriceToStudent = false` (safe — does not change student price until admin enables reflect).
+
+| `CustomPricePerHour` | `ReflectCustomPriceToStudent` | Student pays | Earnings base |
+|----------------------|-------------------------------|--------------|---------------|
+| null | — | Platform | Platform × share |
+| set | **true** | Teacher rate | Teacher rate × share |
+| set | **false** | Platform | Teacher rate × share |
+
+### Teacher interview session (unpaid) — per domain
+
+1. New teachers register **without** paid domain levels (`TeacherDomainPricing.TeacherLevelId` null / missing row; legacy `Teacher.HasCompletedInterviewSession = false`).
+2. Until the domain interview is completed, `PricingEngine` resolves **teacher share = 0%** for that domain.
+3. **First completed session in a domain** unlocks the **lowest active** `TeacherLevel` on that domain’s `TeacherDomainPricing` and sets `HasCompletedInterviewSession = true` for the domain (also syncs legacy teacher flags).
+4. Admins may bypass by assigning a level for the domain (also marks interview complete).
+5. Further promotion is **per domain**: system creates `TeacherLevelUpgradeSuggestion` with `DomainId`; admin approve/reject. Levels remain **admin-expandable** (`POST` new tiers).
 6. Formal dispute/complaint workflow is out of scope; teachers use support/contact channels.
 
 ### Student free trial (Model 1 — true free)
@@ -1466,7 +1482,7 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 1. Each **student** account gets **one lifetime** individual free trial (`HasUsedFreeTrialSession`).
 2. Eligible: individual OSR accept (or individual direct enroll when wired) while unused.
 3. Student `AmountDue = 0`; enrollment activates without payment; trial flag set when the free enrollment is created.
-4. Teacher payout on that session: if teacher still in interview → 0%; otherwise normal share of the **notional** market price (platform bears the cost; student total remains 0).
+4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
 5. **Model 2 (later, not built):** pay full package; refund first session if dissatisfied — requires refund APIs.
 
 ---

@@ -6,8 +6,9 @@ namespace Qalam.Infrastructure.Abstracts;
 
 public interface ITeacherLevelUpgradeSuggestionRepository : IGenericRepositoryAsync<TeacherLevelUpgradeSuggestion>
 {
-    Task<TeacherLevelUpgradeSuggestion?> GetPendingForTeacherAsync(
+    Task<TeacherLevelUpgradeSuggestion?> GetPendingForTeacherDomainAsync(
         int teacherId,
+        int domainId,
         CancellationToken cancellationToken = default);
 
     Task<List<TeacherLevelUpgradeSuggestion>> ListByStatusAsync(

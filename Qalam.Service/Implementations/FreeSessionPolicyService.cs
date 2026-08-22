@@ -1,5 +1,4 @@
 using Qalam.Data.Entity.Student;
-using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -11,8 +10,11 @@ public interface IFreeSessionPolicyService
 
     Task MarkStudentFreeTrialUsedAsync(int studentId, CancellationToken cancellationToken = default);
 
-    /// <summary>Unlock lowest active level after first completed session (idempotent).</summary>
-    Task TryCompleteTeacherInterviewAsync(int teacherId, CancellationToken cancellationToken = default);
+    /// <summary>Unlock lowest active level for the domain after first completed session (idempotent).</summary>
+    Task TryCompleteTeacherInterviewAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default);
 }
 
 public class FreeSessionPolicyService : IFreeSessionPolicyService
@@ -20,15 +22,18 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     private readonly IStudentRepository _studentRepository;
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherLevelRepository _teacherLevelRepository;
+    private readonly ITeacherDomainPricingRepository _domainPricingRepository;
 
     public FreeSessionPolicyService(
         IStudentRepository studentRepository,
         ITeacherRepository teacherRepository,
-        ITeacherLevelRepository teacherLevelRepository)
+        ITeacherLevelRepository teacherLevelRepository,
+        ITeacherDomainPricingRepository domainPricingRepository)
     {
         _studentRepository = studentRepository;
         _teacherRepository = teacherRepository;
         _teacherLevelRepository = teacherLevelRepository;
+        _domainPricingRepository = domainPricingRepository;
     }
 
     public async Task<bool> IsStudentEligibleForFreeTrialAsync(
@@ -51,18 +56,44 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
         await _studentRepository.SaveChangesAsync();
     }
 
-    public async Task TryCompleteTeacherInterviewAsync(int teacherId, CancellationToken cancellationToken = default)
+    public async Task TryCompleteTeacherInterviewAsync(
+        int teacherId,
+        int domainId,
+        CancellationToken cancellationToken = default)
     {
-        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
-        if (teacher == null || teacher.HasCompletedInterviewSession)
+        if (domainId <= 0)
             return;
+
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null)
+            return;
+
+        var pricing = await _domainPricingRepository.GetOrCreateAsync(teacherId, domainId, cancellationToken);
+        if (pricing.HasCompletedInterviewSession && pricing.TeacherLevelId.HasValue)
+        {
+            // Keep legacy teacher flags in sync when any domain is unlocked.
+            if (!teacher.HasCompletedInterviewSession)
+            {
+                teacher.HasCompletedInterviewSession = true;
+                teacher.TeacherLevelId ??= pricing.TeacherLevelId;
+                teacher.UpdatedAt = DateTime.UtcNow;
+                await _teacherRepository.UpdateAsync(teacher);
+                await _teacherRepository.SaveChangesAsync();
+            }
+            return;
+        }
 
         var minLevel = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
         if (minLevel == null)
             throw new InvalidOperationException("No active teacher level configured.");
 
+        pricing.HasCompletedInterviewSession = true;
+        pricing.TeacherLevelId ??= minLevel.Id;
+        pricing.UpdatedAt = DateTime.UtcNow;
+        await _domainPricingRepository.UpdateAsync(pricing);
+
         teacher.HasCompletedInterviewSession = true;
-        teacher.TeacherLevelId ??= minLevel.Id;
+        teacher.TeacherLevelId ??= pricing.TeacherLevelId;
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();

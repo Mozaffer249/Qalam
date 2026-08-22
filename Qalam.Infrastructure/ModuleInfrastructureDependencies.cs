@@ -93,6 +93,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<IDomainSessionPriceRepository, DomainSessionPriceRepository>();
             services.AddTransient<IPricingMarketRepository, PricingMarketRepository>();
             services.AddTransient<ITeacherLevelRepository, TeacherLevelRepository>();
+            services.AddTransient<ITeacherDomainPricingRepository, TeacherDomainPricingRepository>();
             services.AddTransient<IPricingSnapshotRepository, PricingSnapshotRepository>();
             services.AddTransient<ITeacherLevelUpgradeSuggestionRepository, TeacherLevelUpgradeSuggestionRepository>();
 

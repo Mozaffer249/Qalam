@@ -129,13 +129,48 @@ public class CreateTeacherLevelTierDto
 
 public class SetTeacherLevelDto
 {
+    /// <summary>Required — level is assigned per educational domain.</summary>
+    public int DomainId { get; set; }
+
     public int TeacherLevelId { get; set; }
 }
 
 public class SetTeacherShareOverrideDto
 {
+    /// <summary>Required — share override is per educational domain.</summary>
+    public int DomainId { get; set; }
+
     /// <summary>Null clears the override and reverts to tier default.</summary>
     public decimal? CustomTeacherSharePct { get; set; }
+}
+
+public class SetTeacherDomainPricingDto
+{
+    public int DomainId { get; set; }
+    public int? TeacherLevelId { get; set; }
+    public decimal? CustomTeacherSharePct { get; set; }
+    /// <summary>Optional teacher hourly rate in SAR. Null clears the override.</summary>
+    public decimal? CustomPricePerHour { get; set; }
+    /// <summary>When true and custom price is set, student pays the teacher rate.</summary>
+    public bool ReflectCustomPriceToStudent { get; set; }
+}
+
+public class TeacherDomainPricingAdminDto
+{
+    public int Id { get; set; }
+    public int TeacherId { get; set; }
+    public string? TeacherName { get; set; }
+    public int DomainId { get; set; }
+    public string? DomainCode { get; set; }
+    public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
+    public int? TeacherLevelId { get; set; }
+    public string? TeacherLevelCode { get; set; }
+    public decimal? LevelSharePct { get; set; }
+    public decimal? CustomTeacherSharePct { get; set; }
+    public decimal? CustomPricePerHour { get; set; }
+    public bool ReflectCustomPriceToStudent { get; set; }
+    public bool HasCompletedInterviewSession { get; set; }
 }
 
 public class TeacherLevelUpgradeSuggestionAdminDto
@@ -143,6 +178,10 @@ public class TeacherLevelUpgradeSuggestionAdminDto
     public int Id { get; set; }
     public int TeacherId { get; set; }
     public string? TeacherName { get; set; }
+    public int DomainId { get; set; }
+    public string? DomainCode { get; set; }
+    public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
     public int CurrentLevelId { get; set; }
     public string? CurrentLevelCode { get; set; }
     public int SuggestedLevelId { get; set; }

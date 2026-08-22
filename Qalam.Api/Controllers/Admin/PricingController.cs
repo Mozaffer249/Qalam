@@ -8,6 +8,7 @@ using Qalam.Core.Features.Admin.Pricing.Commands.CreateTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.RejectLevelUpgradeSuggestion;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDefaultPricingMarket;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetDomainSessionPrice;
+using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherDomainPricing;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevel;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherLevelTier;
 using Qalam.Core.Features.Admin.Pricing.Commands.SetTeacherShareOverride;
@@ -18,6 +19,7 @@ using Qalam.Core.Features.Admin.Pricing.Queries.ListLevelUpgradeSuggestions;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingExchangeRates;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListPricingMarkets;
 using Qalam.Core.Features.Admin.Pricing.Queries.GetFreeSessionPolicyStats;
+using Qalam.Core.Features.Admin.Pricing.Queries.ListTeacherDomainPricings;
 using Qalam.Core.Features.Admin.Pricing.Queries.ListTeacherLevelTiers;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
@@ -83,6 +85,26 @@ public class PricingController : AppControllerBase
     [HttpPut("teacher-level-tiers/{id:int}")]
     public async Task<IActionResult> SetTeacherLevelTier(int id, [FromBody] SetTeacherLevelTierDto data)
         => NewResult(await Mediator.Send(new SetTeacherLevelTierCommand { Id = id, Data = data }));
+
+    [HttpGet("teacher-domain-pricings")]
+    public async Task<IActionResult> ListTeacherDomainPricings(
+        [FromQuery] int? domainId,
+        [FromQuery] int? teacherId)
+        => NewResult(await Mediator.Send(new ListTeacherDomainPricingsQuery
+        {
+            DomainId = domainId,
+            TeacherId = teacherId
+        }));
+
+    [HttpPut("teachers/{teacherId:int}/domain-pricing")]
+    public async Task<IActionResult> SetTeacherDomainPricing(
+        int teacherId,
+        [FromBody] SetTeacherDomainPricingDto data)
+        => NewResult(await Mediator.Send(new SetTeacherDomainPricingCommand
+        {
+            TeacherId = teacherId,
+            Data = data
+        }));
 
     [HttpPut("teachers/{teacherId:int}/level")]
     public async Task<IActionResult> SetTeacherLevel(int teacherId, [FromBody] SetTeacherLevelDto data)

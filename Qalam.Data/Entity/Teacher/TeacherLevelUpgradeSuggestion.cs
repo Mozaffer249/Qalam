@@ -1,5 +1,6 @@
 using Qalam.Data.Commons;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Education;
 
 namespace Qalam.Data.Entity.Teacher;
 
@@ -11,6 +12,9 @@ public class TeacherLevelUpgradeSuggestion : AuditableEntity
     public int Id { get; set; }
 
     public int TeacherId { get; set; }
+
+    /// <summary>Domain this upgrade suggestion applies to (per-domain progression).</summary>
+    public int DomainId { get; set; }
 
     public int CurrentLevelId { get; set; }
 
@@ -32,6 +36,7 @@ public class TeacherLevelUpgradeSuggestion : AuditableEntity
     public string? ReviewNotes { get; set; }
 
     public Teacher Teacher { get; set; } = null!;
+    public EducationDomain Domain { get; set; } = null!;
     public TeacherLevel CurrentLevel { get; set; } = null!;
     public TeacherLevel SuggestedLevel { get; set; } = null!;
 }

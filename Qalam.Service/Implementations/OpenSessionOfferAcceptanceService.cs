@@ -209,7 +209,14 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                         var teacher = await _db.Teachers
                             .AsNoTracking()
                             .FirstOrDefaultAsync(t => t.Id == offer.TeacherId, cancellationToken);
-                        var interviewPending = teacher is not { HasCompletedInterviewSession: true };
+                        var domainPricing = await _db.TeacherDomainPricings
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(
+                                p => p.TeacherId == offer.TeacherId && p.DomainId == snapshot.DomainId,
+                                cancellationToken);
+                        var interviewPending = domainPricing is not
+                            { HasCompletedInterviewSession: true, TeacherLevelId: not null }
+                            && teacher is not { HasCompletedInterviewSession: true };
                         var notionalTeacherEarnings = snapshot.TeacherEarnings;
                         snapshot.TotalPrice = 0m;
                         if (interviewPending)

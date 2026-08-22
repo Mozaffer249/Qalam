@@ -15,17 +15,20 @@ public class SessionLifecycleHelper : ISessionLifecycleService
     private readonly ICourseScheduleRepository _courseScheduleRepository;
     private readonly ILiveSessionProvider _liveSessionProvider;
     private readonly IFreeSessionPolicyService _freeSessionPolicy;
+    private readonly ITeacherLevelProgressionService _progressionService;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
         ICourseScheduleRepository courseScheduleRepository,
         ILiveSessionProvider liveSessionProvider,
         IFreeSessionPolicyService freeSessionPolicy,
+        ITeacherLevelProgressionService progressionService,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
         _liveSessionProvider = liveSessionProvider;
         _freeSessionPolicy = freeSessionPolicy;
+        _progressionService = progressionService;
         _logger = logger;
     }
 
@@ -60,16 +63,30 @@ public class SessionLifecycleHelper : ISessionLifecycleService
 
         var teacherId = schedule.Enrollment?.ApprovedByTeacherId
             ?? schedule.Enrollment?.Course?.TeacherId;
-        if (teacherId.HasValue)
+        var domainId = schedule.Enrollment?.Course?.DomainId ?? 0;
+        if (teacherId.HasValue && domainId > 0)
         {
             try
             {
-                await _freeSessionPolicy.TryCompleteTeacherInterviewAsync(teacherId.Value, cancellationToken);
+                await _freeSessionPolicy.TryCompleteTeacherInterviewAsync(
+                    teacherId.Value, domainId, cancellationToken);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
                     "Failed to unlock teacher interview after completing CourseSchedule {ScheduleId}",
+                    schedule.Id);
+            }
+
+            try
+            {
+                await _progressionService.EvaluateTeacherAsync(
+                    teacherId.Value, domainId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to evaluate teacher progression after completing CourseSchedule {ScheduleId}",
                     schedule.Id);
             }
         }
