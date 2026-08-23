@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 using System.Globalization;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
@@ -97,6 +98,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                     ? c.TeacherSubject.Subject.DomainId
                     : c.DomainId,
                 SessionTypeCode = c.SessionType != null ? c.SessionType.Code : "individual",
+                TeacherId = c.TeacherId,
                 TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
                     ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
                     : null,
@@ -168,11 +170,15 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
             var price = row.StoredPrice;
             try
             {
-                price = await _pricingEngine.ResolvePricePerHourAsync(
-                    row.DomainId,
-                    row.SessionTypeCode,
-                    market.MarketCode,
-                    cancellationToken: cancellationToken);
+                var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                {
+                    DomainId = row.DomainId,
+                    SessionTypeCode = row.SessionTypeCode,
+                    MarketCode = market.MarketCode,
+                    TotalMinutes = 60,
+                    TeacherId = row.TeacherId
+                }, cancellationToken);
+                price = estimate.PricePerHour;
             }
             catch (InvalidOperationException)
             {
@@ -227,6 +233,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         public decimal StoredPrice { get; init; }
         public int DomainId { get; init; }
         public string SessionTypeCode { get; init; } = default!;
+        public int TeacherId { get; init; }
         public string? TeacherDisplayName { get; init; }
         public decimal TeacherAverageReview { get; init; }
         public string? DomainName { get; init; }

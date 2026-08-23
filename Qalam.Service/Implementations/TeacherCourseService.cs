@@ -6,6 +6,7 @@ using Qalam.Data.Mappers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Service.Implementations;
 
@@ -95,6 +96,13 @@ public class TeacherCourseService : ITeacherCourseService
             var item = CourseDtoMapper.MapToListItemDto(course);
             item.Currency = market.Currency;
             item.MarketCode = market.MarketCode;
+            item.Price = await ResolveStudentHourlyAsync(
+                course.DomainId,
+                course.SessionType?.Code ?? "individual",
+                market.MarketCode,
+                teacher.Id,
+                course.Price,
+                cancellationToken);
             items.Add(item);
         }
         return new PaginatedResult<CourseListItemDto>(items, totalCount, pageNumber, pageSize);
@@ -159,11 +167,15 @@ public class TeacherCourseService : ITeacherCourseService
         var domainId = teacherSubject.Subject?.DomainId
             ?? throw new InvalidOperationException("Subject domain is required for pricing.");
         var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
-        var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
-            domainId,
-            sessionType.Code,
-            market.MarketCode,
-            cancellationToken: cancellationToken);
+        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = domainId,
+            SessionTypeCode = sessionType.Code,
+            MarketCode = market.MarketCode,
+            TotalMinutes = 60,
+            TeacherId = teacher.Id
+        }, cancellationToken);
+        var pricePerHour = estimate.PricePerHour;
 
         var course = new Course
         {
@@ -276,11 +288,15 @@ public class TeacherCourseService : ITeacherCourseService
         var domainId = teacherSubject.Subject?.DomainId
             ?? throw new InvalidOperationException("Subject domain is required for pricing.");
         var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
-        var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
-            domainId,
-            sessionType.Code,
-            market.MarketCode,
-            cancellationToken: cancellationToken);
+        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = domainId,
+            SessionTypeCode = sessionType.Code,
+            MarketCode = market.MarketCode,
+            TotalMinutes = 60,
+            TeacherId = teacher.Id
+        }, cancellationToken);
+        var pricePerHour = estimate.PricePerHour;
 
         course.Title = dto.Title;
         course.Description = dto.Description;
@@ -506,6 +522,46 @@ public class TeacherCourseService : ITeacherCourseService
         var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
         dto.Currency = market.Currency;
         dto.MarketCode = market.MarketCode;
+        dto.Price = await ResolveStudentHourlyAsync(
+            course.DomainId,
+            course.SessionType?.Code ?? "individual",
+            market.MarketCode,
+            course.TeacherId,
+            course.Price,
+            cancellationToken);
         return dto;
+    }
+
+    /// <summary>
+    /// Student-facing hourly rate (platform catalog or reflected custom). Falls back to
+    /// <paramref name="fallbackPrice"/> when no rate is configured.
+    /// </summary>
+    private async Task<decimal> ResolveStudentHourlyAsync(
+        int domainId,
+        string sessionTypeCode,
+        string marketCode,
+        int teacherId,
+        decimal fallbackPrice,
+        CancellationToken cancellationToken)
+    {
+        if (domainId <= 0 || teacherId <= 0)
+            return fallbackPrice;
+
+        try
+        {
+            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            {
+                DomainId = domainId,
+                SessionTypeCode = sessionTypeCode,
+                MarketCode = marketCode,
+                TotalMinutes = 60,
+                TeacherId = teacherId
+            }, cancellationToken);
+            return estimate.PricePerHour;
+        }
+        catch (InvalidOperationException)
+        {
+            return fallbackPrice;
+        }
     }
 }

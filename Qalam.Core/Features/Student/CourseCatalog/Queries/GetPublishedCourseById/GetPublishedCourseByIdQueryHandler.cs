@@ -7,6 +7,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 
@@ -49,11 +50,15 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
         var sessionTypeCode = course.SessionType?.Code ?? "individual";
         try
         {
-            dto.Price = await _pricingEngine.ResolvePricePerHourAsync(
-                course.DomainId,
-                sessionTypeCode,
-                market.MarketCode,
-                cancellationToken: cancellationToken);
+            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            {
+                DomainId = course.DomainId,
+                SessionTypeCode = sessionTypeCode,
+                MarketCode = market.MarketCode,
+                TotalMinutes = 60,
+                TeacherId = course.TeacherId
+            }, cancellationToken);
+            dto.Price = estimate.PricePerHour;
         }
         catch (InvalidOperationException)
         {

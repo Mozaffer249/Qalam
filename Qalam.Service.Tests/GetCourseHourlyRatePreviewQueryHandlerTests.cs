@@ -7,6 +7,7 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 using TeacherEntity = Qalam.Data.Entity.Teacher.Teacher;
 
 namespace Qalam.Service.Tests;
@@ -54,7 +55,7 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ReturnsPreview_WithPackageTotal()
+    public async Task Handle_ReturnsPreview_WithPackageTotal_FromEstimate()
     {
         var teacherSubject = new TeacherSubject
         {
@@ -90,8 +91,29 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
 
         var pricingEngine = new Mock<IPricingEngine>();
         pricingEngine
+            .Setup(e => e.EstimateAsync(
+                It.Is<PricingEstimateRequest>(r =>
+                    r.DomainId == 7
+                    && r.SessionTypeCode == "individual"
+                    && r.TotalMinutes == 120
+                    && r.TeacherId == 5),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PriceEstimate(
+                PricePerHour: 100m,
+                TotalMinutes: 120,
+                TotalPrice: 200m,
+                TeacherSharePct: 70m,
+                TeacherEarnings: 140m,
+                PlatformShare: 60m,
+                DomainSessionPriceId: 1,
+                TeacherLevelId: 1,
+                MarketCode: "sa",
+                Currency: "SAR",
+                ReflectCustomPriceToStudent: true,
+                EarningsPricePerHour: 100m));
+        pricingEngine
             .Setup(e => e.ResolvePricePerHourAsync(7, "individual", "sa", null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(100m);
+            .ReturnsAsync(85m);
 
         var handler = new GetCourseHourlyRatePreviewQueryHandler(
             CreateSharedLocalizer().Object,
@@ -117,5 +139,7 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
         Assert.Equal("sa", response.Data.MarketCode);
         Assert.Equal(120, response.Data.TotalMinutes);
         Assert.Equal(200m, response.Data.EstimatedPackageTotal);
+        Assert.True(response.Data.IsCustomStudentRate);
+        Assert.True(response.Data.ReflectCustomPriceToStudent);
     }
 }
