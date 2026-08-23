@@ -49,7 +49,8 @@ public class TeacherDomainPricingRepository : GenericRepositoryAsync<TeacherDoma
         {
             TeacherId = teacherId,
             DomainId = domainId,
-            ReflectCustomPriceToStudent = false,
+            ReflectCustomIndividualPriceToStudent = false,
+            ReflectCustomGroupPriceToStudent = false,
             HasCompletedInterviewSession = false,
             CreatedAt = DateTime.UtcNow
         };

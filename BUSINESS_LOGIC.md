@@ -1456,17 +1456,17 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 
 1. Commission **level is per educational domain**, stored on `TeacherDomainPricing` (`TeacherId` + `DomainId`). Shared catalog: `TeacherLevel`.
 2. Platform base rate remains `DomainSessionPrice` (domain × market × session type).
-3. Admin may set per teacher×domain: `TeacherLevelId`, optional `CustomTeacherSharePct`, optional `CustomPricePerHour` (SAR base), and `ReflectCustomPriceToStudent`.
+3. Admin may set per teacher×domain: `TeacherLevelId`, optional `CustomTeacherSharePct`, optional `CustomIndividualPricePerHour` / `CustomGroupPricePerHour` (SAR base), and separate reflect flags per session type.
 4. **Share resolution:** custom share → else no level / interview not unlocked for that domain → `0%` → else domain level share.
-5. **Student price:** if `CustomPricePerHour` is set **and** `ReflectCustomPriceToStudent` → student pays teacher rate (FX to market); otherwise student pays platform `DomainSessionPrice`.
-6. **Teacher earnings base:** `CustomPricePerHour` (FX) if set, else platform rate — even when the student still pays the platform rate (`Reflect = false`).
-7. Default when assigning a new custom teacher price: `ReflectCustomPriceToStudent = false` (safe — does not change student price until admin enables reflect).
+5. **Student price (per session type):** if custom price for that type is set **and** the matching reflect flag is on → student pays teacher rate (FX to market); otherwise student pays platform `DomainSessionPrice` for that type.
+6. **Teacher earnings base (per session type):** custom price for that type (FX) if set, else platform rate — even when the student still pays the platform rate (`Reflect = false`).
+7. Default when assigning a new custom teacher price: reflect flags **off** (safe — does not change student price until admin enables reflect for that type).
 
-| `CustomPricePerHour` | `ReflectCustomPriceToStudent` | Student pays | Earnings base |
-|----------------------|-------------------------------|--------------|---------------|
-| null | — | Platform | Platform × share |
+| Custom price (type) | Reflect (type) | Student pays | Earnings base |
+|---------------------|----------------|--------------|---------------|
+| null | — | Platform (that type) | Platform × share |
 | set | **true** | Teacher rate | Teacher rate × share |
-| set | **false** | Platform | Teacher rate × share |
+| set | **false** | Platform (that type) | Teacher rate × share |
 
 ### Teacher interview session (unpaid) — per domain
 

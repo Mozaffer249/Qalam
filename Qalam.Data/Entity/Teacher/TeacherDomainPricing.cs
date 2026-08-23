@@ -21,14 +21,21 @@ public class TeacherDomainPricing : AuditableEntity
     /// <summary>Per-domain share override (0–100). Null = use TeacherLevel.TeacherSharePct.</summary>
     public decimal? CustomTeacherSharePct { get; set; }
 
-    /// <summary>Optional teacher hourly rate in base currency (SAR). Null = platform DomainSessionPrice.</summary>
-    public decimal? CustomPricePerHour { get; set; }
+    /// <summary>Optional teacher individual-session hourly rate in base currency (SAR). Null = platform rate.</summary>
+    public decimal? CustomIndividualPricePerHour { get; set; }
+
+    /// <summary>Optional teacher group-session hourly rate in base currency (SAR). Null = platform rate.</summary>
+    public decimal? CustomGroupPricePerHour { get; set; }
 
     /// <summary>
-    /// When true and <see cref="CustomPricePerHour"/> is set, the student is charged the teacher rate.
-    /// When false, the student pays the platform rate; teacher earnings still use the custom rate as base.
+    /// When true and <see cref="CustomIndividualPricePerHour"/> is set, the student is charged the teacher individual rate.
     /// </summary>
-    public bool ReflectCustomPriceToStudent { get; set; }
+    public bool ReflectCustomIndividualPriceToStudent { get; set; }
+
+    /// <summary>
+    /// When true and <see cref="CustomGroupPricePerHour"/> is set, the student is charged the teacher group rate.
+    /// </summary>
+    public bool ReflectCustomGroupPriceToStudent { get; set; }
 
     /// <summary>True after first completed session in this domain (or admin unlock).</summary>
     public bool HasCompletedInterviewSession { get; set; }

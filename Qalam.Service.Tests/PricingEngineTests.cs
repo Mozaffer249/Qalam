@@ -16,13 +16,16 @@ public class PricingEngineTests
     private const string MarketCode = "sa";
     private const string Currency = "SAR";
 
-    private static DomainSessionPrice CreateRate(decimal pricePerHour = 100m, int id = 5) =>
+    private static DomainSessionPrice CreateRate(
+        decimal pricePerHour = 100m,
+        int id = 5,
+        string sessionTypeCode = SessionType) =>
         new()
         {
             Id = id,
             MarketCode = MarketCode,
             DomainId = DomainId,
-            SessionTypeCode = SessionType,
+            SessionTypeCode = sessionTypeCode,
             PricePerHour = pricePerHour,
             EffectiveFrom = DateTime.UtcNow.AddDays(-1),
             IsActive = true
@@ -55,8 +58,10 @@ public class PricingEngineTests
         decimal levelShare = 60m,
         int levelId = 1,
         bool interviewDone = true,
-        decimal? customPrice = null,
-        bool reflect = false)
+        decimal? customIndividualPrice = null,
+        decimal? customGroupPrice = null,
+        bool reflectIndividual = false,
+        bool reflectGroup = false)
     {
         var level = interviewDone
             ? new TeacherLevel
@@ -78,8 +83,10 @@ public class PricingEngineTests
             TeacherLevelId = interviewDone ? levelId : null,
             TeacherLevel = level,
             CustomTeacherSharePct = customShare,
-            CustomPricePerHour = customPrice,
-            ReflectCustomPriceToStudent = reflect,
+            CustomIndividualPricePerHour = customIndividualPrice,
+            CustomGroupPricePerHour = customGroupPrice,
+            ReflectCustomIndividualPriceToStudent = reflectIndividual,
+            ReflectCustomGroupPriceToStudent = reflectGroup,
             HasCompletedInterviewSession = interviewDone
         };
     }
@@ -231,7 +238,7 @@ public class PricingEngineTests
     public async Task EstimateAsync_ReflectOn_StudentPaysTeacherCustomPrice()
     {
         var (engine, _, _, _) = CreateSut(
-            domainPricing: CreateDomainPricing(customPrice: 150m, reflect: true, levelShare: 60m),
+            domainPricing: CreateDomainPricing(customIndividualPrice: 150m, reflectIndividual: true, levelShare: 60m),
             rate: CreateRate(100m));
 
         var estimate = await engine.EstimateAsync(CreateRequest(60));
@@ -248,7 +255,7 @@ public class PricingEngineTests
     public async Task EstimateAsync_ReflectOff_StudentPaysPlatform_EarningsFromTeacherPrice()
     {
         var (engine, _, _, _) = CreateSut(
-            domainPricing: CreateDomainPricing(customPrice: 150m, reflect: false, levelShare: 60m),
+            domainPricing: CreateDomainPricing(customIndividualPrice: 150m, reflectIndividual: false, levelShare: 60m),
             rate: CreateRate(100m));
 
         var estimate = await engine.EstimateAsync(CreateRequest(60));
@@ -259,6 +266,49 @@ public class PricingEngineTests
         Assert.Equal(10m, estimate.PlatformShare);
         Assert.False(estimate.ReflectCustomPriceToStudent);
         Assert.Equal(150m, estimate.EarningsPricePerHour);
+    }
+
+    [Fact]
+    public async Task EstimateAsync_GroupReflectOn_UsesGroupCustomPriceOnly()
+    {
+        const string groupSession = "group";
+        var priceRepo = new Mock<IDomainSessionPriceRepository>();
+        priceRepo
+            .Setup(r => r.GetEffectiveRateAsync(DomainId, groupSession, MarketCode, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateRate(100m, sessionTypeCode: groupSession));
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo.Setup(r => r.GetByIdAsync(TeacherId)).ReturnsAsync(CreateTeacher());
+
+        var domainPricingRepo = new Mock<ITeacherDomainPricingRepository>();
+        domainPricingRepo
+            .Setup(r => r.GetByTeacherAndDomainAsync(TeacherId, DomainId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDomainPricing(
+                customIndividualPrice: 120m,
+                customGroupPrice: 80m,
+                reflectIndividual: false,
+                reflectGroup: true,
+                levelShare: 50m));
+
+        var marketRepo = new Mock<IPricingMarketRepository>();
+        marketRepo.Setup(r => r.GetByCodeAsync(MarketCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMarket());
+
+        var engine = new PricingEngine(
+            priceRepo.Object, teacherRepo.Object, domainPricingRepo.Object, marketRepo.Object);
+
+        var estimate = await engine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = DomainId,
+            SessionTypeCode = groupSession,
+            MarketCode = MarketCode,
+            TotalMinutes = 60,
+            TeacherId = TeacherId
+        });
+
+        Assert.Equal(80m, estimate.PricePerHour);
+        Assert.True(estimate.ReflectCustomPriceToStudent);
+        Assert.Equal(40m, estimate.TeacherEarnings);
     }
 
     [Fact]

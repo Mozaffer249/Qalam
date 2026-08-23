@@ -14,8 +14,10 @@ public class TeacherDomainPricingConfiguration : IEntityTypeConfiguration<Teache
         builder.HasIndex(e => new { e.TeacherId, e.DomainId }).IsUnique();
 
         builder.Property(e => e.CustomTeacherSharePct).HasColumnType("decimal(5,2)");
-        builder.Property(e => e.CustomPricePerHour).HasColumnType("decimal(18,2)");
-        builder.Property(e => e.ReflectCustomPriceToStudent).HasDefaultValue(false);
+        builder.Property(e => e.CustomIndividualPricePerHour).HasColumnType("decimal(18,2)");
+        builder.Property(e => e.CustomGroupPricePerHour).HasColumnType("decimal(18,2)");
+        builder.Property(e => e.ReflectCustomIndividualPriceToStudent).HasDefaultValue(false);
+        builder.Property(e => e.ReflectCustomGroupPriceToStudent).HasDefaultValue(false);
         builder.Property(e => e.HasCompletedInterviewSession).HasDefaultValue(false);
 
         builder.HasOne(e => e.Teacher)

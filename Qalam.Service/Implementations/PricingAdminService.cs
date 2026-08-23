@@ -438,8 +438,10 @@ public class PricingAdminService : IPricingAdminService
 
         if (dto.CustomTeacherSharePct is < 0 or > 100)
             throw new InvalidOperationException("Custom teacher share % must be between 0 and 100.");
-        if (dto.CustomPricePerHour is < 0)
-            throw new InvalidOperationException("Custom price per hour cannot be negative.");
+        if (dto.CustomIndividualPricePerHour is < 0)
+            throw new InvalidOperationException("Custom individual price per hour cannot be negative.");
+        if (dto.CustomGroupPricePerHour is < 0)
+            throw new InvalidOperationException("Custom group price per hour cannot be negative.");
 
         if (dto.TeacherLevelId.HasValue)
         {
@@ -460,10 +462,12 @@ public class PricingAdminService : IPricingAdminService
         }
 
         pricing.CustomTeacherSharePct = dto.CustomTeacherSharePct;
-        pricing.CustomPricePerHour = dto.CustomPricePerHour;
-        // Default safe: reflect off unless admin explicitly enables (and only meaningful with custom price).
-        pricing.ReflectCustomPriceToStudent =
-            dto.CustomPricePerHour.HasValue && dto.ReflectCustomPriceToStudent;
+        pricing.CustomIndividualPricePerHour = dto.CustomIndividualPricePerHour;
+        pricing.CustomGroupPricePerHour = dto.CustomGroupPricePerHour;
+        pricing.ReflectCustomIndividualPriceToStudent =
+            dto.CustomIndividualPricePerHour.HasValue && dto.ReflectCustomIndividualPriceToStudent;
+        pricing.ReflectCustomGroupPriceToStudent =
+            dto.CustomGroupPricePerHour.HasValue && dto.ReflectCustomGroupPriceToStudent;
         pricing.UpdatedAt = DateTime.UtcNow;
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
@@ -688,8 +692,10 @@ public class PricingAdminService : IPricingAdminService
             TeacherLevelCode = pricing.TeacherLevel?.Code,
             LevelSharePct = pricing.TeacherLevel?.TeacherSharePct,
             CustomTeacherSharePct = pricing.CustomTeacherSharePct,
-            CustomPricePerHour = pricing.CustomPricePerHour,
-            ReflectCustomPriceToStudent = pricing.ReflectCustomPriceToStudent,
+            CustomIndividualPricePerHour = pricing.CustomIndividualPricePerHour,
+            CustomGroupPricePerHour = pricing.CustomGroupPricePerHour,
+            ReflectCustomIndividualPriceToStudent = pricing.ReflectCustomIndividualPriceToStudent,
+            ReflectCustomGroupPriceToStudent = pricing.ReflectCustomGroupPriceToStudent,
             HasCompletedInterviewSession = pricing.HasCompletedInterviewSession
         };
 

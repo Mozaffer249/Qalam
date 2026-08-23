@@ -60,8 +60,12 @@ public class PricingEngine : IPricingEngine
 
         var share = ResolveTeacherShare(domainPricing);
         var platformPricePerHour = rate.PricePerHour;
-        var customLocal = ResolveCustomPriceInMarket(domainPricing, market);
-        var reflect = domainPricing is { CustomPricePerHour: not null, ReflectCustomPriceToStudent: true };
+        var isGroup = string.Equals(
+            request.SessionTypeCode,
+            PricingDefaults.SessionTypeGroup,
+            StringComparison.OrdinalIgnoreCase);
+        var customLocal = ResolveCustomPriceInMarket(domainPricing, market, isGroup);
+        var reflect = ResolveReflectCustomPriceToStudent(domainPricing, isGroup);
 
         var studentPricePerHour = reflect && customLocal.HasValue ? customLocal.Value : platformPricePerHour;
         var earningsPricePerHour = customLocal ?? platformPricePerHour;
@@ -153,13 +157,30 @@ public class PricingEngine : IPricingEngine
         return (pricing.TeacherLevel.TeacherSharePct, pricing.TeacherLevelId);
     }
 
-    private static decimal? ResolveCustomPriceInMarket(TeacherDomainPricing? pricing, PricingMarket market)
+    private static decimal? ResolveCustomPriceInMarket(
+        TeacherDomainPricing? pricing,
+        PricingMarket market,
+        bool isGroup)
     {
-        if (pricing?.CustomPricePerHour is not > 0)
+        var customBase = isGroup
+            ? pricing?.CustomGroupPricePerHour
+            : pricing?.CustomIndividualPricePerHour;
+        if (customBase is not > 0)
             return null;
 
         var fx = market.ExchangeRateFromBase > 0 ? market.ExchangeRateFromBase : 1m;
-        return PricingExchangeRateHelper.DeriveLocalPrice(pricing.CustomPricePerHour.Value, fx);
+        return PricingExchangeRateHelper.DeriveLocalPrice(customBase.Value, fx);
+    }
+
+    private static bool ResolveReflectCustomPriceToStudent(TeacherDomainPricing? pricing, bool isGroup)
+    {
+        if (pricing == null)
+            return false;
+
+        if (isGroup)
+            return pricing.CustomGroupPricePerHour is > 0 && pricing.ReflectCustomGroupPriceToStudent;
+
+        return pricing.CustomIndividualPricePerHour is > 0 && pricing.ReflectCustomIndividualPriceToStudent;
     }
 
     private static PriceEstimate BuildEstimate(

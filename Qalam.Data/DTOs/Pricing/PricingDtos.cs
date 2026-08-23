@@ -149,10 +149,17 @@ public class SetTeacherDomainPricingDto
     public int DomainId { get; set; }
     public int? TeacherLevelId { get; set; }
     public decimal? CustomTeacherSharePct { get; set; }
-    /// <summary>Optional teacher hourly rate in SAR. Null clears the override.</summary>
-    public decimal? CustomPricePerHour { get; set; }
-    /// <summary>When true and custom price is set, student pays the teacher rate.</summary>
-    public bool ReflectCustomPriceToStudent { get; set; }
+    /// <summary>Optional teacher individual-session hourly rate in SAR. Null clears the override.</summary>
+    public decimal? CustomIndividualPricePerHour { get; set; }
+
+    /// <summary>Optional teacher group-session hourly rate in SAR. Null clears the override.</summary>
+    public decimal? CustomGroupPricePerHour { get; set; }
+
+    /// <summary>When true and individual custom price is set, student pays the teacher individual rate.</summary>
+    public bool ReflectCustomIndividualPriceToStudent { get; set; }
+
+    /// <summary>When true and group custom price is set, student pays the teacher group rate.</summary>
+    public bool ReflectCustomGroupPriceToStudent { get; set; }
 }
 
 public class TeacherDomainPricingAdminDto
@@ -168,8 +175,10 @@ public class TeacherDomainPricingAdminDto
     public string? TeacherLevelCode { get; set; }
     public decimal? LevelSharePct { get; set; }
     public decimal? CustomTeacherSharePct { get; set; }
-    public decimal? CustomPricePerHour { get; set; }
-    public bool ReflectCustomPriceToStudent { get; set; }
+    public decimal? CustomIndividualPricePerHour { get; set; }
+    public decimal? CustomGroupPricePerHour { get; set; }
+    public bool ReflectCustomIndividualPriceToStudent { get; set; }
+    public bool ReflectCustomGroupPriceToStudent { get; set; }
     public bool HasCompletedInterviewSession { get; set; }
 }
 
