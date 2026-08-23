@@ -9,6 +9,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Payment;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Helpers;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -28,6 +29,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly IOpenSessionRequestReleaseService _releaseService;
+    private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly PaymentSettings _settings;
 
     public PayEnrollmentParticipantCommandHandler(
@@ -38,6 +40,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
         IOpenSessionRequestReleaseService releaseService,
+        IStudentCoursePriceResolver coursePriceResolver,
         IOptions<PaymentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -48,6 +51,7 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
         _releaseService = releaseService;
+        _coursePriceResolver = coursePriceResolver;
         _settings = settings.Value;
     }
 
@@ -84,12 +88,10 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             || enrollment.Participants.Any(p => p.PaymentStatus == PaymentStatus.Succeeded))
             return BadRequest<PaymentResultDto>("This enrollment has already been paid.");
 
-        var totalAmount = enrollment.AmountDue > 0
-            ? enrollment.AmountDue
-            : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0;
+        var totalAmount = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
 
         // AmountDue == 0 is the free-trial path (student first individual session).
-        var isFreeTrial = enrollment.AmountDue == 0
+        var isFreeTrial = totalAmount == 0
             && enrollment.Source == EnrollmentSource.SessionRequest
             && enrollment.Kind == EnrollmentKind.Individual;
 

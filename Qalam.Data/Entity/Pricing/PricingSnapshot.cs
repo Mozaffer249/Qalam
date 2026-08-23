@@ -44,5 +44,9 @@ public class PricingSnapshot : AuditableEntity
 
     public decimal PlatformShare { get; set; }
 
+    public bool ReflectCustomPriceToStudent { get; set; }
+
+    public decimal? EarningsPricePerHour { get; set; }
+
     public DomainSessionPrice? DomainSessionPrice { get; set; }
 }

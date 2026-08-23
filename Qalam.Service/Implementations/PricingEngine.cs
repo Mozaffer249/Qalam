@@ -113,6 +113,8 @@ public class PricingEngine : IPricingEngine
             TeacherSharePct = estimate.TeacherSharePct,
             TeacherEarnings = estimate.TeacherEarnings,
             PlatformShare = estimate.PlatformShare,
+            ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent,
+            EarningsPricePerHour = estimate.EarningsPricePerHour,
             CreatedAt = DateTime.UtcNow
         };
     }

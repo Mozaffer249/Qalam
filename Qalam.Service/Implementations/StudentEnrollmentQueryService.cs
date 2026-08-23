@@ -3,6 +3,7 @@ using Qalam.Data.Commons;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -87,7 +88,7 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
             SessionsCount = enrollment.Course?.Sessions is { Count: > 0 } sessions
                 ? sessions.Count
                 : null,
-            AmountDue = enrollment.AmountDue,
+            AmountDue = EnrollmentPricingRules.ResolvePayableAmount(enrollment),
             Source = enrollment.Source,
             EnrollmentRequestId = enrollment.EnrollmentRequestId,
             SessionRequestId = enrollment.SessionRequestId,

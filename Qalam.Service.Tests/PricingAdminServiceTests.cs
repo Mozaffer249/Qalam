@@ -66,7 +66,9 @@ public class PricingAdminServiceTests
             domainPricingRepo.Object,
             suggestionRepo.Object,
             new DomainRatePropagationService(priceRepo.Object, marketRepo.Object),
-            dbContext ?? CreateDb());
+            dbContext ?? CreateDb(),
+            new Mock<Qalam.Service.Abstracts.IAuditService>().Object,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object);
     }
 
     [Fact]
@@ -147,6 +149,86 @@ public class PricingAdminServiceTests
         Assert.Equal(100m, result.PricePerHour);
         priceRepo.Verify(r => r.AddAsync(It.IsAny<DomainSessionPrice>()), Times.Never);
         priceRepo.Verify(r => r.CloseCurrentRateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SetDomainSessionPriceAsync_LogsAuditOnChange()
+    {
+        var audit = new Mock<Qalam.Service.Abstracts.IAuditService>();
+        audit.Setup(a => a.LogAsync(
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<string>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
+            .Returns(Task.CompletedTask);
+
+        var addedRows = new List<DomainSessionPrice>();
+        var priceRepo = new Mock<IDomainSessionPriceRepository>();
+        var marketRepo = new Mock<IPricingMarketRepository>();
+        var domainRepo = new Mock<IEducationDomainRepository>();
+
+        domainRepo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new EducationDomain
+        {
+            Id = 1,
+            Code = "school",
+            NameEn = "School",
+            NameAr = "مدرسة"
+        });
+        marketRepo.Setup(r => r.ListActiveAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+            [
+                new PricingMarket { Code = "sa", Currency = "SAR", ExchangeRateFromBase = 1m, IsActive = true },
+            ]);
+        marketRepo.Setup(r => r.GetByCodeAsync("sa", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PricingMarket { Code = "sa", Currency = "SAR", ExchangeRateFromBase = 1m });
+        priceRepo.Setup(r => r.GetCurrentRateAsync(1, "individual", "sa", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DomainSessionPrice
+            {
+                DomainId = 1,
+                SessionTypeCode = "individual",
+                PricePerHour = 80m,
+                EffectiveFrom = DateTime.UtcNow.AddDays(-1),
+                IsActive = true
+            });
+        priceRepo.Setup(r => r.AddAsync(It.IsAny<DomainSessionPrice>()))
+            .Callback<DomainSessionPrice>(p => addedRows.Add(p))
+            .ReturnsAsync((DomainSessionPrice p) => p);
+
+        var service = new PricingAdminService(
+            priceRepo.Object,
+            marketRepo.Object,
+            domainRepo.Object,
+            new Mock<ITeacherLevelRepository>().Object,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object,
+            new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
+            new DomainRatePropagationService(priceRepo.Object, marketRepo.Object),
+            CreateDb(),
+            audit.Object,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object);
+
+        await service.SetDomainSessionPriceAsync(new SetDomainSessionPriceDto
+        {
+            DomainId = 1,
+            SessionTypeCode = "individual",
+            PricePerHour = 100m
+        });
+
+        audit.Verify(a => a.LogAsync(
+            "Pricing.DomainSessionPrice.Updated",
+            It.IsAny<int?>(),
+            It.IsAny<string>(),
+            true,
+            It.IsAny<string?>(),
+            It.Is<string?>(d => d != null && d.Contains("before") && d.Contains("after")),
+            It.IsAny<string?>(),
+            "DomainSessionPrice",
+            "1:individual"), Times.Once);
     }
 
     [Fact]
@@ -404,7 +486,9 @@ public class PricingAdminServiceTests
             new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new DomainRatePropagationService(priceRepo, marketRepo),
-            db);
+            db,
+            new Mock<Qalam.Service.Abstracts.IAuditService>().Object,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object);
 
         var result = await service.CreatePricingMarketAsync(new CreatePricingMarketDto
         {
@@ -539,7 +623,9 @@ public class PricingAdminServiceTests
             new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new DomainRatePropagationService(priceRepo, marketRepo),
-            db);
+            db,
+            new Mock<Qalam.Service.Abstracts.IAuditService>().Object,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object);
 
         await service.UpdatePricingExchangeRateAsync("ae", new UpdatePricingExchangeRateDto { ExchangeRateFromBase = 2m });
 
@@ -567,7 +653,9 @@ public class PricingAdminServiceTests
             new Mock<ITeacherDomainPricingRepository>().Object,
             new Mock<ITeacherLevelUpgradeSuggestionRepository>().Object,
             new Mock<IDomainRatePropagationService>().Object,
-            db);
+            db,
+            new Mock<Qalam.Service.Abstracts.IAuditService>().Object,
+            new Mock<Microsoft.AspNetCore.Http.IHttpContextAccessor>().Object);
 
         var created = await service.CreateTeacherLevelTierAsync(new CreateTeacherLevelTierDto
         {

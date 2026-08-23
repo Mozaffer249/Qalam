@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Pricing;
@@ -7,6 +8,7 @@ using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Seeding;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Helpers;
 using System.Text.RegularExpressions;
 
 namespace Qalam.Service.Implementations;
@@ -24,6 +26,8 @@ public class PricingAdminService : IPricingAdminService
     private readonly ITeacherLevelUpgradeSuggestionRepository _suggestionRepository;
     private readonly IDomainRatePropagationService _propagationService;
     private readonly ApplicationDBContext _dbContext;
+    private readonly IAuditService _auditService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public PricingAdminService(
         IDomainSessionPriceRepository domainSessionPriceRepository,
@@ -34,7 +38,9 @@ public class PricingAdminService : IPricingAdminService
         ITeacherDomainPricingRepository teacherDomainPricingRepository,
         ITeacherLevelUpgradeSuggestionRepository suggestionRepository,
         IDomainRatePropagationService propagationService,
-        ApplicationDBContext dbContext)
+        ApplicationDBContext dbContext,
+        IAuditService auditService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _domainSessionPriceRepository = domainSessionPriceRepository;
         _marketRepository = marketRepository;
@@ -45,6 +51,8 @@ public class PricingAdminService : IPricingAdminService
         _suggestionRepository = suggestionRepository;
         _propagationService = propagationService;
         _dbContext = dbContext;
+        _auditService = auditService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<List<PricingMarketDto>> ListPricingMarketsAsync(
@@ -98,6 +106,13 @@ public class PricingAdminService : IPricingAdminService
         await PricingMarketRateSeeder.SeedPlaceholderRatesForMarketAsync(
             _dbContext, code, now, cancellationToken);
 
+        await LogPricingChangeAsync(
+            "Pricing.PricingMarket.Created",
+            "PricingMarket",
+            code,
+            before: null,
+            after: new { market.Code, market.Currency, market.IsDefault, market.ExchangeRateFromBase });
+
         return MapPricingMarketAdmin(market);
     }
 
@@ -111,6 +126,14 @@ public class PricingAdminService : IPricingAdminService
         if (market == null)
             return null;
 
+        var before = new
+        {
+            market.NameEn,
+            market.NameAr,
+            market.Currency,
+            market.IsActive
+        };
+
         if (!dto.IsActive && market.IsDefault)
             throw new InvalidOperationException("Cannot deactivate the platform default market. Set another market as default first.");
 
@@ -122,6 +145,13 @@ public class PricingAdminService : IPricingAdminService
 
         await _marketRepository.UpdateAsync(market);
         await _marketRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.PricingMarket.Updated",
+            "PricingMarket",
+            normalizedCode,
+            before,
+            new { market.NameEn, market.NameAr, market.Currency, market.IsActive });
 
         return MapPricingMarketAdmin(market);
     }
@@ -138,12 +168,21 @@ public class PricingAdminService : IPricingAdminService
         if (!market.IsActive)
             throw new InvalidOperationException("Cannot set an inactive market as the platform default.");
 
+        var beforeDefault = market.IsDefault;
+
         await _marketRepository.ClearDefaultFlagAsync(cancellationToken);
 
         market.IsDefault = true;
         market.UpdatedAt = DateTime.UtcNow;
         await _marketRepository.UpdateAsync(market);
         await _marketRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.PricingMarket.DefaultSet",
+            "PricingMarket",
+            normalizedCode,
+            new { IsDefault = beforeDefault },
+            new { IsDefault = true });
 
         return MapPricingMarketAdmin(market);
     }
@@ -215,6 +254,13 @@ public class PricingAdminService : IPricingAdminService
             effectiveFrom,
             cancellationToken);
 
+        await LogPricingChangeAsync(
+            "Pricing.DomainSessionPrice.Updated",
+            "DomainSessionPrice",
+            $"{dto.DomainId}:{sessionTypeCode}",
+            current == null ? null : new { current.PricePerHour, current.EffectiveFrom },
+            new { baseRow.PricePerHour, baseRow.EffectiveFrom });
+
         var market = await _marketRepository.GetByCodeAsync(PricingMarketDefaults.DefaultMarketCode, cancellationToken);
         baseRow.Market = market!;
         return MapDomainSessionPrice(baseRow, domain.Code, domain.NameEn, domain.NameAr);
@@ -243,6 +289,8 @@ public class PricingAdminService : IPricingAdminService
         if (market == null)
             return null;
 
+        var beforeRate = market.ExchangeRateFromBase;
+
         market.ExchangeRateFromBase = dto.ExchangeRateFromBase;
         market.UpdatedAt = DateTime.UtcNow;
         await _marketRepository.UpdateAsync(market);
@@ -252,6 +300,13 @@ public class PricingAdminService : IPricingAdminService
             normalizedCode,
             DateTime.UtcNow,
             cancellationToken);
+
+        await LogPricingChangeAsync(
+            "Pricing.ExchangeRate.Updated",
+            "PricingMarket",
+            normalizedCode,
+            new { ExchangeRateFromBase = beforeRate },
+            new { market.ExchangeRateFromBase });
 
         return MapExchangeRate(market);
     }
@@ -288,6 +343,14 @@ public class PricingAdminService : IPricingAdminService
         if (level == null)
             return null;
 
+        var before = new
+        {
+            level.TeacherSharePct,
+            level.NameAr,
+            level.NameEn,
+            level.IsActive
+        };
+
         level.TeacherSharePct = dto.TeacherSharePct;
         if (!string.IsNullOrWhiteSpace(dto.NameAr))
             level.NameAr = dto.NameAr.Trim();
@@ -299,6 +362,13 @@ public class PricingAdminService : IPricingAdminService
 
         await _teacherLevelRepository.UpdateAsync(level);
         await _teacherLevelRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.TeacherLevelTier.Updated",
+            "TeacherLevel",
+            id.ToString(),
+            before,
+            new { level.TeacherSharePct, level.NameAr, level.NameEn, level.IsActive });
 
         return MapTeacherLevelTier(level);
     }
@@ -321,6 +391,8 @@ public class PricingAdminService : IPricingAdminService
 
         var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
             teacherId, dto.DomainId, cancellationToken);
+        var beforeLevel = pricing.TeacherLevelId;
+
         pricing.TeacherLevelId = level.Id;
         pricing.HasCompletedInterviewSession = true;
         pricing.UpdatedAt = DateTime.UtcNow;
@@ -331,6 +403,13 @@ public class PricingAdminService : IPricingAdminService
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.TeacherLevel.Set",
+            "TeacherDomainPricing",
+            $"{teacherId}:{dto.DomainId}",
+            new { TeacherLevelId = beforeLevel },
+            new { TeacherLevelId = level.Id });
 
         return true;
     }
@@ -366,6 +445,14 @@ public class PricingAdminService : IPricingAdminService
 
         await _teacherLevelRepository.AddAsync(level);
         await _teacherLevelRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.TeacherLevelTier.Created",
+            "TeacherLevel",
+            level.Id.ToString(),
+            before: null,
+            after: new { level.Code, level.TeacherSharePct, level.OrderIndex, level.IsActive });
+
         return MapTeacherLevelTier(level);
     }
 
@@ -386,6 +473,8 @@ public class PricingAdminService : IPricingAdminService
 
         var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
             teacherId, dto.DomainId, cancellationToken);
+        var beforeShare = pricing.CustomTeacherSharePct;
+
         pricing.CustomTeacherSharePct = dto.CustomTeacherSharePct;
         pricing.UpdatedAt = DateTime.UtcNow;
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
@@ -395,6 +484,13 @@ public class PricingAdminService : IPricingAdminService
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.TeacherShareOverride.Set",
+            "TeacherDomainPricing",
+            $"{teacherId}:{dto.DomainId}",
+            new { CustomTeacherSharePct = beforeShare },
+            new { CustomTeacherSharePct = dto.CustomTeacherSharePct });
 
         return true;
     }
@@ -453,6 +549,16 @@ public class PricingAdminService : IPricingAdminService
         var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
             teacherId, dto.DomainId, cancellationToken);
 
+        var before = new
+        {
+            pricing.TeacherLevelId,
+            pricing.CustomTeacherSharePct,
+            pricing.CustomIndividualPricePerHour,
+            pricing.CustomGroupPricePerHour,
+            pricing.ReflectCustomIndividualPriceToStudent,
+            pricing.ReflectCustomGroupPriceToStudent
+        };
+
         if (dto.TeacherLevelId.HasValue)
         {
             pricing.TeacherLevelId = dto.TeacherLevelId;
@@ -475,6 +581,23 @@ public class PricingAdminService : IPricingAdminService
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
+
+        var after = new
+        {
+            pricing.TeacherLevelId,
+            pricing.CustomTeacherSharePct,
+            pricing.CustomIndividualPricePerHour,
+            pricing.CustomGroupPricePerHour,
+            pricing.ReflectCustomIndividualPriceToStudent,
+            pricing.ReflectCustomGroupPriceToStudent
+        };
+
+        await LogPricingChangeAsync(
+            "Pricing.TeacherDomainPricing.Updated",
+            "TeacherDomainPricing",
+            $"{teacherId}:{dto.DomainId}",
+            before,
+            after);
 
         var refreshed = await _teacherDomainPricingRepository.GetByTeacherAndDomainAsync(
             teacherId, dto.DomainId, cancellationToken);
@@ -509,6 +632,8 @@ public class PricingAdminService : IPricingAdminService
 
         var pricing = await _teacherDomainPricingRepository.GetOrCreateAsync(
             suggestion.TeacherId, suggestion.DomainId, cancellationToken);
+        var beforeLevel = pricing.TeacherLevelId;
+
         pricing.TeacherLevelId = suggestion.SuggestedLevelId;
         pricing.HasCompletedInterviewSession = true;
         pricing.UpdatedAt = DateTime.UtcNow;
@@ -524,6 +649,13 @@ public class PricingAdminService : IPricingAdminService
         await _suggestionRepository.UpdateAsync(suggestion);
         await _suggestionRepository.SaveChangesAsync();
 
+        await LogPricingChangeAsync(
+            "Pricing.LevelUpgradeSuggestion.Approved",
+            "TeacherLevelUpgradeSuggestion",
+            id.ToString(),
+            new { TeacherLevelId = beforeLevel, Status = TeacherLevelUpgradeSuggestionStatus.Pending.ToString() },
+            new { TeacherLevelId = suggestion.SuggestedLevelId, Status = TeacherLevelUpgradeSuggestionStatus.Approved.ToString() });
+
         return true;
     }
 
@@ -538,6 +670,8 @@ public class PricingAdminService : IPricingAdminService
         if (suggestion.Status != TeacherLevelUpgradeSuggestionStatus.Pending)
             throw new InvalidOperationException("Suggestion is not pending.");
 
+        var beforeStatus = suggestion.Status;
+
         suggestion.Status = TeacherLevelUpgradeSuggestionStatus.Rejected;
         suggestion.ReviewedAt = DateTime.UtcNow;
         suggestion.ReviewNotes = reviewNotes;
@@ -545,6 +679,13 @@ public class PricingAdminService : IPricingAdminService
 
         await _suggestionRepository.UpdateAsync(suggestion);
         await _suggestionRepository.SaveChangesAsync();
+
+        await LogPricingChangeAsync(
+            "Pricing.LevelUpgradeSuggestion.Rejected",
+            "TeacherLevelUpgradeSuggestion",
+            id.ToString(),
+            new { Status = beforeStatus.ToString() },
+            new { Status = TeacherLevelUpgradeSuggestionStatus.Rejected.ToString() });
 
         return true;
     }
@@ -722,4 +863,19 @@ public class PricingAdminService : IPricingAdminService
             Status = suggestion.Status.ToString(),
             CreatedAt = suggestion.CreatedAt
         };
+
+    private Task LogPricingChangeAsync(
+        string action,
+        string entityType,
+        string entityId,
+        object? before,
+        object? after) =>
+        PricingAuditHelper.LogSettingChangeAsync(
+            _auditService,
+            _httpContextAccessor,
+            action,
+            entityType,
+            entityId,
+            before,
+            after);
 }

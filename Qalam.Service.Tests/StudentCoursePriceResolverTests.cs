@@ -162,30 +162,40 @@ public class StudentCoursePriceResolverTests
     }
 
     [Fact]
-    public async Task ResolveEnrollmentCoursePriceAsync_FallsBackToLiveEstimate()
+    public void ResolveEnrollmentPayableAmount_UsesAmountDueWhenNoSnapshotOrRequest()
     {
         var (resolver, pricingEngine, _) = CreateSut();
-        var enrollment = new Enrollment { Course = CreateCourse() };
+        var enrollment = new Enrollment { Course = CreateCourse(), AmountDue = 170m };
 
-        pricingEngine
-            .Setup(e => e.EstimateAsync(It.IsAny<PricingEstimateRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PriceEstimate(
-                PricePerHour: 100m,
-                TotalMinutes: 120,
-                TotalPrice: 200m,
-                TeacherSharePct: 70m,
-                TeacherEarnings: 140m,
-                PlatformShare: 60m,
-                DomainSessionPriceId: 1,
-                TeacherLevelId: 1,
-                MarketCode: "sa",
-                Currency: "SAR"));
+        var payable = resolver.ResolveEnrollmentPayableAmount(enrollment);
 
-        var total = await resolver.ResolveEnrollmentCoursePriceAsync(enrollment, ViewerUserId);
-
-        Assert.Equal(200m, total);
+        Assert.Equal(170m, payable);
         pricingEngine.Verify(
             e => e.EstimateAsync(It.IsAny<PricingEstimateRequest>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
+    }
+
+    [Fact]
+    public void ResolveEnrollmentPayableAmount_PriorityChain()
+    {
+        var (resolver, _, _) = CreateSut();
+
+        var withSnapshot = new Enrollment
+        {
+            PricingSnapshot = new PricingSnapshot { TotalPrice = 200m },
+            EnrollmentRequest = new CourseEnrollmentRequest { EstimatedTotalPrice = 170m },
+            AmountDue = 150m
+        };
+        Assert.Equal(200m, resolver.ResolveEnrollmentPayableAmount(withSnapshot));
+
+        var withRequestOnly = new Enrollment
+        {
+            EnrollmentRequest = new CourseEnrollmentRequest { EstimatedTotalPrice = 170m },
+            AmountDue = 150m
+        };
+        Assert.Equal(170m, resolver.ResolveEnrollmentPayableAmount(withRequestOnly));
+
+        var amountDueOnly = new Enrollment { AmountDue = 150m };
+        Assert.Equal(150m, resolver.ResolveEnrollmentPayableAmount(amountDueOnly));
     }
 }

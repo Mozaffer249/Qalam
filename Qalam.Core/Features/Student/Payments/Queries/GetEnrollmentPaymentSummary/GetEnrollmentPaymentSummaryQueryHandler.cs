@@ -32,13 +32,14 @@ public class GetEnrollmentPaymentSummaryQueryHandler : ResponseHandler,
     {
         var enrollment = await _enrollmentRepository.GetTableNoTracking()
             .Include(e => e.EnrollmentRequest)
+            .Include(e => e.PricingSnapshot)
             .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .FirstOrDefaultAsync(e => e.Id == request.EnrollmentId, cancellationToken);
 
         if (enrollment == null)
             return NotFound<EnrollmentPaymentSummaryDto>("Enrollment not found.");
 
-        var totalAmount = enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        var totalAmount = EnrollmentPricingRules.ResolvePayableAmount(enrollment);
         var participantCount = enrollment.Participants.Count;
         var baseShare = participantCount > 0
             ? Math.Round(totalAmount / participantCount, 2, MidpointRounding.AwayFromZero)

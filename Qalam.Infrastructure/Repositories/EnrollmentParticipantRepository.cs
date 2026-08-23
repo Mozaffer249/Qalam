@@ -24,6 +24,8 @@ public class EnrollmentParticipantRepository : GenericRepositoryAsync<Enrollment
             .Include(p => p.Enrollment).ThenInclude(e => e.Course).ThenInclude(c => c.TeachingMode)
             .Include(p => p.Enrollment).ThenInclude(e => e.Course).ThenInclude(c => c.Sessions)
             .Include(p => p.Enrollment).ThenInclude(e => e.Participants)
+            .Include(p => p.Enrollment).ThenInclude(e => e.PricingSnapshot)
+            .Include(p => p.Enrollment).ThenInclude(e => e.EnrollmentRequest!)
             .Include(p => p.Enrollment).ThenInclude(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedAvailabilities)
                 .ThenInclude(sa => sa.TeacherAvailability)
                     .ThenInclude(ta => ta.TimeSlot)

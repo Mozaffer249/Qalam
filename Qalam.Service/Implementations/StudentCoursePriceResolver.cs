@@ -73,24 +73,12 @@ public class StudentCoursePriceResolver : IStudentCoursePriceResolver
         }
     }
 
-    public async Task<decimal> ResolveEnrollmentCoursePriceAsync(
+    public decimal ResolveEnrollmentPayableAmount(Enrollment enrollment) =>
+        EnrollmentPricingRules.ResolvePayableAmount(enrollment);
+
+    public Task<decimal> ResolveEnrollmentCoursePriceAsync(
         Enrollment enrollment,
         int viewerUserId,
-        CancellationToken cancellationToken = default)
-    {
-        if (enrollment.PricingSnapshot is { TotalPrice: > 0 } snapshot)
-            return snapshot.TotalPrice;
-
-        if (enrollment.EnrollmentRequest is { EstimatedTotalPrice: > 0 } request)
-            return request.EstimatedTotalPrice;
-
-        if (enrollment.AmountDue > 0)
-            return enrollment.AmountDue;
-
-        var course = enrollment.Course;
-        if (course == null)
-            return 0;
-
-        return await ResolveCourseTotalPriceAsync(course, viewerUserId, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(ResolveEnrollmentPayableAmount(enrollment));
 }

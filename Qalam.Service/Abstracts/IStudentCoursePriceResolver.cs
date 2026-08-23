@@ -25,7 +25,12 @@ public interface IStudentCoursePriceResolver
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Display price for an enrollment: snapshot → request estimate → amount due → live estimate.
+    /// Frozen package total for an enrollment (snapshot → request → amount due). Never live catalog pricing.
+    /// </summary>
+    decimal ResolveEnrollmentPayableAmount(Enrollment enrollment);
+
+    /// <summary>
+    /// Same as <see cref="ResolveEnrollmentPayableAmount"/> (legacy name).
     /// </summary>
     Task<decimal> ResolveEnrollmentCoursePriceAsync(
         Enrollment enrollment,

@@ -1485,6 +1485,29 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
 5. **Model 2 (later, not built):** pay full package; refund first session if dissatisfied — requires refund APIs.
 
+### Live vs frozen pricing contract
+
+Two surfaces must never be mixed:
+
+| Surface | When | Basis | Changes after quote? |
+|---------|------|-------|----------------------|
+| Catalog / browse / new create | Before or during create | `PricingEngine.EstimateAsync` (live admin settings) | Yes — reflects current settings |
+| Enrollment / request / offer (after snapshot) | After create | `PricingSnapshot` → linked request estimate → `AmountDue` | **No** — frozen at quote time |
+
+**Rules:**
+
+1. Admin controls pricing via domain rates, teacher levels, custom prices, reflect flags, markets, and exchange rates.
+2. When a **course**, **enrollment**, **group enrollment request**, or **OSR offer** is created, price is computed from **current** settings and stored in `PricingSnapshot` (plus `AmountDue` / `EstimatedTotalPrice` / offer price).
+3. List, detail, and payment endpoints for enrollments use the **frozen** chain only — never re-run `EstimateAsync`.
+4. A catalog price of 200 SAR vs enrollment `amountDue` of 170 SAR is **expected** when admin changed rates after the enrollment was quoted.
+5. **Open OSR:** each qualified teacher gets their own live estimate when browsing/creating offers; snapshot is taken when the offer is created.
+6. **Directed OSR:** estimate uses the targeted teacher only.
+7. **Group enrollment request:** one package price (single payer), not multiplied by member count; approval copies the frozen quote — no re-pricing.
+8. `PricingSnapshot` stores calculation breakdown (hourly rate, platform base ref, reflect flag, earnings base, share %, earnings, currency, market) for transparency — not just `TotalPrice`.
+9. **Audit log:** every admin **write** to pricing settings is logged via `IAuditService` with before/after JSON. Audit explains why **new** operations get new prices; snapshots explain what a **specific** operation was quoted at.
+
+Implementation reference: `EnrollmentPricingRules.ResolvePayableAmount`, `StudentCoursePriceResolver` (catalog live / enrollment frozen).
+
 ---
 
 ## المصطلحات

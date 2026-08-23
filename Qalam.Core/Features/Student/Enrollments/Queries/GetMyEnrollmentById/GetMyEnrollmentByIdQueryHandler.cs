@@ -59,9 +59,10 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         if (!isOwner && !isParticipant)
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
+        var payable = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
-        dto.CoursePrice = await _coursePriceResolver.ResolveEnrollmentCoursePriceAsync(
-            enrollment, request.UserId, cancellationToken);
+        dto.CoursePrice = payable;
+        dto.AmountDue = payable;
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();
@@ -182,7 +183,6 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         Enrollment enrollment,
         bool isOwner)
     {
-        dto.AmountDue = enrollment.AmountDue;
         dto.PaymentDeadline = enrollment.PaymentDeadline;
 
         var now = DateTime.UtcNow;
@@ -197,7 +197,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                      && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
                      && deadlineOk
                      && !alreadyPaid
-                     && enrollment.AmountDue > 0
+                     && dto.AmountDue > 0
                      && pendingParticipant != null;
         dto.PayParticipantId = dto.CanPay ? pendingParticipant!.Id : null;
         dto.CanCancel = isOwner
