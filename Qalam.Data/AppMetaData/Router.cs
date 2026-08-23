@@ -202,6 +202,12 @@ namespace Qalam.Data.AppMetaData
         public const string TeacherCourse = Rule + "Teacher/TeacherCourse";
         /// <summary>Teacher course by id: Api/V1/Teacher/TeacherCourse/{id}</summary>
         public const string TeacherCourseById = TeacherCourse + "/{id}";
+        /// <summary>Publish draft course: Api/V1/Teacher/TeacherCourse/{id}/publish</summary>
+        public const string TeacherCoursePublish = TeacherCourseById + "/publish";
+        /// <summary>Pause published course: Api/V1/Teacher/TeacherCourse/{id}/pause</summary>
+        public const string TeacherCoursePause = TeacherCourseById + "/pause";
+        /// <summary>Reactivate paused course: Api/V1/Teacher/TeacherCourse/{id}/reactivate</summary>
+        public const string TeacherCourseReactivate = TeacherCourseById + "/reactivate";
         /// <summary>Replace a session's unit/lesson coverage: Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Units</summary>
         public const string TeacherCourseSessionUnits = TeacherCourse + "/{courseId:int}/Sessions/{sessionId:int}/Units";
         /// <summary>Fixed course session library content: Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}/Content</summary>

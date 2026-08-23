@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.CreateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.DeleteCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.PauseCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.PublishCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.ReactivateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourseSessionUnits;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UploadCourseImage;
@@ -125,7 +128,7 @@ public class TeacherCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Create a new course (Published).
+    /// Create a new course. Set <c>publish: false</c> to create as Draft; default publishes.
     /// </summary>
     /// <remarks>
     /// POST Api/V1/Teacher/TeacherCourse
@@ -239,6 +242,30 @@ public class TeacherCourseController : AppControllerBase
         var command = new UpdateCourseCommand { Id = id, Data = dto };
         return NewResult(await Mediator.Send(command));
     }
+
+    /// <summary>Publish a Draft course (Draft → Published).</summary>
+    [HttpPost("{id:int}/publish")]
+    [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PublishCourse(int id)
+        => NewResult(await Mediator.Send(new PublishCourseCommand { Id = id }));
+
+    /// <summary>Pause a Published course (Published → Paused).</summary>
+    [HttpPost("{id:int}/pause")]
+    [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PauseCourse(int id)
+        => NewResult(await Mediator.Send(new PauseCourseCommand { Id = id }));
+
+    /// <summary>Reactivate a Paused course (Paused → Published, IsActive=true).</summary>
+    [HttpPost("{id:int}/reactivate")]
+    [ProducesResponseType(typeof(CourseDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReactivateCourse(int id)
+        => NewResult(await Mediator.Send(new ReactivateCourseCommand { Id = id }));
 
     /// <summary>
     /// Replace the unit/lesson coverage for a single course session.

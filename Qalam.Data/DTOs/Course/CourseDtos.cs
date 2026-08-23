@@ -4,7 +4,7 @@ using Qalam.Data.Entity.Common.Enums;
 namespace Qalam.Data.DTOs.Course;
 
 /// <summary>
-/// DTO for creating a course (teacher). Status defaults to Draft on create.
+/// DTO for creating a course (teacher). When <see cref="Publish"/> is false, status is Draft.
 /// </summary>
 public class CreateCourseDto
 {
@@ -22,6 +22,10 @@ public class CreateCourseDto
     public bool CanIncludeInPackages { get; set; }
     public string? ImageUrl { get; set; }
     public List<CreateCourseSessionDto>? Sessions { get; set; }
+    /// <summary>
+    /// When true (default), course is created as Published; when false, as Draft.
+    /// </summary>
+    public bool Publish { get; set; } = true;
 }
 
 public class CourseSessionDto

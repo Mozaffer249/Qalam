@@ -21,6 +21,12 @@ public interface ITeacherCourseService
 
     Task<CourseDetailDto?> UpdateCourseAsync(int userId, int courseId, UpdateCourseDto dto, CancellationToken cancellationToken = default);
 
+    Task<CourseDetailDto?> PublishCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default);
+
+    Task<CourseDetailDto?> PauseCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default);
+
+    Task<CourseDetailDto?> ReactivateCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Atomically replaces the units/lessons attached to one session.
     /// Returns null when the course or session is missing or not owned by the user.

@@ -192,7 +192,7 @@ public class TeacherCourseService : ITeacherCourseService
             MaxStudents = dto.MaxStudents,
             CanIncludeInPackages = dto.CanIncludeInPackages,
             ImageUrl = dto.ImageUrl,
-            Status = CourseStatus.Published,
+            Status = dto.Publish ? CourseStatus.Published : CourseStatus.Draft,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -327,6 +327,125 @@ public class TeacherCourseService : ITeacherCourseService
             WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
             withDetails ?? course,
             cancellationToken);
+    }
+
+    public async Task<CourseDetailDto?> PublishCourseAsync(
+        int userId,
+        int courseId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await RequireActiveTeacherAsync(userId);
+        var course = await GetOwnedCourseAsync(teacher.Id, courseId);
+        if (course == null)
+            return null;
+
+        if (course.Status != CourseStatus.Draft)
+            throw new InvalidOperationException("COURSE_INVALID_STATUS_TRANSITION");
+
+        var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id)
+            ?? course;
+        var domainId = withDetails.DomainId;
+        if (domainId <= 0)
+            throw new InvalidOperationException("Subject domain is required for pricing.");
+
+        var sessionTypeCode = withDetails.SessionType?.Code ?? "individual";
+        var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
+        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+        {
+            DomainId = domainId,
+            SessionTypeCode = sessionTypeCode,
+            MarketCode = market.MarketCode,
+            TotalMinutes = 60,
+            TeacherId = teacher.Id
+        }, cancellationToken);
+
+        course.Price = estimate.PricePerHour;
+        course.Status = CourseStatus.Published;
+        course.IsActive = true;
+        course.UpdatedAt = DateTime.UtcNow;
+
+        await _courseRepository.UpdateAsync(course);
+        await _courseRepository.SaveChangesAsync();
+
+        withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
+        return await EnrichWithTeacherMarketAsync(
+            userId,
+            WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
+            withDetails ?? course,
+            cancellationToken);
+    }
+
+    public async Task<CourseDetailDto?> PauseCourseAsync(
+        int userId,
+        int courseId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await RequireActiveTeacherAsync(userId);
+        var course = await GetOwnedCourseAsync(teacher.Id, courseId);
+        if (course == null)
+            return null;
+
+        if (course.Status != CourseStatus.Published)
+            throw new InvalidOperationException("COURSE_INVALID_STATUS_TRANSITION");
+
+        course.Status = CourseStatus.Paused;
+        course.UpdatedAt = DateTime.UtcNow;
+
+        await _courseRepository.UpdateAsync(course);
+        await _courseRepository.SaveChangesAsync();
+
+        var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
+        return await EnrichWithTeacherMarketAsync(
+            userId,
+            WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
+            withDetails ?? course,
+            cancellationToken);
+    }
+
+    public async Task<CourseDetailDto?> ReactivateCourseAsync(
+        int userId,
+        int courseId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await RequireActiveTeacherAsync(userId);
+        var course = await GetOwnedCourseAsync(teacher.Id, courseId);
+        if (course == null)
+            return null;
+
+        if (course.Status != CourseStatus.Paused)
+            throw new InvalidOperationException("COURSE_INVALID_STATUS_TRANSITION");
+
+        course.Status = CourseStatus.Published;
+        course.IsActive = true;
+        course.UpdatedAt = DateTime.UtcNow;
+
+        await _courseRepository.UpdateAsync(course);
+        await _courseRepository.SaveChangesAsync();
+
+        var withDetails = await _courseRepository.GetByIdWithDetailsAsync(course.Id);
+        return await EnrichWithTeacherMarketAsync(
+            userId,
+            WithPublicImageUrl(CourseDtoMapper.MapToDetailDto(withDetails ?? course)),
+            withDetails ?? course,
+            cancellationToken);
+    }
+
+    private async Task<Data.Entity.Teacher.Teacher> RequireActiveTeacherAsync(int userId)
+    {
+        var teacher = await _teacherRepository.GetByUserIdAsync(userId);
+        if (teacher == null)
+            throw new InvalidOperationException("Not authorized.");
+        if (teacher.Status != TeacherStatus.Active)
+            throw new InvalidOperationException("Teacher account is not active.");
+        return teacher;
+    }
+
+    private async Task<Course?> GetOwnedCourseAsync(int teacherId, int courseId)
+    {
+        var course = await _courseRepository.GetByIdAsync(courseId);
+        if (course == null || course.TeacherId != teacherId)
+            return null;
+        return course;
     }
 
     public async Task<List<CourseSessionUnitDto>?> ReplaceSessionUnitsAsync(
