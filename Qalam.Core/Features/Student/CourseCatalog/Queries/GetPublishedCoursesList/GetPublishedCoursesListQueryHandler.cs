@@ -5,10 +5,8 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
-using Qalam.Service.Models.Pricing;
 using System.Globalization;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
@@ -21,7 +19,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IMapper _mapper;
     private readonly IMediaUrlResolver _mediaUrlResolver;
-    private readonly IPricingEngine _pricingEngine;
+    private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPricingMarketResolver _marketResolver;
 
     public GetPublishedCoursesListQueryHandler(
@@ -30,7 +28,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         IGuardianRepository guardianRepository,
         IMapper mapper,
         IMediaUrlResolver mediaUrlResolver,
-        IPricingEngine pricingEngine,
+        IStudentCoursePriceResolver coursePriceResolver,
         IPricingMarketResolver marketResolver,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -39,7 +37,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         _guardianRepository = guardianRepository;
         _mapper = mapper;
         _mediaUrlResolver = mediaUrlResolver;
-        _pricingEngine = pricingEngine;
+        _coursePriceResolver = coursePriceResolver;
         _marketResolver = marketResolver;
     }
 
@@ -173,26 +171,14 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         foreach (var row in rows)
         {
             var totalMinutes = row.TotalDurationMinutes ?? 0;
-            var price = row.StoredPrice;
-            if (totalMinutes > 0)
-            {
-                try
-                {
-                    var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
-                    {
-                        DomainId = row.DomainId,
-                        SessionTypeCode = row.SessionTypeCode,
-                        MarketCode = market.MarketCode,
-                        TotalMinutes = totalMinutes,
-                        TeacherId = row.TeacherId
-                    }, cancellationToken);
-                    price = estimate.TotalPrice;
-                }
-                catch (InvalidOperationException)
-                {
-                    price = CourseDurationHelper.ComputeTotalPriceFromHourly(row.StoredPrice, totalMinutes);
-                }
-            }
+            var price = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
+                row.DomainId,
+                row.SessionTypeCode,
+                row.TeacherId,
+                totalMinutes,
+                row.StoredPrice,
+                request.UserId,
+                cancellationToken);
 
             items.Add(new CourseCatalogIndexItemDto
             {

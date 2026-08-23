@@ -176,6 +176,7 @@ public class EnrollmentRequestDetailDto
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
     public string? CourseDescriptionShort { get; set; }
+    /// <summary>Course package total (not hourly).</summary>
     public decimal CoursePrice { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
@@ -410,6 +411,7 @@ public class EnrollmentDetailDto
     public int CourseId { get; set; }
     public string CourseTitle { get; set; } = default!;
     public string? CourseDescription { get; set; }
+    /// <summary>Course package total (not hourly).</summary>
     public decimal CoursePrice { get; set; }
     public EnrollmentKind Kind { get; set; }
     public int? LeaderStudentId { get; set; }

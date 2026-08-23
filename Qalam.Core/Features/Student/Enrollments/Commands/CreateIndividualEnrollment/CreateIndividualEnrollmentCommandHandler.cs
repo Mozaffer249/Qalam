@@ -8,9 +8,9 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.Enrollments.Commands.CreateIndividualEnrollment;
 
@@ -27,6 +27,9 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
     private readonly ITeacherAvailabilityCalendarService _availabilityCalendar;
     private readonly IContentUnitRepository _contentUnitRepository;
     private readonly ILessonRepository _lessonRepository;
+    private readonly IStudentCoursePriceResolver _coursePriceResolver;
+    private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
+    private readonly IPricingMarketResolver _marketResolver;
     private readonly EnrollmentSettings _settings;
 
     public CreateIndividualEnrollmentCommandHandler(
@@ -40,6 +43,9 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         ITeacherAvailabilityCalendarService availabilityCalendar,
         IContentUnitRepository contentUnitRepository,
         ILessonRepository lessonRepository,
+        IStudentCoursePriceResolver coursePriceResolver,
+        IPricingSnapshotWriter pricingSnapshotWriter,
+        IPricingMarketResolver marketResolver,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -53,6 +59,9 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         _availabilityCalendar = availabilityCalendar;
         _contentUnitRepository = contentUnitRepository;
         _lessonRepository = lessonRepository;
+        _coursePriceResolver = coursePriceResolver;
+        _pricingSnapshotWriter = pricingSnapshotWriter;
+        _marketResolver = marketResolver;
         _settings = settings.Value;
     }
 
@@ -198,7 +207,8 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         if (totalMinutes <= 0)
             return BadRequest<CreateIndividualEnrollmentResultDto>("Total duration must be greater than zero.");
 
-        var amountDue = Math.Round((totalMinutes / 60m) * course.Price, 2, MidpointRounding.AwayFromZero);
+        var amountDue = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
+            course, request.UserId, cancellationToken);
 
         var calendarPairs = selectedSlots
             .Select(s => (s.Date, s.TeacherAvailabilityId))
@@ -350,6 +360,28 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         {
             await _enrollmentRepository.AddAsync(enrollment);
             await _enrollmentRepository.SaveChangesAsync();
+
+            var domainId = course.TeacherSubject?.Subject?.DomainId ?? course.DomainId;
+            if (domainId > 0 && totalMinutes > 0)
+            {
+                var sessionTypeCode = course.SessionType?.Code ?? "individual";
+                var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
+                var snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
+                {
+                    Context = PricingSnapshotContext.Enrollment,
+                    ContextEntityId = enrollment.Id,
+                    DomainId = domainId,
+                    SessionTypeCode = sessionTypeCode,
+                    MarketCode = market.MarketCode,
+                    TotalMinutes = totalMinutes,
+                    TeacherId = course.TeacherId
+                }, cancellationToken);
+
+                enrollment.PricingSnapshotId = snapshot.Id;
+                await _enrollmentRepository.UpdateAsync(enrollment);
+                await _enrollmentRepository.SaveChangesAsync();
+            }
+
             await _enrollmentRepository.CommitAsync();
         }
         catch

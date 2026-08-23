@@ -11,7 +11,6 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
-using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Service.Tests;
 
@@ -68,34 +67,18 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
                 Source = PricingMarketResolutionSource.Default
             });
 
-        var pricingEngine = new Mock<IPricingEngine>();
-        pricingEngine
-            .Setup(e => e.EstimateAsync(
-                It.Is<PricingEstimateRequest>(r =>
-                    r.DomainId == 1
-                    && r.SessionTypeCode == "individual"
-                    && r.MarketCode == "sa"
-                    && r.TotalMinutes == 120
-                    && r.TeacherId == 1012),
+        var coursePriceResolver = new Mock<IStudentCoursePriceResolver>();
+        coursePriceResolver
+            .Setup(r => r.ResolveCourseTotalPriceAsync(
+                course,
+                42,
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PriceEstimate(
-                PricePerHour: 100m,
-                TotalMinutes: 120,
-                TotalPrice: 200m,
-                TeacherSharePct: 70m,
-                TeacherEarnings: 70m,
-                PlatformShare: 30m,
-                DomainSessionPriceId: 1,
-                TeacherLevelId: 1,
-                MarketCode: "sa",
-                Currency: "SAR",
-                ReflectCustomPriceToStudent: true,
-                EarningsPricePerHour: 100m));
+            .ReturnsAsync(200m);
 
         var handler = new GetPublishedCourseByIdQueryHandler(
             courseRepo.Object,
             mapper.Object,
-            pricingEngine.Object,
+            coursePriceResolver.Object,
             marketResolver.Object,
             CreateSharedLocalizer().Object);
 
@@ -107,13 +90,8 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
         Assert.Equal(200m, response.Data!.Price);
         Assert.Equal("SAR", response.Data.Currency);
         Assert.Equal("sa", response.Data.MarketCode);
-        pricingEngine.Verify(
-            e => e.ResolvePricePerHourAsync(
-                It.IsAny<int>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<DateTime?>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        coursePriceResolver.Verify(
+            r => r.ResolveCourseTotalPriceAsync(course, 42, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

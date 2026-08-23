@@ -5,10 +5,8 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
-using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 
@@ -17,19 +15,19 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
 {
     private readonly ICourseRepository _courseRepository;
     private readonly IMapper _mapper;
-    private readonly IPricingEngine _pricingEngine;
+    private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPricingMarketResolver _marketResolver;
 
     public GetPublishedCourseByIdQueryHandler(
         ICourseRepository courseRepository,
         IMapper mapper,
-        IPricingEngine pricingEngine,
+        IStudentCoursePriceResolver coursePriceResolver,
         IPricingMarketResolver marketResolver,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
         _mapper = mapper;
-        _pricingEngine = pricingEngine;
+        _coursePriceResolver = coursePriceResolver;
         _marketResolver = marketResolver;
     }
 
@@ -47,35 +45,8 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
         var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
         dto.Currency = market.Currency;
         dto.MarketCode = market.MarketCode;
-
-        var sessionTypeCode = course.SessionType?.Code ?? "individual";
-        var domainId = dto.DomainId > 0
-            ? dto.DomainId
-            : course.TeacherSubject?.Subject?.DomainId ?? 0;
-        var totalMinutes = CourseDurationHelper.ResolveFixedTotalMinutes(course);
-        if (totalMinutes > 0 && domainId > 0)
-        {
-            try
-            {
-                var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
-                {
-                    DomainId = domainId,
-                    SessionTypeCode = sessionTypeCode,
-                    MarketCode = market.MarketCode,
-                    TotalMinutes = totalMinutes,
-                    TeacherId = course.TeacherId
-                }, cancellationToken);
-                dto.Price = estimate.TotalPrice;
-            }
-            catch (InvalidOperationException)
-            {
-                dto.Price = CourseDurationHelper.ComputeTotalPriceFromHourly(dto.Price, totalMinutes);
-            }
-        }
-        else if (totalMinutes > 0)
-        {
-            dto.Price = CourseDurationHelper.ComputeTotalPriceFromHourly(dto.Price, totalMinutes);
-        }
+        dto.Price = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
+            course, request.UserId, cancellationToken);
 
         return Success(entity: dto);
     }

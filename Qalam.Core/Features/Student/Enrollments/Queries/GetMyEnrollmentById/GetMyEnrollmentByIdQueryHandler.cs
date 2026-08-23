@@ -10,8 +10,8 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 
@@ -22,6 +22,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
+    private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly SessionSettings _sessionSettings;
 
     public GetMyEnrollmentByIdQueryHandler(
@@ -29,6 +30,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         IGuardianRepository guardianRepository,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
+        IStudentCoursePriceResolver coursePriceResolver,
         IOptions<SessionSettings> sessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -36,6 +38,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         _guardianRepository = guardianRepository;
         _enrollmentRepository = enrollmentRepository;
         _mapper = mapper;
+        _coursePriceResolver = coursePriceResolver;
         _sessionSettings = sessionSettings.Value;
     }
 
@@ -56,6 +59,8 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
+        dto.CoursePrice = await _coursePriceResolver.ResolveEnrollmentCoursePriceAsync(
+            enrollment, request.UserId, cancellationToken);
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();
@@ -145,6 +150,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                         .ThenInclude(u => u.Lesson)
             .Include(e => e.EnrollmentRequest!)
                 .ThenInclude(r => r.ProposedSessions)
+            .Include(e => e.PricingSnapshot)
             .Include(e => e.EnrollmentRequest!)
                 .ThenInclude(r => r.SelectedSessionSlots)
             .Include(e => e.OpenSessionRequest!)

@@ -128,6 +128,9 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
             .ToList();
 
         var dto = _mapper.Map<EnrollmentRequestDetailDto>(enrollmentRequest);
+        dto.CoursePrice = dto.EstimatedTotalPrice > 0
+            ? dto.EstimatedTotalPrice
+            : dto.CoursePrice;
         dto.ProposedScheduleDates = await ComputeProposedDatesAsync(enrollmentRequest, cancellationToken);
         dto.IsOwner = isOwner;
         dto.Kind = enrollment?.Kind
