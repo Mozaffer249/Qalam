@@ -99,7 +99,9 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
                         TotalPrice = estimate.TotalPrice,
                         TeacherSharePct = estimate.TeacherSharePct,
                         TeacherEarnings = estimate.TeacherEarnings,
-                        PlatformShare = estimate.PlatformShare
+                        PlatformShare = estimate.PlatformShare,
+                        EarningsPricePerHour = estimate.EarningsPricePerHour,
+                        ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent
                     };
                 }
                 catch (InvalidOperationException)

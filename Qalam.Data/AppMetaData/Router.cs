@@ -274,6 +274,9 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Teacher course hourly rate preview: Api/V1/Teacher/Pricing/course-hourly-rate</summary>
         public const string TeacherPricingCourseHourlyRate = Rule + "Teacher/Pricing/course-hourly-rate";
 
+        /// <summary>Teacher read-only domain pricing: Api/V1/Teacher/Pricing/my-domain-pricings</summary>
+        public const string TeacherPricingMyDomainPricings = Rule + "Teacher/Pricing/my-domain-pricings";
+
         /// <summary>Teacher in-app notifications</summary>
         public const string TeacherNotifications = Rule + "Teacher/Notifications";
         public const string TeacherNotificationRead = TeacherNotifications + "/{id:int}/read";

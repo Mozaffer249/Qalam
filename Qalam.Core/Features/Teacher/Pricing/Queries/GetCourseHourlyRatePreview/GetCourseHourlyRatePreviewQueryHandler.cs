@@ -5,6 +5,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Pricing;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Teacher.Pricing.Queries.GetCourseHourlyRatePreview;
 
@@ -56,28 +57,51 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             return BadRequest<CourseHourlyRatePreviewDto>("Subject domain is required for pricing.");
 
         var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
-        var pricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
+        var estimateMinutes = request.TotalMinutes is > 0 ? request.TotalMinutes.Value : 60;
+
+        PriceEstimate estimate;
+        try
+        {
+            estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            {
+                DomainId = domainId.Value,
+                SessionTypeCode = sessionType.Code,
+                MarketCode = market.MarketCode,
+                TotalMinutes = estimateMinutes,
+                TeacherId = teacher.Id
+            }, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest<CourseHourlyRatePreviewDto>(ex.Message);
+        }
+
+        var platformPricePerHour = await _pricingEngine.ResolvePricePerHourAsync(
             domainId.Value,
             sessionType.Code,
             market.MarketCode,
             cancellationToken: cancellationToken);
 
         decimal? estimatedPackageTotal = null;
+        decimal? teacherEarnings = null;
         if (request.TotalMinutes is > 0)
         {
-            estimatedPackageTotal = Math.Round(
-                (request.TotalMinutes.Value / 60m) * pricePerHour,
-                2,
-                MidpointRounding.AwayFromZero);
+            estimatedPackageTotal = estimate.TotalPrice;
+            teacherEarnings = estimate.TeacherEarnings;
         }
 
         return Success(entity: new CourseHourlyRatePreviewDto
         {
-            PricePerHour = pricePerHour,
-            Currency = market.Currency,
-            MarketCode = market.MarketCode,
+            PricePerHour = estimate.PricePerHour,
+            Currency = estimate.Currency,
+            MarketCode = estimate.MarketCode,
             TotalMinutes = request.TotalMinutes,
             EstimatedPackageTotal = estimatedPackageTotal,
+            EarningsPricePerHour = estimate.EarningsPricePerHour ?? estimate.PricePerHour,
+            TeacherSharePct = estimate.TeacherSharePct,
+            TeacherEarnings = teacherEarnings,
+            ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent,
+            IsCustomStudentRate = estimate.PricePerHour != platformPricePerHour,
         });
     }
 }

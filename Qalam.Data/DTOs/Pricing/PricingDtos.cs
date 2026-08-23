@@ -219,6 +219,11 @@ public class CourseHourlyRatePreviewDto
     public string MarketCode { get; set; } = default!;
     public int? TotalMinutes { get; set; }
     public decimal? EstimatedPackageTotal { get; set; }
+    public decimal? EarningsPricePerHour { get; set; }
+    public decimal? TeacherSharePct { get; set; }
+    public decimal? TeacherEarnings { get; set; }
+    public bool ReflectCustomPriceToStudent { get; set; }
+    public bool IsCustomStudentRate { get; set; }
 }
 
 public class PricingEstimateDto
@@ -231,6 +236,8 @@ public class PricingEstimateDto
     public decimal TeacherSharePct { get; set; }
     public decimal TeacherEarnings { get; set; }
     public decimal PlatformShare { get; set; }
+    public decimal? EarningsPricePerHour { get; set; }
+    public bool ReflectCustomPriceToStudent { get; set; }
 }
 
 public class PricingSnapshotDto
@@ -244,6 +251,30 @@ public class PricingSnapshotDto
     public decimal TeacherSharePct { get; set; }
     public decimal TeacherEarnings { get; set; }
     public decimal PlatformShare { get; set; }
+}
+
+public class TeacherMyDomainPricingDto
+{
+    public int DomainId { get; set; }
+    public string? DomainCode { get; set; }
+    public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
+    public int? TeacherLevelId { get; set; }
+    public string? TeacherLevelCode { get; set; }
+    public string? TeacherLevelNameEn { get; set; }
+    public string? TeacherLevelNameAr { get; set; }
+    public decimal? LevelSharePct { get; set; }
+    public decimal? CustomTeacherSharePct { get; set; }
+    public decimal EffectiveSharePct { get; set; }
+    public decimal? PlatformIndividualPricePerHour { get; set; }
+    public decimal? PlatformGroupPricePerHour { get; set; }
+    public decimal? CustomIndividualPricePerHour { get; set; }
+    public decimal? CustomGroupPricePerHour { get; set; }
+    public bool ReflectCustomIndividualPriceToStudent { get; set; }
+    public bool ReflectCustomGroupPriceToStudent { get; set; }
+    public bool HasCompletedInterviewSession { get; set; }
+    public string Currency { get; set; } = default!;
+    public string MarketCode { get; set; } = default!;
 }
 
 public class FreeSessionPolicyStatsDto
