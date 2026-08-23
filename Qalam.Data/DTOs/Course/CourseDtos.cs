@@ -124,17 +124,27 @@ public class CourseListItemDto
     public int TeacherId { get; set; }
     public int DomainId { get; set; }
     public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
     public int SubjectId { get; set; }
     public string? SubjectNameEn { get; set; }
+    public string? SubjectNameAr { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeNameAr { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+    public string? SessionTypeNameAr { get; set; }
     public CourseStatus Status { get; set; }
     public bool IsActive { get; set; }
     public decimal Price { get; set; }
     public string? Currency { get; set; }
     public string? MarketCode { get; set; }
+    public int? SessionsCount { get; set; }
+    public int TotalMinutes { get; set; }
+    public int RegisteredCount { get; set; }
+    public int? MaxStudents { get; set; }
+    public bool HasBlockingEnrollments { get; set; }
+    public bool CanEdit { get; set; }
 }
 
 /// <summary>
@@ -150,18 +160,25 @@ public class CourseDetailDto
     public string? TeacherDisplayName { get; set; }
     public int DomainId { get; set; }
     public string? DomainNameEn { get; set; }
+    public string? DomainNameAr { get; set; }
      public int? TeacherSubjectId { get; set; }
     public string? SubjectNameEn { get; set; }
+    public string? SubjectNameAr { get; set; }
     public int? CurriculumId { get; set; }
     public string? CurriculumNameEn { get; set; }
+    public string? CurriculumNameAr { get; set; }
     public int? LevelId { get; set; }
     public string? LevelNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
     public int? GradeId { get; set; }
     public string? GradeNameEn { get; set; }
+    public string? GradeNameAr { get; set; }
     public int TeachingModeId { get; set; }
     public string? TeachingModeNameEn { get; set; }
+    public string? TeachingModeNameAr { get; set; }
     public int SessionTypeId { get; set; }
     public string? SessionTypeNameEn { get; set; }
+    public string? SessionTypeNameAr { get; set; }
     public bool IsFlexible { get; set; }
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
@@ -172,6 +189,14 @@ public class CourseDetailDto
     public bool CanIncludeInPackages { get; set; }
     public string? ImageUrl { get; set; }
     public CourseStatus Status { get; set; }
+    /// <summary>
+    /// True when Active or Completed enrollments exist (blocks core edits).
+    /// </summary>
+    public bool HasBlockingEnrollments { get; set; }
+    /// <summary>
+    /// False when paused or has blocking enrollments.
+    /// </summary>
+    public bool CanEdit { get; set; }
     /// <summary>
     /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.
     /// </summary>

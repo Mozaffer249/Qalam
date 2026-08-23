@@ -252,6 +252,12 @@ public class TeacherCourseService : ITeacherCourseService
         if (course == null || course.TeacherId != teacher.Id)
             return null;
 
+        if (course.Status == CourseStatus.Paused)
+            throw new InvalidOperationException("COURSE_EDIT_LOCKED_PAUSED");
+
+        if (await _courseRepository.HasEnrollmentsAsync(course.Id))
+            throw new InvalidOperationException("COURSE_EDIT_LOCKED_ENROLLMENTS");
+
         if (!dto.IsFlexible)
         {
             if (dto.SessionDurationMinutes.HasValue && dto.SessionDurationMinutes <= 0)
@@ -529,6 +535,10 @@ public class TeacherCourseService : ITeacherCourseService
             course.TeacherId,
             course.Price,
             cancellationToken);
+
+        var hasBlocking = await _courseRepository.HasEnrollmentsAsync(course.Id);
+        dto.HasBlockingEnrollments = hasBlocking;
+        dto.CanEdit = course.Status != CourseStatus.Paused && !hasBlocking;
         return dto;
     }
 

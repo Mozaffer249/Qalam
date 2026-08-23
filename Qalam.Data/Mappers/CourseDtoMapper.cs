@@ -1,5 +1,6 @@
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Teacher;
 
@@ -21,18 +22,25 @@ public static class CourseDtoMapper
                 : null,
             DomainId = c.DomainId,
             DomainNameEn = c.Domain?.NameEn,
+            DomainNameAr = c.Domain?.NameAr,
             TeacherSubjectId = c.TeacherSubjectId,
             SubjectNameEn = c.Subject?.NameEn,
+            SubjectNameAr = c.Subject?.NameAr,
             CurriculumId = c.CurriculumId,
             CurriculumNameEn = c.Curriculum?.NameEn,
+            CurriculumNameAr = c.Curriculum?.NameAr,
             LevelId = c.LevelId,
             LevelNameEn = c.Level?.NameEn,
+            LevelNameAr = c.Level?.NameAr,
             GradeId = c.GradeId,
             GradeNameEn = c.Grade?.NameEn,
+            GradeNameAr = c.Grade?.NameAr,
             TeachingModeId = c.TeachingModeId,
             TeachingModeNameEn = c.TeachingMode?.NameEn,
+            TeachingModeNameAr = c.TeachingMode?.NameAr,
             SessionTypeId = c.SessionTypeId,
             SessionTypeNameEn = c.SessionType?.NameEn,
+            SessionTypeNameAr = c.SessionType?.NameAr,
             IsFlexible = c.IsFlexible,
             SessionsCount = c.SessionsCount,
             SessionDurationMinutes = c.SessionDurationMinutes,
@@ -40,7 +48,9 @@ public static class CourseDtoMapper
             MaxStudents = c.MaxStudents,
             CanIncludeInPackages = c.CanIncludeInPackages,
             ImageUrl = c.ImageUrl,
-            Status = c.Status
+            Status = c.Status,
+            HasBlockingEnrollments = false,
+            CanEdit = c.Status != CourseStatus.Paused
         };
 
         if (c.TeacherSubject?.CanTeachFullSubject == false &&
@@ -103,6 +113,19 @@ public static class CourseDtoMapper
 
     public static CourseListItemDto MapToListItemDto(Course c)
     {
+        var sessions = c.Sessions ?? Array.Empty<CourseSession>();
+        var sessionsCount = c.IsFlexible
+            ? (int?)null
+            : sessions.Count;
+        var totalMinutes = sessions.Sum(s => s.DurationMinutes);
+        var registeredCount = c.Enrollments?.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active) ?? 0;
+        // Include may only load Active; treat any loaded Active/Completed as blocking.
+        // Callers that need Completed must ensure those enrollments are loaded or set flags after HasEnrollmentsAsync.
+        var hasBlockingFromNav = c.Enrollments != null && c.Enrollments.Any(e =>
+            e.EnrollmentStatus == EnrollmentStatus.Active
+            || e.EnrollmentStatus == EnrollmentStatus.Completed);
+        var canEdit = c.Status != CourseStatus.Paused && !hasBlockingFromNav;
+
         return new CourseListItemDto
         {
             Id = c.Id,
@@ -113,15 +136,25 @@ public static class CourseDtoMapper
             TeacherId = c.TeacherId,
             DomainId = c.DomainId,
             DomainNameEn = c.Domain?.NameEn,
+            DomainNameAr = c.Domain?.NameAr,
             SubjectId = c.SubjectId,
             SubjectNameEn = c.Subject?.NameEn,
+            SubjectNameAr = c.Subject?.NameAr,
             TeachingModeId = c.TeachingModeId,
             TeachingModeNameEn = c.TeachingMode?.NameEn,
+            TeachingModeNameAr = c.TeachingMode?.NameAr,
             SessionTypeId = c.SessionTypeId,
             SessionTypeNameEn = c.SessionType?.NameEn,
+            SessionTypeNameAr = c.SessionType?.NameAr,
             Status = c.Status,
             IsActive = c.IsActive,
-            Price = c.Price
+            Price = c.Price,
+            SessionsCount = sessionsCount,
+            TotalMinutes = totalMinutes,
+            RegisteredCount = registeredCount,
+            MaxStudents = c.MaxStudents,
+            HasBlockingEnrollments = hasBlockingFromNav,
+            CanEdit = canEdit
         };
     }
 }

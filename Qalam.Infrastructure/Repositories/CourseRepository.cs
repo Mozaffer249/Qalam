@@ -35,7 +35,9 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.SessionType)
             .Include(c => c.Teacher)
                 .ThenInclude(t => t.User)
-            .Include(c => c.Enrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Enrollments.Where(e =>
+                e.EnrollmentStatus == EnrollmentStatus.Active
+                || e.EnrollmentStatus == EnrollmentStatus.Completed))
             .Include(c => c.Sessions)
                 .ThenInclude(s => s.Units)
                     .ThenInclude(u => u.ContentUnit)
@@ -68,7 +70,10 @@ public class CourseRepository : GenericRepositoryAsync<Course>, ICourseRepositor
             .Include(c => c.TeacherSubject.Subject.Grade)
             .Include(c => c.TeachingMode)
             .Include(c => c.SessionType)
-            .Include(c => c.Enrollments.Where(e => e.EnrollmentStatus == EnrollmentStatus.Active))
+            .Include(c => c.Sessions)
+            .Include(c => c.Enrollments.Where(e =>
+                e.EnrollmentStatus == EnrollmentStatus.Active
+                || e.EnrollmentStatus == EnrollmentStatus.Completed))
             .Where(c => c.TeacherId == teacherId)
             .OrderByDescending(c => c.CreatedAt);
     }
