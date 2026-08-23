@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Models.Pricing;
@@ -157,8 +158,12 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
 
                 SessionsCount = c.IsFlexible ? null : c.Sessions.Count,
                 SessionDurationMinutes = c.SessionDurationMinutes,
-                TotalDurationMinutes = !c.IsFlexible && c.SessionDurationMinutes.HasValue
-                    ? (int?)(c.Sessions.Count * c.SessionDurationMinutes.Value)
+                TotalDurationMinutes = !c.IsFlexible
+                    ? (c.Sessions.Any()
+                        ? (int?)c.Sessions.Sum(s => s.DurationMinutes)
+                        : (c.SessionDurationMinutes.HasValue && (c.SessionsCount ?? c.Sessions.Count) > 0
+                            ? (int?)((c.SessionsCount ?? c.Sessions.Count) * c.SessionDurationMinutes.Value)
+                            : null))
                     : null
             })
             .ToListAsync(cancellationToken);
@@ -167,22 +172,26 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         var items = new List<CourseCatalogIndexItemDto>(rows.Count);
         foreach (var row in rows)
         {
+            var totalMinutes = row.TotalDurationMinutes ?? 0;
             var price = row.StoredPrice;
-            try
+            if (totalMinutes > 0)
             {
-                var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                try
                 {
-                    DomainId = row.DomainId,
-                    SessionTypeCode = row.SessionTypeCode,
-                    MarketCode = market.MarketCode,
-                    TotalMinutes = 60,
-                    TeacherId = row.TeacherId
-                }, cancellationToken);
-                price = estimate.PricePerHour;
-            }
-            catch (InvalidOperationException)
-            {
-                // Keep stored price fallback.
+                    var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                    {
+                        DomainId = row.DomainId,
+                        SessionTypeCode = row.SessionTypeCode,
+                        MarketCode = market.MarketCode,
+                        TotalMinutes = totalMinutes,
+                        TeacherId = row.TeacherId
+                    }, cancellationToken);
+                    price = estimate.TotalPrice;
+                }
+                catch (InvalidOperationException)
+                {
+                    price = CourseDurationHelper.ComputeTotalPriceFromHourly(row.StoredPrice, totalMinutes);
+                }
             }
 
             items.Add(new CourseCatalogIndexItemDto

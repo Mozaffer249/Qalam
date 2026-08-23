@@ -27,7 +27,7 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
     }
 
     [Fact]
-    public async Task Handle_UsesEstimateAsync_StudentHourlyWithCustomReflect()
+    public async Task Handle_UsesEstimateAsync_TotalCoursePrice()
     {
         var course = new Course
         {
@@ -40,6 +40,11 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
             TeacherSubject = new TeacherSubject
             {
                 Subject = new Subject { Id = 3, DomainId = 1 }
+            },
+            Sessions = new List<CourseSession>
+            {
+                new() { DurationMinutes = 60 },
+                new() { DurationMinutes = 60 },
             }
         };
 
@@ -49,7 +54,7 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
         var mapper = new Mock<IMapper>();
         mapper
             .Setup(m => m.Map<CourseCatalogDetailDto>(course))
-            .Returns(new CourseCatalogDetailDto { Id = 2003, Price = 85m });
+            .Returns(new CourseCatalogDetailDto { Id = 2003, Price = 85m, DomainId = 1 });
 
         var marketResolver = new Mock<IPricingMarketResolver>();
         marketResolver
@@ -70,13 +75,13 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
                     r.DomainId == 1
                     && r.SessionTypeCode == "individual"
                     && r.MarketCode == "sa"
-                    && r.TotalMinutes == 60
+                    && r.TotalMinutes == 120
                     && r.TeacherId == 1012),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PriceEstimate(
                 PricePerHour: 100m,
-                TotalMinutes: 60,
-                TotalPrice: 100m,
+                TotalMinutes: 120,
+                TotalPrice: 200m,
                 TeacherSharePct: 70m,
                 TeacherEarnings: 70m,
                 PlatformShare: 30m,
@@ -99,7 +104,7 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
             CancellationToken.None);
 
         Assert.True(response.Succeeded);
-        Assert.Equal(100m, response.Data!.Price);
+        Assert.Equal(200m, response.Data!.Price);
         Assert.Equal("SAR", response.Data.Currency);
         Assert.Equal("sa", response.Data.MarketCode);
         pricingEngine.Verify(

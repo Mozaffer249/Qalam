@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Models.Pricing;
@@ -48,21 +49,32 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
         dto.MarketCode = market.MarketCode;
 
         var sessionTypeCode = course.SessionType?.Code ?? "individual";
-        try
+        var domainId = dto.DomainId > 0
+            ? dto.DomainId
+            : course.TeacherSubject?.Subject?.DomainId ?? 0;
+        var totalMinutes = CourseDurationHelper.ResolveFixedTotalMinutes(course);
+        if (totalMinutes > 0 && domainId > 0)
         {
-            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            try
             {
-                DomainId = course.DomainId,
-                SessionTypeCode = sessionTypeCode,
-                MarketCode = market.MarketCode,
-                TotalMinutes = 60,
-                TeacherId = course.TeacherId
-            }, cancellationToken);
-            dto.Price = estimate.PricePerHour;
+                var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                {
+                    DomainId = domainId,
+                    SessionTypeCode = sessionTypeCode,
+                    MarketCode = market.MarketCode,
+                    TotalMinutes = totalMinutes,
+                    TeacherId = course.TeacherId
+                }, cancellationToken);
+                dto.Price = estimate.TotalPrice;
+            }
+            catch (InvalidOperationException)
+            {
+                dto.Price = CourseDurationHelper.ComputeTotalPriceFromHourly(dto.Price, totalMinutes);
+            }
         }
-        catch (InvalidOperationException)
+        else if (totalMinutes > 0)
         {
-            // Keep stored course price as fallback.
+            dto.Price = CourseDurationHelper.ComputeTotalPriceFromHourly(dto.Price, totalMinutes);
         }
 
         return Success(entity: dto);
