@@ -10,6 +10,7 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
