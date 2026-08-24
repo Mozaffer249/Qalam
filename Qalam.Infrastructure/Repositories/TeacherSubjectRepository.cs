@@ -431,8 +431,27 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
     {
         return await IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
             .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
-            .OrderBy(ts => ts.Subject.NameAr)
+            .OrderBy(ts => ts.Subject!.NameAr)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PaginatedResult<TeacherSubject>> GetActiveSubjectsWithUnitsPagedAsync(
+        int teacherId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = IncludeSubjectGraph(_teacherSubjects.AsNoTracking())
+            .Where(ts => ts.TeacherId == teacherId && ts.IsActive)
+            .OrderBy(ts => ts.Subject!.NameAr);
+
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PaginatedResult<TeacherSubject>(items, total, pageNumber, pageSize);
     }
 
     private static TeacherSubject BuildTeacherSubject(int teacherId, TeacherSubjectItemDto dto)

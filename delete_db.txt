@@ -1,3 +1,25 @@
+/*
+  Qalam STAGING wipe — enrollments, requests, offers, courses, course sessions, related payments
+  Target: qalam_staging ONLY. This script COMMITS at the end.
+
+  SSMS (one query window, F5 once on the whole file):
+    1. Connect to the VPS SQL (SSH tunnel: 127.0.0.1,1433)
+    2. Login: qalam_staging_user  (NOT prod)
+    3. Database dropdown: qalam_staging
+    4. File > Open > delete_db.txt
+    5. Click anywhere in the editor, Ctrl+A, then F5
+    6. Messages tab: look for "committed." Results tab: all counts = 0
+    7. Right-click the table in Object Explorer > Refresh, then Select Top 1000
+*/
+
+USE qalam_staging;
+GO
+
+IF DB_NAME() <> N'qalam_staging'
+    THROW 50000, N'Wrong database — connect to qalam_staging before running this script.', 1;
+GO
+
+SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
 ------------------------------------------------------------
@@ -5,7 +27,6 @@ BEGIN TRANSACTION;
 ------------------------------------------------------------
 DELETE FROM dbo.EnrollmentPayments;
 
--- Payments that were only used for those enrollment links
 DELETE pi
 FROM dbo.PaymentItems pi
 WHERE pi.PaymentId IN (
@@ -14,12 +35,7 @@ WHERE pi.PaymentId IN (
     WHERE NOT EXISTS (
         SELECT 1 FROM dbo.EnrollmentPayments ep WHERE ep.PaymentId = p.Id
     )
-    -- optional safety: only wipe if you want ALL orphaned payments gone
 );
-
--- If you want every payment row removed (dev wipe), use instead:
--- DELETE FROM dbo.PaymentItems;
--- DELETE FROM dbo.Payments;
 
 DELETE p
 FROM dbo.Payments p
@@ -31,19 +47,32 @@ AND NOT EXISTS (
 );
 
 ------------------------------------------------------------
--- 2) Enrollment graph (children first; some already Cascade)
+-- 2) Enrollment graph (children of schedules/enrollments first)
 ------------------------------------------------------------
+IF OBJECT_ID(N'teacher.SessionHomeworkFileLinks', N'U') IS NOT NULL
+    DELETE FROM teacher.SessionHomeworkFileLinks;
+IF OBJECT_ID(N'teacher.SessionHomeworkAssignments', N'U') IS NOT NULL
+    DELETE FROM teacher.SessionHomeworkAssignments;
+IF OBJECT_ID(N'course.SessionAttendances', N'U') IS NOT NULL
+    DELETE FROM course.SessionAttendances;
+IF OBJECT_ID(N'course.SessionLivePresenceEvents', N'U') IS NOT NULL
+    DELETE FROM course.SessionLivePresenceEvents;
+IF OBJECT_ID(N'course.EnrollmentConversationMessages', N'U') IS NOT NULL
+    DELETE FROM course.EnrollmentConversationMessages;
+IF OBJECT_ID(N'course.EnrollmentConversations', N'U') IS NOT NULL
+    DELETE FROM course.EnrollmentConversations;
+
 DELETE FROM course.EnrollmentSelectedSessionSlotUnits;
 DELETE FROM course.EnrollmentSelectedSessionSlots;
-DELETE FROM course.CourseSchedules;              -- enrollment schedules only
+DELETE FROM course.CourseSchedules;
 DELETE FROM course.EnrollmentParticipants;
-DELETE FROM course.Enrollments;                 -- must go before requests/offers (Restrict FKs)
+DELETE FROM course.Enrollments;
 
 ------------------------------------------------------------
--- 3) Open session requests (schema sr) — offers Restrict on request
+-- 3) Open session requests (schema sr)
 ------------------------------------------------------------
 DELETE FROM sr.OfferMessages;
-UPDATE sr.OfferConversations SET SessionOfferId = NULL;  -- break 1:1 before offers
+UPDATE sr.OfferConversations SET SessionOfferId = NULL;
 DELETE FROM sr.SessionOffers;
 DELETE FROM sr.OfferConversations;
 
@@ -65,27 +94,37 @@ DELETE FROM course.CourseRequestSelectedAvailabilities;
 DELETE FROM course.CourseRequestGroupMembers;
 DELETE FROM course.CourseEnrollmentRequests;
 
--- Verify
+------------------------------------------------------------
+-- 5) Legacy session schema (only if tables exist)
+------------------------------------------------------------
+IF OBJECT_ID(N'session.ScheduledSessions', N'U') IS NOT NULL
+    DELETE FROM session.ScheduledSessions;
+IF OBJECT_ID(N'session.Sessions', N'U') IS NOT NULL
+    DELETE FROM session.Sessions;
+IF OBJECT_ID(N'session.SessionRequestOffers', N'U') IS NOT NULL
+    DELETE FROM session.SessionRequestOffers;
+IF OBJECT_ID(N'session.SessionRequests', N'U') IS NOT NULL
+    DELETE FROM session.SessionRequests;
+
+------------------------------------------------------------
+-- 6) Courses and course sessions (catalog — stays after enrollments)
+------------------------------------------------------------
+IF OBJECT_ID(N'teacher.CourseSessionContentLinks', N'U') IS NOT NULL
+    DELETE FROM teacher.CourseSessionContentLinks;
+DELETE FROM course.CourseSessionUnits;
+DELETE FROM course.CourseSessions;
+DELETE FROM course.Courses;
+
+COMMIT TRANSACTION;
+PRINT N'Wipe committed on qalam_staging.';
+
+------------------------------------------------------------
+-- After commit — all of these must be 0
+------------------------------------------------------------
 SELECT 'Enrollments' AS T, COUNT(*) AS C FROM course.Enrollments
+UNION ALL SELECT 'CourseSchedules', COUNT(*) FROM course.CourseSchedules
+UNION ALL SELECT 'CourseSessions', COUNT(*) FROM course.CourseSessions
+UNION ALL SELECT 'Courses', COUNT(*) FROM course.Courses
 UNION ALL SELECT 'CourseEnrollmentRequests', COUNT(*) FROM course.CourseEnrollmentRequests
 UNION ALL SELECT 'SessionRequests(sr)', COUNT(*) FROM sr.SessionRequests
 UNION ALL SELECT 'EnrollmentPayments', COUNT(*) FROM dbo.EnrollmentPayments;
-
--- COMMIT;
--- ROLLBACK;
-
-
-
-
-//
-DELETE FROM session.ScheduledSessions;
-DELETE FROM session.Sessions;
-DELETE FROM session.SessionRequestOffers;
-DELETE FROM session.SessionRequests;
-
-
-///
-SELECT s.name AS [schema], t.name AS [table]
-FROM sys.tables t
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-WHERE t.name LIKE '%Enrollment%' OR t.name LIKE '%SessionRequest%' OR t.name LIKE '%Offer%';

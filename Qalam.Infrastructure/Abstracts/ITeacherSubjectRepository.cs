@@ -94,4 +94,11 @@ public interface ITeacherSubjectRepository : IGenericRepositoryAsync<TeacherSubj
     Task<List<TeacherSubject>> GetActiveSubjectsWithUnitsAsync(
         int teacherId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Active subjects with units (paginated) for student catalog.</summary>
+    Task<PaginatedResult<TeacherSubject>> GetActiveSubjectsWithUnitsPagedAsync(
+        int teacherId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

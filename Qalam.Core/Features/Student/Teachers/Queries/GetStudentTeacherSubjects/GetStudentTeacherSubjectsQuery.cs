@@ -7,5 +7,6 @@ namespace Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherSubjects
 public class GetStudentTeacherSubjectsQuery : IRequest<Response<List<StudentTeacherSubjectDto>>>
 {
     public int TeacherId { get; set; }
-    public int Limit { get; set; } = 10;
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
 }

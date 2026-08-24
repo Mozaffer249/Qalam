@@ -894,25 +894,28 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         return new PaginatedResult<StudentTeacherReviewDto>(items, total, pageNumber, pageSize);
     }
 
-    public async Task<List<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
+    public async Task<PaginatedResult<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
         int teacherId,
-        int take,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
         var isActive = await ActiveTeachersBaseQuery()
             .AnyAsync(t => t.Id == teacherId, cancellationToken);
         if (!isActive)
-            return [];
+            return new PaginatedResult<StudentTeacherCertificateDto>([], 0, pageNumber, pageSize);
 
-        var limit = take is < 1 or > 50 ? 10 : take;
-
-        return await _context.Set<TeacherDocument>()
+        var query = _context.Set<TeacherDocument>()
             .AsNoTracking()
             .Where(d => d.TeacherId == teacherId
                         && d.DocumentType == TeacherDocumentType.Certificate
                         && d.VerificationStatus == DocumentVerificationStatus.Approved)
-            .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue)
-            .Take(limit)
+            .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue);
+
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(d => new StudentTeacherCertificateDto
             {
                 Id = d.Id,
@@ -922,6 +925,8 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                 FileUrl = d.FilePath
             })
             .ToListAsync(cancellationToken);
+
+        return new PaginatedResult<StudentTeacherCertificateDto>(items, total, pageNumber, pageSize);
     }
 
     public async Task<(int StudentsCount, int SessionsCount)> GetMyProfileStatsAsync(

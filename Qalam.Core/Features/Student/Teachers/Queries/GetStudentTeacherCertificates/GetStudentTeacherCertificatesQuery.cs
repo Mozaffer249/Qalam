@@ -7,5 +7,6 @@ namespace Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherCertific
 public class GetStudentTeacherCertificatesQuery : IRequest<Response<List<StudentTeacherCertificateDto>>>
 {
     public int TeacherId { get; set; }
-    public int Take { get; set; } = 10;
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
 }

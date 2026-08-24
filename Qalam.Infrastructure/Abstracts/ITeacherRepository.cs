@@ -104,10 +104,11 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
         int pageSize,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Approved certificate documents for a teacher.</summary>
-    Task<List<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
+    /// <summary>Approved certificate documents for a teacher (paginated).</summary>
+    Task<PaginatedResult<StudentTeacherCertificateDto>> GetStudentCertificatesAsync(
         int teacherId,
-        int take,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>Lightweight students/sessions counts for teacher self-profile.</summary>

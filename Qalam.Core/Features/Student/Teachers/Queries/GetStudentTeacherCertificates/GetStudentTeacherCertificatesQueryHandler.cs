@@ -10,6 +10,7 @@ namespace Qalam.Core.Features.Student.Teachers.Queries.GetStudentTeacherCertific
 public class GetStudentTeacherCertificatesQueryHandler : ResponseHandler,
     IRequestHandler<GetStudentTeacherCertificatesQuery, Response<List<StudentTeacherCertificateDto>>>
 {
+    private const int MaxPageSize = 50;
     private readonly ITeacherRepository _teacherRepository;
 
     public GetStudentTeacherCertificatesQueryHandler(
@@ -23,16 +24,26 @@ public class GetStudentTeacherCertificatesQueryHandler : ResponseHandler,
         GetStudentTeacherCertificatesQuery request,
         CancellationToken cancellationToken)
     {
-        var certs = await _teacherRepository.GetStudentCertificatesAsync(
-            request.TeacherId, request.Take, cancellationToken);
+        var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize switch
+        {
+            < 1 => 10,
+            > MaxPageSize => MaxPageSize,
+            _ => request.PageSize
+        };
 
-        if (certs.Count == 0)
+        var result = await _teacherRepository.GetStudentCertificatesAsync(
+            request.TeacherId, pageNumber, pageSize, cancellationToken);
+
+        if (result.TotalCount == 0)
         {
             var teacher = await _teacherRepository.GetByIdAsync(request.TeacherId);
             if (teacher is null || teacher.Status != Qalam.Data.Entity.Common.Enums.TeacherStatus.Active || !teacher.IsActive)
                 return NotFound<List<StudentTeacherCertificateDto>>("Teacher not found.");
         }
 
-        return Success(entity: certs);
+        return Success(
+            entity: result.Items,
+            Meta: BuildPaginationMeta(result.PageNumber, result.PageSize, result.TotalCount));
     }
 }
