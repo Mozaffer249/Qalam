@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.DTOs.Student;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
@@ -120,11 +121,18 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
 /// <summary>Filter + paging + sort inputs for <see cref="ITeacherRepository.SearchAsync"/>.</summary>
 public record TeacherSearchFilters(
     int? SubjectId,
+    List<int>? SubjectIds,
     int? DomainId,
+    int? CurriculumId,
+    int? ParentSubjectId,
     int? LevelId,
     int? GradeId,
     int? QuranContentTypeId,
+    List<int>? QuranContentTypeIds,
     int? QuranLevelId,
+    List<int>? QuranLevelIds,
+    List<int>? WritableFilterValueIds,
+    List<FieldLevelPairFilter>? FieldLevelPairs,
     TeacherLocation? Location,
     decimal? MinRating,
     string? Search,

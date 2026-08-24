@@ -11,6 +11,7 @@ using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.InfrastructureBases;
+using Qalam.Infrastructure.Queries;
 using StudentEntity = Qalam.Data.Entity.Student.Student;
 
 namespace Qalam.Infrastructure.Repositories;
@@ -629,42 +630,16 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
     {
         var query = ActiveTeachersBaseQuery();
 
-        if (filters.SubjectId.HasValue)
+        var discoverFilters = TeacherSubjectFilterMatcher.FromTeacherSearchFilters(filters);
+        if (TeacherSubjectFilterMatcher.HasAnyDiscoverFilters(filters))
         {
-            var subjectId = filters.SubjectId.Value;
-            query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive && ts.SubjectId == subjectId));
-        }
-        if (filters.DomainId.HasValue)
-        {
-            var domainId = filters.DomainId.Value;
-            query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive && ts.Subject != null && ts.Subject.DomainId == domainId));
-        }
-        if (filters.LevelId.HasValue)
-        {
-            var levelId = filters.LevelId.Value;
-            query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive && ts.Subject != null && ts.Subject.LevelId == levelId));
-        }
-        if (filters.GradeId.HasValue)
-        {
-            var gradeId = filters.GradeId.Value;
-            query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive && ts.Subject != null && ts.Subject.GradeId == gradeId));
-        }
-        if (filters.QuranContentTypeId.HasValue || filters.QuranLevelId.HasValue)
-        {
-            var qContent = filters.QuranContentTypeId;
-            var qLevel = filters.QuranLevelId;
-            query = query.Where(t => t.TeacherSubjects.Any(ts =>
-                ts.IsActive
-                && (!qContent.HasValue
-                    || !ts.QuranContentTypes.Any()
-                    || ts.QuranContentTypes.Any(c => c.QuranContentTypeId == qContent.Value))
-                && (!qLevel.HasValue
-                    || !ts.QuranLevels.Any()
-                    || ts.QuranLevels.Any(l => l.QuranLevelId == qLevel.Value))));
+            var matchingTeacherIds = _context.Set<TeacherSubject>()
+                .AsNoTracking()
+                .Where(ts => ts.IsActive)
+                .ApplyDiscoverFilters(discoverFilters)
+                .Select(ts => ts.TeacherId)
+                .Distinct();
+            query = query.Where(t => matchingTeacherIds.Contains(t.Id));
         }
         if (filters.Location.HasValue)
         {

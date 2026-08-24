@@ -12,9 +12,10 @@
 2. `GET /Education/Domains` → pick by **`code`**, store `domainId` + `code` (never hardcode ids).
 3. One shared wizard state object; every `filter-options` call resends **all** selected ids.
 4. Follow `nextStep` + `rule.*` — do not hardcode step order alone.
-5. Stop at **Subject** for Courses/Teachers; continue to Unit/Lesson for Broadcast.
-6. Map only the query/body fields each API accepts (§5). Reset **list** `pageNumber` to `1` when filters change.
-7. Broadcast: **omit** `targetedTeacherId`.
+5. **Discover catalog:** multi-select per step (OR via `SubjectIds` / `QuranContentTypeIds` / `QuranLevelIds`); **OSR broadcast:** single-select per step. Step order and Arabic labels match teacher `educationTreeSteps.ts` (Excel Sheet1).
+6. Stop at **Subject** for Courses/Teachers (school included); **school OSR** also stops at Subject — units are chosen per session, not in the filter wizard. Continue to Unit/Lesson for other broadcast domains.
+7. Map only the query/body fields each API accepts (§5). Reset **list** `pageNumber` to `1` when filters change.
+8. Broadcast: **omit** `targetedTeacherId`.
 
 ---
 
@@ -108,19 +109,37 @@ flowchart TB
 
 | API | Fields |
 |-----|--------|
-| `GET /Student/Courses` | `DomainId`, `CurriculumId`, `LevelId`, `GradeId`, `SubjectId`, `TeachingModeId`, `TeacherId`, **`PageNumber`**, **`PageSize`** |
-| `GET /Student/Teachers` | `DomainId`, `SubjectId`, `LevelId`, `GradeId`, `QuranContentTypeId`, `QuranLevelId`, `Search`, `MinRating`, `SortBy`, **`PageNumber`**, **`PageSize`** |
+| `GET /Student/Courses` | `DomainId`, `CurriculumId`, `ParentSubjectId`, `LevelId`, `GradeId`, `SubjectId`, `SubjectIds[]`, `WritableFilterValueIds[]`, `FieldLevelPairs[]`, `TeachingModeId`, `TeacherId`, **`PageNumber`**, **`PageSize`** |
+| `GET /Student/Teachers` | `DomainId`, `CurriculumId`, `ParentSubjectId`, `SubjectId`, `SubjectIds[]`, `LevelId`, `GradeId`, `QuranContentTypeId`, `QuranContentTypeIds[]`, `QuranLevelId`, `QuranLevelIds[]`, `WritableFilterValueIds[]`, `FieldLevelPairs[]`, `Search`, `MinRating`, `SortBy`, **`PageNumber`**, **`PageSize`** |
 | `POST /Student/OpenSessionRequests` | `domainId`, `subjectId`, optional `curriculumId`/`levelId`/`gradeId`/`termId`, `teachingModeId`, `sessions[]` — **no** `targetedTeacherId` |
 
-### Per domain
+**Matching rules (Discover lists):** filters AND-combine across param types; multi-select arrays (`SubjectIds`, `QuranContentTypeIds`, `WritableFilterValueIds`, …) OR within the array. `LevelId` / `GradeId` match `Subject.LevelId` / `Subject.GradeId` **or** the teacher’s `TeacherSubject` junction rows (`EducationLevels`, `Grades`). Quran audience may be sent as `LevelId` and/or `QuranLevelId(s)` — both match `EducationLevels` or `QuranLevels`. Finance uses `FieldLevelPairs[]` (`WritableFilterValueId` + `EducationLevelId`).
 
-| Domain | Courses | Teachers | Broadcast |
-|--------|---------|----------|-----------|
-| `school` | Domain + Curriculum + Level + Grade + Subject | Domain + Level + Grade + Subject (no Curriculum) | + `termId` + `sessions[].units[]` |
-| `university` | Domain + Level + Subject | Same | Same + optional term + units |
-| `language` | Domain + Level + Subject | Same | + units / lessons |
-| `skills` | Domain + Subject | Same | + units / lessons |
-| `quran` | Domain + Subject | + `QuranContentTypeId`, `QuranLevelId` | sessions: quran fields + units |
+### Per domain (all 11 Excel domains)
+
+| Domain | Courses | Teachers |
+|--------|---------|----------|
+| `school` | Domain + Curriculum + Level + Grade + Subject(s) | Domain + Level + Grade + Subject(s) |
+| `university` | Domain + Level + Subject(s) | Same |
+| `quran` | Domain + Subject(s) | + `QuranContentTypeId(s)`, `LevelId` (audience), `WritableFilterValueIds` (riwayah), optional `QuranLevelId(s)` |
+| `sharia` | Domain + ParentSubjectId + Level + Subject(s) + WritableFilterValueIds | Same |
+| `language` | Domain + Level + Grade + Subject(s) + WritableFilterValueIds | Same |
+| `tech-skills` | Domain + Level + Subject(s) + WritableFilterValueIds | Same |
+| `soft-skills` | Domain + ParentSubjectId + Subject(s) + WritableFilterValueIds | Same |
+| `life-skills` | Domain + ParentSubjectId + Level + Subject(s) + WritableFilterValueIds | Same |
+| `hobbies` | Domain + ParentSubjectId + Level + Subject(s) + WritableFilterValueIds | Same |
+| `finance` | Domain + Subject(s) + FieldLevelPairs | Same |
+| `knowledge` | Domain + Level + Subject(s) + WritableFilterValueIds | Same |
+
+### Per domain (OSR Broadcast — unchanged)
+
+| Domain | Broadcast |
+|--------|-------------|
+| `school` | + `termId` + `sessions[].units[]` |
+| `university` | Same + optional term + units |
+| `language` | + units / lessons |
+| `skills` (legacy) | + units / lessons |
+| `quran` | sessions: quran fields + units |
 
 ### University institution ids (OSR)
 

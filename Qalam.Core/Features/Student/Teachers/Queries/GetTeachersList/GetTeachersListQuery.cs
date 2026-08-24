@@ -1,5 +1,6 @@
 using MediatR;
 using Qalam.Core.Bases;
+using Qalam.Data.DTOs.Student;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
@@ -13,11 +14,18 @@ namespace Qalam.Core.Features.Student.Teachers.Queries.GetTeachersList;
 public class GetTeachersListQuery : IRequest<Response<List<TeacherCardDto>>>
 {
     public int? SubjectId { get; set; }
+    public List<int>? SubjectIds { get; set; }
     public int? DomainId { get; set; }
+    public int? CurriculumId { get; set; }
+    public int? ParentSubjectId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
     public int? QuranContentTypeId { get; set; }
+    public List<int>? QuranContentTypeIds { get; set; }
     public int? QuranLevelId { get; set; }
+    public List<int>? QuranLevelIds { get; set; }
+    public List<int>? WritableFilterValueIds { get; set; }
+    public List<FieldLevelPairFilter>? FieldLevelPairs { get; set; }
     public TeacherLocation? Location { get; set; }
     public decimal? MinRating { get; set; }
     public string? Search { get; set; }

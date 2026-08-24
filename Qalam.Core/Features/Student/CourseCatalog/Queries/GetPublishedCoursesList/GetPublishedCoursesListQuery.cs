@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.DTOs.Student;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
 
@@ -20,9 +21,13 @@ public class GetPublishedCoursesListQuery : IRequest<Response<List<CourseCatalog
     public int PageSize { get; set; } = 10;
     public int? DomainId { get; set; }
     public int? CurriculumId { get; set; }
+    public int? ParentSubjectId { get; set; }
     public int? LevelId { get; set; }
     public int? GradeId { get; set; }
     public int? SubjectId { get; set; }
+    public List<int>? SubjectIds { get; set; }
+    public List<int>? WritableFilterValueIds { get; set; }
+    public List<FieldLevelPairFilter>? FieldLevelPairs { get; set; }
     public int? TeachingModeId { get; set; }
     public int? TeacherId { get; set; }
 }

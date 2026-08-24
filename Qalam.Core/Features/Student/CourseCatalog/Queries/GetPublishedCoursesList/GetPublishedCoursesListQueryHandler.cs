@@ -5,7 +5,11 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.DTOs.Student;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Queries;
 using Qalam.Service.Abstracts;
 using System.Globalization;
 
@@ -15,6 +19,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
     IRequestHandler<GetPublishedCoursesListQuery, Response<List<CourseCatalogIndexItemDto>>>
 {
     private readonly ICourseRepository _courseRepository;
+    private readonly ApplicationDBContext _context;
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
     private readonly IMapper _mapper;
@@ -24,6 +29,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
 
     public GetPublishedCoursesListQueryHandler(
         ICourseRepository courseRepository,
+        ApplicationDBContext context,
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         IMapper mapper,
@@ -33,6 +39,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
+        _context = context;
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _mapper = mapper;
@@ -63,16 +70,28 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
 
         var query = _courseRepository.GetPublishedCoursesQueryable();
 
-        if (request.DomainId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.DomainId == request.DomainId.Value);
-        if (request.CurriculumId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.CurriculumId == request.CurriculumId.Value);
-        if (request.LevelId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.LevelId == request.LevelId.Value);
-        if (request.GradeId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.Subject != null && c.TeacherSubject.Subject.GradeId == request.GradeId.Value);
-        if (request.SubjectId.HasValue)
-            query = query.Where(c => c.TeacherSubject != null && c.TeacherSubject.SubjectId == request.SubjectId.Value);
+        var discoverFilters = new TeacherSubjectDiscoverFilters
+        {
+            DomainId = request.DomainId,
+            CurriculumId = request.CurriculumId,
+            ParentSubjectId = request.ParentSubjectId,
+            SubjectId = request.SubjectId,
+            SubjectIds = request.SubjectIds,
+            LevelId = request.LevelId,
+            GradeId = request.GradeId,
+            WritableFilterValueIds = request.WritableFilterValueIds,
+            FieldLevelPairs = request.FieldLevelPairs,
+        };
+
+        if (TeacherSubjectFilterMatcher.HasAnyDiscoverFilters(discoverFilters))
+        {
+            var matchingTeacherSubjectIds = _context.Set<TeacherSubject>()
+                .AsNoTracking()
+                .Where(ts => ts.IsActive)
+                .ApplyDiscoverFilters(discoverFilters)
+                .Select(ts => ts.Id);
+            query = query.Where(c => matchingTeacherSubjectIds.Contains(c.TeacherSubjectId));
+        }
         if (request.TeachingModeId.HasValue)
             query = query.Where(c => c.TeachingModeId == request.TeachingModeId.Value);
         if (request.TeacherId.HasValue)
