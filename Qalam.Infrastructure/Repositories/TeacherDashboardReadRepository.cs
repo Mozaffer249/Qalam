@@ -328,24 +328,44 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         int teacherId,
         CancellationToken cancellationToken = default)
     {
-        var payments = await GetTeacherPaymentRowsAsync(teacherId, cancellationToken);
         var now = DateTime.UtcNow;
         var thisMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var lastMonthStart = thisMonthStart.AddMonths(-1);
 
-        var succeeded = payments.Where(p => p.Status == PaymentStatus.Succeeded).ToList();
-        var refunded = payments.Where(p => p.Status == PaymentStatus.Refunded).ToList();
+        var earnings = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.TeacherId == teacherId && l.Status != TeacherEarningLineStatus.Voided)
+            .Select(l => new { l.Amount, l.Status, l.CreatedAt })
+            .ToListAsync(cancellationToken);
+
+        var refundsThisMonth = await _context.Refunds
+            .AsNoTracking()
+            .Where(r => r.Status == RefundStatus.Succeeded
+                        && r.CreatedAt >= thisMonthStart
+                        && (r.Enrollment.ApprovedByTeacherId == teacherId
+                            || (r.Enrollment.Course != null && r.Enrollment.Course.TeacherId == teacherId)))
+            .SumAsync(r => (decimal?)r.Amount, cancellationToken) ?? 0m;
+
+        var pendingPayout = earnings
+            .Where(e => e.Status == TeacherEarningLineStatus.Pending)
+            .Sum(e => e.Amount);
+
+        var paidOrIncluded = earnings
+            .Where(e => e.Status != TeacherEarningLineStatus.Voided)
+            .ToList();
 
         return new TeacherFinanceSummaryDto
         {
-            TotalEarningsAllTime = succeeded.Sum(p => p.Amount),
-            EarningsThisMonth = succeeded.Where(p => p.CreatedAt >= thisMonthStart).Sum(p => p.Amount),
-            EarningsLastMonth = succeeded.Where(p => p.CreatedAt >= lastMonthStart && p.CreatedAt < thisMonthStart).Sum(p => p.Amount),
-            PendingPayout = 0,
+            TotalEarningsAllTime = paidOrIncluded.Sum(e => e.Amount),
+            EarningsThisMonth = paidOrIncluded.Where(e => e.CreatedAt >= thisMonthStart).Sum(e => e.Amount),
+            EarningsLastMonth = paidOrIncluded
+                .Where(e => e.CreatedAt >= lastMonthStart && e.CreatedAt < thisMonthStart)
+                .Sum(e => e.Amount),
+            PendingPayout = pendingPayout,
             NextPayoutDate = null,
             PlatformFeesThisMonth = 0,
-            RefundsThisMonth = refunded.Where(p => p.CreatedAt >= thisMonthStart).Sum(p => p.Amount),
-            TransactionsCount = payments.Count,
+            RefundsThisMonth = refundsThisMonth,
+            TransactionsCount = await CountFinanceTransactionsAsync(teacherId, cancellationToken),
         };
     }
 
@@ -356,28 +376,99 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var payments = await GetTeacherPaymentRowsAsync(teacherId, cancellationToken);
-        var items = payments
-            .Select(p => new TeacherFinanceTransactionDto
+        var items = new List<TeacherFinanceTransactionDto>();
+
+        var earnings = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.TeacherId == teacherId && l.Status != TeacherEarningLineStatus.Voided)
+            .Select(l => new
             {
-                Id = $"tx-{p.PaymentId}",
-                Type = p.Status == PaymentStatus.Refunded ? "Refund" : "Payment",
-                Status = p.Status switch
-                {
-                    PaymentStatus.Succeeded => "Completed",
-                    PaymentStatus.Pending => "Pending",
-                    PaymentStatus.Refunded => "Completed",
-                    _ => "Failed",
-                },
-                Amount = p.Status == PaymentStatus.Refunded ? -p.Amount : p.Amount,
-                Currency = "SAR",
-                CreatedAt = p.CreatedAt,
-                Description = p.Description,
-                RelatedStudentName = p.StudentName,
-                RelatedCourseTitle = p.CourseTitle,
-                InvoiceNumber = p.InvoiceNumber,
+                l.Id,
+                l.Amount,
+                l.Currency,
+                l.CreatedAt,
+                l.Status,
+                CourseTitle = l.Enrollment.Course != null ? l.Enrollment.Course.Title : null,
             })
-            .Where(t => string.IsNullOrEmpty(typeFilter) || typeFilter == "all" || t.Type.Equals(typeFilter, StringComparison.OrdinalIgnoreCase))
+            .ToListAsync(cancellationToken);
+
+        foreach (var e in earnings)
+        {
+            items.Add(new TeacherFinanceTransactionDto
+            {
+                Id = $"earn-{e.Id}",
+                Type = "Payment",
+                Status = e.Status == TeacherEarningLineStatus.Pending ? "Pending" : "Completed",
+                Amount = e.Amount,
+                Currency = e.Currency,
+                CreatedAt = e.CreatedAt,
+                Description = "Session earning",
+                RelatedCourseTitle = e.CourseTitle,
+            });
+        }
+
+        // First-class Refund rows only — never map PaymentStatus.Refunded payments as Type "Payment".
+        var refunds = await _context.Refunds
+            .AsNoTracking()
+            .Where(r => r.Status == RefundStatus.Succeeded
+                        && (r.Enrollment.ApprovedByTeacherId == teacherId
+                            || (r.Enrollment.Course != null && r.Enrollment.Course.TeacherId == teacherId)))
+            .Select(r => new
+            {
+                r.Id,
+                r.Amount,
+                r.Currency,
+                r.CreatedAt,
+                r.Reason,
+                CourseTitle = r.Enrollment.Course != null ? r.Enrollment.Course.Title : null,
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var r in refunds)
+        {
+            items.Add(new TeacherFinanceTransactionDto
+            {
+                Id = $"ref-{r.Id}",
+                Type = "Refund",
+                Status = "Completed",
+                Amount = -r.Amount,
+                Currency = r.Currency,
+                CreatedAt = r.CreatedAt,
+                Description = string.IsNullOrWhiteSpace(r.Reason) ? "Refund" : r.Reason,
+                RelatedCourseTitle = r.CourseTitle,
+            });
+        }
+
+        var payouts = await _context.PayoutItems
+            .AsNoTracking()
+            .Where(i => i.TeacherId == teacherId && i.PayoutBatch.Status == PayoutBatchStatus.Paid)
+            .Select(i => new
+            {
+                i.Id,
+                i.Amount,
+                i.Currency,
+                i.PayoutBatch.PaidAt,
+                i.PayoutBatch.MockTransferRef,
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var p in payouts)
+        {
+            items.Add(new TeacherFinanceTransactionDto
+            {
+                Id = $"payout-{p.Id}",
+                Type = "Payout",
+                Status = "Completed",
+                Amount = p.Amount,
+                Currency = p.Currency,
+                CreatedAt = p.PaidAt ?? DateTime.UtcNow,
+                Description = p.MockTransferRef ?? "Payout",
+            });
+        }
+
+        items = items
+            .Where(t => string.IsNullOrEmpty(typeFilter) || typeFilter == "all"
+                        || t.Type.Equals(typeFilter, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(t => t.CreatedAt)
             .ToList();
 
@@ -387,6 +478,23 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         var page = items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
 
         return new PaginatedResult<TeacherFinanceTransactionDto>(page, total, pageNumber, pageSize);
+    }
+
+    private async Task<int> CountFinanceTransactionsAsync(int teacherId, CancellationToken cancellationToken)
+    {
+        var earnings = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .CountAsync(l => l.TeacherId == teacherId && l.Status != TeacherEarningLineStatus.Voided, cancellationToken);
+        var refunds = await _context.Refunds
+            .AsNoTracking()
+            .CountAsync(r => r.Status == RefundStatus.Succeeded
+                             && (r.Enrollment.ApprovedByTeacherId == teacherId
+                                 || (r.Enrollment.Course != null && r.Enrollment.Course.TeacherId == teacherId)),
+                cancellationToken);
+        var payouts = await _context.PayoutItems
+            .AsNoTracking()
+            .CountAsync(i => i.TeacherId == teacherId && i.PayoutBatch.Status == PayoutBatchStatus.Paid, cancellationToken);
+        return earnings + refunds + payouts;
     }
 
     public async Task<TeacherNotificationsPageDto> GetNotificationsAsync(
@@ -525,44 +633,5 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         public bool SessionTypeGroup { get; init; }
         public int StudentsCount { get; init; } = 1;
         public ScheduleStatus Status { get; init; }
-    }
-
-    private async Task<List<TeacherPaymentRow>> GetTeacherPaymentRowsAsync(
-        int teacherId,
-        CancellationToken cancellationToken)
-    {
-        return await _context.EnrollmentPayments
-            .AsNoTracking()
-            .Where(ep => ep.EnrollmentParticipant.Enrollment.ApprovedByTeacherId == teacherId
-                         || (ep.EnrollmentParticipant.Enrollment.Course != null
-                             && ep.EnrollmentParticipant.Enrollment.Course.TeacherId == teacherId))
-            .Select(ep => new TeacherPaymentRow
-            {
-                PaymentId = ep.PaymentId,
-                Amount = ep.Payment.TotalAmount,
-                Status = ep.Payment.Status,
-                CreatedAt = ep.Payment.CreatedAt,
-                Description = ep.Payment.PaymentItems.Select(pi => pi.Description).FirstOrDefault() ?? "Enrollment payment",
-                StudentName = ep.EnrollmentParticipant.Student.User != null
-                    ? (ep.EnrollmentParticipant.Student.User.FirstName ?? "") + " " + (ep.EnrollmentParticipant.Student.User.LastName ?? "")
-                    : null,
-                CourseTitle = ep.EnrollmentParticipant.Enrollment.Course != null
-                    ? ep.EnrollmentParticipant.Enrollment.Course.Title
-                    : null,
-                InvoiceNumber = ep.Payment.InvoiceNumber,
-            })
-            .ToListAsync(cancellationToken);
-    }
-
-    private sealed class TeacherPaymentRow
-    {
-        public int PaymentId { get; init; }
-        public decimal Amount { get; init; }
-        public PaymentStatus Status { get; init; }
-        public DateTime CreatedAt { get; init; }
-        public string Description { get; init; } = "";
-        public string? StudentName { get; init; }
-        public string? CourseTitle { get; init; }
-        public string? InvoiceNumber { get; init; }
     }
 }

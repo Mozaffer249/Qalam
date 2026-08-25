@@ -93,5 +93,17 @@ public class SessionLifecycleService : BackgroundService
 
         if (completed > 0)
             _logger.LogInformation("Auto-completed {Count} overdue CourseSchedule(s).", completed);
+
+        var enrollmentCompletion = scope.ServiceProvider.GetRequiredService<IEnrollmentCompletionService>();
+        try
+        {
+            var finished = await enrollmentCompletion.SweepFinishedEnrollmentsAsync(ct);
+            if (finished > 0)
+                _logger.LogInformation("Marked {Count} enrollment(s) Completed.", finished);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed enrollment completion sweep.");
+        }
     }
 }

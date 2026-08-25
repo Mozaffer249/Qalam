@@ -205,6 +205,17 @@ public class CourseDetailDto
     /// True when this course's domain still requires an unpaid proof (interview) session.
     /// </summary>
     public bool InterviewPending { get; set; }
+    /// <summary>False until first completed session unlocks the domain level.</summary>
+    public bool HasCompletedInterviewSession { get; set; }
+    public decimal? EarningsPricePerHour { get; set; }
+    /// <summary>Effective share used for payouts (0% while domain interview pending).</summary>
+    public decimal? TeacherSharePct { get; set; }
+    public decimal? LevelSharePct { get; set; }
+    /// <summary>Custom override, else level share, else effective — for teacher UI.</summary>
+    public decimal? ProjectedSharePct { get; set; }
+    public decimal? ProjectedTeacherEarnings { get; set; }
+    public decimal? EstimatedPackageTotal { get; set; }
+    public int? TotalMinutes { get; set; }
     /// <summary>
     /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.
     /// </summary>

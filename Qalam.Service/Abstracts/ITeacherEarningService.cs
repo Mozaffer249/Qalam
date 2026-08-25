@@ -1,0 +1,39 @@
+namespace Qalam.Service.Abstracts;
+
+public interface ITeacherEarningService
+{
+    /// <summary>
+    /// Accrues a pending earning line for a completed schedule from the enrollment pricing snapshot.
+    /// Idempotent per CourseScheduleId.
+    /// </summary>
+    Task AccrueForCompletedScheduleAsync(
+        int courseScheduleId,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IPayoutService
+{
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto> CreateBatchFromPendingAsync(
+        DateTime? periodStart,
+        DateTime? periodEnd,
+        int? createdByUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> ApproveAsync(
+        int batchId,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> MarkPaidAsync(
+        int batchId,
+        CancellationToken cancellationToken = default);
+
+    Task<List<Data.DTOs.Admin.AdminPayoutBatchListItemDto>> ListBatchesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> GetBatchAsync(
+        int batchId,
+        CancellationToken cancellationToken = default);
+
+    Task<List<Data.DTOs.Admin.AdminPendingEarningDto>> ListPendingEarningsAsync(
+        CancellationToken cancellationToken = default);
+}

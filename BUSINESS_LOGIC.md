@@ -1483,7 +1483,9 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 2. Eligible: individual OSR accept **or** individual direct course enroll (exactly **1 session**) while unused.
 3. Student `AmountDue = 0`; enrollment activates without payment (course enroll) or pending payment with zero due (OSR); trial flag set when the free enrollment is created (`Enrollment.IsFreeTrial`).
 4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
-5. **Model 2 (later, not built):** pay full package; refund first session if dissatisfied — requires refund APIs.
+5. **Cancel before first session:** Student owner may cancel `PendingPayment` (no refund) or `Active` when no schedule has started; paid enrollments get a **mock** refund (`Refund` entity + `PaymentStatus.Refunded`; list/API type is always `Refund`, not a negative payment). Real PSP refunds wait for payment-gateway integration. Free-trial cancel restores `HasUsedFreeTrialSession`.
+6. **Enrollment completed:** When the last schedule completes (background or teacher Complete) and no `Scheduled`/`InProgress` remain (with ≥1 `Completed`), enrollment becomes `Completed`.
+7. **Teacher payouts:** Session completion accrues `TeacherEarningLine` from `PricingSnapshot.TeacherEarnings` (prorated by minutes). Admin payout batches pay pending lines (mock transfer). Model 2 mid-package dissatisfaction refund is still out of scope.
 
 ### Live vs frozen pricing contract
 

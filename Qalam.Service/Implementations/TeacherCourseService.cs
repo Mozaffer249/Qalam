@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Mappers;
 using Qalam.Data.Results;
@@ -650,25 +651,71 @@ public class TeacherCourseService : ITeacherCourseService
         var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
         dto.Currency = market.Currency;
         dto.MarketCode = market.MarketCode;
-        dto.Price = await ResolveStudentHourlyAsync(
-            course.DomainId,
-            course.SessionType?.Code ?? "individual",
-            market.MarketCode,
-            course.TeacherId,
-            course.Price,
-            cancellationToken);
+
+        var sessionTypeCode = course.SessionType?.Code ?? "individual";
+        var totalMinutes = 0;
+        if (course.Sessions is { Count: > 0 })
+            totalMinutes = course.Sessions.Sum(s => s.DurationMinutes);
+        else if (course.SessionsCount is > 0 && course.SessionDurationMinutes is > 0)
+            totalMinutes = course.SessionsCount.Value * course.SessionDurationMinutes.Value;
+
+        dto.TotalMinutes = totalMinutes > 0 ? totalMinutes : null;
+        var estimateMinutes = totalMinutes > 0 ? totalMinutes : 60;
 
         var hasBlocking = await _courseRepository.HasEnrollmentsAsync(course.Id);
         dto.HasBlockingEnrollments = hasBlocking;
         dto.CanEdit = course.Status != CourseStatus.Paused && !hasBlocking;
 
+        TeacherDomainPricing? domainPricing = null;
         if (course.DomainId > 0 && course.TeacherId > 0)
         {
-            var domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
+            domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
                 course.TeacherId,
                 course.DomainId,
                 cancellationToken);
             dto.InterviewPending = domainPricing == null || !domainPricing.HasCompletedInterviewSession;
+            dto.HasCompletedInterviewSession = domainPricing?.HasCompletedInterviewSession == true;
+            dto.LevelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
+        }
+
+        if (course.DomainId <= 0 || course.TeacherId <= 0)
+        {
+            dto.Price = course.Price;
+            return dto;
+        }
+
+        try
+        {
+            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            {
+                DomainId = course.DomainId,
+                SessionTypeCode = sessionTypeCode,
+                MarketCode = market.MarketCode,
+                TotalMinutes = estimateMinutes,
+                TeacherId = course.TeacherId
+            }, cancellationToken);
+
+            dto.Price = estimate.PricePerHour;
+            dto.EarningsPricePerHour = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
+            dto.TeacherSharePct = estimate.TeacherSharePct;
+
+            var projectedShare = domainPricing?.CustomTeacherSharePct
+                ?? domainPricing?.TeacherLevel?.TeacherSharePct
+                ?? estimate.TeacherSharePct;
+            dto.ProjectedSharePct = projectedShare;
+
+            var earningsBase = dto.EarningsPricePerHour ?? estimate.PricePerHour;
+            dto.ProjectedTeacherEarnings = Math.Round(
+                earningsBase * (projectedShare / 100m) * (estimateMinutes / 60m),
+                2,
+                MidpointRounding.AwayFromZero);
+
+            if (totalMinutes > 0)
+                dto.EstimatedPackageTotal = estimate.TotalPrice;
+        }
+        catch (InvalidOperationException)
+        {
+            dto.Price = course.Price;
         }
 
         return dto;

@@ -43,6 +43,13 @@ namespace Qalam.Data.AppMetaData
         public const string AdminTeacherDomainQuestions = Rule + "Admin/TeacherDomainQuestions";
         public const string AdminNationalities = Rule + "Admin/Nationalities";
         public const string AdminPricing = Rule + "Admin/Pricing";
+        public const string AdminRefunds = Rule + "Admin/Refunds";
+        public const string AdminRefundById = AdminRefunds + "/{id}";
+        public const string AdminPayouts = Rule + "Admin/Payouts";
+        public const string AdminPayoutById = AdminPayouts + "/{id}";
+        public const string AdminPayoutApprove = AdminPayoutById + "/Approve";
+        public const string AdminPayoutMarkPaid = AdminPayoutById + "/MarkPaid";
+        public const string AdminPayoutPendingEarnings = AdminPayouts + "/PendingEarnings";
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";

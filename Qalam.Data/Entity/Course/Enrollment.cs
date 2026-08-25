@@ -99,6 +99,9 @@ public class Enrollment : AuditableEntity
     /// <summary>User who cancelled (student owner or system). Null when cancelled by expiration job.</summary>
     public int? CancelledByUserId { get; set; }
 
+    /// <summary>When the enrollment package finished (all sessions terminal with ≥1 completed).</summary>
+    public DateTime? CompletedAt { get; set; }
+
     // Navigation Properties
     public Course? Course { get; set; }
     public CourseEnrollmentRequest? EnrollmentRequest { get; set; }

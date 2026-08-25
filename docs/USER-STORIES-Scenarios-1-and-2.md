@@ -408,13 +408,15 @@ Auth pattern: `[Authorize(Roles = ...)]` on controllers. Guardian uses same endp
 **I want** to cancel my enrollment within policy rules,
 **so that** I am not charged for unwanted courses.
 
-**Source:** `[partial]` `EnrollmentExpirationService` cancels unpaid enrollments after deadline only.
+**Source:** `[code]` `CancelEnrollmentCommandHandler` + `EnrollmentCancellationService`; unpaid deadline via `EnrollmentExpirationService`.
 
 **Acceptance criteria:**
-- [ ] AC1: User-initiated cancel API — **not implemented**.
-- [ ] AC2: Background job sets `Enrollment.Status` = `Cancelled` when payment deadline passes.
+- [x] AC1: Owner can cancel `PendingPayment` enrollments (no refund).
+- [x] AC2: Owner can cancel `Active` enrollments **before the first session starts**; succeeded payments receive a mock refund; free-trial flag restored when `IsFreeTrial`.
+- [x] AC3: Cancel is rejected after any schedule is `InProgress`/`Completed` or attendance is recorded.
+- [x] AC4: Background job sets `EnrollmentStatus` = `Cancelled` when payment deadline passes.
 
-**Status:** `partially implemented`
+**Status:** `implemented`
 
 ---
 

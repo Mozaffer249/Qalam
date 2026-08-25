@@ -16,6 +16,8 @@ public class SessionLifecycleHelper : ISessionLifecycleService
     private readonly ILiveSessionProvider _liveSessionProvider;
     private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly ITeacherLevelProgressionService _progressionService;
+    private readonly IEnrollmentCompletionService _enrollmentCompletion;
+    private readonly ITeacherEarningService _teacherEarning;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
@@ -23,12 +25,16 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         ILiveSessionProvider liveSessionProvider,
         IFreeSessionPolicyService freeSessionPolicy,
         ITeacherLevelProgressionService progressionService,
+        IEnrollmentCompletionService enrollmentCompletion,
+        ITeacherEarningService teacherEarning,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
         _liveSessionProvider = liveSessionProvider;
         _freeSessionPolicy = freeSessionPolicy;
         _progressionService = progressionService;
+        _enrollmentCompletion = enrollmentCompletion;
+        _teacherEarning = teacherEarning;
         _logger = logger;
     }
 
@@ -94,6 +100,29 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         // Close the LiveKit room so connected clients disconnect (soft-fail inside provider).
         var roomName = LiveSessionRoomNames.ForSchedule(schedule.Id);
         await _liveSessionProvider.EndRoomAsync(roomName, cancellationToken);
+
+        try
+        {
+            await _teacherEarning.AccrueForCompletedScheduleAsync(schedule.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to accrue teacher earning after completing CourseSchedule {ScheduleId}",
+                schedule.Id);
+        }
+
+        try
+        {
+            await _enrollmentCompletion.TryCompleteEnrollmentIfFinishedAsync(
+                schedule.EnrollmentId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to complete enrollment after CourseSchedule {ScheduleId}",
+                schedule.Id);
+        }
     }
 
     public async Task MarkInProgressAsync(CourseSchedule schedule, CancellationToken cancellationToken = default)

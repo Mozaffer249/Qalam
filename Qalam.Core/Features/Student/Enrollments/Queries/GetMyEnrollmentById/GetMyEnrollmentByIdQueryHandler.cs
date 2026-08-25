@@ -13,6 +13,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Helpers;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 
@@ -201,8 +202,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                      && dto.AmountDue > 0
                      && pendingParticipant != null;
         dto.PayParticipantId = dto.CanPay ? pendingParticipant!.Id : null;
-        dto.CanCancel = isOwner
-                        && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment;
+        dto.CanCancel = EnrollmentLifecycleRules.CanStudentCancel(enrollment, isOwner);
     }
 
     private static List<EnrollmentSessionItemDto> BuildSessions(

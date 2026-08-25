@@ -373,7 +373,7 @@ public class StudentCourseController : AppControllerBase
     }
 
     /// <summary>
-    /// Owner cancels a PendingPayment enrollment (Individual or Group) before pay.
+    /// Owner cancels PendingPayment, or Active before the first session (mock refund if paid).
     /// </summary>
     [HttpPost(Router.StudentEnrollmentCancel)]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
