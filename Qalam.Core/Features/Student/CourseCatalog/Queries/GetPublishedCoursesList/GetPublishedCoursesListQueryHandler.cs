@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.Entity.Teacher;
@@ -11,6 +12,7 @@ using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Queries;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 using System.Globalization;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCoursesList;
@@ -26,6 +28,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
     private readonly IMediaUrlResolver _mediaUrlResolver;
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPricingMarketResolver _marketResolver;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetPublishedCoursesListQueryHandler(
         ICourseRepository courseRepository,
@@ -36,6 +39,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         IMediaUrlResolver mediaUrlResolver,
         IStudentCoursePriceResolver coursePriceResolver,
         IPricingMarketResolver marketResolver,
+        IFreeSessionPolicyService freeSessionPolicy,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
@@ -46,6 +50,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         _mediaUrlResolver = mediaUrlResolver;
         _coursePriceResolver = coursePriceResolver;
         _marketResolver = marketResolver;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<List<CourseCatalogIndexItemDto>>> Handle(
@@ -186,6 +191,10 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
             .ToListAsync(cancellationToken);
 
         var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
+        var viewerStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
+        var unusedTrial = viewerStudent != null
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(viewerStudent.Id, cancellationToken);
+
         var items = new List<CourseCatalogIndexItemDto>(rows.Count);
         foreach (var row in rows)
         {
@@ -198,6 +207,12 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                 row.StoredPrice,
                 request.UserId,
                 cancellationToken);
+
+            var isGroup = string.Equals(
+                row.SessionTypeCode,
+                PricingDefaults.SessionTypeGroup,
+                StringComparison.OrdinalIgnoreCase);
+            var sessionCount = row.SessionsCount ?? 0;
 
             items.Add(new CourseCatalogIndexItemDto
             {
@@ -218,7 +233,9 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                 SessionTypeName = row.SessionTypeName,
                 SessionsCount = row.SessionsCount,
                 SessionDurationMinutes = row.SessionDurationMinutes,
-                TotalDurationMinutes = row.TotalDurationMinutes
+                TotalDurationMinutes = row.TotalDurationMinutes,
+                IsFreeTrialEligible = unusedTrial
+                    && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount),
             });
         }
 

@@ -22,6 +22,7 @@ public class TeacherCourseService : ITeacherCourseService
     private readonly IMediaUrlResolver _mediaUrlResolver;
     private readonly IPricingEngine _pricingEngine;
     private readonly IPricingMarketResolver _marketResolver;
+    private readonly ITeacherDomainPricingRepository _domainPricingRepository;
 
     public TeacherCourseService(
         ITeacherRepository teacherRepository,
@@ -33,7 +34,8 @@ public class TeacherCourseService : ITeacherCourseService
         ITeacherSubjectRepertoireService repertoireService,
         IMediaUrlResolver mediaUrlResolver,
         IPricingEngine pricingEngine,
-        IPricingMarketResolver marketResolver)
+        IPricingMarketResolver marketResolver,
+        ITeacherDomainPricingRepository domainPricingRepository)
     {
         _teacherRepository = teacherRepository;
         _courseRepository = courseRepository;
@@ -45,6 +47,7 @@ public class TeacherCourseService : ITeacherCourseService
         _mediaUrlResolver = mediaUrlResolver;
         _pricingEngine = pricingEngine;
         _marketResolver = marketResolver;
+        _domainPricingRepository = domainPricingRepository;
     }
 
     public async Task<CourseDetailDto?> GetCourseByIdForTeacherAsync(int userId, int courseId, CancellationToken cancellationToken = default)
@@ -658,6 +661,16 @@ public class TeacherCourseService : ITeacherCourseService
         var hasBlocking = await _courseRepository.HasEnrollmentsAsync(course.Id);
         dto.HasBlockingEnrollments = hasBlocking;
         dto.CanEdit = course.Status != CourseStatus.Paused && !hasBlocking;
+
+        if (course.DomainId > 0 && course.TeacherId > 0)
+        {
+            var domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
+                course.TeacherId,
+                course.DomainId,
+                cancellationToken);
+            dto.InterviewPending = domainPricing == null || !domainPricing.HasCompletedInterviewSession;
+        }
+
         return dto;
     }
 

@@ -11,6 +11,7 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Data.Entity.Teaching;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Tests;
 
@@ -80,6 +81,8 @@ public class GetPublishedCourseByIdQueryHandlerPricingTests
             mapper.Object,
             coursePriceResolver.Object,
             marketResolver.Object,
+            Mock.Of<IStudentRepository>(),
+            Mock.Of<IFreeSessionPolicyService>(),
             CreateSharedLocalizer().Object);
 
         var response = await handler.Handle(

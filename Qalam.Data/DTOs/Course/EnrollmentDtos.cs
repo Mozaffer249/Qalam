@@ -165,6 +165,9 @@ public class EnrollmentRequestListItemDto
     public int? EnrollmentId { get; set; }
 
     public EnrollmentStatus? EnrollmentStatus { get; set; }
+
+    /// <summary>True when this request's package can still use the learner's unused free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }
 
 /// <summary>
@@ -221,6 +224,9 @@ public class EnrollmentRequestDetailDto
     public DateTime? PaymentDeadline { get; set; }
     /// <summary>Any participant id — use with single-payer pay endpoint.</summary>
     public int? PayParticipantId { get; set; }
+
+    /// <summary>True when this request's package can still use the learner's unused free trial (pre-pay).</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }
 
 /// <summary>
@@ -657,6 +663,9 @@ public class StudentInvitationDetailDto
     public decimal? AmountDue { get; set; }
     public DateTime? PaymentDeadline { get; set; }
     public int? PayParticipantId { get; set; }
+
+    /// <summary>True when the related package can still use the learner's unused free trial (pre-pay).</summary>
+    public bool IsFreeTrialEligible { get; set; }
 
     public string? RespondPath { get; set; }
     public string? RespondAcceptDecision { get; set; }

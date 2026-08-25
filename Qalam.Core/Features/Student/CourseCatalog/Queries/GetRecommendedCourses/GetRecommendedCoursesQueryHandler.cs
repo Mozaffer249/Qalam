@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Implementations;
 using System.Globalization;
 using StudentProfile = Qalam.Data.Entity.Student.Student;
 
@@ -21,18 +23,21 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
     private readonly IStudentRepository _studentRepository;
     private readonly IGuardianRepository _guardianRepository;
     private readonly IMapper _mapper;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetRecommendedCoursesQueryHandler(
         ICourseRepository courseRepository,
         IStudentRepository studentRepository,
         IGuardianRepository guardianRepository,
         IMapper mapper,
+        IFreeSessionPolicyService freeSessionPolicy,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _mapper = mapper;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<List<CourseCatalogItemDto>>> Handle(
@@ -78,62 +83,94 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
         var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
             .Equals("ar", StringComparison.OrdinalIgnoreCase);
 
-        var items = await query
+        var rows = await query
             .Take(DefaultTake)
-            .Select(c => new CourseCatalogItemDto
+            .Select(c => new
             {
-                Id = c.Id,
-                Title = c.Title,
-                DescriptionShort = c.Description != null && c.Description.Length > 200
-                    ? c.Description.Substring(0, 200) + "..."
-                    : c.Description,
-                TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
-                    ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
-                    : null,
-                TeacherBio = c.Teacher != null ? c.Teacher.Bio : null,
-                TeacherAverageReview = c.Teacher != null
-                    ? (c.Teacher.TeacherReviews
-                          .Where(r => r.IsApproved)
-                          .Select(r => (decimal?)r.Rating)
-                          .Average() ?? 0m)
-                    : 0m,
-                EnrollmentsCount = c.Enrollments.Count(e =>
-                    e.EnrollmentStatus == EnrollmentStatus.Active ||
-                    e.EnrollmentStatus == EnrollmentStatus.Completed),
-                DomainId = c.TeacherSubject != null && c.TeacherSubject.Subject != null
-                    ? c.TeacherSubject.Subject.DomainId
-                    : 0,
-                DomainName = c.TeacherSubject != null &&
-                             c.TeacherSubject.Subject != null &&
-                             c.TeacherSubject.Subject.Domain != null
-                    ? (isAr
-                        ? c.TeacherSubject.Subject.Domain.NameAr
-                        : c.TeacherSubject.Subject.Domain.NameEn)
-                    : null,
-                SubjectId = c.TeacherSubject != null ? c.TeacherSubject.SubjectId : 0,
-                SubjectName = c.TeacherSubject != null && c.TeacherSubject.Subject != null
-                    ? (isAr
-                        ? c.TeacherSubject.Subject.NameAr
-                        : c.TeacherSubject.Subject.NameEn)
-                    : null,
-                TeachingModeId = c.TeachingModeId,
-                TeachingModeName = c.TeachingMode != null
-                    ? (isAr ? c.TeachingMode.NameAr : c.TeachingMode.NameEn)
-                    : null,
-                SessionTypeId = c.SessionTypeId,
-                SessionTypeName = c.SessionType != null
-                    ? (isAr ? c.SessionType.NameAr : c.SessionType.NameEn)
-                    : null,
-                Price = c.Price,
-                MaxStudents = c.MaxStudents,
-                AvailableSeats = c.MaxStudents.HasValue
-                    ? c.MaxStudents.Value - c.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
-                    : (int?)null,
-                IsFlexible = c.IsFlexible,
-                SessionsCount = c.SessionsCount,
-                SessionDurationMinutes = c.SessionDurationMinutes
+                Item = new CourseCatalogItemDto
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    DescriptionShort = c.Description != null && c.Description.Length > 200
+                        ? c.Description.Substring(0, 200) + "..."
+                        : c.Description,
+                    TeacherDisplayName = c.Teacher != null && c.Teacher.User != null
+                        ? (c.Teacher.User.FirstName + " " + c.Teacher.User.LastName).Trim()
+                        : null,
+                    TeacherBio = c.Teacher != null ? c.Teacher.Bio : null,
+                    TeacherAverageReview = c.Teacher != null
+                        ? (c.Teacher.TeacherReviews
+                              .Where(r => r.IsApproved)
+                              .Select(r => (decimal?)r.Rating)
+                              .Average() ?? 0m)
+                        : 0m,
+                    EnrollmentsCount = c.Enrollments.Count(e =>
+                        e.EnrollmentStatus == EnrollmentStatus.Active ||
+                        e.EnrollmentStatus == EnrollmentStatus.Completed),
+                    DomainId = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                        ? c.TeacherSubject.Subject.DomainId
+                        : 0,
+                    DomainName = c.TeacherSubject != null &&
+                                 c.TeacherSubject.Subject != null &&
+                                 c.TeacherSubject.Subject.Domain != null
+                        ? (isAr
+                            ? c.TeacherSubject.Subject.Domain.NameAr
+                            : c.TeacherSubject.Subject.Domain.NameEn)
+                        : null,
+                    SubjectId = c.TeacherSubject != null ? c.TeacherSubject.SubjectId : 0,
+                    SubjectName = c.TeacherSubject != null && c.TeacherSubject.Subject != null
+                        ? (isAr
+                            ? c.TeacherSubject.Subject.NameAr
+                            : c.TeacherSubject.Subject.NameEn)
+                        : null,
+                    TeachingModeId = c.TeachingModeId,
+                    TeachingModeName = c.TeachingMode != null
+                        ? (isAr ? c.TeachingMode.NameAr : c.TeachingMode.NameEn)
+                        : null,
+                    SessionTypeId = c.SessionTypeId,
+                    SessionTypeName = c.SessionType != null
+                        ? (isAr ? c.SessionType.NameAr : c.SessionType.NameEn)
+                        : null,
+                    Price = c.Price,
+                    MaxStudents = c.MaxStudents,
+                    AvailableSeats = c.MaxStudents.HasValue
+                        ? c.MaxStudents.Value - c.Enrollments.Count(e => e.EnrollmentStatus == EnrollmentStatus.Active)
+                        : (int?)null,
+                    IsFlexible = c.IsFlexible,
+                    SessionsCount = c.SessionsCount,
+                    SessionDurationMinutes = c.SessionDurationMinutes
+                },
+                SessionTypeCode = c.SessionType != null ? c.SessionType.Code : PricingDefaults.SessionTypeIndividual,
             })
             .ToListAsync(cancellationToken);
+
+        var unusedTrial = false;
+        if (request.StudentId > 0)
+        {
+            unusedTrial = await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(
+                request.StudentId, cancellationToken);
+        }
+        else
+        {
+            var viewerStudent = await _studentRepository.GetByUserIdAsync(request.UserId);
+            if (viewerStudent != null)
+            {
+                unusedTrial = await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(
+                    viewerStudent.Id, cancellationToken);
+            }
+        }
+
+        var items = rows.Select(r =>
+        {
+            var isGroup = string.Equals(
+                r.SessionTypeCode,
+                PricingDefaults.SessionTypeGroup,
+                StringComparison.OrdinalIgnoreCase);
+            r.Item.IsFreeTrialEligible = unusedTrial
+                && _freeSessionPolicy.IsEligiblePackage(isGroup, r.Item.SessionsCount ?? 0);
+            return r.Item;
+        }).ToList();
+
         return Success(entity: items);
     }
 

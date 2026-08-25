@@ -30,6 +30,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMediaUrlResolver _mediaUrlResolver;
     private readonly EnrollmentSettings _enrollmentSettings;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public StudentInvitationInboxService(
         IStudentRepository studentRepository,
@@ -38,7 +39,8 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         IOpenSessionRequestRepository openSessionRequestRepository,
         IEnrollmentRepository enrollmentRepository,
         IMediaUrlResolver mediaUrlResolver,
-        IOptions<EnrollmentSettings> enrollmentSettings)
+        IOptions<EnrollmentSettings> enrollmentSettings,
+        IFreeSessionPolicyService freeSessionPolicy)
     {
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
@@ -47,6 +49,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         _enrollmentRepository = enrollmentRepository;
         _mediaUrlResolver = mediaUrlResolver;
         _enrollmentSettings = enrollmentSettings.Value;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<StudentInvitationListResultDto> GetMyInvitationsAsync(
@@ -152,6 +155,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
         var parent = await _enrollmentRequestRepository.GetTableNoTracking()
             .Include(r => r.RequestedByUser)
             .Include(r => r.Course).ThenInclude(c => c.TeachingMode)
+            .Include(r => r.Course).ThenInclude(c => c.SessionType)
             .Include(r => r.Course).ThenInclude(c => c.Teacher).ThenInclude(t => t.User)
             .Include(r => r.Course).ThenInclude(c => c.Sessions)
             .Include(r => r.GroupMembers).ThenInclude(gm => gm.Student).ThenInclude(s => s.User)
@@ -236,7 +240,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
 
         var teacherUser = parent.Course.Teacher?.User;
 
-        return new StudentInvitationDetailDto
+        var detail = new StudentInvitationDetailDto
         {
             Source = StudentInvitationDetailDto.SourceEnrollmentRequest,
             InvitationId = opened.Id,
@@ -284,6 +288,31 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             RespondAcceptDecision = nameof(GroupMemberConfirmationStatus.Confirmed),
             RespondRejectDecision = nameof(GroupMemberConfirmationStatus.Rejected),
         };
+
+        var isGroup = string.Equals(
+            parent.Course.SessionType?.Code,
+            PricingDefaults.SessionTypeGroup,
+            StringComparison.OrdinalIgnoreCase);
+        var sessionCount = parent.Course.SessionsCount
+            ?? parent.Course.Sessions?.Count
+            ?? 0;
+        var learnerId = parent.GroupMembers
+            .Where(gm => gm.MemberType == GroupMemberType.Own)
+            .Select(gm => gm.StudentId)
+            .DefaultIfEmpty(parent.GroupMembers.Select(gm => gm.StudentId).FirstOrDefault())
+            .FirstOrDefault();
+        var stillPreCommit = enrollment == null
+            || (enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment && !enrollment.IsFreeTrial);
+
+        if (stillPreCommit
+            && learnerId > 0
+            && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(learnerId, cancellationToken))
+        {
+            detail.IsFreeTrialEligible = true;
+        }
+
+        return detail;
     }
 
     private async Task<StudentInvitationDetailDto?> GetOpenSessionInvitationDetailAsync(
@@ -378,7 +407,7 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
 
         var targetedTeacher = parent.TargetedTeacher?.User;
 
-        return new StudentInvitationDetailDto
+        var detail = new StudentInvitationDetailDto
         {
             Source = StudentInvitationDetailDto.SourceOpenSessionRequest,
             InvitationId = opened.Id,
@@ -425,6 +454,23 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             RespondAcceptDecision = nameof(OpenSessionRequestInvitationStatus.Accepted),
             RespondRejectDecision = nameof(OpenSessionRequestInvitationStatus.Rejected),
         };
+
+        var isGroup = parent.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly;
+        var sessionCount = parent.TotalSessionsCount > 0
+            ? parent.TotalSessionsCount
+            : parent.Sessions?.Count ?? 0;
+        var stillPreCommit = enrollment == null
+            || (enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment && !enrollment.IsFreeTrial);
+
+        if (stillPreCommit
+            && parent.StudentId > 0
+            && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(parent.StudentId, cancellationToken))
+        {
+            detail.IsFreeTrialEligible = true;
+        }
+
+        return detail;
     }
 
     private static List<InvitationSessionItemDto> MapEnrollmentRequestSessions(CourseEnrollmentRequest parent)

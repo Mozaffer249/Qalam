@@ -202,6 +202,10 @@ public class CourseDetailDto
     /// </summary>
     public bool CanEdit { get; set; }
     /// <summary>
+    /// True when this course's domain still requires an unpaid proof (interview) session.
+    /// </summary>
+    public bool InterviewPending { get; set; }
+    /// <summary>
     /// Units for this course's TeacherSubject when CanTeachFullSubject is false; null otherwise.
     /// </summary>
     public List<TeacherSubjectUnitResponseDto>? Units { get; set; }
@@ -237,6 +241,8 @@ public class CourseCatalogItemDto
     public bool IsFlexible { get; set; }
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
+    /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }
 
 /// <summary>
@@ -276,6 +282,8 @@ public class CourseCatalogDetailDto
     public int? MaxStudents { get; set; }
     public int? AvailableSeats { get; set; }
     public List<CourseSessionDto>? Sessions { get; set; }
+    /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }
 
 /// <summary>
@@ -305,4 +313,6 @@ public class CourseCatalogIndexItemDto
     public int? SessionsCount { get; set; }
     public int? SessionDurationMinutes { get; set; }
     public int? TotalDurationMinutes { get; set; }
+    /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }

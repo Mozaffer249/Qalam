@@ -220,8 +220,18 @@ public class CourseHourlyRatePreviewDto
     public int? TotalMinutes { get; set; }
     public decimal? EstimatedPackageTotal { get; set; }
     public decimal? EarningsPricePerHour { get; set; }
+    /// <summary>Effective share used for payouts (0% while domain interview pending).</summary>
     public decimal? TeacherSharePct { get; set; }
+    /// <summary>Effective earnings from the engine (may be 0 while interview pending).</summary>
     public decimal? TeacherEarnings { get; set; }
+    /// <summary>False until first completed session unlocks the domain level.</summary>
+    public bool HasCompletedInterviewSession { get; set; }
+    /// <summary>Share from the assigned teacher level, if any.</summary>
+    public decimal? LevelSharePct { get; set; }
+    /// <summary>Custom override, else level share, else effective share — for create-course UI.</summary>
+    public decimal? ProjectedSharePct { get; set; }
+    /// <summary>Earnings using <see cref="ProjectedSharePct"/> (always computed from estimate minutes).</summary>
+    public decimal? ProjectedTeacherEarnings { get; set; }
     public bool ReflectCustomPriceToStudent { get; set; }
     public bool IsCustomStudentRate { get; set; }
 }

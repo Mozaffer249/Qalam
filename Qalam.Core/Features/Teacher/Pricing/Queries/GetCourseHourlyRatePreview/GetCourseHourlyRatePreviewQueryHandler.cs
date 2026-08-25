@@ -15,6 +15,7 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherSubjectRepository _teacherSubjectRepository;
     private readonly ISessionTypeRepository _sessionTypeRepository;
+    private readonly ITeacherDomainPricingRepository _domainPricingRepository;
     private readonly IPricingEngine _pricingEngine;
     private readonly IPricingMarketResolver _marketResolver;
 
@@ -23,12 +24,14 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
         ITeacherRepository teacherRepository,
         ITeacherSubjectRepository teacherSubjectRepository,
         ISessionTypeRepository sessionTypeRepository,
+        ITeacherDomainPricingRepository domainPricingRepository,
         IPricingEngine pricingEngine,
         IPricingMarketResolver marketResolver) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _teacherSubjectRepository = teacherSubjectRepository;
         _sessionTypeRepository = sessionTypeRepository;
+        _domainPricingRepository = domainPricingRepository;
         _pricingEngine = pricingEngine;
         _marketResolver = marketResolver;
     }
@@ -82,11 +85,33 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             market.MarketCode,
             cancellationToken: cancellationToken);
 
+        var domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
+            teacher.Id,
+            domainId.Value,
+            cancellationToken);
+
+        var hasCompletedInterview = domainPricing?.HasCompletedInterviewSession == true;
+        var levelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
+        var projectedSharePct = domainPricing?.CustomTeacherSharePct
+            ?? levelSharePct
+            ?? estimate.TeacherSharePct;
+
+        var earningsBase = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
+        var projectedTeacherEarnings = Math.Round(
+            earningsBase * (projectedSharePct / 100m) * (estimateMinutes / 60m),
+            2,
+            MidpointRounding.AwayFromZero);
+
         decimal? estimatedPackageTotal = null;
         decimal? teacherEarnings = null;
         if (request.TotalMinutes is > 0)
         {
             estimatedPackageTotal = estimate.TotalPrice;
+            teacherEarnings = estimate.TeacherEarnings;
+        }
+        else
+        {
+            // Hourly-only preview: still expose earnings from the 60‑min internal estimate.
             teacherEarnings = estimate.TeacherEarnings;
         }
 
@@ -97,9 +122,13 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             MarketCode = estimate.MarketCode,
             TotalMinutes = request.TotalMinutes,
             EstimatedPackageTotal = estimatedPackageTotal,
-            EarningsPricePerHour = estimate.EarningsPricePerHour ?? estimate.PricePerHour,
+            EarningsPricePerHour = earningsBase,
             TeacherSharePct = estimate.TeacherSharePct,
             TeacherEarnings = teacherEarnings,
+            HasCompletedInterviewSession = hasCompletedInterview,
+            LevelSharePct = levelSharePct,
+            ProjectedSharePct = projectedSharePct,
+            ProjectedTeacherEarnings = projectedTeacherEarnings,
             ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent,
             IsCustomStudentRate = estimate.PricePerHour != platformPricePerHour,
         });

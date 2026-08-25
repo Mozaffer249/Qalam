@@ -3,10 +3,12 @@ using MediatR;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.CourseCatalog.Queries.GetPublishedCourseById;
 
@@ -17,18 +19,24 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
     private readonly IMapper _mapper;
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPricingMarketResolver _marketResolver;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetPublishedCourseByIdQueryHandler(
         ICourseRepository courseRepository,
         IMapper mapper,
         IStudentCoursePriceResolver coursePriceResolver,
         IPricingMarketResolver marketResolver,
+        IStudentRepository studentRepository,
+        IFreeSessionPolicyService freeSessionPolicy,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _courseRepository = courseRepository;
         _mapper = mapper;
         _coursePriceResolver = coursePriceResolver;
         _marketResolver = marketResolver;
+        _studentRepository = studentRepository;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<CourseCatalogDetailDto>> Handle(
@@ -47,6 +55,22 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
         dto.MarketCode = market.MarketCode;
         dto.Price = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
             course, request.UserId, cancellationToken);
+
+        var isGroup = string.Equals(
+            dto.SessionTypeCode,
+            PricingDefaults.SessionTypeGroup,
+            StringComparison.OrdinalIgnoreCase);
+        var sessionCount = dto.SessionsCount
+            ?? dto.Sessions?.Count
+            ?? 0;
+
+        var student = await _studentRepository.GetByUserIdAsync(request.UserId);
+        if (student != null
+            && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(student.Id, cancellationToken))
+        {
+            dto.IsFreeTrialEligible = true;
+        }
 
         return Success(entity: dto);
     }

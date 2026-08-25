@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequestById;
 
@@ -22,6 +23,7 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
     private readonly IMapper _mapper;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetMyEnrollmentRequestByIdQueryHandler(
         ICourseEnrollmentRequestRepository requestRepository,
@@ -32,6 +34,7 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
         IMapper mapper,
+        IFreeSessionPolicyService freeSessionPolicy,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _requestRepository = requestRepository;
@@ -42,6 +45,7 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
         _scheduleRepository = scheduleRepository;
         _scheduleGenerator = scheduleGenerator;
         _mapper = mapper;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<EnrollmentRequestDetailDto>> Handle(
@@ -163,6 +167,28 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
             && !enrollment.PaidByUserId.HasValue
             && (!enrollment.PaymentDeadline.HasValue
                 || enrollment.PaymentDeadline.Value >= DateTime.UtcNow);
+
+        var sessionCount = enrollmentRequest.Course?.SessionsCount
+            ?? enrollmentRequest.Course?.Sessions?.Count
+            ?? 0;
+        var learnerId = enrollmentRequest.GroupMembers
+            .Where(gm => gm.MemberType == GroupMemberType.Own)
+            .Select(gm => gm.StudentId)
+            .FirstOrDefault();
+        if (learnerId <= 0)
+            learnerId = enrollmentRequest.GroupMembers.Select(gm => gm.StudentId).FirstOrDefault();
+
+        var stillPreCommit = enrollment == null
+            || (enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
+                && !enrollment.IsFreeTrial);
+
+        if (stillPreCommit
+            && learnerId > 0
+            && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(learnerId, cancellationToken))
+        {
+            dto.IsFreeTrialEligible = true;
+        }
 
         return Success(entity: dto);
     }

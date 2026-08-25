@@ -7,6 +7,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyEnrollmentRequests;
 
@@ -16,16 +17,19 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
     private readonly ICourseEnrollmentRequestRepository _requestRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetMyEnrollmentRequestsQueryHandler(
         ICourseEnrollmentRequestRepository requestRepository,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
+        IFreeSessionPolicyService freeSessionPolicy,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _requestRepository = requestRepository;
         _enrollmentRepository = enrollmentRepository;
         _mapper = mapper;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<List<EnrollmentRequestListItemDto>>> Handle(
@@ -63,13 +67,31 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
             {
                 e.Id,
                 e.EnrollmentRequestId,
-                e.EnrollmentStatus
+                e.EnrollmentStatus,
+                e.IsFreeTrial
             })
             .ToListAsync(cancellationToken);
 
         var enrollmentByRequestId = enrollments
             .GroupBy(e => e.EnrollmentRequestId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
+
+        var learnerIds = requests
+            .Select(r => r.GroupMembers
+                .Where(gm => gm.MemberType == GroupMemberType.Own)
+                .Select(gm => gm.StudentId)
+                .DefaultIfEmpty(r.GroupMembers.Select(gm => gm.StudentId).FirstOrDefault())
+                .FirstOrDefault())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        var unusedByStudent = new Dictionary<int, bool>();
+        foreach (var learnerId in learnerIds)
+        {
+            unusedByStudent[learnerId] = await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(
+                learnerId, cancellationToken);
+        }
 
         for (var i = 0; i < items.Count; i++)
         {
@@ -90,6 +112,24 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
                 item.EnrollmentId = enrollment.Id;
                 item.EnrollmentStatus = enrollment.EnrollmentStatus;
             }
+
+            var sessionCount = item.SessionsCount
+                ?? entity.Course?.SessionsCount
+                ?? entity.Course?.Sessions?.Count
+                ?? 0;
+            var learnerId = entity.GroupMembers
+                .Where(gm => gm.MemberType == GroupMemberType.Own)
+                .Select(gm => gm.StudentId)
+                .DefaultIfEmpty(entity.GroupMembers.Select(gm => gm.StudentId).FirstOrDefault())
+                .FirstOrDefault();
+            var stillPreCommit = enrollment == null
+                || (enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
+                    && !enrollment.IsFreeTrial);
+
+            item.IsFreeTrialEligible = stillPreCommit
+                && learnerId > 0
+                && unusedByStudent.GetValueOrDefault(learnerId)
+                && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount);
         }
 
         var totalPages = request.PageSize > 0

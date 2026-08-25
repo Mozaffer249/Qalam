@@ -10,6 +10,7 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.EnrollmentRequests.Commands.RequestCourseEnrollment;
@@ -31,6 +32,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
     private readonly IPricingEngine _pricingEngine;
     private readonly IPricingMarketResolver _marketResolver;
     private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly EnrollmentSettings _settings;
 
     public RequestCourseEnrollmentCommandHandler(
@@ -48,6 +50,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         IPricingEngine pricingEngine,
         IPricingMarketResolver marketResolver,
         IPricingSnapshotWriter pricingSnapshotWriter,
+        IFreeSessionPolicyService freeSessionPolicy,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -65,6 +68,7 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
         _pricingEngine = pricingEngine;
         _marketResolver = marketResolver;
         _pricingSnapshotWriter = pricingSnapshotWriter;
+        _freeSessionPolicy = freeSessionPolicy;
         _settings = settings.Value;
     }
 
@@ -572,6 +576,15 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
                 })
                 .ToList()
         };
+
+        var sessionCount = course.SessionsCount ?? course.Sessions?.Count ?? selectedSlots.Count;
+        var learnerId = studentIds.FirstOrDefault();
+        if (learnerId > 0
+            && _freeSessionPolicy.IsEligiblePackage(isGroupCourse, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(learnerId, cancellationToken))
+        {
+            result.IsFreeTrialEligible = true;
+        }
 
         return Success(entity: result);
     }
