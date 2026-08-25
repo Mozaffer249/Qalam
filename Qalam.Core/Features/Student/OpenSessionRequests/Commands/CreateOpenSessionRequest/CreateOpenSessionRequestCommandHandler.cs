@@ -23,6 +23,7 @@ public class CreateOpenSessionRequestCommandHandler
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IOpenSessionRequestTargetingService _targetingService;
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
+    private readonly ITargetedOpenSessionRequestPricingService _targetedPricing;
     private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
     private readonly IGuardianChildrenService _guardianChildren;
@@ -33,6 +34,7 @@ public class CreateOpenSessionRequestCommandHandler
         IOpenSessionRequestAccessGuard accessGuard,
         IOpenSessionRequestTargetingService targetingService,
         ITargetedOpenSessionRequestValidator targetedValidator,
+        ITargetedOpenSessionRequestPricingService targetedPricing,
         IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper,
         IGuardianChildrenService guardianChildren) : base(sharedLocalizer)
@@ -41,6 +43,7 @@ public class CreateOpenSessionRequestCommandHandler
         _accessGuard = accessGuard;
         _targetingService = targetingService;
         _targetedValidator = targetedValidator;
+        _targetedPricing = targetedPricing;
         _osrSettings = osrSettings.Value;
         _mapper = mapper;
         _guardianChildren = guardianChildren;
@@ -208,6 +211,12 @@ public class CreateOpenSessionRequestCommandHandler
 
         await _db.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Freeze directed price as soon as the request is published (not drafts — sessions may still change).
+        if (!data.AsDraft && entity.TargetedTeacherId.HasValue)
+        {
+            await _targetedPricing.FreezeIfNeededAsync(entity, request.UserId, cancellationToken);
+        }
 
         // 7. P3: dispatch to the chosen teacher (targeted) or run broadcast matching (default)
         //    when the request is publishable now (no pending invitations).

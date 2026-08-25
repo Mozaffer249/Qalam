@@ -11,6 +11,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Entity.Pricing;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
@@ -30,6 +31,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
     private readonly IPricingEngine _pricingEngine;
     private readonly IPricingMarketResolver _marketResolver;
     private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
+    private readonly IPricingSnapshotRepository _snapshotRepo;
     private readonly IRabbitMQService _rabbitMq;
     private readonly UserManager<User> _userManager;
     private readonly OpenSessionRequestSettings _osrSettings;
@@ -46,6 +48,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         IPricingEngine pricingEngine,
         IPricingMarketResolver marketResolver,
         IPricingSnapshotWriter pricingSnapshotWriter,
+        IPricingSnapshotRepository snapshotRepo,
         IRabbitMQService rabbitMq,
         UserManager<User> userManager,
         IOptions<OpenSessionRequestSettings> osrSettings,
@@ -60,6 +63,7 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         _pricingEngine = pricingEngine;
         _marketResolver = marketResolver;
         _pricingSnapshotWriter = pricingSnapshotWriter;
+        _snapshotRepo = snapshotRepo;
         _rabbitMq = rabbitMq;
         _userManager = userManager;
         _osrSettings = osrSettings.Value;
@@ -139,21 +143,41 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
             return BadRequest<TeacherOfferDetailDto>("Total session duration must be greater than zero.");
 
         var sessionTypeCode = osr.GroupType.HasValue ? "group" : "individual";
-        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
-        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+
+        // Directed OSR: reuse request-time frozen quote. Broadcast: live estimate then snapshot.
+        var requestSnapshot = await _snapshotRepo.GetByContextAsync(
+            PricingSnapshotContext.OpenSessionRequest,
+            request.Data.SessionRequestId,
+            cancellationToken);
+        var useFrozen = requestSnapshot != null && requestSnapshot.TeacherId == teacher.Id;
+
+        decimal offerPrice;
+        string marketCode;
+        if (useFrozen)
         {
-            DomainId = osr.DomainId,
-            SessionTypeCode = sessionTypeCode,
-            MarketCode = market.MarketCode,
-            TotalMinutes = totalMinutes,
-            TeacherId = teacher.Id
-        }, cancellationToken);
+            offerPrice = requestSnapshot!.TotalPrice;
+            marketCode = requestSnapshot.MarketCode;
+        }
+        else
+        {
+            var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
+            marketCode = market.MarketCode;
+            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            {
+                DomainId = osr.DomainId,
+                SessionTypeCode = sessionTypeCode,
+                MarketCode = marketCode,
+                TotalMinutes = totalMinutes,
+                TeacherId = teacher.Id
+            }, cancellationToken);
+            offerPrice = estimate.TotalPrice;
+        }
 
         var offer = new OpenSessionOffer
         {
             SessionRequestId = request.Data.SessionRequestId,
             TeacherId = teacher.Id,
-            Price = estimate.TotalPrice,
+            Price = offerPrice,
             TeacherNotes = request.Data.TeacherNotes,
             Status = OpenSessionOfferStatus.Pending,
             Version = 1,
@@ -165,16 +189,28 @@ public class CreateSessionOfferCommandHandler : ResponseHandler,
         await _offerRepo.AddAsync(offer);
         await _offerRepo.SaveChangesAsync();
 
-        var snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
+        PricingSnapshot snapshot;
+        if (useFrozen)
         {
-            Context = PricingSnapshotContext.OpenSessionOffer,
-            ContextEntityId = offer.Id,
-            DomainId = osr.DomainId,
-            SessionTypeCode = sessionTypeCode,
-            MarketCode = market.MarketCode,
-            TotalMinutes = totalMinutes,
-            TeacherId = teacher.Id
-        }, cancellationToken);
+            snapshot = await _pricingSnapshotWriter.CloneForContextAsync(
+                requestSnapshot!,
+                PricingSnapshotContext.OpenSessionOffer,
+                offer.Id,
+                cancellationToken);
+        }
+        else
+        {
+            snapshot = await _pricingSnapshotWriter.CreateAndSaveAsync(new CreatePricingSnapshotRequest
+            {
+                Context = PricingSnapshotContext.OpenSessionOffer,
+                ContextEntityId = offer.Id,
+                DomainId = osr.DomainId,
+                SessionTypeCode = sessionTypeCode,
+                MarketCode = marketCode,
+                TotalMinutes = totalMinutes,
+                TeacherId = teacher.Id
+            }, cancellationToken);
+        }
 
         offer.PricingSnapshotId = snapshot.Id;
         await _offerRepo.UpdateAsync(offer);

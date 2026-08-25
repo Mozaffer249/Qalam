@@ -57,6 +57,10 @@ namespace Qalam.Data.AppMetaData
         public const string AdminContactMessageReopen = Rule + "Admin/ContactMessages/{id}/reopen";
         public const string AdminContactMessageInProgress = Rule + "Admin/ContactMessages/{id}/in-progress";
 
+        public const string AdminStudentManagement = Rule + "Admin/StudentManagement";
+        public const string AdminStudents = AdminStudentManagement + "/Students";
+        public const string AdminStudentById = AdminStudents + "/{studentId}";
+
         #region Legal Documents
         public const string AdminLegalDocuments = Rule + "Admin/LegalDocuments";
         public const string AdminLegalDocumentById = Rule + "Admin/LegalDocuments/{id}";

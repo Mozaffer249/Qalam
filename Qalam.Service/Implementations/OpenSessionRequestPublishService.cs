@@ -15,6 +15,7 @@ public class OpenSessionRequestPublishService : IOpenSessionRequestPublishServic
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
     private readonly IGuardianChildrenService _guardianChildren;
     private readonly IOpenSessionRequestTargetingService _targetingService;
+    private readonly ITargetedOpenSessionRequestPricingService _targetedPricing;
     private readonly OpenSessionRequestSettings _osrSettings;
 
     public OpenSessionRequestPublishService(
@@ -23,6 +24,7 @@ public class OpenSessionRequestPublishService : IOpenSessionRequestPublishServic
         ITargetedOpenSessionRequestValidator targetedValidator,
         IGuardianChildrenService guardianChildren,
         IOpenSessionRequestTargetingService targetingService,
+        ITargetedOpenSessionRequestPricingService targetedPricing,
         IOptions<OpenSessionRequestSettings> osrSettings)
     {
         _requestRepo = requestRepo;
@@ -30,6 +32,7 @@ public class OpenSessionRequestPublishService : IOpenSessionRequestPublishServic
         _targetedValidator = targetedValidator;
         _guardianChildren = guardianChildren;
         _targetingService = targetingService;
+        _targetedPricing = targetedPricing;
         _osrSettings = osrSettings.Value;
     }
 
@@ -110,6 +113,11 @@ public class OpenSessionRequestPublishService : IOpenSessionRequestPublishServic
             now, entity.ExpiresAt, firstSessionStartUtc, _osrSettings, isTargeted);
 
         await _requestRepo.SaveChangesAsync();
+
+        if (entity.TargetedTeacherId.HasValue)
+        {
+            await _targetedPricing.FreezeIfNeededAsync(entity, actingUserId, cancellationToken);
+        }
 
         if (status == OpenSessionRequestStatus.Active)
         {

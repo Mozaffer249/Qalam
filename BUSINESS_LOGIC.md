@@ -1497,11 +1497,11 @@ Two surfaces must never be mixed:
 **Rules:**
 
 1. Admin controls pricing via domain rates, teacher levels, custom prices, reflect flags, markets, and exchange rates.
-2. When a **course**, **enrollment**, **group enrollment request**, or **OSR offer** is created, price is computed from **current** settings and stored in `PricingSnapshot` (plus `AmountDue` / `EstimatedTotalPrice` / offer price).
+2. When a **course**, **enrollment**, **group enrollment request**, **directed OSR**, or **OSR offer** is created, price is computed from **current** settings and stored in `PricingSnapshot` (plus `AmountDue` / `EstimatedTotalPrice` / offer price).
 3. List, detail, and payment endpoints for enrollments use the **frozen** chain only — never re-run `EstimateAsync`.
 4. A catalog price of 200 SAR vs enrollment `amountDue` of 170 SAR is **expected** when admin changed rates after the enrollment was quoted.
-5. **Open OSR:** each qualified teacher gets their own live estimate when browsing/creating offers; snapshot is taken when the offer is created.
-6. **Directed OSR:** estimate uses the targeted teacher only.
+5. **Open (broadcast) OSR:** each qualified teacher gets their own live estimate when browsing/creating offers; snapshot is taken when the offer is created.
+6. **Directed (targeted) OSR:** price is frozen at create/publish into `OpenSessionRequest.PricingSnapshotId` for the targeted teacher. Teacher detail and offer create reuse that snapshot — admin rate changes after the request do **not** change the offer price.
 7. **Group enrollment request:** one package price (single payer), not multiplied by member count; approval copies the frozen quote — no re-pricing.
 8. `PricingSnapshot` stores calculation breakdown (hourly rate, platform base ref, reflect flag, earnings base, share %, earnings, currency, market) for transparency — not just `TotalPrice`.
 9. **Audit log:** every admin **write** to pricing settings is logged via `IAuditService` with before/after JSON. Audit explains why **new** operations get new prices; snapshots explain what a **specific** operation was quoted at.

@@ -122,6 +122,7 @@ namespace Qalam.Service
             services.AddTransient<IFreeSessionPolicyService, FreeSessionPolicyService>();
             services.AddTransient<IPricingMarketResolver, PricingMarketResolver>();
             services.AddTransient<IPricingSnapshotWriter, PricingSnapshotWriter>();
+            services.AddTransient<ITargetedOpenSessionRequestPricingService, TargetedOpenSessionRequestPricingService>();
             services.AddTransient<IDomainRatePropagationService, DomainRatePropagationService>();
             services.AddTransient<IPricingAdminService, PricingAdminService>();
             services.AddTransient<IPricingMarketService, PricingMarketService>();

@@ -20,6 +20,8 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
     private readonly IOpenSessionOfferRepository _offerRepo;
     private readonly IPricingEngine _pricingEngine;
     private readonly IPricingMarketResolver _marketResolver;
+    private readonly IPricingSnapshotRepository _snapshotRepo;
+    private readonly ITargetedOpenSessionRequestPricingService _targetedPricing;
 
     public GetAvailableRequestByIdQueryHandler(
         IStringLocalizer<SharedResources> localizer,
@@ -28,7 +30,9 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
         IOpenSessionRequestTargetRepository targetRepo,
         IOpenSessionOfferRepository offerRepo,
         IPricingEngine pricingEngine,
-        IPricingMarketResolver marketResolver) : base(localizer)
+        IPricingMarketResolver marketResolver,
+        IPricingSnapshotRepository snapshotRepo,
+        ITargetedOpenSessionRequestPricingService targetedPricing) : base(localizer)
     {
         _teacherRepo = teacherRepo;
         _requestRepo = requestRepo;
@@ -36,6 +40,8 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
         _offerRepo = offerRepo;
         _pricingEngine = pricingEngine;
         _marketResolver = marketResolver;
+        _snapshotRepo = snapshotRepo;
+        _targetedPricing = targetedPricing;
     }
 
     public async Task<Response<TeacherAvailableRequestDetailDto>> Handle(
@@ -80,29 +86,41 @@ public class GetAvailableRequestByIdQueryHandler : ResponseHandler,
                 var sessionTypeCode = detail.GeneralSettings.GroupType.HasValue ? "group" : "individual";
                 try
                 {
-                    var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
-                    var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                    // Directed OSR: prefer frozen request-time quote over live rates.
+                    var frozen = await _snapshotRepo.GetByContextAsync(
+                        PricingSnapshotContext.OpenSessionRequest,
+                        request.RequestId,
+                        cancellationToken);
+                    if (frozen != null && frozen.TeacherId == teacher.Id)
                     {
-                        DomainId = detail.Content.DomainId,
-                        SessionTypeCode = sessionTypeCode,
-                        MarketCode = market.MarketCode,
-                        TotalMinutes = totalMinutes,
-                        TeacherId = teacher.Id
-                    }, cancellationToken);
+                        detail.PricingEstimate = _targetedPricing.ToEstimateDto(frozen);
+                    }
+                    else
+                    {
+                        var market = await _marketResolver.ResolveForUserAsync(request.UserId, cancellationToken);
+                        var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+                        {
+                            DomainId = detail.Content.DomainId,
+                            SessionTypeCode = sessionTypeCode,
+                            MarketCode = market.MarketCode,
+                            TotalMinutes = totalMinutes,
+                            TeacherId = teacher.Id
+                        }, cancellationToken);
 
-                    detail.PricingEstimate = new PricingEstimateDto
-                    {
-                        PricePerHour = estimate.PricePerHour,
-                        Currency = estimate.Currency,
-                        MarketCode = estimate.MarketCode,
-                        TotalMinutes = estimate.TotalMinutes,
-                        TotalPrice = estimate.TotalPrice,
-                        TeacherSharePct = estimate.TeacherSharePct,
-                        TeacherEarnings = estimate.TeacherEarnings,
-                        PlatformShare = estimate.PlatformShare,
-                        EarningsPricePerHour = estimate.EarningsPricePerHour,
-                        ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent
-                    };
+                        detail.PricingEstimate = new PricingEstimateDto
+                        {
+                            PricePerHour = estimate.PricePerHour,
+                            Currency = estimate.Currency,
+                            MarketCode = estimate.MarketCode,
+                            TotalMinutes = estimate.TotalMinutes,
+                            TotalPrice = estimate.TotalPrice,
+                            TeacherSharePct = estimate.TeacherSharePct,
+                            TeacherEarnings = estimate.TeacherEarnings,
+                            PlatformShare = estimate.PlatformShare,
+                            EarningsPricePerHour = estimate.EarningsPricePerHour,
+                            ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent
+                        };
+                    }
                 }
                 catch (InvalidOperationException)
                 {

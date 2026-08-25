@@ -103,6 +103,13 @@ public class OpenSessionRequestConfiguration : IEntityTypeConfiguration<OpenSess
                .HasForeignKey(e => e.TargetedTeacherId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.PricingSnapshot)
+               .WithMany()
+               .HasForeignKey(e => e.PricingSnapshotId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(e => e.PricingSnapshotId);
+
         builder.HasMany(e => e.Sessions)
                .WithOne(s => s.OpenSessionRequest)
                .HasForeignKey(s => s.SessionRequestId)

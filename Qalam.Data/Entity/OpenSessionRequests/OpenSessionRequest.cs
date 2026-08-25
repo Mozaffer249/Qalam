@@ -97,6 +97,12 @@ public class OpenSessionRequest : AuditableEntity
 
     public DateTime? CancelledAt { get; set; }
 
+    /// <summary>
+    /// Frozen quote for directed (targeted) requests — set at create/publish.
+    /// Broadcast requests leave this null and price live until an offer is created.
+    /// </summary>
+    public int? PricingSnapshotId { get; set; }
+
     // Navigation Properties
     public Student.Student Student { get; set; } = null!;
     public Identity.User RequestedByUser { get; set; } = null!;
@@ -113,6 +119,7 @@ public class OpenSessionRequest : AuditableEntity
     public Subject Subject { get; set; } = null!;
     public TeachingMode TeachingMode { get; set; } = null!;
     public Teacher.Teacher? TargetedTeacher { get; set; }
+    public Pricing.PricingSnapshot? PricingSnapshot { get; set; }
 
     public ICollection<OpenSessionRequestSession> Sessions { get; set; } = new List<OpenSessionRequestSession>();
     public ICollection<OpenSessionRequestAttachment> Attachments { get; set; } = new List<OpenSessionRequestAttachment>();
