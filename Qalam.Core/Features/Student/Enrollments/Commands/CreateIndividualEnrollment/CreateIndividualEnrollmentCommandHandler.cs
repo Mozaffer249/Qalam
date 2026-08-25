@@ -11,6 +11,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Student.Enrollments.Commands.CreateIndividualEnrollment;
@@ -31,6 +32,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPricingSnapshotWriter _pricingSnapshotWriter;
     private readonly IPricingMarketResolver _marketResolver;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly EnrollmentSettings _settings;
 
     public CreateIndividualEnrollmentCommandHandler(
@@ -47,6 +49,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         IStudentCoursePriceResolver coursePriceResolver,
         IPricingSnapshotWriter pricingSnapshotWriter,
         IPricingMarketResolver marketResolver,
+        IFreeSessionPolicyService freeSessionPolicy,
         IOptions<EnrollmentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -63,6 +66,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         _coursePriceResolver = coursePriceResolver;
         _pricingSnapshotWriter = pricingSnapshotWriter;
         _marketResolver = marketResolver;
+        _freeSessionPolicy = freeSessionPolicy;
         _settings = settings.Value;
     }
 
@@ -211,6 +215,12 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         var amountDue = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
             course, request.UserId, cancellationToken);
 
+        var sessionCount = selectedSlots.Count;
+        var applyFreeTrial = _freeSessionPolicy.IsEligiblePackage(isGroup: false, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(studentId, cancellationToken);
+        if (applyFreeTrial)
+            amountDue = 0m;
+
         var calendarPairs = selectedSlots
             .Select(s => (s.Date, s.TeacherAvailabilityId))
             .ToList();
@@ -297,6 +307,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
             EnrollmentStatus = isFree ? EnrollmentStatus.Active : EnrollmentStatus.PendingPayment,
             ActivatedAt = isFree ? now : null,
             AmountDue = amountDue,
+            IsFreeTrial = applyFreeTrial,
             OwnerUserId = request.UserId,
             PreferredStartDate = resolvedStart,
             PreferredEndDate = persistedEnd,
@@ -379,9 +390,30 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
                 }, cancellationToken);
 
                 enrollment.PricingSnapshotId = snapshot.Id;
+
+                if (applyFreeTrial)
+                {
+                    var notionalTeacherEarnings = snapshot.TeacherEarnings;
+                    snapshot.TotalPrice = 0m;
+                    var interviewPending = snapshot.TeacherSharePct == 0m;
+                    if (interviewPending)
+                    {
+                        snapshot.TeacherEarnings = 0m;
+                        snapshot.PlatformShare = 0m;
+                    }
+                    else
+                    {
+                        snapshot.PlatformShare = -notionalTeacherEarnings;
+                    }
+                    snapshot.UpdatedAt = now;
+                }
+
                 await _enrollmentRepository.UpdateAsync(enrollment);
                 await _enrollmentRepository.SaveChangesAsync();
             }
+
+            if (applyFreeTrial)
+                await _freeSessionPolicy.MarkStudentFreeTrialUsedAsync(studentId, cancellationToken);
 
             await _enrollmentRepository.CommitAsync();
         }
@@ -404,6 +436,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
             PaymentDeadline = enrollment.PaymentDeadline,
             PayParticipantId = canPay ? payParticipantId : null,
             CanPay = canPay,
+            IsFreeTrial = applyFreeTrial,
             CourseTitle = course.Title
         });
     }

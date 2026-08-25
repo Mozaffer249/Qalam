@@ -16,16 +16,19 @@ public class GetOpenSessionRequestByIdQueryHandler
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IMapper _mapper;
+    private readonly IOpenSessionRequestStudentPricingEnricher _pricingEnricher;
 
     public GetOpenSessionRequestByIdQueryHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
-        IMapper mapper) : base(sharedLocalizer)
+        IMapper mapper,
+        IOpenSessionRequestStudentPricingEnricher pricingEnricher) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _mapper = mapper;
+        _pricingEnricher = pricingEnricher;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -55,13 +58,12 @@ public class GetOpenSessionRequestByIdQueryHandler
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
             .Include(r => r.Attachments)
             .Include(r => r.Offers)
+            .Include(r => r.PricingSnapshot)
             .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (entity is null)
             return NotFound<OpenSessionRequestDetailDto>("الطلب غير موجود");
 
-        // The current user must own the request (or be the request creator's guardian),
-        // or be one of the invited students (so they can see what they were invited to).
         var canSeeAsOwner = await _accessGuard.CanActOnRequestAsync(request.UserId, entity, cancellationToken);
         var isInvitedParty = entity.Invitations.Any(i =>
             i.InvitedStudent != null && i.InvitedStudent.UserId == request.UserId);
@@ -69,6 +71,8 @@ public class GetOpenSessionRequestByIdQueryHandler
         if (!canSeeAsOwner && !isInvitedParty)
             return Unauthorized<OpenSessionRequestDetailDto>("غير مصرح لك بعرض هذا الطلب");
 
-        return Success(entity: _mapper.Map<OpenSessionRequestDetailDto>(entity));
+        var dto = _mapper.Map<OpenSessionRequestDetailDto>(entity);
+        await _pricingEnricher.EnrichDetailAsync(dto, entity, cancellationToken);
+        return Success(entity: dto);
     }
 }

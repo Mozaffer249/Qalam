@@ -258,6 +258,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             AmountPaid = amountPaid,
             AmountRemaining = Math.Max(0, totalAmount - amountPaid),
             Currency = _paymentSettings.DefaultCurrency,
+            IsFreeTrial = enrollment.IsFreeTrial,
             Participants = participants,
             EnrollmentRequestId = enrollment.EnrollmentRequestId,
             SessionOfferId = enrollment.SessionOfferId,

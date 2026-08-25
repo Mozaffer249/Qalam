@@ -139,6 +139,8 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                 LevelNameEn = x.Request.Level != null ? x.Request.Level.NameEn : null,
                 LevelNameAr = x.Request.Level != null ? x.Request.Level.NameAr : null,
                 DomainCode = x.Request.Domain != null ? x.Request.Domain.Code : null,
+                DomainId = x.Request.DomainId,
+                PricingSnapshotId = x.Request.PricingSnapshotId,
                 StudentId = x.Student != null ? x.Student.Id : 0,
                 StudentDisplayName =
                     ((x.User.FirstName ?? "") + " " + (x.User.LastName ?? "")).Trim(),

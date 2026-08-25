@@ -6,6 +6,12 @@ namespace Qalam.Service.Implementations;
 
 public interface IFreeSessionPolicyService
 {
+    /// <summary>
+    /// Package shape eligible for the lifetime free trial: individual and exactly one session.
+    /// Does not check whether the student has already used their trial.
+    /// </summary>
+    bool IsEligiblePackage(bool isGroup, int sessionCount);
+
     Task<bool> IsStudentEligibleForFreeTrialAsync(int studentId, CancellationToken cancellationToken = default);
 
     Task MarkStudentFreeTrialUsedAsync(int studentId, CancellationToken cancellationToken = default);
@@ -35,6 +41,9 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
         _teacherLevelRepository = teacherLevelRepository;
         _domainPricingRepository = domainPricingRepository;
     }
+
+    public bool IsEligiblePackage(bool isGroup, int sessionCount) =>
+        !isGroup && sessionCount == 1;
 
     public async Task<bool> IsStudentEligibleForFreeTrialAsync(
         int studentId,

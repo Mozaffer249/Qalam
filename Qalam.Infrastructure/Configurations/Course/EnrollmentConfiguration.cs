@@ -31,6 +31,7 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.Property(e => e.Kind).IsRequired();
         builder.Property(e => e.EnrollmentStatus).IsRequired();
         builder.Property(e => e.AmountDue).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
+        builder.Property(e => e.IsFreeTrial).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.PreferredStartDate).HasColumnType("date");
         builder.Property(e => e.PreferredEndDate).HasColumnType("date");
 

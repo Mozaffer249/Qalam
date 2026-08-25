@@ -65,6 +65,11 @@ public class Enrollment : AuditableEntity
     /// </summary>
     public decimal AmountDue { get; set; }
 
+    /// <summary>
+    /// True when this enrollment consumed the student's lifetime free individual trial (AmountDue was forced to 0).
+    /// </summary>
+    public bool IsFreeTrial { get; set; }
+
     /// <summary>Locked pricing breakdown at enrollment creation.</summary>
     public int? PricingSnapshotId { get; set; }
 

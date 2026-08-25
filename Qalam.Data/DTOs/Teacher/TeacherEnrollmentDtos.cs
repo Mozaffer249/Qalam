@@ -66,6 +66,8 @@ public class TeacherEnrollmentListItemDto
     public decimal AmountPaid { get; set; }
     public decimal AmountRemaining { get; set; }
     public string Currency { get; set; } = "SAR";
+    /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
+    public bool IsFreeTrial { get; set; }
 
     public DateTime? NextSessionAt { get; set; }
     public int SessionsAttended { get; set; }
@@ -117,6 +119,8 @@ public class TeacherEnrollmentDetailDto
     public decimal AmountPaid { get; set; }
     public decimal AmountRemaining { get; set; }
     public string Currency { get; set; } = "SAR";
+    /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
+    public bool IsFreeTrial { get; set; }
 
     public int? EnrollmentRequestId { get; set; }
     public int? SessionOfferId { get; set; }

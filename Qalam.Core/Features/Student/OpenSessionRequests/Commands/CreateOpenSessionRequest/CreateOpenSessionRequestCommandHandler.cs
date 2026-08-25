@@ -27,6 +27,7 @@ public class CreateOpenSessionRequestCommandHandler
     private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
     private readonly IGuardianChildrenService _guardianChildren;
+    private readonly IOpenSessionRequestStudentPricingEnricher _pricingEnricher;
 
     public CreateOpenSessionRequestCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
@@ -37,7 +38,8 @@ public class CreateOpenSessionRequestCommandHandler
         ITargetedOpenSessionRequestPricingService targetedPricing,
         IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper,
-        IGuardianChildrenService guardianChildren) : base(sharedLocalizer)
+        IGuardianChildrenService guardianChildren,
+        IOpenSessionRequestStudentPricingEnricher pricingEnricher) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
@@ -47,6 +49,7 @@ public class CreateOpenSessionRequestCommandHandler
         _osrSettings = osrSettings.Value;
         _mapper = mapper;
         _guardianChildren = guardianChildren;
+        _pricingEnricher = pricingEnricher;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -257,14 +260,22 @@ public class CreateOpenSessionRequestCommandHandler
             .Include(r => r.AcademicProgram)
             .Include(r => r.Subject)
             .Include(r => r.TeachingMode)
+            .Include(r => r.TargetedTeacher).ThenInclude(t => t!.User)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
             .Include(r => r.Attachments)
+            .Include(r => r.Offers)
+            .Include(r => r.PricingSnapshot)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
-        return entity is null ? null : _mapper.Map<OpenSessionRequestDetailDto>(entity);
+        if (entity is null)
+            return null;
+
+        var dto = _mapper.Map<OpenSessionRequestDetailDto>(entity);
+        await _pricingEnricher.EnrichDetailAsync(dto, entity, ct);
+        return dto;
     }
 }

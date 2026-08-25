@@ -17,18 +17,21 @@ public class PublishOpenSessionRequestCommandHandler
     private readonly IOpenSessionRequestPublishService _publishService;
     private readonly IOpenSessionRequestRepository _requestRepo;
     private readonly IMapper _mapper;
+    private readonly IOpenSessionRequestStudentPricingEnricher _pricingEnricher;
 
     public PublishOpenSessionRequestCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         IOpenSessionRequestAccessGuard accessGuard,
         IOpenSessionRequestPublishService publishService,
         IOpenSessionRequestRepository requestRepo,
-        IMapper mapper) : base(sharedLocalizer)
+        IMapper mapper,
+        IOpenSessionRequestStudentPricingEnricher pricingEnricher) : base(sharedLocalizer)
     {
         _accessGuard = accessGuard;
         _publishService = publishService;
         _requestRepo = requestRepo;
         _mapper = mapper;
+        _pricingEnricher = pricingEnricher;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -63,6 +66,8 @@ public class PublishOpenSessionRequestCommandHandler
         if (detail is null)
             return NotFound<OpenSessionRequestDetailDto>("الطلب غير موجود");
 
-        return Success(entity: _mapper.Map<OpenSessionRequestDetailDto>(detail));
+        var dto = _mapper.Map<OpenSessionRequestDetailDto>(detail);
+        await _pricingEnricher.EnrichDetailAsync(dto, detail, cancellationToken);
+        return Success(entity: dto);
     }
 }

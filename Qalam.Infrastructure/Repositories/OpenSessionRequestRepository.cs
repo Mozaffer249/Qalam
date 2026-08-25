@@ -241,6 +241,8 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
             .Include(r => r.Attachments)
+            .Include(r => r.Offers)
+            .Include(r => r.PricingSnapshot)
             .FirstOrDefaultAsync(r => r.Id == requestId, cancellationToken);
     }
 

@@ -39,6 +39,33 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
+    public void IsEligiblePackage_IndividualSingleSession_ReturnsTrue()
+    {
+        var sut = new FreeSessionPolicyService(
+            new Mock<IStudentRepository>().Object,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherLevelRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object);
+
+        Assert.True(sut.IsEligiblePackage(isGroup: false, sessionCount: 1));
+    }
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 2)]
+    public void IsEligiblePackage_GroupOrMultiSession_ReturnsFalse(bool isGroup, int sessionCount)
+    {
+        var sut = new FreeSessionPolicyService(
+            new Mock<IStudentRepository>().Object,
+            new Mock<ITeacherRepository>().Object,
+            new Mock<ITeacherLevelRepository>().Object,
+            new Mock<ITeacherDomainPricingRepository>().Object);
+
+        Assert.False(sut.IsEligiblePackage(isGroup, sessionCount));
+    }
+
+    [Fact]
     public async Task TryCompleteTeacherInterviewAsync_UnlocksLowestActiveLevelForDomain()
     {
         var teacher = new Teacher { Id = 5, HasCompletedInterviewSession = false, TeacherLevelId = null };

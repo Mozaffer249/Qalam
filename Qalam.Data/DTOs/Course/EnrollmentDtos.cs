@@ -254,6 +254,9 @@ public class EnrollmentListItemDto
 
     public decimal AmountDue { get; set; }
 
+    /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
+    public bool IsFreeTrial { get; set; }
+
     /// <summary>Resolved media URL for the approving teacher's profile picture.</summary>
     public string? TeacherImageUrl { get; set; }
 
@@ -470,6 +473,9 @@ public class EnrollmentDetailDto
     public decimal AmountDue { get; set; }
     public DateTime? PaymentDeadline { get; set; }
 
+    /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
+    public bool IsFreeTrial { get; set; }
+
     /// <summary>Any pending participant id — use with single-payer pay endpoint.</summary>
     public int? PayParticipantId { get; set; }
 }
@@ -485,6 +491,8 @@ public class CreateIndividualEnrollmentResultDto
     public DateTime? PaymentDeadline { get; set; }
     public int? PayParticipantId { get; set; }
     public bool CanPay { get; set; }
+    /// <summary>True when this create consumed the student's free trial.</summary>
+    public bool IsFreeTrial { get; set; }
     public string CourseTitle { get; set; } = default!;
 }
 

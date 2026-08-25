@@ -122,6 +122,7 @@ internal static class TeacherEnrollmentMapping
             AmountPaid = amountPaid,
             AmountRemaining = Math.Max(0, amountDue - amountPaid),
             Currency = currency,
+            IsFreeTrial = enrollment.IsFreeTrial,
             NextSessionAt = next,
             SessionsAttended = attended,
             SessionsAbsentOrLate = absentOrLate,

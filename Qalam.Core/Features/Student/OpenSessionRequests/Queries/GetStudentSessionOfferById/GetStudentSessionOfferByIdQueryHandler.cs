@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOfferById;
 
@@ -17,16 +18,19 @@ public class GetStudentSessionOfferByIdQueryHandler
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IMediaUrlResolver _mediaUrlResolver;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public GetStudentSessionOfferByIdQueryHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
-        IMediaUrlResolver mediaUrlResolver) : base(sharedLocalizer)
+        IMediaUrlResolver mediaUrlResolver,
+        IFreeSessionPolicyService freeSessionPolicy) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _mediaUrlResolver = mediaUrlResolver;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task<Response<StudentOfferDetailDto>> Handle(
@@ -46,15 +50,12 @@ public class GetStudentSessionOfferByIdQueryHandler
         var sessionCount = await _db.OpenSessionRequestSessions
             .AsNoTracking()
             .CountAsync(s => s.SessionRequestId == request.RequestId, cancellationToken);
-        var student = await _db.Students.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == entity.StudentId, cancellationToken);
         var isGroup = entity.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly
             || await _db.OpenSessionRequestInvitations.AsNoTracking()
                 .AnyAsync(i => i.SessionRequestId == request.RequestId
                     && i.Status == OpenSessionRequestInvitationStatus.Accepted, cancellationToken);
-        var freeTrialEligible = !isGroup
-            && sessionCount == 1
-            && student is { HasUsedFreeTrialSession: false };
+        var freeTrialEligible = _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
+            && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(entity.StudentId, cancellationToken);
 
         var offer = await _db.OpenSessionOffers
             .AsNoTracking()

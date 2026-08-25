@@ -89,6 +89,7 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
                 ? sessions.Count
                 : null,
             AmountDue = EnrollmentPricingRules.ResolvePayableAmount(enrollment),
+            IsFreeTrial = enrollment.IsFreeTrial,
             Source = enrollment.Source,
             EnrollmentRequestId = enrollment.EnrollmentRequestId,
             SessionRequestId = enrollment.SessionRequestId,

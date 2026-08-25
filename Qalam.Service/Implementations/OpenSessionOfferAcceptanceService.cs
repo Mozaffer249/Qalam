@@ -135,8 +135,7 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             var isGroup = studentIds.Count > 1
                 || request.GroupType is OfferGroupType.OpenGroup or OfferGroupType.InviteOnly;
 
-            var applyFreeTrial = !isGroup
-                && sessions.Count == 1
+            var applyFreeTrial = _freeSessionPolicy.IsEligiblePackage(isGroup, sessions.Count)
                 && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(request.StudentId, cancellationToken);
 
             var preferredStart = sessions.Min(s => s.PreferredDate!.Value);
@@ -163,6 +162,7 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 PaymentDeadline = paymentDeadline,
                 EnrollmentStatus = applyFreeTrial ? EnrollmentStatus.PendingPayment : EnrollmentStatus.PendingPayment,
                 AmountDue = applyFreeTrial ? 0m : offer.Price,
+                IsFreeTrial = applyFreeTrial,
                 PricingSnapshotId = offer.PricingSnapshotId,
                 OwnerUserId = request.RequestedByUserId,
                 PreferredStartDate = preferredStart,

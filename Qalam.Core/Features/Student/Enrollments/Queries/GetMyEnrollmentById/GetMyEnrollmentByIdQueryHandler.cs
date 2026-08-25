@@ -63,6 +63,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
         dto.CoursePrice = payable;
         dto.AmountDue = payable;
+        dto.IsFreeTrial = enrollment.IsFreeTrial;
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();

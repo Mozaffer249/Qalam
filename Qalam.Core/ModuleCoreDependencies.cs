@@ -28,6 +28,7 @@ namespace Qalam.Core
 
             // Feature services
             services.AddScoped<IOpenSessionRequestAccessGuard, OpenSessionRequestAccessGuard>();
+            services.AddScoped<IOpenSessionRequestStudentPricingEnricher, OpenSessionRequestStudentPricingEnricher>();
 
             return services;
         }

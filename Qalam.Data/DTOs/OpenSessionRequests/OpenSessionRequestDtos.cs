@@ -247,6 +247,15 @@ public class OpenSessionRequestDetailDto
     public List<OpenSessionRequestInvitationDto> Invitations { get; set; } = new();
     public List<OpenSessionRequestAttachmentDto> Attachments { get; set; } = new();
     public int OffersCount { get; set; }
+
+    /// <summary>
+    /// Directed: frozen snapshot total. Broadcast: null (price is teacher-specific until offers).
+    /// </summary>
+    public decimal? TotalPrice { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
+    /// <summary>True when accepting an individual 1-session offer would consume the free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }
 
 public class OpenSessionRequestSessionDto
@@ -319,4 +328,13 @@ public class OpenSessionRequestListItemDto
     public DateTime? PublishedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Directed: frozen snapshot total. Broadcast: null (price is teacher-specific until offers).
+    /// </summary>
+    public decimal? TotalPrice { get; set; }
+    public string? Currency { get; set; }
+    public string? MarketCode { get; set; }
+    /// <summary>True when accepting an individual 1-session offer would consume the free trial.</summary>
+    public bool IsFreeTrialEligible { get; set; }
 }

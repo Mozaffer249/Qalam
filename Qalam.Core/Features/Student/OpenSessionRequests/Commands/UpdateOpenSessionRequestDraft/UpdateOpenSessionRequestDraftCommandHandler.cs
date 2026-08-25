@@ -24,6 +24,7 @@ public class UpdateOpenSessionRequestDraftCommandHandler
     private readonly ITargetedOpenSessionRequestValidator _targetedValidator;
     private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
+    private readonly IOpenSessionRequestStudentPricingEnricher _pricingEnricher;
 
     public UpdateOpenSessionRequestDraftCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
@@ -31,13 +32,15 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         IOpenSessionRequestAccessGuard accessGuard,
         ITargetedOpenSessionRequestValidator targetedValidator,
         IOptions<OpenSessionRequestSettings> osrSettings,
-        IMapper mapper) : base(sharedLocalizer)
+        IMapper mapper,
+        IOpenSessionRequestStudentPricingEnricher pricingEnricher) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _targetedValidator = targetedValidator;
         _osrSettings = osrSettings.Value;
         _mapper = mapper;
+        _pricingEnricher = pricingEnricher;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -180,8 +183,12 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
             .Include(r => r.Attachments)
+            .Include(r => r.Offers)
+            .Include(r => r.PricingSnapshot)
             .FirstAsync(r => r.Id == entity.Id, cancellationToken);
 
-        return Success(entity: _mapper.Map<OpenSessionRequestDetailDto>(detail));
+        var dto = _mapper.Map<OpenSessionRequestDetailDto>(detail);
+        await _pricingEnricher.EnrichDetailAsync(dto, detail, cancellationToken);
+        return Success(entity: dto);
     }
 }

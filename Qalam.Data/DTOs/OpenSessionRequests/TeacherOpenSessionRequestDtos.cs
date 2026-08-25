@@ -18,6 +18,10 @@ public class TeacherAvailableRequestListItemDto
     public string? LevelNameEn { get; set; }
     public string? LevelNameAr { get; set; }
     public string? DomainCode { get; set; }
+    /// <summary>Used for live price estimates on the inbox list.</summary>
+    public int DomainId { get; set; }
+    /// <summary>Directed freeze id when present; null for broadcast.</summary>
+    public int? PricingSnapshotId { get; set; }
     public int StudentId { get; set; }
     public string? StudentDisplayName { get; set; }
     public int SessionsCount { get; set; }
@@ -39,6 +43,11 @@ public class TeacherAvailableRequestListItemDto
     public OpenSessionRequestStatus RequestStatus { get; set; }
     /// <summary>This teacher's latest non-withdrawn offer status, if any.</summary>
     public OpenSessionOfferStatus? MyOfferStatus { get; set; }
+
+    /// <summary>Offer price preview for this teacher (frozen for directed; live for broadcast).</summary>
+    public decimal? TotalPrice { get; set; }
+    public string? Currency { get; set; }
+    public decimal? TeacherEarnings { get; set; }
 }
 
 /// <summary>Full detail for GET /Api/V1/Teacher/AvailableRequests/{id}.</summary>

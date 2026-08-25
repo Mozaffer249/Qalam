@@ -1480,8 +1480,8 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 ### Student free trial (Model 1 — true free)
 
 1. Each **student** account gets **one lifetime** individual free trial (`HasUsedFreeTrialSession`).
-2. Eligible: individual OSR accept (or individual direct enroll when wired) while unused.
-3. Student `AmountDue = 0`; enrollment activates without payment; trial flag set when the free enrollment is created.
+2. Eligible: individual OSR accept **or** individual direct course enroll (exactly **1 session**) while unused.
+3. Student `AmountDue = 0`; enrollment activates without payment (course enroll) or pending payment with zero due (OSR); trial flag set when the free enrollment is created (`Enrollment.IsFreeTrial`).
 4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
 5. **Model 2 (later, not built):** pay full package; refund first session if dissatisfied — requires refund APIs.
 
