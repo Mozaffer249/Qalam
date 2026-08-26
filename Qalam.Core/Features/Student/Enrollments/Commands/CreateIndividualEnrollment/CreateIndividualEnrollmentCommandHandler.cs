@@ -413,7 +413,15 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
             }
 
             if (applyFreeTrial)
-                await _freeSessionPolicy.MarkStudentFreeTrialUsedAsync(studentId, cancellationToken);
+            {
+                await _freeSessionPolicy.ReserveStudentFreeTrialAsync(
+                    studentId,
+                    enrollment,
+                    FreeTrialConsumptionSource.CourseEnrollment,
+                    course.TeacherId,
+                    domainId,
+                    cancellationToken: cancellationToken);
+            }
 
             await _enrollmentRepository.CommitAsync();
         }

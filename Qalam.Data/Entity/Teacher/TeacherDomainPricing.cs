@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Qalam.Data.Commons;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Education;
 
 namespace Qalam.Data.Entity.Teacher;
@@ -39,6 +40,16 @@ public class TeacherDomainPricing : AuditableEntity
 
     /// <summary>True after first completed session in this domain (or admin unlock).</summary>
     public bool HasCompletedInterviewSession { get; set; }
+
+    public InterviewUnlockSource InterviewUnlockSource { get; set; } = InterviewUnlockSource.None;
+
+    public int? InterviewUnlockEnrollmentId { get; set; }
+
+    public int? InterviewUnlockCourseScheduleId { get; set; }
+
+    public DateTime? InterviewUnlockedAt { get; set; }
+
+    public DateTime? InterviewRevertedAt { get; set; }
 
     public Teacher Teacher { get; set; } = null!;
     public EducationDomain Domain { get; set; } = null!;

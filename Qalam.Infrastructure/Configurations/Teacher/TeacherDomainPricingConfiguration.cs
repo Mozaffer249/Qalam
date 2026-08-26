@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 
 namespace Qalam.Infrastructure.Configurations.Teacher;
@@ -19,6 +20,9 @@ public class TeacherDomainPricingConfiguration : IEntityTypeConfiguration<Teache
         builder.Property(e => e.ReflectCustomIndividualPriceToStudent).HasDefaultValue(false);
         builder.Property(e => e.ReflectCustomGroupPriceToStudent).HasDefaultValue(false);
         builder.Property(e => e.HasCompletedInterviewSession).HasDefaultValue(false);
+        builder.Property(e => e.InterviewUnlockSource).HasDefaultValue(InterviewUnlockSource.None);
+
+        builder.HasIndex(e => e.InterviewUnlockEnrollmentId);
 
         builder.HasOne(e => e.Teacher)
             .WithMany()

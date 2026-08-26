@@ -69,13 +69,17 @@ public class SessionLifecycleHelper : ISessionLifecycleService
 
         var teacherId = schedule.Enrollment?.ApprovedByTeacherId
             ?? schedule.Enrollment?.Course?.TeacherId;
-        var domainId = schedule.Enrollment?.Course?.DomainId ?? 0;
+        var domainId = ResolveDomainId(schedule.Enrollment);
         if (teacherId.HasValue && domainId > 0)
         {
             try
             {
                 await _freeSessionPolicy.TryCompleteTeacherInterviewAsync(
-                    teacherId.Value, domainId, cancellationToken);
+                    teacherId.Value,
+                    domainId,
+                    schedule.EnrollmentId,
+                    schedule.Id,
+                    cancellationToken);
             }
             catch (Exception ex)
             {
@@ -93,6 +97,21 @@ public class SessionLifecycleHelper : ISessionLifecycleService
             {
                 _logger.LogWarning(ex,
                     "Failed to evaluate teacher progression after completing CourseSchedule {ScheduleId}",
+                    schedule.Id);
+            }
+        }
+
+        if (schedule.Enrollment?.IsFreeTrial == true)
+        {
+            try
+            {
+                await _freeSessionPolicy.MarkConsumptionConsumedAsync(
+                    schedule.EnrollmentId, schedule.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to mark free-trial consumption consumed for CourseSchedule {ScheduleId}",
                     schedule.Id);
             }
         }
@@ -139,5 +158,18 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         schedule.Status = ScheduleStatus.InProgress;
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation("Marked CourseSchedule {ScheduleId} InProgress (auto-start).", schedule.Id);
+    }
+
+    private static int ResolveDomainId(Enrollment? enrollment)
+    {
+        if (enrollment == null)
+            return 0;
+        if (enrollment.Course?.TeacherSubject?.Subject?.DomainId is > 0)
+            return enrollment.Course.TeacherSubject.Subject.DomainId;
+        if (enrollment.PricingSnapshot?.DomainId is > 0)
+            return enrollment.PricingSnapshot.DomainId;
+        if (enrollment.OpenSessionRequest?.DomainId is > 0)
+            return enrollment.OpenSessionRequest.DomainId;
+        return 0;
     }
 }

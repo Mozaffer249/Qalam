@@ -395,6 +395,11 @@ public class PricingAdminService : IPricingAdminService
 
         pricing.TeacherLevelId = level.Id;
         pricing.HasCompletedInterviewSession = true;
+        pricing.InterviewUnlockSource = InterviewUnlockSource.Admin;
+        pricing.InterviewUnlockEnrollmentId = null;
+        pricing.InterviewUnlockCourseScheduleId = null;
+        pricing.InterviewUnlockedAt = DateTime.UtcNow;
+        pricing.InterviewRevertedAt = null;
         pricing.UpdatedAt = DateTime.UtcNow;
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
@@ -563,6 +568,11 @@ public class PricingAdminService : IPricingAdminService
         {
             pricing.TeacherLevelId = dto.TeacherLevelId;
             pricing.HasCompletedInterviewSession = true;
+            pricing.InterviewUnlockSource = InterviewUnlockSource.Admin;
+            pricing.InterviewUnlockEnrollmentId = null;
+            pricing.InterviewUnlockCourseScheduleId = null;
+            pricing.InterviewUnlockedAt = DateTime.UtcNow;
+            pricing.InterviewRevertedAt = null;
             teacher.TeacherLevelId = dto.TeacherLevelId;
             teacher.HasCompletedInterviewSession = true;
         }
@@ -636,6 +646,11 @@ public class PricingAdminService : IPricingAdminService
 
         pricing.TeacherLevelId = suggestion.SuggestedLevelId;
         pricing.HasCompletedInterviewSession = true;
+        pricing.InterviewUnlockSource = InterviewUnlockSource.Admin;
+        pricing.InterviewUnlockEnrollmentId = null;
+        pricing.InterviewUnlockCourseScheduleId = null;
+        pricing.InterviewUnlockedAt = DateTime.UtcNow;
+        pricing.InterviewRevertedAt = null;
         pricing.UpdatedAt = DateTime.UtcNow;
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
 

@@ -67,6 +67,8 @@ namespace Qalam.Data.AppMetaData
         public const string AdminStudentManagement = Rule + "Admin/StudentManagement";
         public const string AdminStudents = AdminStudentManagement + "/Students";
         public const string AdminStudentById = AdminStudents + "/{studentId}";
+        public const string AdminStudentFreeTrialConsumptions = AdminStudentById + "/FreeTrialConsumptions";
+        public const string AdminTeacherInterviewUnlocks = Rule + "Admin/Teachers/{teacherId}/InterviewUnlocks";
 
         #region Legal Documents
         public const string AdminLegalDocuments = Rule + "Admin/LegalDocuments";

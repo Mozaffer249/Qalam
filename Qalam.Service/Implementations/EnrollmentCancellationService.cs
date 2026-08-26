@@ -10,13 +10,16 @@ public class EnrollmentCancellationService : IEnrollmentCancellationService
 {
     private readonly ApplicationDBContext _db;
     private readonly IRefundService _refundService;
+    private readonly IFreeSessionPolicyService _freeSessionPolicy;
 
     public EnrollmentCancellationService(
         ApplicationDBContext db,
-        IRefundService refundService)
+        IRefundService refundService,
+        IFreeSessionPolicyService freeSessionPolicy)
     {
         _db = db;
         _refundService = refundService;
+        _freeSessionPolicy = freeSessionPolicy;
     }
 
     public async Task CancelAsync(
@@ -82,12 +85,14 @@ public class EnrollmentCancellationService : IEnrollmentCancellationService
 
         if (enrollment.IsFreeTrial)
         {
-            var studentIds = enrollment.Participants.Select(p => p.StudentId).Distinct().ToList();
-            var students = await _db.Students
-                .Where(s => studentIds.Contains(s.Id) && s.HasUsedFreeTrialSession)
-                .ToListAsync(cancellationToken);
-            foreach (var student in students)
-                student.HasUsedFreeTrialSession = false;
+            await _freeSessionPolicy.CancelConsumptionBeforeStartAsync(
+                enrollmentId,
+                cancelledByUserId,
+                reason,
+                cancellationToken);
+            await _freeSessionPolicy.TryRevertTeacherInterviewFromEnrollmentAsync(
+                enrollmentId,
+                cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

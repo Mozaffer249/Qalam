@@ -190,48 +190,37 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             request.Status = OpenSessionRequestStatus.PaymentPending;
             request.UpdatedAt = now;
 
-            if (applyFreeTrial)
+            if (applyFreeTrial && offer.PricingSnapshotId.HasValue)
             {
-                var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == request.StudentId, cancellationToken);
-                if (student != null)
-                {
-                    student.HasUsedFreeTrialSession = true;
-                    student.UpdatedAt = now;
-                }
-
                 // Platform bears teacher pay: student total 0; keep notional teacher earnings unless interview.
-                if (offer.PricingSnapshotId.HasValue)
+                var snapshot = await _db.PricingSnapshots
+                    .FirstOrDefaultAsync(s => s.Id == offer.PricingSnapshotId.Value, cancellationToken);
+                if (snapshot != null)
                 {
-                    var snapshot = await _db.PricingSnapshots
-                        .FirstOrDefaultAsync(s => s.Id == offer.PricingSnapshotId.Value, cancellationToken);
-                    if (snapshot != null)
+                    var teacher = await _db.Teachers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == offer.TeacherId, cancellationToken);
+                    var domainPricing = await _db.TeacherDomainPricings
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(
+                            p => p.TeacherId == offer.TeacherId && p.DomainId == snapshot.DomainId,
+                            cancellationToken);
+                    var interviewPending = domainPricing is not
+                        { HasCompletedInterviewSession: true, TeacherLevelId: not null }
+                        && teacher is not { HasCompletedInterviewSession: true };
+                    var notionalTeacherEarnings = snapshot.TeacherEarnings;
+                    snapshot.TotalPrice = 0m;
+                    if (interviewPending)
                     {
-                        var teacher = await _db.Teachers
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(t => t.Id == offer.TeacherId, cancellationToken);
-                        var domainPricing = await _db.TeacherDomainPricings
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(
-                                p => p.TeacherId == offer.TeacherId && p.DomainId == snapshot.DomainId,
-                                cancellationToken);
-                        var interviewPending = domainPricing is not
-                            { HasCompletedInterviewSession: true, TeacherLevelId: not null }
-                            && teacher is not { HasCompletedInterviewSession: true };
-                        var notionalTeacherEarnings = snapshot.TeacherEarnings;
-                        snapshot.TotalPrice = 0m;
-                        if (interviewPending)
-                        {
-                            snapshot.TeacherSharePct = 0m;
-                            snapshot.TeacherEarnings = 0m;
-                            snapshot.PlatformShare = 0m;
-                        }
-                        else
-                        {
-                            // Platform cost = teacher earnings; student paid 0.
-                            snapshot.PlatformShare = -notionalTeacherEarnings;
-                        }
-                        snapshot.UpdatedAt = now;
+                        snapshot.TeacherSharePct = 0m;
+                        snapshot.TeacherEarnings = 0m;
+                        snapshot.PlatformShare = 0m;
                     }
+                    else
+                    {
+                        snapshot.PlatformShare = -notionalTeacherEarnings;
+                    }
+                    snapshot.UpdatedAt = now;
                 }
             }
 
@@ -265,6 +254,19 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             }
 
             await _db.SaveChangesAsync(cancellationToken);
+
+            if (applyFreeTrial)
+            {
+                await _freeSessionPolicy.ReserveStudentFreeTrialAsync(
+                    request.StudentId,
+                    enrollment,
+                    FreeTrialConsumptionSource.OpenSessionRequest,
+                    offer.TeacherId,
+                    request.DomainId,
+                    request.Id,
+                    cancellationToken);
+            }
+
             await tx.CommitAsync(cancellationToken);
 
             var primaryParticipant = enrollment.Participants.First(p => p.StudentId == request.StudentId);

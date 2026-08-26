@@ -1472,8 +1472,8 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 
 1. New teachers register **without** paid domain levels (`TeacherDomainPricing.TeacherLevelId` null / missing row; legacy `Teacher.HasCompletedInterviewSession = false`).
 2. Until the domain interview is completed, `PricingEngine` resolves **teacher share = 0%** for that domain.
-3. **First completed session in a domain** unlocks the **lowest active** `TeacherLevel` on that domain’s `TeacherDomainPricing` and sets `HasCompletedInterviewSession = true` for the domain (also syncs legacy teacher flags).
-4. Admins may bypass by assigning a level for the domain (also marks interview complete).
+3. **First completed session in a domain** unlocks the **lowest active** `TeacherLevel` on that domain’s `TeacherDomainPricing` and sets `HasCompletedInterviewSession = true` for the domain (also syncs legacy teacher flags). Auto-unlock records `InterviewUnlockSource = AutoFromSession`, `InterviewUnlockEnrollmentId`, and `InterviewUnlockCourseScheduleId`.
+4. Admins may bypass by assigning a level for the domain (also marks interview complete with `InterviewUnlockSource = Admin`; cancel never reverts these).
 5. Further promotion is **per domain**: system creates `TeacherLevelUpgradeSuggestion` with `DomainId`; admin approve/reject. Levels remain **admin-expandable** (`POST` new tiers).
 6. Formal dispute/complaint workflow is out of scope; teachers use support/contact channels.
 
@@ -1481,9 +1481,9 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 
 1. Each **student** account gets **one lifetime** individual free trial (`HasUsedFreeTrialSession`).
 2. Eligible: individual OSR accept **or** individual direct course enroll (exactly **1 session**) while unused.
-3. Student `AmountDue = 0`; enrollment activates without payment (course enroll) or pending payment with zero due (OSR); trial flag set when the free enrollment is created (`Enrollment.IsFreeTrial`).
+3. Student `AmountDue = 0`; enrollment activates without payment (course enroll) or pending payment with zero due (OSR); trial flag set when the free enrollment is created (`Enrollment.IsFreeTrial`). A durable **`StudentFreeTrialConsumption`** ledger row is created in `Reserved` status at enroll/accept time (`HasUsedFreeTrialSession` remains the fast eligibility cache).
 4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
-5. **Cancel before first session:** Student owner may cancel `PendingPayment` (no refund) or `Active` when no schedule has started; paid enrollments get a **mock** refund (`Refund` entity + `PaymentStatus.Refunded`; list/API type is always `Refund`, not a negative payment). Real PSP refunds wait for payment-gateway integration. Free-trial cancel restores `HasUsedFreeTrialSession`.
+5. **Cancel before first session:** Student owner may cancel `PendingPayment` (no refund) or `Active` when no schedule has started; paid enrollments get a **mock** refund (`Refund` entity + `PaymentStatus.Refunded`; list/API type is always `Refund`, not a negative payment). Real PSP refunds wait for payment-gateway integration. Free-trial cancel sets the consumption row to **`CancelledBeforeStart`** (audit kept forever), restores `HasUsedFreeTrialSession` when no other `Reserved` consumption exists, and **reverts auto interview unlock** on `TeacherDomainPricing` when `InterviewUnlockSource = AutoFromSession` and attributed to that enrollment with no other completed sessions in the domain. **Admin-assigned** levels (`InterviewUnlockSource = Admin`) are never reverted on cancel.
 6. **Enrollment completed:** When the last schedule completes (background or teacher Complete) and no `Scheduled`/`InProgress` remain (with ≥1 `Completed`), enrollment becomes `Completed`.
 7. **Teacher payouts:** Session completion accrues `TeacherEarningLine` from `PricingSnapshot.TeacherEarnings` (prorated by minutes). Admin payout batches pay pending lines (mock transfer). Model 2 mid-package dissatisfaction refund is still out of scope.
 

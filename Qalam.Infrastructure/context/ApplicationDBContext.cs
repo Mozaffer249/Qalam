@@ -98,6 +98,7 @@ namespace Qalam.Infrastructure.context
 
         // Student Schema DbSets
         public DbSet<Student> Students { get; set; }
+        public DbSet<StudentFreeTrialConsumption> StudentFreeTrialConsumptions { get; set; }
         public DbSet<Guardian> Guardians { get; set; }
 
         // Teacher Schema DbSets
