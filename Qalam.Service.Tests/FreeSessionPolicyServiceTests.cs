@@ -66,20 +66,54 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
-    public void IsEligiblePackage_IndividualSingleSession_ReturnsTrue()
+    public void IsEligiblePackage_AnySessionCount_ReturnsTrue()
     {
         var sut = CreateSut(CreateDb());
         Assert.True(sut.IsEligiblePackage(isGroup: false, sessionCount: 1));
+        Assert.True(sut.IsEligiblePackage(isGroup: true, sessionCount: 3));
+        Assert.True(sut.IsEligiblePackage(isGroup: false, sessionCount: 5));
+    }
+
+    [Fact]
+    public void IsEligiblePackage_ZeroSessions_ReturnsFalse()
+    {
+        var sut = CreateSut(CreateDb());
+        Assert.False(sut.IsEligiblePackage(isGroup: false, sessionCount: 0));
     }
 
     [Theory]
-    [InlineData(true, 1)]
-    [InlineData(false, 2)]
-    [InlineData(true, 2)]
-    public void IsEligiblePackage_GroupOrMultiSession_ReturnsFalse(bool isGroup, int sessionCount)
+    [InlineData(100, 60, 200, 100)]
+    [InlineData(100, 60, 50, 50)]
+    [InlineData(100, 0, 200, 0)]
+    public void ComputeFreeSessionCredit_CapsAtPackageTotal(
+        decimal pricePerHour, int minutes, decimal packageTotal, decimal expected)
     {
-        var sut = CreateSut(CreateDb());
-        Assert.False(sut.IsEligiblePackage(isGroup, sessionCount));
+        var credit = FreeSessionPolicyService.ComputeFreeSessionCredit(pricePerHour, minutes, packageTotal);
+        Assert.Equal(expected, credit);
+    }
+
+    [Fact]
+    public void ApplyFreeTrialToSnapshot_Unlocked_SetsNetTotalAndPlatformShare()
+    {
+        var snapshot = new PricingSnapshot
+        {
+            PricePerHour = 100m,
+            TotalMinutes = 120,
+            TotalPrice = 200m,
+            TeacherSharePct = 70m,
+            TeacherEarnings = 140m,
+            PlatformShare = 60m,
+            Currency = "SAR",
+            MarketCode = "SA",
+            SessionTypeCode = "individual"
+        };
+
+        var (due, credit) = FreeSessionPolicyService.ApplyFreeTrialToSnapshot(snapshot, 200m, 60);
+        Assert.Equal(100m, credit);
+        Assert.Equal(100m, due);
+        Assert.Equal(100m, snapshot.TotalPrice);
+        Assert.Equal(140m, snapshot.TeacherEarnings);
+        Assert.Equal(-40m, snapshot.PlatformShare);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.OpenSessionRequests;
+using Qalam.Data.Entity.Pricing;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -138,9 +139,58 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
             var applyFreeTrial = _freeSessionPolicy.IsEligiblePackage(isGroup, sessions.Count)
                 && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(request.StudentId, cancellationToken);
 
+            var firstSessionMinutes = sessions
+                .OrderBy(s => s.SequenceNumber)
+                .Select(s => s.DurationMinutes)
+                .FirstOrDefault();
+            if (firstSessionMinutes <= 0)
+                firstSessionMinutes = 60;
+
+            var grossPrice = offer.Price;
+            var amountDue = grossPrice;
+            PricingSnapshot? freeTrialSnapshot = null;
+
+            if (applyFreeTrial && offer.PricingSnapshotId.HasValue)
+            {
+                freeTrialSnapshot = await _db.PricingSnapshots
+                    .FirstOrDefaultAsync(s => s.Id == offer.PricingSnapshotId.Value, cancellationToken);
+                if (freeTrialSnapshot != null)
+                {
+                    var packageTotal = freeTrialSnapshot.TotalPrice > 0
+                        ? freeTrialSnapshot.TotalPrice
+                        : grossPrice;
+                    (amountDue, _) = FreeSessionPolicyService.ApplyFreeTrialToSnapshot(
+                        freeTrialSnapshot,
+                        packageTotal,
+                        firstSessionMinutes);
+                }
+                else
+                {
+                    amountDue = Math.Max(
+                        0m,
+                        grossPrice - FreeSessionPolicyService.ComputeFreeSessionCredit(
+                            grossPrice > 0 && sessions.Sum(s => s.DurationMinutes) > 0
+                                ? grossPrice * 60m / sessions.Sum(s => s.DurationMinutes)
+                                : 0m,
+                            firstSessionMinutes,
+                            grossPrice));
+                }
+            }
+            else if (applyFreeTrial)
+            {
+                var totalMins = sessions.Sum(s => s.DurationMinutes);
+                var hourly = totalMins > 0
+                    ? Math.Round(grossPrice * 60m / totalMins, 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                amountDue = Math.Max(
+                    0m,
+                    grossPrice - FreeSessionPolicyService.ComputeFreeSessionCredit(
+                        hourly, firstSessionMinutes, grossPrice));
+            }
+
             var preferredStart = sessions.Min(s => s.PreferredDate!.Value);
             var preferredEnd = sessions.Max(s => s.PreferredDate!.Value);
-            var paymentDeadline = applyFreeTrial
+            var paymentDeadline = amountDue <= 0
                 ? (DateTime?)null
                 : OpenSessionRequestExpiry.ResolvePaymentDeadline(
                     now,
@@ -160,8 +210,8 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
                 ApprovedByTeacherId = offer.TeacherId,
                 ApprovedAt = now,
                 PaymentDeadline = paymentDeadline,
-                EnrollmentStatus = applyFreeTrial ? EnrollmentStatus.PendingPayment : EnrollmentStatus.PendingPayment,
-                AmountDue = applyFreeTrial ? 0m : offer.Price,
+                EnrollmentStatus = EnrollmentStatus.PendingPayment,
+                AmountDue = amountDue,
                 IsFreeTrial = applyFreeTrial,
                 PricingSnapshotId = offer.PricingSnapshotId,
                 OwnerUserId = request.RequestedByUserId,
@@ -189,40 +239,6 @@ public class OpenSessionOfferAcceptanceService : IOpenSessionOfferAcceptanceServ
 
             request.Status = OpenSessionRequestStatus.PaymentPending;
             request.UpdatedAt = now;
-
-            if (applyFreeTrial && offer.PricingSnapshotId.HasValue)
-            {
-                // Platform bears teacher pay: student total 0; keep notional teacher earnings unless interview.
-                var snapshot = await _db.PricingSnapshots
-                    .FirstOrDefaultAsync(s => s.Id == offer.PricingSnapshotId.Value, cancellationToken);
-                if (snapshot != null)
-                {
-                    var teacher = await _db.Teachers
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(t => t.Id == offer.TeacherId, cancellationToken);
-                    var domainPricing = await _db.TeacherDomainPricings
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(
-                            p => p.TeacherId == offer.TeacherId && p.DomainId == snapshot.DomainId,
-                            cancellationToken);
-                    var interviewPending = domainPricing is not
-                        { HasCompletedInterviewSession: true, TeacherLevelId: not null }
-                        && teacher is not { HasCompletedInterviewSession: true };
-                    var notionalTeacherEarnings = snapshot.TeacherEarnings;
-                    snapshot.TotalPrice = 0m;
-                    if (interviewPending)
-                    {
-                        snapshot.TeacherSharePct = 0m;
-                        snapshot.TeacherEarnings = 0m;
-                        snapshot.PlatformShare = 0m;
-                    }
-                    else
-                    {
-                        snapshot.PlatformShare = -notionalTeacherEarnings;
-                    }
-                    snapshot.UpdatedAt = now;
-                }
-            }
 
             var availabilityIds = resolvedSlots.Select(r => r.TeacherAvailabilityId).Distinct().ToList();
             var occupied = await _scheduleRepo.GetScheduledSlotsAsync(

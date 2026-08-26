@@ -1477,15 +1477,16 @@ Inbox lists default to `Scope=Active` (teacher: Active/ReceivingOffers; student:
 5. Further promotion is **per domain**: system creates `TeacherLevelUpgradeSuggestion` with `DomainId`; admin approve/reject. Levels remain **admin-expandable** (`POST` new tiers).
 6. Formal dispute/complaint workflow is out of scope; teachers use support/contact channels.
 
-### Student free trial (Model 1 — true free)
+### Student free trial (Model B — first session credit)
 
-1. Each **student** account gets **one lifetime** individual free trial (`HasUsedFreeTrialSession`).
-2. Eligible: individual OSR accept **or** individual direct course enroll (exactly **1 session**) while unused.
-3. Student `AmountDue = 0`; enrollment activates without payment (course enroll) or pending payment with zero due (OSR); trial flag set when the free enrollment is created (`Enrollment.IsFreeTrial`). A durable **`StudentFreeTrialConsumption`** ledger row is created in `Reserved` status at enroll/accept time (`HasUsedFreeTrialSession` remains the fast eligibility cache).
-4. Teacher payout on that session: if teacher still in interview **for that domain** → 0%; otherwise normal share of the **notional** market/earnings base (platform bears the cost; student total remains 0).
+1. Each **student** account gets **one lifetime** free trial (`HasUsedFreeTrialSession`). Eligible for **individual and group** packages with **any session count** (≥1) on course enroll or OSR accept while unused.
+2. **Whose trial on group:** the primary learner (`request.StudentId` / Own group member / leader). Invitees do not each consume a free session on the same enrollment. Package remains **one payer**.
+3. **Deduction (A):** `FreeSessionCredit F = min(P, firstSessionMinutes/60 × PricePerHour)`. `AmountDue = max(0, GrossPackageTotal P − F)`. Snapshot `TotalPrice` stores the **net** payable. One-session packages still result in `AmountDue = 0`.
+4. Teacher payout: if teacher still in interview **for that domain** → 0% on the package (existing rule); if unlocked → normal notional `TeacherEarnings` on the full package and **platform bears** the free-session portion (`PlatformShare = AmountDue − TeacherEarnings`, often negative by ~F). Free-session earning lines use `TeacherEarningSource.FreeTrialPlatform`.
 5. **Cancel before first session:** Student owner may cancel `PendingPayment` (no refund) or `Active` when no schedule has started; paid enrollments get a **mock** refund (`Refund` entity + `PaymentStatus.Refunded`; list/API type is always `Refund`, not a negative payment). Real PSP refunds wait for payment-gateway integration. Free-trial cancel sets the consumption row to **`CancelledBeforeStart`** (audit kept forever), restores `HasUsedFreeTrialSession` when no other `Reserved` consumption exists, and **reverts auto interview unlock** on `TeacherDomainPricing` when `InterviewUnlockSource = AutoFromSession` and attributed to that enrollment with no other completed sessions in the domain. **Admin-assigned** levels (`InterviewUnlockSource = Admin`) are never reverted on cancel.
 6. **Enrollment completed:** When the last schedule completes (background or teacher Complete) and no `Scheduled`/`InProgress` remain (with ≥1 `Completed`), enrollment becomes `Completed`.
-7. **Teacher payouts:** Session completion accrues `TeacherEarningLine` from `PricingSnapshot.TeacherEarnings` (prorated by minutes). Admin payout batches pay pending lines (mock transfer). Model 2 mid-package dissatisfaction refund is still out of scope.
+7. **Teacher payouts:** Session completion accrues `TeacherEarningLine` from `PricingSnapshot.TeacherEarnings` (prorated by minutes). Admin payout batches pay pending lines (mock transfer). Admin **Enrollments** list/detail is the accounting source for gross / free credit / net due / platform cost.
+8. Eligibility does **not** require teacher interview pending; unlocked-teacher free sessions are a platform cost.
 
 ### Live vs frozen pricing contract
 

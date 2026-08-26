@@ -212,14 +212,16 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         if (totalMinutes <= 0)
             return BadRequest<CreateIndividualEnrollmentResultDto>("Total duration must be greater than zero.");
 
-        var amountDue = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
+        var grossAmountDue = await _coursePriceResolver.ResolveCourseTotalPriceAsync(
             course, request.UserId, cancellationToken);
 
         var sessionCount = selectedSlots.Count;
         var applyFreeTrial = _freeSessionPolicy.IsEligiblePackage(isGroup: false, sessionCount)
             && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(studentId, cancellationToken);
-        if (applyFreeTrial)
-            amountDue = 0m;
+        var firstSessionMinutes = ResolveFirstSessionMinutes(course);
+
+        // Net due applied after snapshot when free trial; start from gross for construction.
+        var amountDue = grossAmountDue;
 
         var calendarPairs = selectedSlots
             .Select(s => (s.Date, s.TeacherAvailabilityId))
@@ -393,21 +395,82 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
 
                 if (applyFreeTrial)
                 {
-                    var notionalTeacherEarnings = snapshot.TeacherEarnings;
-                    snapshot.TotalPrice = 0m;
-                    var interviewPending = snapshot.TeacherSharePct == 0m;
-                    if (interviewPending)
+                    var (due, _) = FreeSessionPolicyService.ApplyFreeTrialToSnapshot(
+                        snapshot,
+                        grossAmountDue > 0 ? grossAmountDue : snapshot.TotalPrice,
+                        firstSessionMinutes);
+                    amountDue = due;
+                    enrollment.AmountDue = due;
+
+                    if (due <= 0
+                        && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment)
                     {
-                        snapshot.TeacherEarnings = 0m;
-                        snapshot.PlatformShare = 0m;
+                        enrollment.EnrollmentStatus = EnrollmentStatus.Active;
+                        enrollment.ActivatedAt = now;
+                        enrollment.PaymentDeadline = null;
+                        foreach (var p in enrollment.Participants)
+                        {
+                            p.PaymentStatus = PaymentStatus.Succeeded;
+                            p.PaidAt = now;
+                        }
+
+                        if (enrollment.CourseSchedules.Count == 0)
+                        {
+                            Dictionary<int, int>? courseSessionIdByNumber = null;
+                            if (course.Sessions != null)
+                            {
+                                courseSessionIdByNumber = course.Sessions
+                                    .GroupBy(cs => cs.SessionNumber)
+                                    .ToDictionary(g => g.Key, g => g.First().Id);
+                            }
+
+                            foreach (var s in preview.Slots)
+                            {
+                                int? courseSessionId = null;
+                                if (courseSessionIdByNumber != null
+                                    && courseSessionIdByNumber.TryGetValue(s.SessionNumber, out var sid))
+                                {
+                                    courseSessionId = sid;
+                                }
+
+                                enrollment.CourseSchedules.Add(new CourseSchedule
+                                {
+                                    Date = s.Date,
+                                    TeacherAvailabilityId = s.TeacherAvailabilityId,
+                                    DurationMinutes = s.DurationMinutes,
+                                    TeachingModeId = course.TeachingModeId,
+                                    CourseSessionId = courseSessionId,
+                                    LocationId = null,
+                                    Status = ScheduleStatus.Scheduled
+                                });
+                            }
+                        }
                     }
-                    else
-                    {
-                        snapshot.PlatformShare = -notionalTeacherEarnings;
-                    }
-                    snapshot.UpdatedAt = now;
                 }
 
+                await _enrollmentRepository.UpdateAsync(enrollment);
+                await _enrollmentRepository.SaveChangesAsync();
+            }
+            else if (applyFreeTrial)
+            {
+                var hourly = totalMinutes > 0
+                    ? Math.Round(grossAmountDue * 60m / totalMinutes, 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                var credit = FreeSessionPolicyService.ComputeFreeSessionCredit(
+                    hourly, firstSessionMinutes, grossAmountDue);
+                amountDue = Math.Max(0m, grossAmountDue - credit);
+                enrollment.AmountDue = amountDue;
+                if (amountDue <= 0 && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment)
+                {
+                    enrollment.EnrollmentStatus = EnrollmentStatus.Active;
+                    enrollment.ActivatedAt = now;
+                    enrollment.PaymentDeadline = null;
+                    foreach (var p in enrollment.Participants)
+                    {
+                        p.PaymentStatus = PaymentStatus.Succeeded;
+                        p.PaidAt = now;
+                    }
+                }
                 await _enrollmentRepository.UpdateAsync(enrollment);
                 await _enrollmentRepository.SaveChangesAsync();
             }
@@ -432,7 +495,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         }
 
         var payParticipantId = enrollment.Participants.FirstOrDefault()?.Id;
-        var canPay = !isFree
+        var canPay = enrollment.AmountDue > 0
                      && enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment
                      && payParticipantId.HasValue;
 
@@ -447,6 +510,18 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
             IsFreeTrial = applyFreeTrial,
             CourseTitle = course.Title
         });
+    }
+
+    private static int ResolveFirstSessionMinutes(Course course)
+    {
+        var first = course.Sessions?
+            .OrderBy(s => s.SessionNumber)
+            .FirstOrDefault();
+        if (first != null && first.DurationMinutes > 0)
+            return first.DurationMinutes;
+        if (course.SessionDurationMinutes is > 0)
+            return course.SessionDurationMinutes.Value;
+        return 60;
     }
 
     private async Task<string?> ValidateSessionUnitsAsync(

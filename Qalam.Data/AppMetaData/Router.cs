@@ -45,6 +45,8 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPricing = Rule + "Admin/Pricing";
         public const string AdminRefunds = Rule + "Admin/Refunds";
         public const string AdminRefundById = AdminRefunds + "/{id}";
+        public const string AdminEnrollments = Rule + "Admin/Enrollments";
+        public const string AdminEnrollmentById = AdminEnrollments + "/{id}";
         public const string AdminPayouts = Rule + "Admin/Payouts";
         public const string AdminPayoutById = AdminPayouts + "/{id}";
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";

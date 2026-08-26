@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.Pricing;
 using Qalam.Data.Entity.Student;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -72,7 +73,59 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     }
 
     public bool IsEligiblePackage(bool isGroup, int sessionCount) =>
-        !isGroup && sessionCount == 1;
+        sessionCount >= 1;
+
+    /// <summary>
+    /// First-session student credit: minutes/60 × pricePerHour, capped at package total.
+    /// </summary>
+    public static decimal ComputeFreeSessionCredit(
+        decimal pricePerHour,
+        int firstSessionMinutes,
+        decimal packageTotal)
+    {
+        if (pricePerHour <= 0 || firstSessionMinutes <= 0 || packageTotal <= 0)
+            return 0m;
+        var raw = Math.Round(
+            pricePerHour * firstSessionMinutes / 60m,
+            2,
+            MidpointRounding.AwayFromZero);
+        return Math.Min(packageTotal, raw);
+    }
+
+    /// <summary>
+    /// Model B: reduce student payable by first-session credit; adjust snapshot shares.
+    /// Returns net amount due and the credit applied.
+    /// </summary>
+    public static (decimal AmountDue, decimal FreeSessionCredit) ApplyFreeTrialToSnapshot(
+        PricingSnapshot snapshot,
+        decimal grossPackageTotal,
+        int firstSessionMinutes)
+    {
+        var pricePerHour = snapshot.PricePerHour;
+        var credit = ComputeFreeSessionCredit(pricePerHour, firstSessionMinutes, grossPackageTotal);
+        var amountDue = Math.Max(0m, Math.Round(grossPackageTotal - credit, 2, MidpointRounding.AwayFromZero));
+
+        snapshot.TotalPrice = amountDue;
+
+        var interviewPending = snapshot.TeacherSharePct <= 0m;
+        if (interviewPending)
+        {
+            // Whole package still unpaid for teacher until interview unlocks (existing engine rule).
+            snapshot.TeacherEarnings = 0m;
+            snapshot.PlatformShare = amountDue;
+        }
+        else
+        {
+            // Keep full notional teacher earnings; platform bears free-session portion vs student net.
+            snapshot.PlatformShare = Math.Round(
+                amountDue - snapshot.TeacherEarnings,
+                2,
+                MidpointRounding.AwayFromZero);
+        }
+
+        snapshot.UpdatedAt = DateTime.UtcNow;
+        return (amountDue, credit);
+    }
 
     public async Task<bool> IsStudentEligibleForFreeTrialAsync(
         int studentId,

@@ -88,6 +88,7 @@ namespace Qalam.Service
             services.AddTransient<ISessionPresenceService, SessionPresenceService>();
             services.AddTransient<ISessionReviewService, SessionReviewService>();
             services.AddTransient<IRefundService, RefundService>();
+            services.AddTransient<IAdminEnrollmentQueryService, AdminEnrollmentQueryService>();
             services.AddTransient<IEnrollmentCancellationService, EnrollmentCancellationService>();
             services.AddTransient<IEnrollmentCompletionService, EnrollmentCompletionService>();
             services.AddTransient<ITeacherEarningService, TeacherEarningService>();
