@@ -194,6 +194,8 @@ public class EducationDomainsSeeder
         await EnsureWave1DomainsAsync(context);
         await EnsureExcelCoreDomainsAsync(context);
         await EnsureShariaDomainAsync(context);
+        // Full canonical rule patch runs again after duplicate remediation in DatabaseSeeder.
+        await EnsureCanonicalExcelRulesAsync(context);
 
         // Backfill university institutional rule flags on existing DBs
         var universityDomain = await context.EducationDomains
@@ -440,6 +442,43 @@ public class EducationDomainsSeeder
                 rule.UpdatedAt = DateTime.UtcNow;
                 dirtyAny = true;
             }
+        }
+
+        if (dirtyAny)
+            await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Ensures Wave-1 + sharia domains have Excel stacked-filter flags (one-way patch).
+    /// Safe after prod merge when keeper rows missed donor EducationRule.
+    /// </summary>
+    public static async Task EnsureCanonicalExcelRulesAsync(ApplicationDBContext context)
+    {
+        var domains = await context.EducationDomains
+            .Include(d => d.EducationRule)
+            .Where(d => d.IsActive &&
+                        (EducationDomainCodes.Wave1SplitFromSkills.Contains(d.Code) ||
+                         d.Code == EducationDomainCodes.Sharia))
+            .ToListAsync();
+
+        var dirtyAny = false;
+        var now = DateTime.UtcNow;
+        foreach (var domain in domains)
+        {
+            if (!CanonicalEducationRuleHelper.IsCanonicalExcelCode(domain.Code))
+                continue;
+
+            if (domain.EducationRule is null)
+            {
+                var rule = CanonicalEducationRuleHelper.CreateRuleForCode(domain.Code, domain.Id, now);
+                context.EducationRules.Add(rule);
+                domain.EducationRule = rule;
+                dirtyAny = true;
+                continue;
+            }
+
+            if (CanonicalEducationRuleHelper.ApplyOneWayPatch(domain.EducationRule, domain.Code))
+                dirtyAny = true;
         }
 
         if (dirtyAny)

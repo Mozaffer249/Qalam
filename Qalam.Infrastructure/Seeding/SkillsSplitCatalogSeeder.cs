@@ -200,53 +200,72 @@ public static class SkillsSplitCatalogSeeder
 
     private static async Task SeedSubjectsAsync(ApplicationDBContext context, EducationDomain domain)
     {
-        if (await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == domain.Id))
-            return;
-
         switch (domain.Code)
         {
             case EducationDomainCodes.SoftSkills:
-                await SeedTreeAsync(context, domain.Id, SoftCategories());
+                await EnsureTreeAsync(context, domain.Id, SoftCategories());
                 break;
             case EducationDomainCodes.LifeSkills:
-                await SeedTreeAsync(context, domain.Id, LifeCategories());
+                await EnsureTreeAsync(context, domain.Id, LifeCategories());
                 break;
             case EducationDomainCodes.Hobbies:
-                await SeedTreeAsync(context, domain.Id, HobbyCategories());
+                await EnsureTreeAsync(context, domain.Id, HobbyCategories());
                 break;
             case EducationDomainCodes.TechSkills:
-                await SeedFlatAsync(context, domain.Id, TechPaths());
+                await EnsureFlatAsync(context, domain.Id, TechPaths());
                 break;
             case EducationDomainCodes.Finance:
-                await SeedFlatAsync(context, domain.Id, [("finance.root", "المال والاستثمار", "Money and Investment")]);
+                await EnsureFlatAsync(context, domain.Id,
+                    [("finance.root", "المال والاستثمار", "Money and Investment")]);
                 break;
             case EducationDomainCodes.Knowledge:
-                await SeedFlatAsync(context, domain.Id, KnowledgeFields());
+                await EnsureFlatAsync(context, domain.Id, KnowledgeFields());
                 break;
         }
     }
 
-    private static async Task SeedTreeAsync(
+    private static async Task EnsureTreeAsync(
         ApplicationDBContext context,
         int domainId,
         IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> categories)
     {
+        var existingCodes = await context.Subjects
+            .Where(s => s.DomainId == domainId && s.Code != null)
+            .Select(s => s.Code!)
+            .ToListAsync();
+        var have = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+        var addedAny = false;
+
         foreach (var (code, ar, en, children) in categories)
         {
-            var parent = new Subject
+            Subject parent;
+            if (have.Contains(code))
             {
-                DomainId = domainId,
-                Code = code,
-                NameAr = ar,
-                NameEn = en,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.Subjects.Add(parent);
-            await context.SaveChangesAsync();
+                parent = await context.Subjects
+                    .FirstAsync(s => s.DomainId == domainId && s.Code == code);
+            }
+            else
+            {
+                parent = new Subject
+                {
+                    DomainId = domainId,
+                    Code = code,
+                    NameAr = ar,
+                    NameEn = en,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Subjects.Add(parent);
+                await context.SaveChangesAsync();
+                have.Add(code);
+                addedAny = true;
+            }
 
             foreach (var child in children)
             {
+                if (have.Contains(child.Code))
+                    continue;
+
                 context.Subjects.Add(new Subject
                 {
                     DomainId = domainId,
@@ -257,19 +276,32 @@ public static class SkillsSplitCatalogSeeder
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
+                have.Add(child.Code);
+                addedAny = true;
             }
-
-            await context.SaveChangesAsync();
         }
+
+        if (addedAny)
+            await context.SaveChangesAsync();
     }
 
-    private static async Task SeedFlatAsync(
+    private static async Task EnsureFlatAsync(
         ApplicationDBContext context,
         int domainId,
         IReadOnlyList<(string Code, string Ar, string En)> items)
     {
+        var existingCodes = await context.Subjects
+            .Where(s => s.DomainId == domainId && s.Code != null)
+            .Select(s => s.Code!)
+            .ToListAsync();
+        var have = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+        var addedAny = false;
+
         foreach (var item in items)
         {
+            if (have.Contains(item.Code))
+                continue;
+
             context.Subjects.Add(new Subject
             {
                 DomainId = domainId,
@@ -279,9 +311,12 @@ public static class SkillsSplitCatalogSeeder
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
+            have.Add(item.Code);
+            addedAny = true;
         }
 
-        await context.SaveChangesAsync();
+        if (addedAny)
+            await context.SaveChangesAsync();
     }
 
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, EducationDomain domain)

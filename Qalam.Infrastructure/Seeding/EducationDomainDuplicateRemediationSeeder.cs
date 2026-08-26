@@ -84,6 +84,8 @@ public static class EducationDomainDuplicateRemediationSeeder
 
         await ReactivateCustomQuestionsAsync(context, keepersReceivingCanonical, logger);
 
+        await EducationDomainsSeeder.EnsureCanonicalExcelRulesAsync(context);
+
         await context.SaveChangesAsync();
     }
 
@@ -196,7 +198,7 @@ public static class EducationDomainDuplicateRemediationSeeder
             keepersReceivingCanonical.Add(keeper.Id);
         }
 
-        MergeRules(keeper.EducationRule, donor.EducationRule);
+        MergeRules(context, keeper, donor, preferredCanonical ?? keeper.Code);
 
         await RemapDomainIdAsync(context, donor.Id, keeper.Id);
         await MergeTeacherDomainQuestionsAsync(context, donor.Id, keeper.Id);
@@ -211,12 +213,47 @@ public static class EducationDomainDuplicateRemediationSeeder
         await context.SaveChangesAsync();
     }
 
-    private static void MergeRules(EducationRule? keeper, EducationRule? donor)
+    private static void MergeRules(
+        ApplicationDBContext context,
+        EducationDomain keeper,
+        EducationDomain donor,
+        string canonicalCode)
     {
-        if (keeper is null || donor is null)
-            return;
+        var keeperRule = keeper.EducationRule;
+        var donorRule = donor.EducationRule;
 
-        // Adopt sequence flags from donor (newer Excel rules) without wiping keeper notes.
+        if (keeperRule is null && donorRule is not null)
+        {
+            donorRule.DomainId = keeper.Id;
+            keeper.EducationRule = donorRule;
+            keeper.UpdatedAt = DateTime.UtcNow;
+            return;
+        }
+
+        if (keeperRule is null && donorRule is null)
+        {
+            if (!CanonicalEducationRuleHelper.IsCanonicalExcelCode(canonicalCode))
+                return;
+
+            var rule = CanonicalEducationRuleHelper.CreateRuleForCode(
+                canonicalCode,
+                keeper.Id,
+                DateTime.UtcNow);
+            context.EducationRules.Add(rule);
+            keeper.EducationRule = rule;
+            keeper.UpdatedAt = DateTime.UtcNow;
+            return;
+        }
+
+        if (keeperRule is not null && donorRule is not null)
+            MergeRuleFlags(keeperRule, donorRule);
+
+        if (keeperRule is not null && CanonicalEducationRuleHelper.IsCanonicalExcelCode(canonicalCode))
+            CanonicalEducationRuleHelper.ApplyOneWayPatch(keeperRule, canonicalCode);
+    }
+
+    private static void MergeRuleFlags(EducationRule keeper, EducationRule donor)
+    {
         keeper.HasCurriculum = keeper.HasCurriculum || donor.HasCurriculum;
         keeper.HasEducationLevel = keeper.HasEducationLevel || donor.HasEducationLevel;
         keeper.HasGrade = keeper.HasGrade || donor.HasGrade;

@@ -65,3 +65,17 @@ LEFT JOIN teacher.TeacherDomainQuestions q ON q.DomainId = d.Id
 WHERE d.IsActive = 1
   AND d.Code IN (N'knowledge', N'university', N'soft-skills')
 GROUP BY d.Id, d.Code;
+
+-- 9) life-skills / sharia: stacked UI requires rule flags + Excel catalog rows
+SELECT d.Id, d.Code,
+       r.HasParentSubject,
+       r.EducationLevelAfterSubject,
+       SUM(CASE WHEN s.ParentSubjectId IS NULL THEN 1 ELSE 0 END) AS RootSubjects,
+       SUM(CASE WHEN s.Code LIKE N'life.%' OR s.Code LIKE N'sharia.%' THEN 1 ELSE 0 END) AS ExcelCatalogRows
+FROM education.EducationDomains d
+JOIN teaching.EducationRules r ON r.DomainId = d.Id
+LEFT JOIN education.Subjects s ON s.DomainId = d.Id AND s.IsActive = 1
+WHERE d.IsActive = 1
+  AND d.Code IN (N'life-skills', N'sharia')
+GROUP BY d.Id, d.Code, r.HasParentSubject, r.EducationLevelAfterSubject;
+-- Expected: HasParentSubject=1, EducationLevelAfterSubject=1, ExcelCatalogRows > 0

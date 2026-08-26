@@ -16,6 +16,7 @@ public class DatabaseSeeder
         await TeacherRegistrationRequirementsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);
         await EducationDomainDuplicateRemediationSeeder.SeedAsync(context);
+        await EducationDomainsSeeder.EnsureCanonicalExcelRulesAsync(context);
         await TeacherDomainQuestionsSeeder.SeedAsync(context);
         await CurriculumsSeeder.SeedAsync(context);
         await TeachingModesSeeder.SeedAsync(context);

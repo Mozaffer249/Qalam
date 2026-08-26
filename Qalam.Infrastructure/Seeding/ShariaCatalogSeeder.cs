@@ -55,52 +55,78 @@ public static class ShariaCatalogSeeder
 
     private static async Task SeedSubjectsAsync(ApplicationDBContext context, int domainId)
     {
-        if (await SeederHelper.HasAnyDataAsync(context.Subjects, s => s.DomainId == domainId))
-            return;
+        await EnsureTreeAsync(context, domainId, ShariaCategories());
+    }
 
-        var categories = new (string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)[]
-        {
-            ("sharia.category.sharia-sciences", "العلوم الشرعية", "Sharia sciences",
-            [
-                ("sharia.spec.aqidah", "العقيدة", "Aqidah"),
-                ("sharia.spec.fiqh", "الفقه", "Fiqh"),
-                ("sharia.spec.usul-fiqh", "أصول الفقه", "Usul al-Fiqh"),
-                ("sharia.spec.hadith", "الحديث", "Hadith"),
-                ("sharia.spec.mustalah", "مصطلح الحديث", "Hadith terminology"),
-                ("sharia.spec.tafsir", "التفسير", "Tafsir"),
-                ("sharia.spec.seerah", "السيرة النبوية", "Prophetic biography"),
-                ("sharia.spec.akhlaq", "الأخلاق والآداب الإسلامية", "Islamic ethics and manners")
-            ]),
-            ("sharia.category.arabic-sciences", "علوم اللغة العربية", "Arabic language sciences",
-            [
-                ("sharia.spec.nahw", "النحو", "Nahw"),
-                ("sharia.spec.sarf", "الصرف", "Sarf"),
-                ("sharia.spec.balagha", "البلاغة", "Balagha"),
-                ("sharia.spec.matn-lugha", "متن اللغة", "Lexicon matn"),
-                ("sharia.spec.adab", "الأدب والشعر", "Literature and poetry"),
-                ("sharia.spec.arud", "العروض", "Prosody"),
-                ("sharia.spec.imla", "الإملاء", "Spelling"),
-                ("sharia.spec.taabeer", "التعبير", "Composition"),
-                ("sharia.spec.khat", "الخط العربي", "Arabic calligraphy")
-            ])
-        };
+    private static IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> ShariaCategories() =>
+    [
+        ("sharia.category.sharia-sciences", "العلوم الشرعية", "Sharia sciences",
+        [
+            ("sharia.spec.aqidah", "العقيدة", "Aqidah"),
+            ("sharia.spec.fiqh", "الفقه", "Fiqh"),
+            ("sharia.spec.usul-fiqh", "أصول الفقه", "Usul al-Fiqh"),
+            ("sharia.spec.hadith", "الحديث", "Hadith"),
+            ("sharia.spec.mustalah", "مصطلح الحديث", "Hadith terminology"),
+            ("sharia.spec.tafsir", "التفسير", "Tafsir"),
+            ("sharia.spec.seerah", "السيرة النبوية", "Prophetic biography"),
+            ("sharia.spec.akhlaq", "الأخلاق والآداب الإسلامية", "Islamic ethics and manners")
+        ]),
+        ("sharia.category.arabic-sciences", "علوم اللغة العربية", "Arabic language sciences",
+        [
+            ("sharia.spec.nahw", "النحو", "Nahw"),
+            ("sharia.spec.sarf", "الصرف", "Sarf"),
+            ("sharia.spec.balagha", "البلاغة", "Balagha"),
+            ("sharia.spec.matn-lugha", "متن اللغة", "Lexicon matn"),
+            ("sharia.spec.adab", "الأدب والشعر", "Literature and poetry"),
+            ("sharia.spec.arud", "العروض", "Prosody"),
+            ("sharia.spec.imla", "الإملاء", "Spelling"),
+            ("sharia.spec.taabeer", "التعبير", "Composition"),
+            ("sharia.spec.khat", "الخط العربي", "Arabic calligraphy")
+        ])
+    ];
+
+    private static async Task EnsureTreeAsync(
+        ApplicationDBContext context,
+        int domainId,
+        IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> categories)
+    {
+        var existingCodes = await context.Subjects
+            .Where(s => s.DomainId == domainId && s.Code != null)
+            .Select(s => s.Code!)
+            .ToListAsync();
+        var have = new HashSet<string>(existingCodes, StringComparer.OrdinalIgnoreCase);
+        var addedAny = false;
 
         foreach (var (code, ar, en, children) in categories)
         {
-            var parent = new Subject
+            Subject parent;
+            if (have.Contains(code))
             {
-                DomainId = domainId,
-                Code = code,
-                NameAr = ar,
-                NameEn = en,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.Subjects.Add(parent);
-            await context.SaveChangesAsync();
+                parent = await context.Subjects
+                    .FirstAsync(s => s.DomainId == domainId && s.Code == code);
+            }
+            else
+            {
+                parent = new Subject
+                {
+                    DomainId = domainId,
+                    Code = code,
+                    NameAr = ar,
+                    NameEn = en,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                context.Subjects.Add(parent);
+                await context.SaveChangesAsync();
+                have.Add(code);
+                addedAny = true;
+            }
 
             foreach (var child in children)
             {
+                if (have.Contains(child.Code))
+                    continue;
+
                 context.Subjects.Add(new Subject
                 {
                     DomainId = domainId,
@@ -111,10 +137,13 @@ public static class ShariaCatalogSeeder
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
+                have.Add(child.Code);
+                addedAny = true;
             }
-
-            await context.SaveChangesAsync();
         }
+
+        if (addedAny)
+            await context.SaveChangesAsync();
     }
 
     private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)

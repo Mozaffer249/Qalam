@@ -376,4 +376,82 @@ public class EducationDomainDuplicateRemediationSeederTests
         Assert.Contains(approvals, a => a.TeacherId == 1);
         Assert.Contains(approvals, a => a.TeacherId == 2);
     }
+
+    [Fact]
+    public async Task Explicit_LifeSkills_Keeper_Without_Rule_Adopts_Donor_Stacked_Rule()
+    {
+        await using var db = CreateDb();
+        db.EducationDomains.AddRange(
+            new EducationDomain
+            {
+                Id = 6,
+                Code = "818",
+                NameAr = "المهارات الحياتية وتطوير الذات",
+                NameEn = "Life legacy",
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 6, 9),
+            },
+            new EducationDomain
+            {
+                Id = 1011,
+                Code = EducationDomainCodes.LifeSkills,
+                NameAr = "المهارات الحياتية وتطوير الذات",
+                NameEn = "Life Skills and Self-Development",
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 8, 25),
+                EducationRule = new EducationRule
+                {
+                    HasParentSubject = true,
+                    HasEducationLevel = true,
+                    EducationLevelAfterSubject = true,
+                    HasWritableFilters = true,
+                    RulesConfigured = true,
+                    CreatedAt = DateTime.UtcNow,
+                },
+            });
+        db.TeacherDomainQuestions.Add(CustomQ(6, "legacy_q", isActive: true));
+        await db.SaveChangesAsync();
+
+        await EducationDomainDuplicateRemediationSeeder.SeedAsync(db);
+
+        var keeper = await db.EducationDomains
+            .Include(d => d.EducationRule)
+            .SingleAsync(d => d.Id == 6);
+        Assert.Equal(EducationDomainCodes.LifeSkills, keeper.Code);
+        Assert.NotNull(keeper.EducationRule);
+        Assert.True(keeper.EducationRule!.HasParentSubject);
+        Assert.True(keeper.EducationRule.EducationLevelAfterSubject);
+        Assert.False((await db.EducationDomains.SingleAsync(d => d.Id == 1011)).IsActive);
+    }
+
+    [Fact]
+    public async Task EnsureCanonicalExcelRules_Patches_LifeSkills_After_Merge()
+    {
+        await using var db = CreateDb();
+        db.EducationDomains.Add(new EducationDomain
+        {
+            Code = EducationDomainCodes.LifeSkills,
+            NameAr = "المهارات الحياتية",
+            NameEn = "Life",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            EducationRule = new EducationRule
+            {
+                HasContentUnits = true,
+                RulesConfigured = true,
+                CreatedAt = DateTime.UtcNow,
+            },
+        });
+        await db.SaveChangesAsync();
+
+        await EducationDomainsSeeder.EnsureCanonicalExcelRulesAsync(db);
+
+        var rule = (await db.EducationDomains
+            .Include(d => d.EducationRule)
+            .SingleAsync()).EducationRule!;
+        Assert.True(rule.HasParentSubject);
+        Assert.True(rule.HasEducationLevel);
+        Assert.True(rule.EducationLevelAfterSubject);
+        Assert.True(rule.HasWritableFilters);
+    }
 }
