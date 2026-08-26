@@ -142,7 +142,7 @@ public class EducationFilterService : IEducationFilterService
         // School: Curriculum → Level → Grade → Subject → Term → Units
         // Language: Subject → Level → Grade → Writables → Done
         // ========================================
-        return await DetermineStandardNextStepAsync(state, rule, domainId);
+        return await DetermineStandardNextStepAsync(state, rule, domain);
     }
 
     /// <summary>
@@ -319,8 +319,9 @@ public class EducationFilterService : IEducationFilterService
     private async Task<FilterStepResult> DetermineStandardNextStepAsync(
         FilterStateDto state,
         EducationRule rule,
-        int domainId)
+        EducationDomain domain)
     {
+        var domainId = domain.Id;
         // University institutional prefix
         if (rule.HasUniversity && !state.UniversityId.HasValue)
         {
@@ -396,6 +397,7 @@ public class EducationFilterService : IEducationFilterService
                 termId: null,
                 academicProgramId: state.AcademicProgramId,
                 parentsOnly: true);
+            parents = FilterShariaParentSubjects(domain, parents);
             return new FilterStepResult { NextStep = "ParentSubject", Options = parents };
         }
 
@@ -640,5 +642,20 @@ public class EducationFilterService : IEducationFilterService
         }
 
         return null;
+    }
+
+    private static List<FilterOptionDto> FilterShariaParentSubjects(EducationDomain domain, List<FilterOptionDto> parents)
+    {
+        if (!string.Equals(domain.Code, EducationDomainCodes.Sharia, StringComparison.OrdinalIgnoreCase))
+            return parents;
+
+        var hasExcelCategories = parents.Any(p =>
+            p.Code?.StartsWith("sharia.category.", StringComparison.OrdinalIgnoreCase) == true);
+        if (!hasExcelCategories)
+            return parents;
+
+        return parents
+            .Where(p => p.Code?.StartsWith("sharia.category.", StringComparison.OrdinalIgnoreCase) == true)
+            .ToList();
     }
 }

@@ -11,6 +11,14 @@ namespace Qalam.Infrastructure.Seeding;
 /// </summary>
 public static class ShariaCatalogSeeder
 {
+    private const string ExcelCategoryMarker = "sharia.category.sharia-sciences";
+
+    private static readonly string[] CanonicalWritableSlotCodes =
+    [
+        WritableFilterSlotCodes.ShariaEducationType,
+        WritableFilterSlotCodes.ShariaBook,
+    ];
+
     public static async Task SeedAsync(ApplicationDBContext context)
     {
         var domain = await context.EducationDomains
@@ -18,44 +26,61 @@ public static class ShariaCatalogSeeder
         if (domain is null)
             return;
 
-        await SeedLevelsAsync(context, domain.Id);
-        await SeedSubjectsAsync(context, domain.Id);
-        await SeedWritableSlotsAsync(context, domain.Id);
+        await EnsureLevelsAsync(context, domain.Id);
+        await EnsureSubjectsAsync(context, domain.Id);
+        await EnsureWritableSlotsAsync(context, domain.Id);
     }
 
-    private static async Task SeedLevelsAsync(ApplicationDBContext context, int domainId)
-    {
-        if (await SeederHelper.HasAnyDataAsync(context.EducationLevels, l => l.DomainId == domainId))
-            return;
+    private static (string Ar, string En)[] ExcelLevels() =>
+    [
+        ("طلبة العلم المبتدئين", "Beginner students of knowledge"),
+        ("طلبة العلم المتوسطين", "Intermediate students of knowledge"),
+        ("الأطفال", "Children"),
+        ("الأعاجم (غير المتحدثين بالعربية)", "Non-Arabic speakers"),
+        ("المسلمون الجدد", "New Muslims")
+    ];
 
-        var levels = new (string Ar, string En)[]
-        {
-            ("طلبة العلم المبتدئين", "Beginner students of knowledge"),
-            ("طلبة العلم المتوسطين", "Intermediate students of knowledge"),
-            ("الأطفال", "Children"),
-            ("الأعاجم (غير المتحدثين بالعربية)", "Non-Arabic speakers"),
-            ("المسلمون الجدد", "New Muslims")
-        };
+    private static async Task EnsureLevelsAsync(ApplicationDBContext context, int domainId)
+    {
+        var levels = ExcelLevels();
+        var existing = await context.EducationLevels
+            .Where(l => l.DomainId == domainId)
+            .ToListAsync();
+        var byNameEn = existing.ToDictionary(l => l.NameEn, StringComparer.OrdinalIgnoreCase);
+        var dirty = false;
 
         for (var i = 0; i < levels.Length; i++)
         {
+            var (ar, en) = levels[i];
+            var order = i + 1;
+            if (byNameEn.TryGetValue(en, out var level))
+            {
+                if (!level.IsActive) { level.IsActive = true; dirty = true; }
+                if (level.OrderIndex != order) { level.OrderIndex = order; dirty = true; }
+                if (level.NameAr != ar) { level.NameAr = ar; dirty = true; }
+                continue;
+            }
+
             context.EducationLevels.Add(new EducationLevel
             {
                 DomainId = domainId,
-                NameAr = levels[i].Ar,
-                NameEn = levels[i].En,
-                OrderIndex = i + 1,
+                NameAr = ar,
+                NameEn = en,
+                OrderIndex = order,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
+            dirty = true;
         }
 
-        await context.SaveChangesAsync();
+        if (dirty)
+            await context.SaveChangesAsync();
     }
 
-    private static async Task SeedSubjectsAsync(ApplicationDBContext context, int domainId)
+    private static async Task EnsureSubjectsAsync(ApplicationDBContext context, int domainId)
     {
         await EnsureTreeAsync(context, domainId, ShariaCategories());
+        await DeactivateLegacyShariaRootsAsync(context, domainId);
     }
 
     private static IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> ShariaCategories() =>
@@ -84,6 +109,35 @@ public static class ShariaCatalogSeeder
             ("sharia.spec.khat", "الخط العربي", "Arabic calligraphy")
         ])
     ];
+
+    private static async Task DeactivateLegacyShariaRootsAsync(ApplicationDBContext context, int domainId)
+    {
+        var hasExcelMarker = await context.Subjects.AnyAsync(s =>
+            s.DomainId == domainId &&
+            s.IsActive &&
+            s.Code == ExcelCategoryMarker);
+        if (!hasExcelMarker)
+            return;
+
+        var legacyRoots = await context.Subjects
+            .Where(s =>
+                s.DomainId == domainId &&
+                s.IsActive &&
+                s.ParentSubjectId == null &&
+                (s.Code == null || !s.Code.StartsWith("sharia.")))
+            .ToListAsync();
+
+        if (legacyRoots.Count == 0)
+            return;
+
+        foreach (var subject in legacyRoots)
+        {
+            subject.IsActive = false;
+            subject.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync();
+    }
 
     private static async Task EnsureTreeAsync(
         ApplicationDBContext context,
@@ -146,32 +200,45 @@ public static class ShariaCatalogSeeder
             await context.SaveChangesAsync();
     }
 
-    private static async Task SeedWritableSlotsAsync(ApplicationDBContext context, int domainId)
+    private static (string Code, string Ar, string En, int Order, bool Required, (string Code, string Ar, string En)[] Values)[] WritableSlotSpecs() =>
+    [
+        (WritableFilterSlotCodes.ShariaEducationType, "التعليم", "Education type", 1, true,
+        [
+            ("hifz", "حفظ وتسميع", "Memorization and audition"),
+            ("sharh", "شرح وتدريس", "Explanation and teaching")
+        ]),
+        (WritableFilterSlotCodes.ShariaBook, "الكتب والمتون أو الأبواب", "Books, mutun, or chapters", 2, false,
+        [
+            ("umdat-al-talib", "متن عمدة الطالب (باب الآنية)", "Umdat al-Talib (chapter of vessels)"),
+            ("zad-al-mustaqni", "زاد المستقنع", "Zad al-Mustaqni"),
+            ("dalil-al-talib", "دليل الطالب", "Dalil al-Talib"),
+            ("ajurrumiyya", "الأجرومية", "Al-Ajurrumiyya"),
+            ("qatar-al-nada", "قطر الندى", "Qatar al-Nada"),
+            ("alfiyyat-ibn-malik", "ألفية ابن مالك", "Alfiyyat Ibn Malik"),
+            ("al-bayquniyya", "البيقونية", "Al-Bayquniyya")
+        ])
+    ];
+
+    private static async Task EnsureWritableSlotsAsync(ApplicationDBContext context, int domainId)
     {
-        if (await SeederHelper.HasAnyDataAsync(context.WritableFilterSlots, s => s.DomainId == domainId))
-            return;
+        var hasExcelMarker = await context.Subjects.AnyAsync(s =>
+            s.DomainId == domainId &&
+            s.IsActive &&
+            s.Code == ExcelCategoryMarker);
 
-        var specs = new (string Code, string Ar, string En, int Order, bool Required, (string Code, string Ar, string En)[] Values)[]
-        {
-            (WritableFilterSlotCodes.ShariaEducationType, "التعليم", "Education type", 1, true,
-            [
-                ("hifz", "حفظ وتسميع", "Memorization and audition"),
-                ("sharh", "شرح وتدريس", "Explanation and teaching")
-            ]),
-            (WritableFilterSlotCodes.ShariaBook, "الكتب والمتون أو الأبواب", "Books, mutun, or chapters", 2, false,
-            [
-                ("umdat-al-talib", "متن عمدة الطالب (باب الآنية)", "Umdat al-Talib (chapter of vessels)"),
-                ("zad-al-mustaqni", "زاد المستقنع", "Zad al-Mustaqni"),
-                ("dalil-al-talib", "دليل الطالب", "Dalil al-Talib"),
-                ("ajurrumiyya", "الأجرومية", "Al-Ajurrumiyya"),
-                ("qatar-al-nada", "قطر الندى", "Qatar al-Nada"),
-                ("alfiyyat-ibn-malik", "ألفية ابن مالك", "Alfiyyat Ibn Malik"),
-                ("al-bayquniyya", "البيقونية", "Al-Bayquniyya")
-            ])
-        };
+        var canonicalSet = new HashSet<string>(CanonicalWritableSlotCodes, StringComparer.OrdinalIgnoreCase);
+        var existingSlots = await context.WritableFilterSlots
+            .Where(s => s.DomainId == domainId)
+            .ToListAsync();
+        var have = existingSlots
+            .Select(s => s.Code)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var spec in specs)
+        foreach (var spec in WritableSlotSpecs())
         {
+            if (have.Contains(spec.Code))
+                continue;
+
             var slot = new WritableFilterSlot
             {
                 DomainId = domainId,
@@ -204,5 +271,19 @@ public static class ShariaCatalogSeeder
 
             await context.SaveChangesAsync();
         }
+
+        if (!hasExcelMarker)
+            return;
+
+        var dirty = false;
+        foreach (var slot in existingSlots.Where(s => s.IsActive && !canonicalSet.Contains(s.Code)))
+        {
+            slot.IsActive = false;
+            slot.UpdatedAt = DateTime.UtcNow;
+            dirty = true;
+        }
+
+        if (dirty)
+            await context.SaveChangesAsync();
     }
 }

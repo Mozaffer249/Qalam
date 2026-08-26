@@ -79,3 +79,22 @@ WHERE d.IsActive = 1
   AND d.Code IN (N'life-skills', N'sharia')
 GROUP BY d.Id, d.Code, r.HasParentSubject, r.EducationLevelAfterSubject;
 -- Expected: HasParentSubject=1, EducationLevelAfterSubject=1, ExcelCatalogRows > 0
+
+-- 10) sharia sequence: root categories (expect 2 Excel parents only)
+SELECT Id, Code, NameAr, ParentSubjectId, IsActive
+FROM education.Subjects
+WHERE DomainId = (SELECT Id FROM education.EducationDomains WHERE Code = N'sharia' AND IsActive = 1)
+  AND ParentSubjectId IS NULL
+ORDER BY Code;
+
+-- 11) sharia levels (expect 5 Excel audience levels)
+SELECT Id, NameEn, OrderIndex, IsActive
+FROM education.EducationLevels
+WHERE DomainId = (SELECT Id FROM education.EducationDomains WHERE Code = N'sharia' AND IsActive = 1)
+ORDER BY OrderIndex;
+
+-- 12) sharia writable slots (expect sharia.education_type + sharia.book active)
+SELECT Code, OrderIndex, AfterStep, IsActive
+FROM education.WritableFilterSlots
+WHERE DomainId = (SELECT Id FROM education.EducationDomains WHERE Code = N'sharia' AND IsActive = 1)
+ORDER BY OrderIndex;
