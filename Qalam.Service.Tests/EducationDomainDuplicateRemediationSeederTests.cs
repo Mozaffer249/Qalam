@@ -308,4 +308,72 @@ public class EducationDomainDuplicateRemediationSeederTests
         Assert.False((await db.EducationDomains.SingleAsync(d => d.Id == 15)).IsActive);
         Assert.True((await db.EducationDomains.SingleAsync(d => d.Id == 1)).IsActive);
     }
+
+    [Fact]
+    public async Task Remap_Dedups_Curriculum_NameEn_And_Drops_Duplicate_Approvals()
+    {
+        await using var db = CreateDb();
+        db.EducationDomains.AddRange(
+            Domain(10, "csacscd", "المهارات العملية والناعمة", "soft", new DateTime(2026, 7, 11)),
+            Domain(1010, EducationDomainCodes.SoftSkills, "المهارات العملية والناعمة", "Soft Skills", new DateTime(2026, 8, 25),
+                r => r.HasParentSubject = true));
+        db.TeacherDomainQuestions.Add(CustomQ(10, "skills", isActive: true));
+        db.Curriculums.AddRange(
+            new Curriculum
+            {
+                DomainId = 10,
+                NameAr = "عام",
+                NameEn = "General",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            },
+            new Curriculum
+            {
+                DomainId = 1010,
+                NameAr = "عام",
+                NameEn = "General",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+        db.TeacherDomainApprovals.AddRange(
+            new TeacherDomainApproval
+            {
+                TeacherId = 1,
+                DomainId = 10,
+                ApprovedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            },
+            new TeacherDomainApproval
+            {
+                TeacherId = 1,
+                DomainId = 1010,
+                ApprovedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            },
+            new TeacherDomainApproval
+            {
+                TeacherId = 2,
+                DomainId = 1010,
+                ApprovedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            });
+        await db.SaveChangesAsync();
+
+        await EducationDomainDuplicateRemediationSeeder.SeedAsync(db);
+
+        Assert.Equal(EducationDomainCodes.SoftSkills,
+            (await db.EducationDomains.SingleAsync(d => d.Id == 10)).Code);
+        Assert.False((await db.EducationDomains.SingleAsync(d => d.Id == 1010)).IsActive);
+
+        var curricula = await db.Curriculums.Where(c => c.DomainId == 10).ToListAsync();
+        Assert.Equal(2, curricula.Count);
+        Assert.Contains(curricula, c => c.NameEn == "General");
+        Assert.Contains(curricula, c => c.NameEn.Contains("-dup-", StringComparison.Ordinal));
+
+        var approvals = await db.TeacherDomainApprovals.Where(a => a.DomainId == 10).ToListAsync();
+        Assert.Equal(2, approvals.Count);
+        Assert.DoesNotContain(await db.TeacherDomainApprovals.ToListAsync(), a => a.DomainId == 1010);
+        Assert.Contains(approvals, a => a.TeacherId == 1);
+        Assert.Contains(approvals, a => a.TeacherId == 2);
+    }
 }

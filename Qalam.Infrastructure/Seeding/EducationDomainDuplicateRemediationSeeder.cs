@@ -259,6 +259,15 @@ public static class EducationDomainDuplicateRemediationSeeder
         keeper.UpdatedAt = DateTime.UtcNow;
     }
 
+    private static string DedupName(string name, int id, int maxLength)
+    {
+        var suffix = $"-dup-{id}";
+        if (name.Length + suffix.Length <= maxLength)
+            return name + suffix;
+        var keep = Math.Max(0, maxLength - suffix.Length);
+        return name[..keep] + suffix;
+    }
+
     private static async Task RemapDomainIdAsync(ApplicationDBContext context, int fromId, int toId)
     {
         // Subjects: rename colliding codes then move.
@@ -273,11 +282,11 @@ public static class EducationDomainDuplicateRemediationSeeder
         foreach (var subject in donorSubjects)
         {
             if (subject.Code != null && keeperSubjectCodeSet.Contains(subject.Code))
-                subject.Code = $"{subject.Code}-dup-{subject.Id}";
+                subject.Code = DedupName(subject.Code, subject.Id, 80);
             subject.DomainId = toId;
         }
 
-        // Writable slots
+        // Writable slots — unique (DomainId, Code)
         var keeperSlotCodes = await context.WritableFilterSlots
             .Where(s => s.DomainId == toId)
             .Select(s => s.Code)
@@ -287,14 +296,39 @@ public static class EducationDomainDuplicateRemediationSeeder
         foreach (var slot in donorSlots)
         {
             if (keeperSlotSet.Contains(slot.Code))
-                slot.Code = $"{slot.Code}-dup-{slot.Id}";
+                slot.Code = DedupName(slot.Code, slot.Id, 80);
             slot.DomainId = toId;
         }
 
-        foreach (var row in await context.Curriculums.Where(c => c.DomainId == fromId).ToListAsync())
+        // Curriculums — unique (DomainId, NameEn)
+        var keeperCurriculumNames = await context.Curriculums
+            .Where(c => c.DomainId == toId)
+            .Select(c => c.NameEn)
+            .ToListAsync();
+        var keeperCurriculumNameSet = keeperCurriculumNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var donorCurriculums = await context.Curriculums.Where(c => c.DomainId == fromId).ToListAsync();
+        foreach (var row in donorCurriculums)
+        {
+            if (keeperCurriculumNameSet.Contains(row.NameEn))
+                row.NameEn = DedupName(row.NameEn, row.Id, 100);
             row.DomainId = toId;
-        foreach (var row in await context.EducationLevels.Where(l => l.DomainId == fromId).ToListAsync())
+        }
+
+        // EducationLevels — unique (DomainId, CurriculumId, NameEn)
+        var keeperLevelKeys = (await context.EducationLevels
+                .Where(l => l.DomainId == toId)
+                .Select(l => new { l.CurriculumId, l.NameEn })
+                .ToListAsync())
+            .Select(l => $"{l.CurriculumId?.ToString() ?? "null"}|{l.NameEn}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var donorLevels = await context.EducationLevels.Where(l => l.DomainId == fromId).ToListAsync();
+        foreach (var row in donorLevels)
+        {
+            var key = $"{row.CurriculumId?.ToString() ?? "null"}|{row.NameEn}";
+            if (keeperLevelKeys.Contains(key))
+                row.NameEn = DedupName(row.NameEn, row.Id, 100);
             row.DomainId = toId;
+        }
 
         var keeperModeIds = await context.DomainTeachingModes
             .Where(x => x.DomainId == toId)
@@ -314,10 +348,35 @@ public static class EducationDomainDuplicateRemediationSeeder
             row.DomainId = toId;
         foreach (var row in await context.PricingSnapshots.Where(x => x.DomainId == fromId).ToListAsync())
             row.DomainId = toId;
+
+        // TeacherDomainApprovals — unique (TeacherId, DomainId): keep keeper, drop donor twin
+        var keeperApprovalTeacherIds = (await context.TeacherDomainApprovals
+                .Where(x => x.DomainId == toId)
+                .Select(x => x.TeacherId)
+                .ToListAsync())
+            .ToHashSet();
         foreach (var row in await context.TeacherDomainApprovals.Where(x => x.DomainId == fromId).ToListAsync())
-            row.DomainId = toId;
+        {
+            if (keeperApprovalTeacherIds.Contains(row.TeacherId))
+                context.TeacherDomainApprovals.Remove(row);
+            else
+                row.DomainId = toId;
+        }
+
+        // TeacherDomainPricings — unique (TeacherId, DomainId)
+        var keeperPricingTeacherIds = (await context.TeacherDomainPricings
+                .Where(x => x.DomainId == toId)
+                .Select(x => x.TeacherId)
+                .ToListAsync())
+            .ToHashSet();
         foreach (var row in await context.TeacherDomainPricings.Where(x => x.DomainId == fromId).ToListAsync())
-            row.DomainId = toId;
+        {
+            if (keeperPricingTeacherIds.Contains(row.TeacherId))
+                context.TeacherDomainPricings.Remove(row);
+            else
+                row.DomainId = toId;
+        }
+
         foreach (var row in await context.TeacherLevelUpgradeSuggestions.Where(x => x.DomainId == fromId).ToListAsync())
             row.DomainId = toId;
         foreach (var row in await context.Students.Where(x => x.DomainId == fromId).ToListAsync())
