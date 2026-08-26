@@ -323,13 +323,9 @@ public class EducationDomainsSeeder
         if (wave1Dirty)
             await context.SaveChangesAsync();
 
-        var skills = existing.FirstOrDefault(d => d.Code == EducationDomainCodes.Skills);
-        if (skills is { IsActive: true })
-        {
-            skills.IsActive = false;
-            skills.UpdatedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync();
-        }
+        // Do NOT auto-deactivate skills — approved DBs may keep it with custom questions.
+        // Legacy archive (when Wave-1 is complete and skills has no custom Qs) runs in
+        // EducationDomainDuplicateRemediationSeeder.
     }
 
     private static EducationDomain CreateShariaDomain(DateTime now) =>
@@ -419,16 +415,7 @@ public class EducationDomainsSeeder
                     if (rule.RequiresQuranLevel) { rule.RequiresQuranLevel = false; dirty = true; }
                     if (!rule.RequiresQuranContentType) { rule.RequiresQuranContentType = true; dirty = true; }
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
-                    if (domain.NameAr != "القرآن الكريم وعلومه")
-                    {
-                        domain.NameAr = "القرآن الكريم وعلومه";
-                        dirty = true;
-                    }
-                    if (domain.NameEn != "Quran and its sciences")
-                    {
-                        domain.NameEn = "Quran and its sciences";
-                        dirty = true;
-                    }
+                    // Keep approved NameAr/NameEn — do not overwrite display names from Excel seed.
                     break;
                 case "language":
                     if (!rule.HasEducationLevel) { rule.HasEducationLevel = true; dirty = true; }
@@ -451,8 +438,6 @@ public class EducationDomainsSeeder
             if (dirty)
             {
                 rule.UpdatedAt = DateTime.UtcNow;
-                if (domain.Code == "quran")
-                    domain.UpdatedAt = DateTime.UtcNow;
                 dirtyAny = true;
             }
         }

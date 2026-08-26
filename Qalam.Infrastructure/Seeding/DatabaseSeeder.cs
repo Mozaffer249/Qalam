@@ -15,6 +15,7 @@ public class DatabaseSeeder
         await NationalitiesSeeder.SeedAsync(context);
         await TeacherRegistrationRequirementsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);
+        await EducationDomainDuplicateRemediationSeeder.SeedAsync(context);
         await TeacherDomainQuestionsSeeder.SeedAsync(context);
         await CurriculumsSeeder.SeedAsync(context);
         await TeachingModesSeeder.SeedAsync(context);
