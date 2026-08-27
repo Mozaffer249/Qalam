@@ -216,7 +216,8 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     }
 
     /// <summary>
-    /// Model B: reduce student payable by first-session credit; adjust snapshot shares.
+    /// Model B: reduce student payable by first-session credit; unlocked teachers lose
+    /// first-session earnings (platform bears); interview-pending stays at 0 earnings.
     /// Returns net amount due and the credit applied.
     /// </summary>
     public static (decimal AmountDue, decimal FreeSessionCredit) ApplyFreeTrialToSnapshot(
@@ -239,7 +240,28 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
         }
         else
         {
-            // Keep full notional teacher earnings; platform bears free-session portion vs student net.
+            // Unlocked: teacher does not earn the lifetime free first session.
+            var notionalTeacher = snapshot.TeacherEarnings;
+            decimal firstTeacherShare;
+            if (snapshot.TotalMinutes > 0 && firstSessionMinutes > 0 && notionalTeacher > 0)
+            {
+                firstTeacherShare = Math.Round(
+                    notionalTeacher * firstSessionMinutes / (decimal)snapshot.TotalMinutes,
+                    2,
+                    MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                firstTeacherShare = Math.Round(
+                    credit * snapshot.TeacherSharePct / 100m,
+                    2,
+                    MidpointRounding.AwayFromZero);
+            }
+
+            snapshot.TeacherEarnings = Math.Max(0m, Math.Round(
+                notionalTeacher - firstTeacherShare,
+                2,
+                MidpointRounding.AwayFromZero));
             snapshot.PlatformShare = Math.Round(
                 amountDue - snapshot.TeacherEarnings,
                 2,

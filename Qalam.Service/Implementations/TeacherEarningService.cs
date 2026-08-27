@@ -52,20 +52,54 @@ public class TeacherEarningService : ITeacherEarningService
         var snapshot = enrollment.PricingSnapshot;
         var currency = snapshot?.Currency ?? "SAR";
         var packageEarnings = snapshot?.TeacherEarnings ?? 0m;
+
+        var siblingSchedules = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == enrollment.Id
+                        && s.Status != ScheduleStatus.Cancelled
+                        && s.Status != ScheduleStatus.Rescheduled)
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.Id)
+            .Select(s => new { s.Id, s.DurationMinutes, s.Date })
+            .ToListAsync(cancellationToken);
+
+        if (enrollment.IsFreeTrial && siblingSchedules.Count > 0)
+        {
+            var freeId = siblingSchedules[0].Id;
+            if (schedule.Id == freeId)
+            {
+                _logger.LogInformation(
+                    "Skipping teacher earning for free-trial first CourseSchedule {ScheduleId}.",
+                    courseScheduleId);
+                return;
+            }
+        }
+
         var totalMinutes = snapshot?.TotalMinutes ?? 0;
         if (totalMinutes <= 0)
+            totalMinutes = siblingSchedules.Sum(s => s.DurationMinutes);
+
+        var earnableMinutes = totalMinutes;
+        if (enrollment.IsFreeTrial && siblingSchedules.Count > 0)
         {
-            totalMinutes = await _db.CourseSchedules
-                .Where(s => s.EnrollmentId == enrollment.Id
-                            && s.Status != ScheduleStatus.Cancelled
-                            && s.Status != ScheduleStatus.Rescheduled)
-                .SumAsync(s => (int?)s.DurationMinutes, cancellationToken) ?? 0;
+            var freeMinutes = siblingSchedules[0].DurationMinutes;
+            if (freeMinutes <= 0 && snapshot != null)
+            {
+                freeMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+                    siblingSchedules[0].DurationMinutes > 0 ? siblingSchedules[0].DurationMinutes : null,
+                    enrollment.Course?.SessionDurationMinutes,
+                    totalMinutes > 0 ? totalMinutes : null,
+                    siblingSchedules.Count);
+            }
+            if (freeMinutes <= 0)
+                freeMinutes = 60;
+            earnableMinutes = Math.Max(0, totalMinutes - freeMinutes);
         }
 
         decimal amount = 0;
-        if (packageEarnings > 0 && totalMinutes > 0 && schedule.DurationMinutes > 0)
-            amount = Math.Round(packageEarnings * schedule.DurationMinutes / totalMinutes, 2);
-        else if (packageEarnings > 0 && totalMinutes <= 0)
+        if (packageEarnings > 0 && earnableMinutes > 0 && schedule.DurationMinutes > 0)
+            amount = Math.Round(packageEarnings * schedule.DurationMinutes / (decimal)earnableMinutes, 2);
+        else if (packageEarnings > 0 && earnableMinutes <= 0)
             amount = Math.Round(packageEarnings, 2);
 
         if (amount <= 0)
@@ -76,10 +110,6 @@ public class TeacherEarningService : ITeacherEarningService
             return;
         }
 
-        var source = enrollment.IsFreeTrial
-            ? TeacherEarningSource.FreeTrialPlatform
-            : TeacherEarningSource.SessionCompleted;
-
         _db.TeacherEarningLines.Add(new TeacherEarningLine
         {
             TeacherId = teacherId,
@@ -87,7 +117,7 @@ public class TeacherEarningService : ITeacherEarningService
             CourseScheduleId = courseScheduleId,
             Amount = amount,
             Currency = currency,
-            Source = source,
+            Source = TeacherEarningSource.SessionCompleted,
             Status = TeacherEarningLineStatus.Pending,
             CreatedAt = DateTime.UtcNow
         });

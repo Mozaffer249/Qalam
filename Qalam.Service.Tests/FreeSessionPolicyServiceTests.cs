@@ -233,7 +233,7 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
-    public void ApplyFreeTrialToSnapshot_Unlocked_SetsNetTotalAndPlatformShare()
+    public void ApplyFreeTrialToSnapshot_Unlocked_CutsFirstSessionTeacherShare()
     {
         var snapshot = new PricingSnapshot
         {
@@ -252,8 +252,32 @@ public class FreeSessionPolicyServiceTests
         Assert.Equal(100m, credit);
         Assert.Equal(100m, due);
         Assert.Equal(100m, snapshot.TotalPrice);
-        Assert.Equal(140m, snapshot.TeacherEarnings);
-        Assert.Equal(-40m, snapshot.PlatformShare);
+        // First 60 of 120 minutes → half of 140 = 70 removed from teacher.
+        Assert.Equal(70m, snapshot.TeacherEarnings);
+        Assert.Equal(30m, snapshot.PlatformShare);
+    }
+
+    [Fact]
+    public void ApplyFreeTrialToSnapshot_InterviewPending_TeacherEarningsRemainZero()
+    {
+        var snapshot = new PricingSnapshot
+        {
+            PricePerHour = 100m,
+            TotalMinutes = 120,
+            TotalPrice = 200m,
+            TeacherSharePct = 0m,
+            TeacherEarnings = 0m,
+            PlatformShare = 200m,
+            Currency = "SAR",
+            MarketCode = "SA",
+            SessionTypeCode = "individual"
+        };
+
+        var (due, credit) = FreeSessionPolicyService.ApplyFreeTrialToSnapshot(snapshot, 200m, 60);
+        Assert.Equal(100m, credit);
+        Assert.Equal(100m, due);
+        Assert.Equal(0m, snapshot.TeacherEarnings);
+        Assert.Equal(100m, snapshot.PlatformShare);
     }
 
     [Fact]

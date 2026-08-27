@@ -258,15 +258,22 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
         var platformCost = 0m;
         if (e.IsFreeTrial && snapshot != null && snapshot.TeacherSharePct > 0 && credit > 0)
         {
-            var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
-            platformCost = Math.Round(
-                earningsHourly * firstMinutes / 60m * (snapshot.TeacherSharePct / 100m),
-                2,
-                MidpointRounding.AwayFromZero);
-            if (platformCost <= 0 && snapshot.TeacherEarnings > 0 && totalMinutes > 0)
+            // Snapshot.TeacherEarnings already excludes the free first session; reconstruct forgone share.
+            var earnableMinutes = totalMinutes > firstMinutes
+                ? totalMinutes - firstMinutes
+                : 0;
+            if (snapshot.TeacherEarnings > 0 && earnableMinutes > 0 && firstMinutes > 0)
             {
                 platformCost = Math.Round(
-                    snapshot.TeacherEarnings * firstMinutes / (decimal)totalMinutes,
+                    snapshot.TeacherEarnings * firstMinutes / (decimal)earnableMinutes,
+                    2,
+                    MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
+                platformCost = Math.Round(
+                    earningsHourly * firstMinutes / 60m * (snapshot.TeacherSharePct / 100m),
                     2,
                     MidpointRounding.AwayFromZero);
             }

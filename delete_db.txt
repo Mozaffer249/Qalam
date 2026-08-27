@@ -24,7 +24,10 @@ BEGIN TRANSACTION;
 
 ------------------------------------------------------------
 -- 1) Payments linked to enrollments
+--    Order: Refunds → EnrollmentPayments → PaymentItems → Payments
+--    (Refunds FK → Payments and Enrollments)
 ------------------------------------------------------------
+DELETE FROM dbo.Refunds;
 DELETE FROM dbo.EnrollmentPayments;
 
 DELETE pi
@@ -49,6 +52,17 @@ AND NOT EXISTS (
 ------------------------------------------------------------
 -- 2) Enrollment graph (children of schedules/enrollments first)
 ------------------------------------------------------------
+IF OBJECT_ID(N'student.StudentFreeTrialConsumptions', N'U') IS NOT NULL
+    DELETE FROM student.StudentFreeTrialConsumptions;
+IF OBJECT_ID(N'dbo.TeacherEarningLines', N'U') IS NOT NULL
+    DELETE FROM dbo.TeacherEarningLines;
+IF OBJECT_ID(N'teacher.TeacherDomainPricings', N'U') IS NOT NULL
+    UPDATE teacher.TeacherDomainPricings
+    SET InterviewUnlockEnrollmentId = NULL,
+        InterviewUnlockCourseScheduleId = NULL
+    WHERE InterviewUnlockEnrollmentId IS NOT NULL
+       OR InterviewUnlockCourseScheduleId IS NOT NULL;
+
 IF OBJECT_ID(N'teacher.SessionHomeworkFileLinks', N'U') IS NOT NULL
     DELETE FROM teacher.SessionHomeworkFileLinks;
 IF OBJECT_ID(N'teacher.SessionHomeworkAssignments', N'U') IS NOT NULL
@@ -127,4 +141,7 @@ UNION ALL SELECT 'CourseSessions', COUNT(*) FROM course.CourseSessions
 UNION ALL SELECT 'Courses', COUNT(*) FROM course.Courses
 UNION ALL SELECT 'CourseEnrollmentRequests', COUNT(*) FROM course.CourseEnrollmentRequests
 UNION ALL SELECT 'SessionRequests(sr)', COUNT(*) FROM sr.SessionRequests
-UNION ALL SELECT 'EnrollmentPayments', COUNT(*) FROM dbo.EnrollmentPayments;
+UNION ALL SELECT 'EnrollmentPayments', COUNT(*) FROM dbo.EnrollmentPayments
+UNION ALL SELECT 'Refunds', COUNT(*) FROM dbo.Refunds
+UNION ALL SELECT 'Payments', COUNT(*) FROM dbo.Payments
+UNION ALL SELECT 'StudentFreeTrialConsumptions', COUNT(*) FROM student.StudentFreeTrialConsumptions;
