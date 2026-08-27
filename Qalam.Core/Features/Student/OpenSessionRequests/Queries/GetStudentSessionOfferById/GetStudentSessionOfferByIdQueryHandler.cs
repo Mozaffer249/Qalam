@@ -151,6 +151,21 @@ public class GetStudentSessionOfferByIdQueryHandler
 
         offer.SubjectTags = tags;
 
+        var totalMinutes = await _db.OpenSessionRequestSessions
+            .AsNoTracking()
+            .Where(s => s.SessionRequestId == request.RequestId)
+            .SumAsync(s => (int?)s.DurationMinutes, cancellationToken) ?? 0;
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            offer.SessionDurationMinutes > 0 ? offer.SessionDurationMinutes : null,
+            null,
+            totalMinutes > 0 ? totalMinutes : null,
+            sessionCount);
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(offer.Price, totalMinutes);
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            freeTrialEligible, offer.Price, hourly, firstMinutes);
+        offer.FreeSessionCredit = credit;
+        offer.AmountDue = due;
+
         return Success(entity: offer);
     }
 }

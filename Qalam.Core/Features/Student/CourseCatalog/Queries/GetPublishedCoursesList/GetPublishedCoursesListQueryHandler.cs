@@ -180,6 +180,12 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
 
                 SessionsCount = c.IsFlexible ? null : c.Sessions.Count,
                 SessionDurationMinutes = c.SessionDurationMinutes,
+                FirstSessionDurationMinutes = !c.IsFlexible && c.Sessions.Any()
+                    ? (int?)c.Sessions
+                        .OrderBy(s => s.SessionNumber)
+                        .Select(s => s.DurationMinutes)
+                        .FirstOrDefault()
+                    : null,
                 TotalDurationMinutes = !c.IsFlexible
                     ? (c.Sessions.Any()
                         ? (int?)c.Sessions.Sum(s => s.DurationMinutes)
@@ -213,6 +219,16 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                 PricingDefaults.SessionTypeGroup,
                 StringComparison.OrdinalIgnoreCase);
             var sessionCount = row.SessionsCount ?? 0;
+            var eligible = unusedTrial
+                && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount);
+            var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+                row.FirstSessionDurationMinutes,
+                row.SessionDurationMinutes,
+                row.TotalDurationMinutes,
+                row.SessionsCount);
+            var hourly = FreeSessionPolicyService.DerivePricePerHour(price, totalMinutes);
+            var (credit, amountDue) = FreeSessionPolicyService.BuildTeaserAmounts(
+                eligible, price, hourly, firstMinutes);
 
             items.Add(new CourseCatalogIndexItemDto
             {
@@ -234,8 +250,9 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
                 SessionsCount = row.SessionsCount,
                 SessionDurationMinutes = row.SessionDurationMinutes,
                 TotalDurationMinutes = row.TotalDurationMinutes,
-                IsFreeTrialEligible = unusedTrial
-                    && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount),
+                IsFreeTrialEligible = eligible,
+                FreeSessionCredit = credit,
+                AmountDue = amountDue,
             });
         }
 
@@ -276,6 +293,7 @@ public class GetPublishedCoursesListQueryHandler : ResponseHandler,
         public string? SessionTypeName { get; init; }
         public int? SessionsCount { get; init; }
         public int? SessionDurationMinutes { get; init; }
+        public int? FirstSessionDurationMinutes { get; init; }
         public int? TotalDurationMinutes { get; init; }
     }
 }

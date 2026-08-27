@@ -44,6 +44,8 @@ public class OpenSessionRequestStudentPricingEnricher : IOpenSessionRequestStude
         var unused = await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(entity.StudentId, cancellationToken);
         dto.IsFreeTrialEligible = _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount) && unused;
 
+        decimal? gross = null;
+        decimal pricePerHour = 0m;
         if (entity.PricingSnapshotId.HasValue)
         {
             var snap = entity.PricingSnapshot
@@ -51,12 +53,19 @@ public class OpenSessionRequestStudentPricingEnricher : IOpenSessionRequestStude
                     .FirstOrDefaultAsync(s => s.Id == entity.PricingSnapshotId.Value, cancellationToken);
             if (snap != null)
             {
+                // Snapshot TotalPrice is package gross before accept-time free trial.
+                gross = snap.TotalPrice;
                 dto.TotalPrice = snap.TotalPrice;
                 dto.Currency = snap.Currency;
                 dto.MarketCode = snap.MarketCode;
+                pricePerHour = snap.PricePerHour > 0
+                    ? snap.PricePerHour
+                    : FreeSessionPolicyService.DerivePricePerHour(snap.TotalPrice, snap.TotalMinutes);
             }
         }
         // Broadcast: leave TotalPrice null — teacher-specific until offers.
+
+        ApplyTeaser(dto, entity, gross, pricePerHour, sessionCount);
     }
 
     public async Task EnrichListAsync(
@@ -80,12 +89,12 @@ public class OpenSessionRequestStudentPricingEnricher : IOpenSessionRequestStude
             .Distinct()
             .ToList();
         var snapshots = snapshotIds.Count == 0
-            ? new Dictionary<int, (decimal TotalPrice, string Currency, string MarketCode)>()
+            ? new Dictionary<int, (decimal TotalPrice, int TotalMinutes, decimal PricePerHour, string Currency, string MarketCode)>()
             : await _db.PricingSnapshots.AsNoTracking()
                 .Where(s => snapshotIds.Contains(s.Id))
                 .ToDictionaryAsync(
                     s => s.Id,
-                    s => (s.TotalPrice, s.Currency, s.MarketCode),
+                    s => (s.TotalPrice, s.TotalMinutes, s.PricePerHour, s.Currency, s.MarketCode),
                     cancellationToken);
 
         foreach (var item in items)
@@ -97,13 +106,71 @@ public class OpenSessionRequestStudentPricingEnricher : IOpenSessionRequestStude
             var unused = students.TryGetValue(entity.StudentId, out var st) && !st.HasUsedFreeTrialSession;
             item.IsFreeTrialEligible = _freeSessionPolicy.IsEligiblePackage(isGroup, entity.TotalSessionsCount) && unused;
 
+            decimal? gross = null;
+            decimal pricePerHour = 0m;
             if (entity.PricingSnapshotId.HasValue
                 && snapshots.TryGetValue(entity.PricingSnapshotId.Value, out var snap))
             {
+                gross = snap.TotalPrice;
                 item.TotalPrice = snap.TotalPrice;
                 item.Currency = snap.Currency;
                 item.MarketCode = snap.MarketCode;
+                pricePerHour = snap.PricePerHour > 0
+                    ? snap.PricePerHour
+                    : FreeSessionPolicyService.DerivePricePerHour(snap.TotalPrice, snap.TotalMinutes);
             }
+
+            ApplyTeaser(item, entity, gross, pricePerHour, entity.TotalSessionsCount);
         }
+    }
+
+    private static void ApplyTeaser(
+        OpenSessionRequestDetailDto dto,
+        OpenSessionRequest entity,
+        decimal? gross,
+        decimal pricePerHour,
+        int sessionCount)
+    {
+        if (gross is null)
+        {
+            dto.FreeSessionCredit = 0m;
+            dto.AmountDue = null;
+            return;
+        }
+
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            entity.Sessions?.OrderBy(s => s.SequenceNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            null,
+            null,
+            sessionCount);
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            dto.IsFreeTrialEligible, gross.Value, pricePerHour, firstMinutes);
+        dto.FreeSessionCredit = credit;
+        dto.AmountDue = due;
+    }
+
+    private static void ApplyTeaser(
+        OpenSessionRequestListItemDto item,
+        OpenSessionRequest entity,
+        decimal? gross,
+        decimal pricePerHour,
+        int sessionCount)
+    {
+        if (gross is null)
+        {
+            item.FreeSessionCredit = 0m;
+            item.AmountDue = null;
+            return;
+        }
+
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            entity.Sessions?.OrderBy(s => s.SequenceNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            null,
+            null,
+            sessionCount);
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            item.IsFreeTrialEligible, gross.Value, pricePerHour, firstMinutes);
+        item.FreeSessionCredit = credit;
+        item.AmountDue = due;
     }
 }

@@ -87,6 +87,10 @@ public class StudentOfferListItemDto
     public decimal Price { get; set; }
     /// <summary>True when accepting this individual offer would consume the student's free trial (AmountDue=0).</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable after free-session credit (equals Price when not eligible).</summary>
+    public decimal AmountDue { get; set; }
     public OpenSessionOfferStatus Status { get; set; }
     public int Version { get; set; }
     public string? TeacherNotes { get; set; }
@@ -254,8 +258,12 @@ public class OpenSessionRequestDetailDto
     public decimal? TotalPrice { get; set; }
     public string? Currency { get; set; }
     public string? MarketCode { get; set; }
-    /// <summary>True when accepting an individual 1-session offer would consume the free trial.</summary>
+    /// <summary>True when accepting an offer would consume the free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible and TotalPrice known; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable when TotalPrice known; null when broadcast (no frozen price).</summary>
+    public decimal? AmountDue { get; set; }
 }
 
 public class OpenSessionRequestSessionDto
@@ -335,6 +343,10 @@ public class OpenSessionRequestListItemDto
     public decimal? TotalPrice { get; set; }
     public string? Currency { get; set; }
     public string? MarketCode { get; set; }
-    /// <summary>True when accepting an individual 1-session offer would consume the free trial.</summary>
+    /// <summary>True when accepting an offer would consume the free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible and TotalPrice known; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable when TotalPrice known; null when broadcast (no frozen price).</summary>
+    public decimal? AmountDue { get; set; }
 }

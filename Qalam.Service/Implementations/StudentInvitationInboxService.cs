@@ -312,6 +312,31 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             detail.IsFreeTrialEligible = true;
         }
 
+        var gross = parent.EstimatedTotalPrice;
+        var totalMinutes = parent.TotalMinutes > 0
+            ? parent.TotalMinutes
+            : parent.Course.Sessions?.Sum(s => s.DurationMinutes) ?? 0;
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            parent.Course.Sessions?.OrderBy(s => s.SessionNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            parent.Course.SessionDurationMinutes,
+            totalMinutes > 0 ? totalMinutes : null,
+            sessionCount);
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(gross, totalMinutes);
+        if (enrollment != null)
+        {
+            detail.AmountDue = enrollment.AmountDue;
+            detail.FreeSessionCredit = enrollment.IsFreeTrial
+                ? Math.Max(0m, Math.Round(gross - enrollment.AmountDue, 2, MidpointRounding.AwayFromZero))
+                : 0m;
+        }
+        else
+        {
+            var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+                detail.IsFreeTrialEligible, gross, hourly, firstMinutes);
+            detail.FreeSessionCredit = credit;
+            detail.AmountDue = due;
+        }
+
         return detail;
     }
 
@@ -468,6 +493,49 @@ public class StudentInvitationInboxService : IStudentInvitationInboxService
             && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(parent.StudentId, cancellationToken))
         {
             detail.IsFreeTrialEligible = true;
+        }
+
+        var totalMinutes = parent.Sessions?.Sum(s => s.DurationMinutes) ?? 0;
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            parent.Sessions?.OrderBy(s => s.SequenceNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            null,
+            totalMinutes > 0 ? totalMinutes : null,
+            sessionCount);
+
+        if (enrollment != null)
+        {
+            detail.AmountDue = enrollment.AmountDue;
+            if (enrollment.IsFreeTrial)
+            {
+                var snap = enrollment.PricingSnapshot ?? parent.PricingSnapshot;
+                var hourly = snap?.PricePerHour > 0
+                    ? snap.PricePerHour
+                    : FreeSessionPolicyService.DerivePricePerHour(
+                        snap?.TotalPrice ?? 0m,
+                        snap?.TotalMinutes > 0 ? snap.TotalMinutes : totalMinutes);
+                var engineGross = totalMinutes > 0 && hourly > 0
+                    ? Math.Round(hourly * totalMinutes / 60m, 2, MidpointRounding.AwayFromZero)
+                    : 0m;
+                detail.FreeSessionCredit = engineGross > 0
+                    ? Math.Max(0m, Math.Round(engineGross - enrollment.AmountDue, 2, MidpointRounding.AwayFromZero))
+                    : FreeSessionPolicyService.ComputeFreeSessionCredit(
+                        hourly, firstMinutes, Math.Max(enrollment.AmountDue, hourly));
+            }
+            else
+            {
+                detail.FreeSessionCredit = 0m;
+            }
+        }
+        else if (parent.PricingSnapshot != null)
+        {
+            var snap = parent.PricingSnapshot;
+            var hourly = snap.PricePerHour > 0
+                ? snap.PricePerHour
+                : FreeSessionPolicyService.DerivePricePerHour(snap.TotalPrice, snap.TotalMinutes);
+            var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+                detail.IsFreeTrialEligible, snap.TotalPrice, hourly, firstMinutes);
+            detail.FreeSessionCredit = credit;
+            detail.AmountDue = due;
         }
 
         return detail;

@@ -168,6 +168,10 @@ public class EnrollmentRequestListItemDto
 
     /// <summary>True when this request's package can still use the learner's unused free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable after free-session credit (equals EstimatedTotalPrice when not eligible).</summary>
+    public decimal? AmountDue { get; set; }
 }
 
 /// <summary>
@@ -227,6 +231,8 @@ public class EnrollmentRequestDetailDto
 
     /// <summary>True when this request's package can still use the learner's unused free trial (pre-pay).</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
 }
 
 /// <summary>
@@ -666,6 +672,8 @@ public class StudentInvitationDetailDto
 
     /// <summary>True when the related package can still use the learner's unused free trial (pre-pay).</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
 
     public string? RespondPath { get; set; }
     public string? RespondAcceptDecision { get; set; }

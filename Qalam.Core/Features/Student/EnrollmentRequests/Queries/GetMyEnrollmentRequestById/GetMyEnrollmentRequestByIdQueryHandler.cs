@@ -153,9 +153,6 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 || enrollment.EnrollmentStatus == EnrollmentStatus.PendingPayment);
         dto.EnrollmentId = enrollment?.Id;
         dto.EnrollmentStatus = enrollment?.EnrollmentStatus;
-        dto.AmountDue = enrollment?.AmountDue > 0
-            ? enrollment.AmountDue
-            : enrollmentRequest.EstimatedTotalPrice;
         dto.PaymentDeadline = enrollment?.PaymentDeadline;
         dto.PayParticipantId = enrollment?.Participants
             .OrderBy(p => p.Id)
@@ -188,6 +185,32 @@ public class GetMyEnrollmentRequestByIdQueryHandler : ResponseHandler,
             && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(learnerId, cancellationToken))
         {
             dto.IsFreeTrialEligible = true;
+        }
+
+        var gross = enrollmentRequest.EstimatedTotalPrice;
+        var totalMinutes = enrollmentRequest.TotalMinutes > 0
+            ? enrollmentRequest.TotalMinutes
+            : enrollmentRequest.Course?.Sessions?.Sum(s => s.DurationMinutes) ?? 0;
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            enrollmentRequest.Course?.Sessions?.OrderBy(s => s.SessionNumber)
+                .Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            enrollmentRequest.Course?.SessionDurationMinutes,
+            totalMinutes > 0 ? totalMinutes : null,
+            sessionCount);
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(gross, totalMinutes);
+        if (enrollment != null)
+        {
+            dto.AmountDue = enrollment.AmountDue;
+            dto.FreeSessionCredit = enrollment.IsFreeTrial
+                ? Math.Max(0m, Math.Round(gross - enrollment.AmountDue, 2, MidpointRounding.AwayFromZero))
+                : 0m;
+        }
+        else
+        {
+            var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+                dto.IsFreeTrialEligible, gross, hourly, firstMinutes);
+            dto.FreeSessionCredit = credit;
+            dto.AmountDue = due;
         }
 
         return Success(entity: dto);

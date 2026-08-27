@@ -93,6 +93,45 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
+    public void BuildTeaserAmounts_EligibleThreeEqualSessions_CreditsOneThird()
+    {
+        // 255 for 180 min → 85/hr; first 60 min → credit 85, due 170
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(255m, 180);
+        Assert.Equal(85m, hourly);
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            eligible: true, grossPackageTotal: 255m, pricePerHour: hourly, firstSessionMinutes: 60);
+        Assert.Equal(85m, credit);
+        Assert.Equal(170m, due);
+    }
+
+    [Fact]
+    public void BuildTeaserAmounts_Ineligible_CreditZeroDueEqualsGross()
+    {
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            eligible: false, grossPackageTotal: 255m, pricePerHour: 85m, firstSessionMinutes: 60);
+        Assert.Equal(0m, credit);
+        Assert.Equal(255m, due);
+    }
+
+    [Fact]
+    public void BuildTeaserAmounts_OneSession_DueZero()
+    {
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            eligible: true, grossPackageTotal: 100m, pricePerHour: 100m, firstSessionMinutes: 60);
+        Assert.Equal(100m, credit);
+        Assert.Equal(0m, due);
+    }
+
+    [Fact]
+    public void ResolveFirstSessionMinutes_PrefersFirstThenUniformSplit()
+    {
+        Assert.Equal(45, FreeSessionPolicyService.ResolveFirstSessionMinutes(45, 60, 180, 3));
+        Assert.Equal(60, FreeSessionPolicyService.ResolveFirstSessionMinutes(null, 60, 180, 3));
+        Assert.Equal(60, FreeSessionPolicyService.ResolveFirstSessionMinutes(null, null, 180, 3));
+        Assert.Equal(0, FreeSessionPolicyService.ResolveFirstSessionMinutes(null, null, null, null));
+    }
+
+    [Fact]
     public void ApplyFreeTrialToSnapshot_Unlocked_SetsNetTotalAndPlatformShare()
     {
         var snapshot = new PricingSnapshot

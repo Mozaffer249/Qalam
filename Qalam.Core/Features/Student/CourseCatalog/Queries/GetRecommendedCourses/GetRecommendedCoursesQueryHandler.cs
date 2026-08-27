@@ -141,6 +141,19 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                     SessionDurationMinutes = c.SessionDurationMinutes
                 },
                 SessionTypeCode = c.SessionType != null ? c.SessionType.Code : PricingDefaults.SessionTypeIndividual,
+                FirstSessionDurationMinutes = !c.IsFlexible && c.Sessions.Any()
+                    ? (int?)c.Sessions
+                        .OrderBy(s => s.SessionNumber)
+                        .Select(s => s.DurationMinutes)
+                        .FirstOrDefault()
+                    : null,
+                TotalDurationMinutes = !c.IsFlexible
+                    ? (c.Sessions.Any()
+                        ? (int?)c.Sessions.Sum(s => s.DurationMinutes)
+                        : (c.SessionDurationMinutes.HasValue && (c.SessionsCount ?? 0) > 0
+                            ? (int?)(c.SessionsCount!.Value * c.SessionDurationMinutes.Value)
+                            : null))
+                    : null
             })
             .ToListAsync(cancellationToken);
 
@@ -166,8 +179,21 @@ public class GetRecommendedCoursesQueryHandler : ResponseHandler,
                 r.SessionTypeCode,
                 PricingDefaults.SessionTypeGroup,
                 StringComparison.OrdinalIgnoreCase);
-            r.Item.IsFreeTrialEligible = unusedTrial
+            var eligible = unusedTrial
                 && _freeSessionPolicy.IsEligiblePackage(isGroup, r.Item.SessionsCount ?? 0);
+            r.Item.IsFreeTrialEligible = eligible;
+
+            var totalMinutes = r.TotalDurationMinutes ?? 0;
+            var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+                r.FirstSessionDurationMinutes,
+                r.Item.SessionDurationMinutes,
+                r.TotalDurationMinutes,
+                r.Item.SessionsCount);
+            var hourly = FreeSessionPolicyService.DerivePricePerHour(r.Item.Price, totalMinutes);
+            var (credit, amountDue) = FreeSessionPolicyService.BuildTeaserAmounts(
+                eligible, r.Item.Price, hourly, firstMinutes);
+            r.Item.FreeSessionCredit = credit;
+            r.Item.AmountDue = amountDue;
             return r.Item;
         }).ToList();
 

@@ -586,6 +586,19 @@ public class RequestCourseEnrollmentCommandHandler : ResponseHandler,
             result.IsFreeTrialEligible = true;
         }
 
+        var packageTotalMinutes = enrollmentRequest.TotalMinutes;
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            course.Sessions?.OrderBy(s => s.SessionNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            course.SessionDurationMinutes,
+            packageTotalMinutes > 0 ? packageTotalMinutes : null,
+            sessionCount);
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(
+            enrollmentRequest.EstimatedTotalPrice, packageTotalMinutes);
+        var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+            result.IsFreeTrialEligible, enrollmentRequest.EstimatedTotalPrice, hourly, firstMinutes);
+        result.FreeSessionCredit = credit;
+        result.AmountDue = due;
+
         return Success(entity: result);
     }
 

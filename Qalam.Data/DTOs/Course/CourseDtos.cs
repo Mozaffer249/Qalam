@@ -254,6 +254,10 @@ public class CourseCatalogItemDto
     public int? SessionDurationMinutes { get; set; }
     /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable after free-session credit (equals Price when not eligible).</summary>
+    public decimal AmountDue { get; set; }
 }
 
 /// <summary>
@@ -295,6 +299,10 @@ public class CourseCatalogDetailDto
     public List<CourseSessionDto>? Sessions { get; set; }
     /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable after free-session credit (equals Price when not eligible).</summary>
+    public decimal AmountDue { get; set; }
 }
 
 /// <summary>
@@ -326,4 +334,8 @@ public class CourseCatalogIndexItemDto
     public int? TotalDurationMinutes { get; set; }
     /// <summary>True when this package can use the viewer's unused lifetime free trial.</summary>
     public bool IsFreeTrialEligible { get; set; }
+    /// <summary>First-session credit when eligible; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+    /// <summary>Net payable after free-session credit (equals Price when not eligible).</summary>
+    public decimal AmountDue { get; set; }
 }

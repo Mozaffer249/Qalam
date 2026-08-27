@@ -93,6 +93,52 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     }
 
     /// <summary>
+    /// Resolve first-session minutes for teaser/credit: first fixed session, else
+    /// course session duration, else equal split of total package minutes.
+    /// </summary>
+    public static int ResolveFirstSessionMinutes(
+        int? firstSessionDurationMinutes,
+        int? sessionDurationMinutes,
+        int? totalMinutes,
+        int? sessionCount)
+    {
+        if (firstSessionDurationMinutes is > 0)
+            return firstSessionDurationMinutes.Value;
+        if (sessionDurationMinutes is > 0)
+            return sessionDurationMinutes.Value;
+        if (totalMinutes is > 0 && sessionCount is > 0)
+            return totalMinutes.Value / sessionCount.Value;
+        return 0;
+    }
+
+    /// <summary>
+    /// Derive student hourly rate from a gross package total and total minutes.
+    /// </summary>
+    public static decimal DerivePricePerHour(decimal grossPackageTotal, int totalMinutes)
+    {
+        if (grossPackageTotal <= 0 || totalMinutes <= 0)
+            return 0m;
+        return Math.Round(grossPackageTotal * 60m / totalMinutes, 2, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Preview amounts for APIs: when eligible apply first-session credit; else credit 0 and due = gross.
+    /// </summary>
+    public static (decimal FreeSessionCredit, decimal AmountDue) BuildTeaserAmounts(
+        bool eligible,
+        decimal grossPackageTotal,
+        decimal pricePerHour,
+        int firstSessionMinutes)
+    {
+        if (!eligible || grossPackageTotal <= 0)
+            return (0m, Math.Max(0m, grossPackageTotal));
+
+        var credit = ComputeFreeSessionCredit(pricePerHour, firstSessionMinutes, grossPackageTotal);
+        var amountDue = Math.Max(0m, Math.Round(grossPackageTotal - credit, 2, MidpointRounding.AwayFromZero));
+        return (credit, amountDue);
+    }
+
+    /// <summary>
     /// Model B: reduce student payable by first-session credit; adjust snapshot shares.
     /// Returns net amount due and the credit applied.
     /// </summary>

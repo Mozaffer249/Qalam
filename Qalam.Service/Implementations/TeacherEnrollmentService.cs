@@ -185,6 +185,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         var totalAmount = enrollment.AmountDue > 0
             ? enrollment.AmountDue
             : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        var (gross, credit, netDue) = TeacherEnrollmentMapping.ResolveMoney(enrollment);
+        totalAmount = netDue;
         var participantCount = enrollment.Participants.Count;
         var baseShare = participantCount > 0
             ? Math.Round(totalAmount / participantCount, 2, MidpointRounding.AwayFromZero)
@@ -259,6 +261,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             AmountRemaining = Math.Max(0, totalAmount - amountPaid),
             Currency = _paymentSettings.DefaultCurrency,
             IsFreeTrial = enrollment.IsFreeTrial,
+            GrossPackageTotal = gross,
+            FreeSessionCredit = credit,
             Participants = participants,
             EnrollmentRequestId = enrollment.EnrollmentRequestId,
             SessionOfferId = enrollment.SessionOfferId,

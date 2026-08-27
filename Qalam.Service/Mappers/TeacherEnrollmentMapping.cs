@@ -2,6 +2,7 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Mappers;
 
@@ -39,6 +40,48 @@ internal static class TeacherEnrollmentMapping
         return $"Group of {enrollment.Participants.Count} — Leader: {leaderName}";
     }
 
+    /// <summary>
+    /// AmountDue is net payable. When free trial, reconstruct gross + first-session credit.
+    /// </summary>
+    public static (decimal Gross, decimal Credit, decimal NetDue) ResolveMoney(Enrollment enrollment)
+    {
+        var netDue = enrollment.IsFreeTrial || enrollment.AmountDue > 0
+            ? enrollment.AmountDue
+            : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+
+        if (!enrollment.IsFreeTrial)
+            return (netDue, 0m, netDue);
+
+        var snap = enrollment.PricingSnapshot;
+        var schedules = enrollment.CourseSchedules ?? [];
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            schedules.OrderBy(s => s.Date).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            enrollment.Course?.SessionDurationMinutes,
+            snap?.TotalMinutes > 0 ? snap.TotalMinutes : null,
+            schedules.Count > 0 ? schedules.Count : enrollment.Course?.SessionsCount);
+        if (firstMinutes <= 0) firstMinutes = 60;
+
+        var pricePerHour = snap?.PricePerHour > 0
+            ? snap.PricePerHour
+            : FreeSessionPolicyService.DerivePricePerHour(netDue, snap?.TotalMinutes ?? 0);
+        var totalMinutes = snap?.TotalMinutes > 0
+            ? snap.TotalMinutes
+            : schedules.Sum(s => s.DurationMinutes);
+        var engineGross = totalMinutes > 0 && pricePerHour > 0
+            ? Math.Round(pricePerHour * totalMinutes / 60m, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+
+        if (engineGross > 0)
+        {
+            var credit = Math.Max(0m, Math.Round(engineGross - netDue, 2, MidpointRounding.AwayFromZero));
+            return (engineGross, credit, netDue);
+        }
+
+        var creditOnly = FreeSessionPolicyService.ComputeFreeSessionCredit(
+            pricePerHour, firstMinutes, Math.Max(netDue, pricePerHour));
+        return (netDue + creditOnly, creditOnly, netDue);
+    }
+
     public static TeacherEnrollmentListItemDto ToListItem(
         Enrollment enrollment,
         string currency)
@@ -48,9 +91,7 @@ internal static class TeacherEnrollmentMapping
         var isDirected = enrollment.Source == EnrollmentSource.SessionRequest
                          && enrollment.OpenSessionRequest?.TargetedTeacherId != null;
         var paidCount = enrollment.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
-        var amountDue = enrollment.AmountDue > 0
-            ? enrollment.AmountDue
-            : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        var (gross, credit, amountDue) = ResolveMoney(enrollment);
         var amountPaid = ResolveAmountPaid(enrollment, amountDue, paidCount);
         var schedules = enrollment.CourseSchedules ?? [];
         var sessionsTotal = schedules.Count;
@@ -123,6 +164,8 @@ internal static class TeacherEnrollmentMapping
             AmountRemaining = Math.Max(0, amountDue - amountPaid),
             Currency = currency,
             IsFreeTrial = enrollment.IsFreeTrial,
+            GrossPackageTotal = gross,
+            FreeSessionCredit = credit,
             NextSessionAt = next,
             SessionsAttended = attended,
             SessionsAbsentOrLate = absentOrLate,

@@ -68,7 +68,8 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
                 e.Id,
                 e.EnrollmentRequestId,
                 e.EnrollmentStatus,
-                e.IsFreeTrial
+                e.IsFreeTrial,
+                e.AmountDue
             })
             .ToListAsync(cancellationToken);
 
@@ -130,6 +131,29 @@ public class GetMyEnrollmentRequestsQueryHandler : ResponseHandler,
                 && learnerId > 0
                 && unusedByStudent.GetValueOrDefault(learnerId)
                 && _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount);
+
+            var gross = item.EstimatedTotalPrice ?? 0m;
+            var totalMinutes = entity.TotalMinutes > 0
+                ? entity.TotalMinutes
+                : entity.Course?.Sessions?.Sum(s => s.DurationMinutes) ?? 0;
+            var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+                entity.Course?.Sessions?.OrderBy(s => s.SessionNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+                entity.Course?.SessionDurationMinutes,
+                totalMinutes > 0 ? totalMinutes : null,
+                sessionCount);
+            var hourly = FreeSessionPolicyService.DerivePricePerHour(gross, totalMinutes);
+            if (enrollment is { IsFreeTrial: true })
+            {
+                item.AmountDue = enrollment.AmountDue;
+                item.FreeSessionCredit = Math.Max(0m, Math.Round(gross - enrollment.AmountDue, 2, MidpointRounding.AwayFromZero));
+            }
+            else
+            {
+                var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+                    item.IsFreeTrialEligible, gross, hourly, firstMinutes);
+                item.FreeSessionCredit = credit;
+                item.AmountDue = due;
+            }
         }
 
         var totalPages = request.PageSize > 0

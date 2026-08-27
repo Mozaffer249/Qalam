@@ -57,6 +57,17 @@ public class GetStudentSessionOffersQueryHandler
         var freeTrialEligible = _freeSessionPolicy.IsEligiblePackage(isGroup, sessionCount)
             && await _freeSessionPolicy.IsStudentEligibleForFreeTrialAsync(entity.StudentId, cancellationToken);
 
+        var firstSessionMinutes = await _db.OpenSessionRequestSessions
+            .AsNoTracking()
+            .Where(s => s.SessionRequestId == request.RequestId)
+            .OrderBy(s => s.SequenceNumber)
+            .Select(s => s.DurationMinutes)
+            .FirstOrDefaultAsync(cancellationToken);
+        var totalMinutes = await _db.OpenSessionRequestSessions
+            .AsNoTracking()
+            .Where(s => s.SessionRequestId == request.RequestId)
+            .SumAsync(s => (int?)s.DurationMinutes, cancellationToken) ?? 0;
+
         var offers = await _db.OpenSessionOffers
             .AsNoTracking()
             .Where(o => o.SessionRequestId == request.RequestId)
@@ -92,6 +103,17 @@ public class GetStudentSessionOffersQueryHandler
         {
             if (!string.IsNullOrWhiteSpace(offer.ProfilePictureUrl))
                 offer.ProfilePictureUrl = _mediaUrlResolver.ToPublicUrl(offer.ProfilePictureUrl);
+
+            var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+                firstSessionMinutes > 0 ? firstSessionMinutes : null,
+                null,
+                totalMinutes > 0 ? totalMinutes : null,
+                sessionCount);
+            var hourly = FreeSessionPolicyService.DerivePricePerHour(offer.Price, totalMinutes);
+            var (credit, due) = FreeSessionPolicyService.BuildTeaserAmounts(
+                freeTrialEligible, offer.Price, hourly, firstMinutes);
+            offer.FreeSessionCredit = credit;
+            offer.AmountDue = due;
         }
 
         return Success(entity: offers);

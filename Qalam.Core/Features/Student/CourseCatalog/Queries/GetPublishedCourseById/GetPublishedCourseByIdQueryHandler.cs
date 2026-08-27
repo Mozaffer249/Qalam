@@ -6,6 +6,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
@@ -71,6 +72,18 @@ public class GetPublishedCourseByIdQueryHandler : ResponseHandler,
         {
             dto.IsFreeTrialEligible = true;
         }
+
+        var totalMinutes = CourseDurationHelper.ResolveFixedTotalMinutes(course);
+        var firstMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            dto.Sessions?.OrderBy(s => s.SessionNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            dto.SessionDurationMinutes,
+            totalMinutes > 0 ? totalMinutes : null,
+            sessionCount);
+        var hourly = FreeSessionPolicyService.DerivePricePerHour(dto.Price, totalMinutes);
+        var (credit, amountDue) = FreeSessionPolicyService.BuildTeaserAmounts(
+            dto.IsFreeTrialEligible, dto.Price, hourly, firstMinutes);
+        dto.FreeSessionCredit = credit;
+        dto.AmountDue = amountDue;
 
         return Success(entity: dto);
     }

@@ -68,6 +68,10 @@ public class TeacherEnrollmentListItemDto
     public string Currency { get; set; } = "SAR";
     /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
     public bool IsFreeTrial { get; set; }
+    /// <summary>Gross package before free-session credit (equals AmountDue when not free trial).</summary>
+    public decimal GrossPackageTotal { get; set; }
+    /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
 
     public DateTime? NextSessionAt { get; set; }
     public int SessionsAttended { get; set; }
@@ -121,6 +125,10 @@ public class TeacherEnrollmentDetailDto
     public string Currency { get; set; } = "SAR";
     /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
     public bool IsFreeTrial { get; set; }
+    /// <summary>Gross package before free-session credit (equals TotalAmount when not free trial).</summary>
+    public decimal GrossPackageTotal { get; set; }
+    /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
 
     public int? EnrollmentRequestId { get; set; }
     public int? SessionOfferId { get; set; }
