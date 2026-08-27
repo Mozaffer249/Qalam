@@ -6,6 +6,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Implementations;
 
@@ -88,7 +89,6 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
             SessionsCount = enrollment.Course?.Sessions is { Count: > 0 } sessions
                 ? sessions.Count
                 : null,
-            AmountDue = EnrollmentPricingRules.ResolvePayableAmount(enrollment),
             IsFreeTrial = enrollment.IsFreeTrial,
             Source = enrollment.Source,
             EnrollmentRequestId = enrollment.EnrollmentRequestId,
@@ -102,6 +102,11 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
                 })
                 .ToList(),
         };
+
+        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        dto.GrossPackageTotal = gross;
+        dto.FreeSessionCredit = credit;
+        dto.AmountDue = netDue;
 
         var completed = schedules.Count(s => s.Status == ScheduleStatus.Completed);
         dto.CompletedSessionsCount = completed;

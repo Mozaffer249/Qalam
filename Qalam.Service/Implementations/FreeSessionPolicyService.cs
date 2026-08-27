@@ -139,6 +139,50 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     }
 
     /// <summary>
+    /// Post-commit read breakdown: NetDue is always <see cref="Enrollment.AmountDue"/> when free trial
+    /// (or positive AmountDue); reconstruct gross + first-session credit for UI hints.
+    /// </summary>
+    public static (decimal Gross, decimal Credit, decimal NetDue) ResolveFreeTrialBreakdown(Enrollment enrollment)
+    {
+        var netDue = enrollment.IsFreeTrial || enrollment.AmountDue > 0
+            ? enrollment.AmountDue
+            : enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+
+        if (!enrollment.IsFreeTrial)
+            return (netDue, 0m, netDue);
+
+        var snap = enrollment.PricingSnapshot;
+        var schedules = enrollment.CourseSchedules ?? [];
+        var firstMinutes = ResolveFirstSessionMinutes(
+            schedules.OrderBy(s => s.Date).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            enrollment.Course?.SessionDurationMinutes,
+            snap?.TotalMinutes > 0 ? snap.TotalMinutes : null,
+            schedules.Count > 0 ? schedules.Count : enrollment.Course?.SessionsCount);
+        if (firstMinutes <= 0)
+            firstMinutes = 60;
+
+        var pricePerHour = snap?.PricePerHour > 0
+            ? snap.PricePerHour
+            : DerivePricePerHour(netDue, snap?.TotalMinutes ?? 0);
+        var totalMinutes = snap?.TotalMinutes > 0
+            ? snap.TotalMinutes
+            : schedules.Sum(s => s.DurationMinutes);
+        var engineGross = totalMinutes > 0 && pricePerHour > 0
+            ? Math.Round(pricePerHour * totalMinutes / 60m, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+
+        if (engineGross > 0)
+        {
+            var credit = Math.Max(0m, Math.Round(engineGross - netDue, 2, MidpointRounding.AwayFromZero));
+            return (engineGross, credit, netDue);
+        }
+
+        var creditOnly = ComputeFreeSessionCredit(
+            pricePerHour, firstMinutes, Math.Max(netDue, pricePerHour));
+        return (netDue + creditOnly, creditOnly, netDue);
+    }
+
+    /// <summary>
     /// Model B: reduce student payable by first-session credit; adjust snapshot shares.
     /// Returns net amount due and the credit applied.
     /// </summary>

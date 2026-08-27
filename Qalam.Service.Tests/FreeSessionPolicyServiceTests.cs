@@ -132,6 +132,66 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
+    public void ResolveFreeTrialBreakdown_NonTrial_CreditZeroDueEqualsAmount()
+    {
+        var enrollment = new Enrollment
+        {
+            AmountDue = 255m,
+            IsFreeTrial = false,
+        };
+        var (gross, credit, net) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        Assert.Equal(255m, gross);
+        Assert.Equal(0m, credit);
+        Assert.Equal(255m, net);
+    }
+
+    [Fact]
+    public void ResolveFreeTrialBreakdown_OneSessionTrial_DueZeroCreditEqualsGross()
+    {
+        var enrollment = new Enrollment
+        {
+            AmountDue = 0m,
+            IsFreeTrial = true,
+            PricingSnapshot = new PricingSnapshot
+            {
+                PricePerHour = 100m,
+                TotalMinutes = 60,
+                TotalPrice = 0m,
+                Currency = "SAR",
+                MarketCode = "SA",
+                SessionTypeCode = "individual",
+            },
+        };
+        var (gross, credit, net) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        Assert.Equal(100m, gross);
+        Assert.Equal(100m, credit);
+        Assert.Equal(0m, net);
+    }
+
+    [Fact]
+    public void ResolveFreeTrialBreakdown_MultiSessionTrial_CreditsFirstSession()
+    {
+        var enrollment = new Enrollment
+        {
+            AmountDue = 170m,
+            IsFreeTrial = true,
+            PricingSnapshot = new PricingSnapshot
+            {
+                PricePerHour = 85m,
+                TotalMinutes = 180,
+                TotalPrice = 170m,
+                Currency = "SAR",
+                MarketCode = "SA",
+                SessionTypeCode = "individual",
+            },
+        };
+        var (gross, credit, net) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        Assert.Equal(255m, gross);
+        Assert.Equal(85m, credit);
+        Assert.Equal(170m, net);
+    }
+
+    [Fact]
     public void ApplyFreeTrialToSnapshot_Unlocked_SetsNetTotalAndPlatformShare()
     {
         var snapshot = new PricingSnapshot

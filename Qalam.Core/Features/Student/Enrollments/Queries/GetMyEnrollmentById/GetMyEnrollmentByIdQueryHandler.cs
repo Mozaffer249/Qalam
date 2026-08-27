@@ -14,6 +14,7 @@ using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Helpers;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 
@@ -24,7 +25,6 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     private readonly IGuardianRepository _guardianRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
-    private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly SessionSettings _sessionSettings;
 
     public GetMyEnrollmentByIdQueryHandler(
@@ -32,7 +32,6 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         IGuardianRepository guardianRepository,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
-        IStudentCoursePriceResolver coursePriceResolver,
         IOptions<SessionSettings> sessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -40,7 +39,6 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         _guardianRepository = guardianRepository;
         _enrollmentRepository = enrollmentRepository;
         _mapper = mapper;
-        _coursePriceResolver = coursePriceResolver;
         _sessionSettings = sessionSettings.Value;
     }
 
@@ -60,10 +58,12 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         if (!isOwner && !isParticipant)
             return NotFound<EnrollmentDetailDto>("Enrollment not found.");
 
-        var payable = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
+        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
         var dto = _mapper.Map<EnrollmentDetailDto>(enrollment);
-        dto.CoursePrice = payable;
-        dto.AmountDue = payable;
+        dto.CoursePrice = gross;
+        dto.GrossPackageTotal = gross;
+        dto.FreeSessionCredit = credit;
+        dto.AmountDue = netDue;
         dto.IsFreeTrial = enrollment.IsFreeTrial;
         dto.Participants = enrollment.Participants
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))

@@ -269,6 +269,12 @@ public class EnrollmentListItemDto
     /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
     public bool IsFreeTrial { get; set; }
 
+    /// <summary>Gross package before free-session credit (equals AmountDue when not free trial).</summary>
+    public decimal GrossPackageTotal { get; set; }
+
+    /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
+
     /// <summary>Resolved media URL for the approving teacher's profile picture.</summary>
     public string? TeacherImageUrl { get; set; }
 
@@ -487,6 +493,12 @@ public class EnrollmentDetailDto
 
     /// <summary>True when this enrollment used the student's lifetime free trial.</summary>
     public bool IsFreeTrial { get; set; }
+
+    /// <summary>Gross package before free-session credit (equals AmountDue when not free trial).</summary>
+    public decimal GrossPackageTotal { get; set; }
+
+    /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
+    public decimal FreeSessionCredit { get; set; }
 
     /// <summary>Any pending participant id — use with single-payer pay endpoint.</summary>
     public int? PayParticipantId { get; set; }
