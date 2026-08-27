@@ -1,19 +1,25 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
+using Qalam.Service.Mappers;
 
 namespace Qalam.Service.Implementations;
 
 public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
 {
     private readonly ApplicationDBContext _db;
+    private readonly ITeacherLevelRepository _teacherLevelRepository;
 
-    public AdminEnrollmentQueryService(ApplicationDBContext db)
+    public AdminEnrollmentQueryService(
+        ApplicationDBContext db,
+        ITeacherLevelRepository teacherLevelRepository)
     {
         _db = db;
+        _teacherLevelRepository = teacherLevelRepository;
     }
 
     public async Task<List<AdminEnrollmentListItemDto>> ListAsync(
@@ -62,8 +68,9 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             .Distinct()
             .ToList();
         var teacherNameById = await LoadTeacherNamesAsync(teacherIds, cancellationToken);
+        var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
 
-        return rows.Select(e => MapListItem(e, teacherNameById)).ToList();
+        return rows.Select(e => MapListItem(e, teacherNameById, starterSharePct)).ToList();
     }
 
     public async Task<AdminEnrollmentDetailDto?> GetByIdAsync(
@@ -91,8 +98,9 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             : e.Course?.TeacherId ?? 0;
         var teacherNames = await LoadTeacherNamesAsync(
             teacherId > 0 ? [teacherId] : [], cancellationToken);
+        var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
 
-        var list = MapListItem(e, teacherNames);
+        var list = MapListItem(e, teacherNames, starterSharePct);
         var detail = new AdminEnrollmentDetailDto
         {
             Id = list.Id,
@@ -142,6 +150,11 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             SnapshotPricePerHour = e.PricingSnapshot?.PricePerHour ?? 0,
             IsInterviewProofSession = e.IsFreeTrial
                 && (e.PricingSnapshot?.TeacherSharePct ?? 0) <= 0,
+            IsInterviewPendingAtQuote = list.IsInterviewPendingAtQuote,
+            ProjectedTeacherSharePct = list.ProjectedTeacherSharePct,
+            ProjectedTeacherEarningsDue = list.ProjectedTeacherEarningsDue,
+            ProjectedFreeSessionTeacherDeduction = list.ProjectedFreeSessionTeacherDeduction,
+            ProjectedPerSessionTeacherValue = list.ProjectedPerSessionTeacherValue,
             Participants = e.Participants.Select(p => new AdminEnrollmentParticipantDto
             {
                 ParticipantId = p.Id,
@@ -199,7 +212,8 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
 
     private AdminEnrollmentListItemDto MapListItem(
         Data.Entity.Course.Enrollment e,
-        Dictionary<int, string> teacherNameById)
+        Dictionary<int, string> teacherNameById,
+        decimal starterSharePct)
     {
         var teacherId = e.ApprovedByTeacherId > 0
             ? e.ApprovedByTeacherId
@@ -256,28 +270,38 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
         }
 
         var platformCost = 0m;
-        if (e.IsFreeTrial && snapshot != null && snapshot.TeacherSharePct > 0 && credit > 0)
+        if (e.IsFreeTrial && snapshot != null && credit > 0)
         {
-            // Snapshot.TeacherEarnings already excludes the free first session; reconstruct forgone share.
-            var earnableMinutes = totalMinutes > firstMinutes
-                ? totalMinutes - firstMinutes
-                : 0;
-            if (snapshot.TeacherEarnings > 0 && earnableMinutes > 0 && firstMinutes > 0)
+            if (EnrollmentEarningsProjectionHelper.IsInterviewPendingAtQuote(e) && starterSharePct > 0)
             {
-                platformCost = Math.Round(
-                    snapshot.TeacherEarnings * firstMinutes / (decimal)earnableMinutes,
-                    2,
-                    MidpointRounding.AwayFromZero);
+                platformCost = EnrollmentEarningsProjectionHelper.Compute(e, starterSharePct)
+                    ?.ProjectedFreeSessionTeacherDeduction ?? 0m;
             }
-            else
+            else if (snapshot.TeacherSharePct > 0)
             {
-                var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
-                platformCost = Math.Round(
-                    earningsHourly * firstMinutes / 60m * (snapshot.TeacherSharePct / 100m),
-                    2,
-                    MidpointRounding.AwayFromZero);
+                // Snapshot.TeacherEarnings already excludes the free first session; reconstruct forgone share.
+                var earnableMinutes = totalMinutes > firstMinutes
+                    ? totalMinutes - firstMinutes
+                    : 0;
+                if (snapshot.TeacherEarnings > 0 && earnableMinutes > 0 && firstMinutes > 0)
+                {
+                    platformCost = Math.Round(
+                        snapshot.TeacherEarnings * firstMinutes / (decimal)earnableMinutes,
+                        2,
+                        MidpointRounding.AwayFromZero);
+                }
+                else
+                {
+                    var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
+                    platformCost = Math.Round(
+                        earningsHourly * firstMinutes / 60m * (snapshot.TeacherSharePct / 100m),
+                        2,
+                        MidpointRounding.AwayFromZero);
+                }
             }
         }
+
+        var projection = EnrollmentEarningsProjectionHelper.Compute(e, starterSharePct);
 
         var amountPaid = e.Participants
             .Where(p => p.PaymentStatus == PaymentStatus.Succeeded)
@@ -323,8 +347,19 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             CompletedAt = e.CompletedAt,
             PaymentDeadline = e.PaymentDeadline,
             SessionsCompleted = completed,
-            SessionsTotal = total
+            SessionsTotal = total,
+            IsInterviewPendingAtQuote = projection?.IsInterviewPendingAtQuote ?? false,
+            ProjectedTeacherSharePct = projection?.ProjectedTeacherSharePct ?? 0,
+            ProjectedTeacherEarningsDue = projection?.ProjectedTeacherEarningsDue ?? 0,
+            ProjectedFreeSessionTeacherDeduction = projection?.ProjectedFreeSessionTeacherDeduction ?? 0,
+            ProjectedPerSessionTeacherValue = projection?.ProjectedPerSessionTeacherValue ?? 0,
         };
+    }
+
+    private async Task<decimal> ResolveStarterSharePctAsync(CancellationToken cancellationToken)
+    {
+        var starter = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
+        return starter?.TeacherSharePct ?? 0m;
     }
 
     private async Task<Dictionary<int, string>> LoadTeacherNamesAsync(

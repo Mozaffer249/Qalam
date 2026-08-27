@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
+using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Mappers;
 
 namespace Qalam.Service.Implementations;
 
@@ -52,6 +54,17 @@ public class TeacherEarningService : ITeacherEarningService
         var snapshot = enrollment.PricingSnapshot;
         var currency = snapshot?.Currency ?? "SAR";
         var packageEarnings = snapshot?.TeacherEarnings ?? 0m;
+        if (packageEarnings <= 0m && snapshot != null)
+        {
+            var starterSharePct = await _db.Set<TeacherLevel>()
+                .AsNoTracking()
+                .Where(l => l.IsActive)
+                .OrderBy(l => l.OrderIndex)
+                .Select(l => l.TeacherSharePct)
+                .FirstOrDefaultAsync(cancellationToken);
+            packageEarnings = EnrollmentEarningsProjectionHelper.ResolvePackageEarningsForAccrual(
+                enrollment, snapshot, starterSharePct);
+        }
 
         var siblingSchedules = await _db.CourseSchedules
             .AsNoTracking()

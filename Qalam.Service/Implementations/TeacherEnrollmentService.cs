@@ -24,6 +24,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
     private readonly ICourseRepository _courseRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IEnrollmentConversationRepository _conversationRepository;
+    private readonly ITeacherLevelRepository _teacherLevelRepository;
     private readonly ApplicationDBContext _db;
     private readonly UserManager<User> _userManager;
     private readonly IChatEmailNotifier _chatEmail;
@@ -36,6 +37,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         ICourseRepository courseRepository,
         IEnrollmentRepository enrollmentRepository,
         IEnrollmentConversationRepository conversationRepository,
+        ITeacherLevelRepository teacherLevelRepository,
         ApplicationDBContext db,
         UserManager<User> userManager,
         IChatEmailNotifier chatEmail,
@@ -47,6 +49,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
         _conversationRepository = conversationRepository;
+        _teacherLevelRepository = teacherLevelRepository;
         _db = db;
         _userManager = userManager;
         _chatEmail = chatEmail;
@@ -111,6 +114,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             .ToListAsync(cancellationToken);
 
         var currency = _paymentSettings.DefaultCurrency;
+        var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
         var earningsByEnrollment = await LoadEarningsByEnrollmentIdsAsync(
             enrollments.Select(e => e.Id).ToList(), cancellationToken);
         var mapped = enrollments
@@ -119,7 +123,9 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 currency,
                 TeacherEnrollmentEarningsHelper.Compute(
                     e,
-                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [])))
+                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [],
+                    starterSharePct),
+                starterSharePct))
             .ToList();
 
         if (sourceBadge.HasValue)
@@ -170,6 +176,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             .Skip((number - 1) * size)
             .Take(size)
             .ToList();
+        var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
         var earningsByEnrollment = await LoadEarningsByEnrollmentIdsAsync(
             pageEnrollments.Select(e => e.Id).ToList(), cancellationToken);
 
@@ -179,7 +186,9 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 currency,
                 TeacherEnrollmentEarningsHelper.Compute(
                     e,
-                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [])))
+                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [],
+                    starterSharePct),
+                starterSharePct))
             .ToList();
 
         return new PaginatedResult<TeacherEnrollmentListItemDto>(page, totalCount, number, size);
@@ -424,9 +433,11 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         }
 
         var earningsLines = await LoadEarningsByEnrollmentIdsAsync([enrollment.Id], cancellationToken);
+        var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
         var earnings = TeacherEnrollmentEarningsHelper.Compute(
             enrollment,
-            earningsLines.GetValueOrDefault(enrollment.Id) ?? []);
+            earningsLines.GetValueOrDefault(enrollment.Id) ?? [],
+            starterSharePct);
         dto.TeacherEarningsDue = earnings.TeacherEarningsDue;
         dto.PlatformCommission = earnings.PlatformCommission;
         dto.TeacherSharePct = earnings.TeacherSharePct;
@@ -436,6 +447,11 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         dto.FreeSessionTeacherDeduction = earnings.FreeSessionTeacherDeduction;
         dto.AccruedNet = earnings.AccruedNet;
         dto.EarningUiStatus = earnings.EarningUiStatus;
+        dto.IsInterviewPendingAtQuote = earnings.IsInterviewPendingAtQuote;
+        dto.ProjectedTeacherSharePct = earnings.ProjectedTeacherSharePct;
+        dto.ProjectedTeacherEarningsDue = earnings.ProjectedTeacherEarningsDue;
+        dto.ProjectedFreeSessionTeacherDeduction = earnings.ProjectedFreeSessionTeacherDeduction;
+        dto.ProjectedPerSessionTeacherValue = earnings.ProjectedPerSessionTeacherValue;
 
         dto.SessionsTotal = schedules.Count;
         dto.SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed);
@@ -723,5 +739,11 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 g => g.Key,
                 g => g.Select(r => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
                     r.Status, r.BatchStatus, r.Amount)).ToList());
+    }
+
+    private async Task<decimal> ResolveStarterSharePctAsync(CancellationToken cancellationToken)
+    {
+        var starter = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
+        return starter?.TeacherSharePct ?? 0m;
     }
 }

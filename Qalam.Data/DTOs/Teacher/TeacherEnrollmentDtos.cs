@@ -87,6 +87,13 @@ public class TeacherEnrollmentListItemDto
     /// <summary>Pending | Available | Paid | Refunded</summary>
     public string EarningUiStatus { get; set; } = "Pending";
 
+    /// <summary>Free trial + 0% share frozen at quote (interview not yet complete).</summary>
+    public bool IsInterviewPendingAtQuote { get; set; }
+    public decimal ProjectedTeacherSharePct { get; set; }
+    public decimal ProjectedTeacherEarningsDue { get; set; }
+    public decimal ProjectedFreeSessionTeacherDeduction { get; set; }
+    public decimal ProjectedPerSessionTeacherValue { get; set; }
+
     public DateTime? NextSessionAt { get; set; }
     public int SessionsAttended { get; set; }
     public int SessionsAbsentOrLate { get; set; }
@@ -154,6 +161,12 @@ public class TeacherEnrollmentDetailDto
     public decimal AccruedNet { get; set; }
     /// <summary>Pending | Available | Paid | Refunded</summary>
     public string EarningUiStatus { get; set; } = "Pending";
+
+    public bool IsInterviewPendingAtQuote { get; set; }
+    public decimal ProjectedTeacherSharePct { get; set; }
+    public decimal ProjectedTeacherEarningsDue { get; set; }
+    public decimal ProjectedFreeSessionTeacherDeduction { get; set; }
+    public decimal ProjectedPerSessionTeacherValue { get; set; }
 
     public int? EnrollmentRequestId { get; set; }
     public int? SessionOfferId { get; set; }

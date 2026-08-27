@@ -46,6 +46,12 @@ public class AdminEnrollmentListItemDto
     public DateTime? PaymentDeadline { get; set; }
     public int SessionsCompleted { get; set; }
     public int SessionsTotal { get; set; }
+
+    public bool IsInterviewPendingAtQuote { get; set; }
+    public decimal ProjectedTeacherSharePct { get; set; }
+    public decimal ProjectedTeacherEarningsDue { get; set; }
+    public decimal ProjectedFreeSessionTeacherDeduction { get; set; }
+    public decimal ProjectedPerSessionTeacherValue { get; set; }
 }
 
 public class AdminEnrollmentParticipantDto

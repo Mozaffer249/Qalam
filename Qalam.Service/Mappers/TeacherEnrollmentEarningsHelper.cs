@@ -23,11 +23,17 @@ public static class TeacherEnrollmentEarningsHelper
         decimal PerSessionTeacherValue,
         decimal FreeSessionTeacherDeduction,
         decimal AccruedNet,
-        string EarningUiStatus);
+        string EarningUiStatus,
+        bool IsInterviewPendingAtQuote,
+        decimal ProjectedTeacherSharePct,
+        decimal ProjectedTeacherEarningsDue,
+        decimal ProjectedFreeSessionTeacherDeduction,
+        decimal ProjectedPerSessionTeacherValue);
 
     public static EarningsBreakdown Compute(
         Enrollment enrollment,
-        IReadOnlyList<EarningLineInfo> lines)
+        IReadOnlyList<EarningLineInfo> lines,
+        decimal starterSharePct = 0m)
     {
         var snap = enrollment.PricingSnapshot;
         var schedules = (enrollment.CourseSchedules ?? [])
@@ -78,6 +84,12 @@ public static class TeacherEnrollmentEarningsHelper
             .Where(l => l.Status != TeacherEarningLineStatus.Voided)
             .Sum(l => l.Amount);
 
+        var projection = EnrollmentEarningsProjectionHelper.Compute(
+            enrollment,
+            starterSharePct,
+            freeSessions,
+            paidSessions);
+
         return new EarningsBreakdown(
             TeacherEarningsDue: teacherDue,
             PlatformCommission: platformCommission,
@@ -87,7 +99,12 @@ public static class TeacherEnrollmentEarningsHelper
             PerSessionTeacherValue: perSession,
             FreeSessionTeacherDeduction: deduction,
             AccruedNet: accrued,
-            EarningUiStatus: ResolveUiStatus(lines));
+            EarningUiStatus: ResolveUiStatus(lines),
+            IsInterviewPendingAtQuote: projection?.IsInterviewPendingAtQuote ?? false,
+            ProjectedTeacherSharePct: projection?.ProjectedTeacherSharePct ?? 0m,
+            ProjectedTeacherEarningsDue: projection?.ProjectedTeacherEarningsDue ?? 0m,
+            ProjectedFreeSessionTeacherDeduction: projection?.ProjectedFreeSessionTeacherDeduction ?? 0m,
+            ProjectedPerSessionTeacherValue: projection?.ProjectedPerSessionTeacherValue ?? 0m);
     }
 
     public static string ResolveUiStatus(IReadOnlyList<EarningLineInfo> lines)

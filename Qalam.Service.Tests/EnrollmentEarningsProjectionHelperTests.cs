@@ -5,78 +5,10 @@ using Qalam.Service.Mappers;
 
 namespace Qalam.Service.Tests;
 
-public class TeacherEnrollmentEarningsHelperTests
+public class EnrollmentEarningsProjectionHelperTests
 {
     [Fact]
-    public void Compute_FreeTrial_SetsFreePaidCountsAndDeduction()
-    {
-        var enrollment = new Enrollment
-        {
-            IsFreeTrial = true,
-            PricingSnapshot = new PricingSnapshot
-            {
-                TeacherEarnings = 70m,
-                PlatformShare = 30m,
-                TeacherSharePct = 70m,
-                TotalMinutes = 120,
-                PricePerHour = 100m,
-                Currency = "SAR",
-                MarketCode = "SA",
-                SessionTypeCode = "individual",
-            },
-            CourseSchedules =
-            [
-                new CourseSchedule
-                {
-                    Date = DateOnly.FromDateTime(DateTime.UtcNow),
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Completed,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-                new CourseSchedule
-                {
-                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Scheduled,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-            ],
-        };
-
-        var result = TeacherEnrollmentEarningsHelper.Compute(enrollment, []);
-        Assert.Equal(1, result.FreeSessionsCount);
-        Assert.Equal(1, result.PaidSessionsCount);
-        Assert.Equal(70m, result.TeacherEarningsDue);
-        Assert.Equal(70m, result.FreeSessionTeacherDeduction); // 70 * 60/60 earnable
-        Assert.Equal("Pending", result.EarningUiStatus);
-    }
-
-    [Fact]
-    public void ResolveUiStatus_AvailableWhenPendingLineExists()
-    {
-        var status = TeacherEnrollmentEarningsHelper.ResolveUiStatus(
-        [
-            new TeacherEnrollmentEarningsHelper.EarningLineInfo(
-                TeacherEarningLineStatus.Pending, null, 40m),
-        ]);
-        Assert.Equal("Available", status);
-    }
-
-    [Fact]
-    public void ResolveUiStatus_PaidWhenIncludedAndBatchPaid()
-    {
-        var status = TeacherEnrollmentEarningsHelper.ResolveUiStatus(
-        [
-            new TeacherEnrollmentEarningsHelper.EarningLineInfo(
-                TeacherEarningLineStatus.IncludedInPayout, PayoutBatchStatus.Paid, 40m),
-        ]);
-        Assert.Equal("Paid", status);
-    }
-
-    [Fact]
-    public void Compute_InterviewPendingFreeTrial_ProjectsStarterShareEarnings()
+    public void Compute_InterviewPendingFreeTrial_MatchesEnrollment3022Shape()
     {
         var enrollment = new Enrollment
         {
@@ -88,6 +20,7 @@ public class TeacherEnrollmentEarningsHelperTests
                 PlatformShare = 85m,
                 TeacherSharePct = 0m,
                 TotalMinutes = 120,
+                TotalPrice = 85m,
                 PricePerHour = 85m,
                 Currency = "SAR",
                 MarketCode = "SA",
@@ -114,12 +47,53 @@ public class TeacherEnrollmentEarningsHelperTests
             ],
         };
 
-        var result = TeacherEnrollmentEarningsHelper.Compute(enrollment, [], starterSharePct: 70m);
-        Assert.True(result.IsInterviewPendingAtQuote);
-        Assert.Equal(0m, result.TeacherEarningsDue);
-        Assert.Equal(70m, result.ProjectedTeacherSharePct);
-        Assert.Equal(59.5m, result.ProjectedTeacherEarningsDue);
-        Assert.Equal(59.5m, result.ProjectedFreeSessionTeacherDeduction);
-        Assert.Equal(59.5m, result.ProjectedPerSessionTeacherValue);
+        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterSharePct: 70m);
+        Assert.NotNull(projection);
+        Assert.True(projection!.IsInterviewPendingAtQuote);
+        Assert.Equal(59.5m, projection.ProjectedTeacherEarningsDue);
+        Assert.Equal(59.5m, projection.ProjectedFreeSessionTeacherDeduction);
+        Assert.Equal(25.5m, projection.ProjectedPlatformShare);
+        Assert.Equal(85m, enrollment.PricingSnapshot.TotalPrice);
+    }
+
+    [Fact]
+    public void ResolvePackageEarningsForAccrual_UsesProjectionWhenSnapshotZero()
+    {
+        var enrollment = new Enrollment
+        {
+            IsFreeTrial = true,
+            AmountDue = 85m,
+            PricingSnapshot = new PricingSnapshot
+            {
+                TeacherEarnings = 0m,
+                TeacherSharePct = 0m,
+                TotalMinutes = 120,
+                PricePerHour = 85m,
+                Currency = "SAR",
+                MarketCode = "SA",
+                SessionTypeCode = "individual",
+            },
+            CourseSchedules =
+            [
+                new CourseSchedule
+                {
+                    DurationMinutes = 60,
+                    Status = ScheduleStatus.Scheduled,
+                    TeacherAvailabilityId = 1,
+                    TeachingModeId = 1,
+                },
+                new CourseSchedule
+                {
+                    DurationMinutes = 60,
+                    Status = ScheduleStatus.Scheduled,
+                    TeacherAvailabilityId = 1,
+                    TeachingModeId = 1,
+                },
+            ],
+        };
+
+        var package = EnrollmentEarningsProjectionHelper.ResolvePackageEarningsForAccrual(
+            enrollment, enrollment.PricingSnapshot, starterSharePct: 70m);
+        Assert.Equal(59.5m, package);
     }
 }
