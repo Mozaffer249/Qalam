@@ -192,6 +192,47 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
+    public void ResolveFreeTrialBreakdown_NullSnapshot_UsesEstimatedTotalPrice()
+    {
+        var enrollment = new Enrollment
+        {
+            AmountDue = 170m,
+            IsFreeTrial = true,
+            PricingSnapshot = null,
+            EnrollmentRequest = new CourseEnrollmentRequest
+            {
+                EstimatedTotalPrice = 255m,
+            },
+        };
+        var (gross, credit, net) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        Assert.Equal(255m, gross);
+        Assert.Equal(85m, credit);
+        Assert.Equal(170m, net);
+    }
+
+    [Fact]
+    public void ResolveFreeTrialBreakdown_NullSnapshot_UsesCourseHourlyAndSchedules()
+    {
+        var enrollment = new Enrollment
+        {
+            AmountDue = 170m,
+            IsFreeTrial = true,
+            PricingSnapshot = null,
+            Course = new Course { Price = 85m, SessionDurationMinutes = 60 },
+            CourseSchedules =
+            [
+                new CourseSchedule { Date = DateOnly.FromDateTime(DateTime.UtcNow), DurationMinutes = 60 },
+                new CourseSchedule { Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), DurationMinutes = 60 },
+                new CourseSchedule { Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)), DurationMinutes = 60 },
+            ],
+        };
+        var (gross, credit, net) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        Assert.Equal(255m, gross);
+        Assert.Equal(85m, credit);
+        Assert.Equal(170m, net);
+    }
+
+    [Fact]
     public void ApplyFreeTrialToSnapshot_Unlocked_SetsNetTotalAndPlatformShare()
     {
         var snapshot = new PricingSnapshot

@@ -117,6 +117,7 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Include(e => e.CourseSchedules).ThenInclude(cs => cs.Attendances)
             .Include(e => e.CourseSchedules).ThenInclude(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
             .Include(e => e.EnrollmentRequest)
+            .Include(e => e.PricingSnapshot)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.Subject)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.TeachingMode)
             .Where(e => e.ApprovedByTeacherId == teacherId);
@@ -134,6 +135,7 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Include(e => e.CourseSchedules).ThenInclude(cs => cs.Attendances)
             .Include(e => e.CourseSchedules).ThenInclude(cs => cs.TeacherAvailability).ThenInclude(ta => ta.TimeSlot)
             .Include(e => e.EnrollmentRequest)
+            .Include(e => e.PricingSnapshot)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.Subject)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.TeachingMode)
             .Where(e => e.CourseId == courseId);
@@ -157,6 +159,7 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
                 .ThenInclude(ss => ss.Units).ThenInclude(u => u.ContentUnit)
             .Include(e => e.EnrollmentRequest!).ThenInclude(r => r.SelectedSessionSlots)
                 .ThenInclude(ss => ss.Units).ThenInclude(u => u.Lesson)
+            .Include(e => e.PricingSnapshot)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.Subject)
             .Include(e => e.OpenSessionRequest!).ThenInclude(r => r.TeachingMode)
             .Include(e => e.CourseSchedules)

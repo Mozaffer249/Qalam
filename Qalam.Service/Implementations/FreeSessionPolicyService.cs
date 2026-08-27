@@ -153,32 +153,65 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
 
         var snap = enrollment.PricingSnapshot;
         var schedules = enrollment.CourseSchedules ?? [];
+        var scheduleMinutes = schedules.Sum(s => s.DurationMinutes);
+        var totalMinutes = snap?.TotalMinutes > 0
+            ? snap.TotalMinutes
+            : scheduleMinutes;
+
         var firstMinutes = ResolveFirstSessionMinutes(
             schedules.OrderBy(s => s.Date).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
             enrollment.Course?.SessionDurationMinutes,
-            snap?.TotalMinutes > 0 ? snap.TotalMinutes : null,
+            totalMinutes > 0 ? totalMinutes : null,
             schedules.Count > 0 ? schedules.Count : enrollment.Course?.SessionsCount);
         if (firstMinutes <= 0)
             firstMinutes = 60;
 
-        var pricePerHour = snap?.PricePerHour > 0
-            ? snap.PricePerHour
-            : DerivePricePerHour(netDue, snap?.TotalMinutes ?? 0);
-        var totalMinutes = snap?.TotalMinutes > 0
-            ? snap.TotalMinutes
-            : schedules.Sum(s => s.DurationMinutes);
-        var engineGross = totalMinutes > 0 && pricePerHour > 0
-            ? Math.Round(pricePerHour * totalMinutes / 60m, 2, MidpointRounding.AwayFromZero)
-            : 0m;
-
-        if (engineGross > 0)
+        // 1) Prefer snapshot hourly + package minutes → engine gross.
+        if (snap?.PricePerHour > 0 && totalMinutes > 0)
         {
-            var credit = Math.Max(0m, Math.Round(engineGross - netDue, 2, MidpointRounding.AwayFromZero));
-            return (engineGross, credit, netDue);
+            var engineGross = Math.Round(
+                snap.PricePerHour * totalMinutes / 60m,
+                2,
+                MidpointRounding.AwayFromZero);
+            if (engineGross > 0)
+            {
+                var credit = Math.Max(0m, Math.Round(engineGross - netDue, 2, MidpointRounding.AwayFromZero));
+                return (engineGross, credit, netDue);
+            }
         }
 
+        // 2) Request estimate when it exceeds net due (common when snapshot was not loaded).
+        var estimate = enrollment.EnrollmentRequest?.EstimatedTotalPrice ?? 0m;
+        if (estimate > netDue)
+        {
+            var credit = Math.Round(estimate - netDue, 2, MidpointRounding.AwayFromZero);
+            return (estimate, credit, netDue);
+        }
+
+        // 3) Reconstruct from course hourly rate + schedule/package minutes.
+        var courseHourly = enrollment.Course?.Price ?? 0m;
+        if (courseHourly > 0 && totalMinutes > 0)
+        {
+            var engineGross = Math.Round(
+                courseHourly * totalMinutes / 60m,
+                2,
+                MidpointRounding.AwayFromZero);
+            if (engineGross > 0)
+            {
+                var credit = Math.Max(0m, Math.Round(engineGross - netDue, 2, MidpointRounding.AwayFromZero));
+                return (engineGross, credit, netDue);
+            }
+        }
+
+        // 4) Last resort: first-session credit from available hourly (do not derive from netDue alone).
+        var fallbackHourly = snap?.PricePerHour > 0
+            ? snap.PricePerHour
+            : courseHourly;
+        if (fallbackHourly <= 0 && totalMinutes > 0 && estimate > 0)
+            fallbackHourly = DerivePricePerHour(estimate, totalMinutes);
+
         var creditOnly = ComputeFreeSessionCredit(
-            pricePerHour, firstMinutes, Math.Max(netDue, pricePerHour));
+            fallbackHourly, firstMinutes, Math.Max(netDue, fallbackHourly));
         return (netDue + creditOnly, creditOnly, netDue);
     }
 
