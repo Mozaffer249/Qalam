@@ -364,6 +364,9 @@ public class EnrollmentSessionItemDto
 
     public ScheduleStatus? Status { get; set; }
 
+    /// <summary>True when this is the lifetime free-trial first session (no teacher earning).</summary>
+    public bool IsFreeSession { get; set; }
+
     /// <summary>
     /// True when enrollment is Active, status is Scheduled/InProgress, and current UTC lies within the session window on that date.
     /// </summary>

@@ -95,6 +95,9 @@ public class TeacherFinanceTransactionDto
     public string? RelatedStudentName { get; set; }
     public string? RelatedCourseTitle { get; set; }
     public string? InvoiceNumber { get; set; }
+    public int? EnrollmentId { get; set; }
+    /// <summary>Pending | Available | Paid | Refunded — for earning rows.</summary>
+    public string? EarningUiStatus { get; set; }
 }
 
 public class TeacherNotificationsPageDto

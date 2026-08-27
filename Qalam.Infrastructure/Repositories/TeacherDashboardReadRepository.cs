@@ -380,7 +380,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
 
         var earnings = await _context.TeacherEarningLines
             .AsNoTracking()
-            .Where(l => l.TeacherId == teacherId && l.Status != TeacherEarningLineStatus.Voided)
+            .Where(l => l.TeacherId == teacherId)
             .Select(l => new
             {
                 l.Id,
@@ -388,22 +388,39 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 l.Currency,
                 l.CreatedAt,
                 l.Status,
+                l.EnrollmentId,
+                BatchStatus = l.PayoutItem != null
+                    ? (PayoutBatchStatus?)l.PayoutItem.PayoutBatch.Status
+                    : null,
                 CourseTitle = l.Enrollment.Course != null ? l.Enrollment.Course.Title : null,
             })
             .ToListAsync(cancellationToken);
 
         foreach (var e in earnings)
         {
+            var uiStatus = e.Status switch
+            {
+                TeacherEarningLineStatus.Pending => "Available",
+                TeacherEarningLineStatus.Voided => "Refunded",
+                TeacherEarningLineStatus.IncludedInPayout when e.BatchStatus == PayoutBatchStatus.Paid => "Paid",
+                TeacherEarningLineStatus.IncludedInPayout => "Pending",
+                _ => "Pending"
+            };
+
             items.Add(new TeacherFinanceTransactionDto
             {
                 Id = $"earn-{e.Id}",
-                Type = "Payment",
+                Type = e.Status == TeacherEarningLineStatus.Voided ? "Refund" : "Payment",
                 Status = e.Status == TeacherEarningLineStatus.Pending ? "Pending" : "Completed",
-                Amount = e.Amount,
+                Amount = e.Status == TeacherEarningLineStatus.Voided ? -e.Amount : e.Amount,
                 Currency = e.Currency,
                 CreatedAt = e.CreatedAt,
-                Description = "Session earning",
+                Description = e.Status == TeacherEarningLineStatus.Voided
+                    ? "Earning voided (refund)"
+                    : "Session earning",
                 RelatedCourseTitle = e.CourseTitle,
+                EnrollmentId = e.EnrollmentId,
+                EarningUiStatus = uiStatus,
             });
         }
 

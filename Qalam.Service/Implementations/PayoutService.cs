@@ -31,10 +31,15 @@ public class PayoutService : IPayoutService
                     ? ((l.Teacher.User.FirstName ?? "") + " " + (l.Teacher.User.LastName ?? "")).Trim()
                     : null,
                 EnrollmentId = l.EnrollmentId,
+                CourseTitle = l.Enrollment.Course != null
+                    ? l.Enrollment.Course.Title
+                    : null,
                 CourseScheduleId = l.CourseScheduleId,
                 Amount = l.Amount,
                 Currency = l.Currency,
                 Source = l.Source.ToString(),
+                IsFreeTrialEnrollment = l.Enrollment.IsFreeTrial,
+                FreeSessionsInEnrollment = l.Enrollment.IsFreeTrial ? 1 : 0,
                 CreatedAt = l.CreatedAt
             })
             .Take(500)
@@ -165,34 +170,103 @@ public class PayoutService : IPayoutService
     {
         var batch = await _db.PayoutBatches
             .AsNoTracking()
-            .Where(b => b.Id == batchId)
-            .Select(b => new AdminPayoutBatchDto
+            .Include(b => b.Items)
+                .ThenInclude(i => i.Teacher)
+                    .ThenInclude(t => t.User)
+            .Include(b => b.Items)
+                .ThenInclude(i => i.EarningLines)
+                    .ThenInclude(l => l.Enrollment)
+                        .ThenInclude(e => e.Course)
+            .Include(b => b.Items)
+                .ThenInclude(i => i.EarningLines)
+                    .ThenInclude(l => l.Enrollment)
+                        .ThenInclude(e => e.CourseSchedules)
+            .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
+
+        if (batch == null)
+            return null;
+
+        var enrollmentIds = batch.Items
+            .SelectMany(i => i.EarningLines)
+            .Select(l => l.EnrollmentId)
+            .Distinct()
+            .ToList();
+
+        var refundsByEnrollment = await _db.Refunds
+            .AsNoTracking()
+            .Where(r => enrollmentIds.Contains(r.EnrollmentId) && r.Status == RefundStatus.Succeeded)
+            .GroupBy(r => r.EnrollmentId)
+            .Select(g => new { EnrollmentId = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.EnrollmentId, x => x.Total, cancellationToken);
+
+        var commissionByEnrollment = await _db.Enrollments
+            .AsNoTracking()
+            .Where(e => enrollmentIds.Contains(e.Id))
+            .Select(e => new
             {
-                Id = b.Id,
-                PeriodStart = b.PeriodStart,
-                PeriodEnd = b.PeriodEnd,
-                TotalAmount = b.TotalAmount,
-                Currency = b.Currency,
-                Status = b.Status.ToString(),
-                MockTransferRef = b.MockTransferRef,
-                ItemsCount = b.Items.Count,
-                CreatedAt = b.CreatedAt,
-                ApprovedAt = b.ApprovedAt,
-                PaidAt = b.PaidAt,
-                Items = b.Items.Select(i => new AdminPayoutItemDto
+                e.Id,
+                PlatformShare = e.PricingSnapshot != null ? e.PricingSnapshot.PlatformShare : 0m
+            })
+            .ToDictionaryAsync(x => x.Id, x => x.PlatformShare, cancellationToken);
+
+        return new AdminPayoutBatchDto
+        {
+            Id = batch.Id,
+            PeriodStart = batch.PeriodStart,
+            PeriodEnd = batch.PeriodEnd,
+            TotalAmount = batch.TotalAmount,
+            Currency = batch.Currency,
+            Status = batch.Status.ToString(),
+            MockTransferRef = batch.MockTransferRef,
+            ItemsCount = batch.Items.Count,
+            CreatedAt = batch.CreatedAt,
+            ApprovedAt = batch.ApprovedAt,
+            PaidAt = batch.PaidAt,
+            Items = batch.Items.Select(i =>
+            {
+                var lineDtos = i.EarningLines.Select(l =>
+                {
+                    var schedules = l.Enrollment?.CourseSchedules?
+                        .Where(s => s.Status != ScheduleStatus.Cancelled
+                                    && s.Status != ScheduleStatus.Rescheduled)
+                        .ToList() ?? [];
+                    return new AdminPayoutEarningLineDto
+                    {
+                        LineId = l.Id,
+                        EnrollmentId = l.EnrollmentId,
+                        CourseTitle = l.Enrollment?.Course?.Title,
+                        CourseScheduleId = l.CourseScheduleId,
+                        Amount = l.Amount,
+                        Source = l.Source.ToString(),
+                        Status = l.Status.ToString(),
+                        CreatedAt = l.CreatedAt,
+                        FreeSessionsInEnrollment = l.Enrollment?.IsFreeTrial == true ? 1 : 0,
+                        SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed)
+                    };
+                }).ToList();
+
+                var itemEnrollmentIds = lineDtos.Select(x => x.EnrollmentId).Distinct().ToList();
+                var commission = itemEnrollmentIds.Sum(id =>
+                    commissionByEnrollment.GetValueOrDefault(id));
+                var refunds = itemEnrollmentIds.Sum(id =>
+                    refundsByEnrollment.GetValueOrDefault(id));
+
+                return new AdminPayoutItemDto
                 {
                     Id = i.Id,
                     TeacherId = i.TeacherId,
-                    TeacherName = i.Teacher.User != null
+                    TeacherName = i.Teacher?.User != null
                         ? ((i.Teacher.User.FirstName ?? "") + " " + (i.Teacher.User.LastName ?? "")).Trim()
                         : null,
                     Amount = i.Amount,
                     Currency = i.Currency,
-                    LinesCount = i.EarningLines.Count
-                }).ToList()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return batch;
+                    LinesCount = lineDtos.Count,
+                    CommissionAmount = commission,
+                    RefundsAmount = refunds,
+                    TransferrableAmount = i.Amount,
+                    Lines = lineDtos
+                };
+            }).ToList()
+        };
     }
 }

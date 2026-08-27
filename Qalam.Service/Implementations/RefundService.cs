@@ -60,10 +60,10 @@ public class RefundService : IRefundService
         _db.Refunds.Add(refund);
 
         var newTotal = alreadyRefunded + refund.Amount;
-        if (newTotal >= payment.TotalAmount - 0.001m)
+        var isFullRefund = newTotal >= payment.TotalAmount - 0.001m;
+        if (isFullRefund)
             payment.Status = PaymentStatus.Refunded;
 
-        // Mark linked enrollment payment rows refunded on full payment refund.
         if (payment.Status == PaymentStatus.Refunded)
         {
             var enrollmentPayments = await _db.EnrollmentPayments
@@ -72,6 +72,13 @@ public class RefundService : IRefundService
             foreach (var ep in enrollmentPayments)
                 ep.Status = PaymentStatus.Refunded;
         }
+
+        await VoidTeacherEarningsForRefundAsync(
+            enrollmentId,
+            refund.Amount,
+            payment.TotalAmount,
+            isFullRefund,
+            cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return refund;
@@ -192,6 +199,46 @@ public class RefundService : IRefundService
         if (r == null)
             return null;
 
+        var schedules = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == r.EnrollmentId
+                        && s.Status != ScheduleStatus.Cancelled
+                        && s.Status != ScheduleStatus.Rescheduled)
+            .Select(s => s.Status)
+            .ToListAsync(cancellationToken);
+
+        var used = schedules.Count(s => s == ScheduleStatus.Completed);
+        var unused = Math.Max(0, schedules.Count - used);
+
+        var lines = await _db.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.EnrollmentId == r.EnrollmentId)
+            .Select(l => new
+            {
+                l.Status,
+                l.Amount,
+                BatchStatus = l.PayoutItem != null
+                    ? (PayoutBatchStatus?)l.PayoutItem.PayoutBatch.Status
+                    : null
+            })
+            .ToListAsync(cancellationToken);
+
+        var voided = lines
+            .Where(l => l.Status == TeacherEarningLineStatus.Voided)
+            .Sum(l => l.Amount);
+        var hasPaid = lines.Any(l =>
+            l.Status == TeacherEarningLineStatus.IncludedInPayout
+            && l.BatchStatus == PayoutBatchStatus.Paid);
+        var hasVoidedPending = voided > 0;
+
+        var payoutImpact = "None";
+        if (hasPaid)
+            payoutImpact = "AlreadyPaid";
+        else if (hasVoidedPending)
+            payoutImpact = "VoidedPending";
+
+        var platformBear = Math.Max(0m, Math.Round(r.Amount - voided, 2, MidpointRounding.AwayFromZero));
+
         return new AdminRefundDetailDto
         {
             Id = r.Id,
@@ -207,7 +254,50 @@ public class RefundService : IRefundService
             PaymentTotalAmount = r.PaymentTotal,
             PaymentRefundedTotal = r.RefundedTotal,
             CourseTitle = r.CourseTitle,
-            PayerName = r.PayerName
+            PayerName = r.PayerName,
+            SessionsUsed = used,
+            SessionsUnused = unused,
+            TeacherDeductionAmount = voided,
+            PlatformBearAmount = platformBear,
+            PayoutImpact = payoutImpact
         };
+    }
+
+    /// <summary>
+    /// Full payment refund voids all Pending lines. Partial refund voids newest Pending lines
+    /// until the refund amount (or remaining pending) is covered. Paid-batch lines are left alone.
+    /// </summary>
+    private async Task VoidTeacherEarningsForRefundAsync(
+        int enrollmentId,
+        decimal refundAmount,
+        decimal paymentTotal,
+        bool isFullRefund,
+        CancellationToken cancellationToken)
+    {
+        var pending = await _db.TeacherEarningLines
+            .Where(l => l.EnrollmentId == enrollmentId
+                        && l.Status == TeacherEarningLineStatus.Pending)
+            .OrderByDescending(l => l.CreatedAt)
+            .ThenByDescending(l => l.Id)
+            .ToListAsync(cancellationToken);
+
+        if (pending.Count == 0)
+            return;
+
+        if (isFullRefund || refundAmount >= paymentTotal - 0.001m)
+        {
+            foreach (var line in pending)
+                line.Status = TeacherEarningLineStatus.Voided;
+            return;
+        }
+
+        var remaining = refundAmount;
+        foreach (var line in pending)
+        {
+            if (remaining <= 0.001m)
+                break;
+            line.Status = TeacherEarningLineStatus.Voided;
+            remaining -= line.Amount;
+        }
     }
 }

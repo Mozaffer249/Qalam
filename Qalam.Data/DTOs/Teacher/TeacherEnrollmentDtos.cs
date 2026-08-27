@@ -73,6 +73,20 @@ public class TeacherEnrollmentListItemDto
     /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
     public decimal FreeSessionCredit { get; set; }
 
+    /// <summary>Snapshot teacher package earnings after free-session cut (if any).</summary>
+    public decimal TeacherEarningsDue { get; set; }
+    public decimal PlatformCommission { get; set; }
+    public decimal TeacherSharePct { get; set; }
+    public int FreeSessionsCount { get; set; }
+    public int PaidSessionsCount { get; set; }
+    public decimal PerSessionTeacherValue { get; set; }
+    /// <summary>Forgone teacher share for the lifetime free first session.</summary>
+    public decimal FreeSessionTeacherDeduction { get; set; }
+    /// <summary>Sum of non-voided accrued earning lines.</summary>
+    public decimal AccruedNet { get; set; }
+    /// <summary>Pending | Available | Paid | Refunded</summary>
+    public string EarningUiStatus { get; set; } = "Pending";
+
     public DateTime? NextSessionAt { get; set; }
     public int SessionsAttended { get; set; }
     public int SessionsAbsentOrLate { get; set; }
@@ -129,6 +143,17 @@ public class TeacherEnrollmentDetailDto
     public decimal GrossPackageTotal { get; set; }
     /// <summary>First-session credit when IsFreeTrial; otherwise 0.</summary>
     public decimal FreeSessionCredit { get; set; }
+
+    public decimal TeacherEarningsDue { get; set; }
+    public decimal PlatformCommission { get; set; }
+    public decimal TeacherSharePct { get; set; }
+    public int FreeSessionsCount { get; set; }
+    public int PaidSessionsCount { get; set; }
+    public decimal PerSessionTeacherValue { get; set; }
+    public decimal FreeSessionTeacherDeduction { get; set; }
+    public decimal AccruedNet { get; set; }
+    /// <summary>Pending | Available | Paid | Refunded</summary>
+    public string EarningUiStatus { get; set; } = "Pending";
 
     public int? EnrollmentRequestId { get; set; }
     public int? SessionOfferId { get; set; }

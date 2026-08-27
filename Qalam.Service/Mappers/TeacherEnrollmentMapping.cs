@@ -48,7 +48,8 @@ internal static class TeacherEnrollmentMapping
 
     public static TeacherEnrollmentListItemDto ToListItem(
         Enrollment enrollment,
-        string currency)
+        string currency,
+        TeacherEnrollmentEarningsHelper.EarningsBreakdown? earnings = null)
     {
         var course = enrollment.Course;
         var isFlexible = course?.IsFlexible ?? false;
@@ -93,6 +94,8 @@ internal static class TeacherEnrollmentMapping
             }
         }
 
+        earnings ??= TeacherEnrollmentEarningsHelper.Compute(enrollment, Array.Empty<TeacherEnrollmentEarningsHelper.EarningLineInfo>());
+
         return new TeacherEnrollmentListItemDto
         {
             Id = enrollment.Id,
@@ -130,6 +133,15 @@ internal static class TeacherEnrollmentMapping
             IsFreeTrial = enrollment.IsFreeTrial,
             GrossPackageTotal = gross,
             FreeSessionCredit = credit,
+            TeacherEarningsDue = earnings.TeacherEarningsDue,
+            PlatformCommission = earnings.PlatformCommission,
+            TeacherSharePct = earnings.TeacherSharePct,
+            FreeSessionsCount = earnings.FreeSessionsCount,
+            PaidSessionsCount = earnings.PaidSessionsCount,
+            PerSessionTeacherValue = earnings.PerSessionTeacherValue,
+            FreeSessionTeacherDeduction = earnings.FreeSessionTeacherDeduction,
+            AccruedNet = earnings.AccruedNet,
+            EarningUiStatus = earnings.EarningUiStatus,
             NextSessionAt = next,
             SessionsAttended = attended,
             SessionsAbsentOrLate = absentOrLate,

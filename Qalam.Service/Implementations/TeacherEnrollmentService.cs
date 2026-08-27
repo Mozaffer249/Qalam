@@ -12,6 +12,7 @@ using Qalam.Data.Entity.Identity;
 using Qalam.Data.Helpers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Mappers;
 
@@ -23,6 +24,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
     private readonly ICourseRepository _courseRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IEnrollmentConversationRepository _conversationRepository;
+    private readonly ApplicationDBContext _db;
     private readonly UserManager<User> _userManager;
     private readonly IChatEmailNotifier _chatEmail;
     private readonly PaymentSettings _paymentSettings;
@@ -34,6 +36,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         ICourseRepository courseRepository,
         IEnrollmentRepository enrollmentRepository,
         IEnrollmentConversationRepository conversationRepository,
+        ApplicationDBContext db,
         UserManager<User> userManager,
         IChatEmailNotifier chatEmail,
         IOptions<PaymentSettings> paymentSettings,
@@ -44,6 +47,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
         _conversationRepository = conversationRepository;
+        _db = db;
         _userManager = userManager;
         _chatEmail = chatEmail;
         _paymentSettings = paymentSettings.Value;
@@ -107,8 +111,15 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             .ToListAsync(cancellationToken);
 
         var currency = _paymentSettings.DefaultCurrency;
+        var earningsByEnrollment = await LoadEarningsByEnrollmentIdsAsync(
+            enrollments.Select(e => e.Id).ToList(), cancellationToken);
         var mapped = enrollments
-            .Select(e => TeacherEnrollmentMapping.ToListItem(e, currency))
+            .Select(e => TeacherEnrollmentMapping.ToListItem(
+                e,
+                currency,
+                TeacherEnrollmentEarningsHelper.Compute(
+                    e,
+                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [])))
             .ToList();
 
         if (sourceBadge.HasValue)
@@ -155,10 +166,20 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         var number = pageNumber <= 0 ? 1 : pageNumber;
         var size = pageSize <= 0 ? 20 : pageSize;
 
-        var page = enrollments
+        var pageEnrollments = enrollments
             .Skip((number - 1) * size)
             .Take(size)
-            .Select(e => TeacherEnrollmentMapping.ToListItem(e, currency))
+            .ToList();
+        var earningsByEnrollment = await LoadEarningsByEnrollmentIdsAsync(
+            pageEnrollments.Select(e => e.Id).ToList(), cancellationToken);
+
+        var page = pageEnrollments
+            .Select(e => TeacherEnrollmentMapping.ToListItem(
+                e,
+                currency,
+                TeacherEnrollmentEarningsHelper.Compute(
+                    e,
+                    earningsByEnrollment.GetValueOrDefault(e.Id) ?? [])))
             .ToList();
 
         return new PaginatedResult<TeacherEnrollmentListItemDto>(page, totalCount, number, size);
@@ -379,6 +400,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 EndTime = slot?.EndTime,
                 DurationMinutes = duration,
                 Status = cs.Status,
+                IsFreeSession = enrollment.IsFreeTrial && i == 0,
                 CanStart = CanStartSessionUtc(
                     enrollment.EnrollmentStatus, cs.Status, slot, cs.Date, utcNow, _sessionSettings.EnforceJoinWindow),
                 CanJoin = SessionJoinRules.CanJoinUtc(
@@ -400,6 +422,20 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 Units = units,
             });
         }
+
+        var earningsLines = await LoadEarningsByEnrollmentIdsAsync([enrollment.Id], cancellationToken);
+        var earnings = TeacherEnrollmentEarningsHelper.Compute(
+            enrollment,
+            earningsLines.GetValueOrDefault(enrollment.Id) ?? []);
+        dto.TeacherEarningsDue = earnings.TeacherEarningsDue;
+        dto.PlatformCommission = earnings.PlatformCommission;
+        dto.TeacherSharePct = earnings.TeacherSharePct;
+        dto.FreeSessionsCount = earnings.FreeSessionsCount;
+        dto.PaidSessionsCount = earnings.PaidSessionsCount;
+        dto.PerSessionTeacherValue = earnings.PerSessionTeacherValue;
+        dto.FreeSessionTeacherDeduction = earnings.FreeSessionTeacherDeduction;
+        dto.AccruedNet = earnings.AccruedNet;
+        dto.EarningUiStatus = earnings.EarningUiStatus;
 
         dto.SessionsTotal = schedules.Count;
         dto.SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed);
@@ -660,5 +696,32 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
             .FirstOrDefault(s => s.SessionNumber == sessionNumber)?.Title
             ?? schedule.CourseSession?.Title;
         return string.IsNullOrWhiteSpace(courseTitle) ? null : courseTitle;
+    }
+
+    private async Task<Dictionary<int, List<TeacherEnrollmentEarningsHelper.EarningLineInfo>>> LoadEarningsByEnrollmentIdsAsync(
+        IReadOnlyList<int> enrollmentIds,
+        CancellationToken cancellationToken)
+    {
+        if (enrollmentIds.Count == 0)
+            return new Dictionary<int, List<TeacherEnrollmentEarningsHelper.EarningLineInfo>>();
+
+        var rows = await _db.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => enrollmentIds.Contains(l.EnrollmentId))
+            .Select(l => new
+            {
+                l.EnrollmentId,
+                l.Status,
+                l.Amount,
+                BatchStatus = l.PayoutItem != null ? (PayoutBatchStatus?)l.PayoutItem.PayoutBatch.Status : null
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(r => r.EnrollmentId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
+                    r.Status, r.BatchStatus, r.Amount)).ToList());
     }
 }
