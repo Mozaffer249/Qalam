@@ -4,6 +4,7 @@ using Microsoft.Extensions.Localization;
 using Moq;
 using Qalam.Core.Features.Authentication.Queries.GetProfile;
 using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceSummary;
+using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceTransactionDetail;
 using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceTransactions;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetAvailableRequestsSummary;
 using Qalam.Core.Features.Teacher.Profile.Queries.GetMyTeacherProfile;
@@ -236,6 +237,65 @@ public class TeacherDashboardQueryHandlerTests
         Assert.True(response.Succeeded);
         Assert.Empty(response.Data!.Items);
         Assert.Equal(0, response.Data.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetFinanceTransactionDetail_ReturnsNotFound_WhenTransactionMissing()
+    {
+        var teacher = new TeacherEntity { Id = 4, UserId = 20 };
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo.Setup(r => r.GetByUserIdAsync(20)).ReturnsAsync(teacher);
+
+        var financeDetail = new Mock<ITeacherFinanceDetailService>();
+        financeDetail
+            .Setup(s => s.GetTransactionDetailAsync(4, "earn-999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TeacherFinanceTransactionDetailDto?)null);
+
+        var handler = new GetFinanceTransactionDetailQueryHandler(
+            CreateSharedLocalizer().Object,
+            teacherRepo.Object,
+            financeDetail.Object);
+
+        var response = await handler.Handle(
+            new GetFinanceTransactionDetailQuery { UserId = 20, TransactionId = "earn-999" },
+            CancellationToken.None);
+
+        Assert.False(response.Succeeded);
+    }
+
+    [Fact]
+    public async Task GetFinanceTransactionDetail_ReturnsDetail_WhenFound()
+    {
+        var teacher = new TeacherEntity { Id = 4, UserId = 20 };
+        var detail = new TeacherFinanceTransactionDetailDto
+        {
+            Id = "earn-1",
+            Type = "Payment",
+            Amount = 70m,
+            Currency = "SAR",
+        };
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo.Setup(r => r.GetByUserIdAsync(20)).ReturnsAsync(teacher);
+
+        var financeDetail = new Mock<ITeacherFinanceDetailService>();
+        financeDetail
+            .Setup(s => s.GetTransactionDetailAsync(4, "earn-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(detail);
+
+        var handler = new GetFinanceTransactionDetailQueryHandler(
+            CreateSharedLocalizer().Object,
+            teacherRepo.Object,
+            financeDetail.Object);
+
+        var response = await handler.Handle(
+            new GetFinanceTransactionDetailQuery { UserId = 20, TransactionId = "earn-1" },
+            CancellationToken.None);
+
+        Assert.True(response.Succeeded);
+        Assert.Equal("earn-1", response.Data!.Id);
+        Assert.Equal(70m, response.Data.Amount);
     }
 
     [Fact]

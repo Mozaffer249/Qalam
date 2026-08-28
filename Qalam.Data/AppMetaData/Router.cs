@@ -291,6 +291,7 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Teacher finance: Api/V1/Teacher/Finance/Summary</summary>
         public const string TeacherFinanceSummary = Rule + "Teacher/Finance/Summary";
         public const string TeacherFinanceTransactions = Rule + "Teacher/Finance/Transactions";
+        public const string TeacherFinanceTransactionById = Rule + "Teacher/Finance/Transactions/{id}";
 
         /// <summary>Teacher course hourly rate preview: Api/V1/Teacher/Pricing/course-hourly-rate</summary>
         public const string TeacherPricingCourseHourlyRate = Rule + "Teacher/Pricing/course-hourly-rate";

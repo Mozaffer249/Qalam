@@ -88,6 +88,8 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                 .ThenInclude(p => p.Student)
                     .ThenInclude(s => s!.User)
             .Include(x => x.CourseSchedules)
+                .ThenInclude(s => s.TeacherAvailability)
+                    .ThenInclude(a => a!.TimeSlot)
             .Include(x => x.OpenSessionRequest)
             .FirstOrDefaultAsync(x => x.Id == enrollmentId, cancellationToken);
         if (e == null)
@@ -101,6 +103,18 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
         var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
 
         var list = MapListItem(e, teacherNames, starterSharePct);
+        var orderedSchedules = e.CourseSchedules
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.Id)
+            .ToList();
+        var freeSessions = e.IsFreeTrial && orderedSchedules.Count > 0 ? 1 : 0;
+        var paidSessions = Math.Max(0, orderedSchedules.Count - freeSessions);
+        var participantCount = e.Participants.Count;
+        var succeededCount = e.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
+        var baseShare = participantCount > 0
+            ? Math.Round(list.AmountDue / participantCount, 2, MidpointRounding.AwayFromZero)
+            : 0m;
+
         var detail = new AdminEnrollmentDetailDto
         {
             Id = list.Id,
@@ -148,6 +162,9 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             SnapshotPlatformShare = e.PricingSnapshot?.PlatformShare ?? 0,
             SnapshotTotalMinutes = e.PricingSnapshot?.TotalMinutes ?? 0,
             SnapshotPricePerHour = e.PricingSnapshot?.PricePerHour ?? 0,
+            SnapshotEarningsPricePerHour = e.PricingSnapshot?.EarningsPricePerHour,
+            SnapshotMarketCode = e.PricingSnapshot?.MarketCode,
+            SnapshotSessionTypeCode = e.PricingSnapshot?.SessionTypeCode,
             IsInterviewProofSession = e.IsFreeTrial
                 && (e.PricingSnapshot?.TeacherSharePct ?? 0) <= 0,
             IsInterviewPendingAtQuote = list.IsInterviewPendingAtQuote,
@@ -155,26 +172,69 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             ProjectedTeacherEarningsDue = list.ProjectedTeacherEarningsDue,
             ProjectedFreeSessionTeacherDeduction = list.ProjectedFreeSessionTeacherDeduction,
             ProjectedPerSessionTeacherValue = list.ProjectedPerSessionTeacherValue,
-            Participants = e.Participants.Select(p => new AdminEnrollmentParticipantDto
-            {
-                ParticipantId = p.Id,
-                StudentId = p.StudentId,
-                StudentName = FormatStudentName(p.Student),
-                PaymentStatus = p.PaymentStatus.ToString(),
-                PaidAt = p.PaidAt
-            }).ToList(),
-            Sessions = e.CourseSchedules
-                .OrderBy(s => s.Date)
-                .ThenBy(s => s.Id)
+            AmountRemaining = Math.Max(0m, list.AmountDue - list.AmountPaid),
+            FreeSessionsCount = freeSessions,
+            PaidSessionsCount = paidSessions,
+            Participants = e.Participants
+                .OrderBy(p => p.Id)
+                .Select(p =>
+                {
+                    var isLastPending = e.Kind == EnrollmentKind.Group
+                                        && p.PaymentStatus == PaymentStatus.Pending
+                                        && e.Participants.Count(x => x.PaymentStatus == PaymentStatus.Pending) == 1;
+                    var share = e.Kind == EnrollmentKind.Individual
+                        ? list.AmountDue
+                        : (isLastPending
+                            ? list.AmountDue - (baseShare * succeededCount)
+                            : baseShare);
+                    return new AdminEnrollmentParticipantDto
+                    {
+                        ParticipantId = p.Id,
+                        StudentId = p.StudentId,
+                        StudentName = FormatStudentName(p.Student),
+                        PaymentStatus = p.PaymentStatus.ToString(),
+                        PaidAt = p.PaidAt,
+                        Share = share,
+                    };
+                }).ToList(),
+            Sessions = orderedSchedules
                 .Select((s, i) => new AdminEnrollmentSessionDto
                 {
                     ScheduleId = s.Id,
                     SessionNumber = i + 1,
                     Date = s.Date,
                     DurationMinutes = s.DurationMinutes,
-                    Status = s.Status.ToString()
+                    Status = s.Status.ToString(),
+                    IsFreeSession = e.IsFreeTrial && i == 0,
+                    Title = s.TeacherAvailability?.TimeSlot?.LabelEn
+                            ?? s.TeacherAvailability?.TimeSlot?.LabelAr,
+                    StartTime = s.TeacherAvailability?.TimeSlot?.StartTime,
+                    EndTime = s.TeacherAvailability?.TimeSlot?.EndTime,
                 }).ToList()
         };
+
+        detail.PaymentMethod = await _db.EnrollmentPayments
+            .AsNoTracking()
+            .Where(ep => ep.EnrollmentParticipant.EnrollmentId == enrollmentId
+                         && ep.Payment.Status == PaymentStatus.Succeeded)
+            .OrderByDescending(ep => ep.Payment.CreatedAt)
+            .Select(ep => ep.Payment.PaymentProvider)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        detail.Payments = await _db.EnrollmentPayments
+            .AsNoTracking()
+            .Where(ep => ep.EnrollmentParticipant.EnrollmentId == enrollmentId)
+            .OrderByDescending(ep => ep.Payment.CreatedAt)
+            .Select(ep => new AdminEnrollmentPaymentDto
+            {
+                PaymentId = ep.PaymentId,
+                Provider = ep.Payment.PaymentProvider,
+                InvoiceNumber = ep.Payment.InvoiceNumber,
+                TotalAmount = ep.Payment.TotalAmount,
+                PaidAt = ep.Payment.Status == PaymentStatus.Succeeded ? ep.Payment.UpdatedAt : null,
+                Status = ep.Payment.Status.ToString(),
+            })
+            .ToListAsync(cancellationToken);
 
         if (e.CancelledByUserId.HasValue)
         {

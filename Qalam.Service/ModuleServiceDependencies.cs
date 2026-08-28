@@ -92,6 +92,7 @@ namespace Qalam.Service
             services.AddTransient<IEnrollmentCancellationService, EnrollmentCancellationService>();
             services.AddTransient<IEnrollmentCompletionService, EnrollmentCompletionService>();
             services.AddTransient<ITeacherEarningService, TeacherEarningService>();
+            services.AddTransient<ITeacherFinanceDetailService, TeacherFinanceDetailService>();
             services.AddTransient<IPayoutService, PayoutService>();
 
             // Live session (RTC) — swap via LiveSession:Provider + new ILiveSessionProvider impl

@@ -100,6 +100,92 @@ public class TeacherFinanceTransactionDto
     public string? EarningUiStatus { get; set; }
 }
 
+public class TeacherFinanceSessionDetailDto
+{
+    public int? ScheduleId { get; set; }
+    public int? SessionNumber { get; set; }
+    public DateOnly? Date { get; set; }
+    public TimeSpan? StartTime { get; set; }
+    public TimeSpan? EndTime { get; set; }
+    public int DurationMinutes { get; set; }
+    public bool IsFreeSession { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public class TeacherFinancePricingSnapshotDto
+{
+    public decimal GrossPackageTotal { get; set; }
+    public decimal FreeSessionCredit { get; set; }
+    public decimal AmountDue { get; set; }
+    public decimal PricePerHour { get; set; }
+    public decimal? EarningsPricePerHour { get; set; }
+    public int TotalMinutes { get; set; }
+    public decimal TeacherSharePct { get; set; }
+    public decimal TeacherEarningsDue { get; set; }
+    public decimal PlatformShare { get; set; }
+    public bool IsInterviewPendingAtQuote { get; set; }
+}
+
+public class TeacherFinanceProjectionDto
+{
+    public decimal ProjectedTeacherSharePct { get; set; }
+    public decimal ProjectedTeacherEarningsDue { get; set; }
+    public decimal ProjectedFreeSessionTeacherDeduction { get; set; }
+    public decimal ProjectedPerSessionTeacherValue { get; set; }
+}
+
+public class TeacherFinanceCalculationDto
+{
+    public decimal PackageEarningsUsed { get; set; }
+    public int EarnableMinutes { get; set; }
+    public int SessionMinutes { get; set; }
+    public decimal ProratedAmount { get; set; }
+}
+
+public class TeacherFinanceRefundDetailDto
+{
+    public int RefundId { get; set; }
+    public int PaymentId { get; set; }
+    public string Reason { get; set; } = "";
+    public decimal PaymentTotalAmount { get; set; }
+    public decimal PaymentRefundedTotal { get; set; }
+    public int SessionsUsed { get; set; }
+    public int SessionsUnused { get; set; }
+    public decimal TeacherDeductionAmount { get; set; }
+    public decimal PlatformBearAmount { get; set; }
+    public string PayoutImpact { get; set; } = "None";
+}
+
+public class TeacherFinancePayoutLineSummaryDto
+{
+    public int LineId { get; set; }
+    public int EnrollmentId { get; set; }
+    public string? CourseTitle { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class TeacherFinancePayoutDetailDto
+{
+    public int PayoutItemId { get; set; }
+    public int BatchId { get; set; }
+    public DateTime PeriodStart { get; set; }
+    public DateTime PeriodEnd { get; set; }
+    public string? MockTransferRef { get; set; }
+    public decimal TotalAmount { get; set; }
+    public List<TeacherFinancePayoutLineSummaryDto> Lines { get; set; } = new();
+}
+
+public class TeacherFinanceTransactionDetailDto : TeacherFinanceTransactionDto
+{
+    public TeacherFinanceSessionDetailDto? Session { get; set; }
+    public TeacherFinancePricingSnapshotDto? Pricing { get; set; }
+    public TeacherFinanceProjectionDto? Projection { get; set; }
+    public TeacherFinanceCalculationDto? Calculation { get; set; }
+    public TeacherFinanceRefundDetailDto? Refund { get; set; }
+    public TeacherFinancePayoutDetailDto? Payout { get; set; }
+}
+
 public class TeacherNotificationsPageDto
 {
     public List<TeacherNotificationDto> Items { get; set; } = new();

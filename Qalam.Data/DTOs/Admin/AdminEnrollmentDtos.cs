@@ -61,6 +61,17 @@ public class AdminEnrollmentParticipantDto
     public string? StudentName { get; set; }
     public string PaymentStatus { get; set; } = "";
     public DateTime? PaidAt { get; set; }
+    public decimal Share { get; set; }
+}
+
+public class AdminEnrollmentPaymentDto
+{
+    public int PaymentId { get; set; }
+    public string Provider { get; set; } = "";
+    public string? InvoiceNumber { get; set; }
+    public decimal TotalAmount { get; set; }
+    public DateTime? PaidAt { get; set; }
+    public string Status { get; set; } = "";
 }
 
 public class AdminEnrollmentSessionDto
@@ -70,6 +81,10 @@ public class AdminEnrollmentSessionDto
     public DateOnly Date { get; set; }
     public int DurationMinutes { get; set; }
     public string Status { get; set; } = "";
+    public bool IsFreeSession { get; set; }
+    public string? Title { get; set; }
+    public TimeSpan? StartTime { get; set; }
+    public TimeSpan? EndTime { get; set; }
 }
 
 public class AdminEnrollmentFreeTrialDto
@@ -100,8 +115,17 @@ public class AdminEnrollmentDetailDto : AdminEnrollmentListItemDto
     public decimal SnapshotPlatformShare { get; set; }
     public int SnapshotTotalMinutes { get; set; }
     public decimal SnapshotPricePerHour { get; set; }
+    public decimal? SnapshotEarningsPricePerHour { get; set; }
+    public string? SnapshotMarketCode { get; set; }
+    public string? SnapshotSessionTypeCode { get; set; }
     public bool IsInterviewProofSession { get; set; }
 
+    public string? PaymentMethod { get; set; }
+    public decimal AmountRemaining { get; set; }
+    public int FreeSessionsCount { get; set; }
+    public int PaidSessionsCount { get; set; }
+
+    public List<AdminEnrollmentPaymentDto> Payments { get; set; } = new();
     public List<AdminEnrollmentParticipantDto> Participants { get; set; } = new();
     public List<AdminEnrollmentSessionDto> Sessions { get; set; } = new();
     public AdminEnrollmentFreeTrialDto? FreeTrialConsumption { get; set; }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceSummary;
+using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceTransactionDetail;
 using Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceTransactions;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Teacher;
@@ -23,4 +24,9 @@ public class TeacherFinanceController : AppControllerBase
     [ProducesResponseType(typeof(PaginatedResult<TeacherFinanceTransactionDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTransactions([FromQuery] GetFinanceTransactionsQuery query)
         => NewResult(await Mediator.Send(query));
+
+    [HttpGet("Transactions/{id}")]
+    [ProducesResponseType(typeof(TeacherFinanceTransactionDetailDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTransactionById(string id)
+        => NewResult(await Mediator.Send(new GetFinanceTransactionDetailQuery { TransactionId = id }));
 }
