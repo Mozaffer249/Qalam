@@ -85,6 +85,19 @@ public class AdminEnrollmentSessionDto
     public string? Title { get; set; }
     public TimeSpan? StartTime { get; set; }
     public TimeSpan? EndTime { get; set; }
+    public decimal? AccruedAmount { get; set; }
+    public string? EarningLineKey { get; set; }
+}
+
+public class AdminEnrollmentEarningLineDto
+{
+    public int LineId { get; set; }
+    public string TransactionKey { get; set; } = "";
+    public int? CourseScheduleId { get; set; }
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = "";
+    public string EarningUiStatus { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
 }
 
 public class AdminEnrollmentFreeTrialDto
@@ -125,9 +138,15 @@ public class AdminEnrollmentDetailDto : AdminEnrollmentListItemDto
     public int FreeSessionsCount { get; set; }
     public int PaidSessionsCount { get; set; }
 
+    public decimal AccruedNet { get; set; }
+    public decimal PackageTeacherDue { get; set; }
+    public decimal RemainingToAccrue { get; set; }
+    public string EnrollmentEarningUiStatus { get; set; } = "";
+
     public List<AdminEnrollmentPaymentDto> Payments { get; set; } = new();
     public List<AdminEnrollmentParticipantDto> Participants { get; set; } = new();
     public List<AdminEnrollmentSessionDto> Sessions { get; set; } = new();
+    public List<AdminEnrollmentEarningLineDto> EarningLines { get; set; } = new();
     public AdminEnrollmentFreeTrialDto? FreeTrialConsumption { get; set; }
     public int RefundCount { get; set; }
 }

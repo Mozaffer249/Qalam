@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Payment;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
@@ -102,11 +103,27 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             teacherId > 0 ? [teacherId] : [], cancellationToken);
         var starterSharePct = await ResolveStarterSharePctAsync(cancellationToken);
 
-        var list = MapListItem(e, teacherNames, starterSharePct);
-        var orderedSchedules = e.CourseSchedules
+        var orderedSchedules = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == enrollmentId
+                        && s.Status != ScheduleStatus.Cancelled
+                        && s.Status != ScheduleStatus.Rescheduled)
             .OrderBy(s => s.Date)
             .ThenBy(s => s.Id)
-            .ToList();
+            .ToListAsync(cancellationToken);
+        e.CourseSchedules = orderedSchedules;
+
+        var list = MapListItem(e, teacherNames, starterSharePct);
+
+        var scheduleDetails = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == enrollmentId)
+            .Include(s => s.TeacherAvailability)
+                .ThenInclude(a => a!.TimeSlot)
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.Id)
+            .ToListAsync(cancellationToken);
+        var scheduleDetailById = scheduleDetails.ToDictionary(s => s.Id);
         var freeSessions = e.IsFreeTrial && orderedSchedules.Count > 0 ? 1 : 0;
         var paidSessions = Math.Max(0, orderedSchedules.Count - freeSessions);
         var participantCount = e.Participants.Count;
@@ -198,18 +215,22 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                     };
                 }).ToList(),
             Sessions = orderedSchedules
-                .Select((s, i) => new AdminEnrollmentSessionDto
+                .Select((s, i) =>
                 {
-                    ScheduleId = s.Id,
-                    SessionNumber = i + 1,
-                    Date = s.Date,
-                    DurationMinutes = s.DurationMinutes,
-                    Status = s.Status.ToString(),
-                    IsFreeSession = e.IsFreeTrial && i == 0,
-                    Title = s.TeacherAvailability?.TimeSlot?.LabelEn
-                            ?? s.TeacherAvailability?.TimeSlot?.LabelAr,
-                    StartTime = s.TeacherAvailability?.TimeSlot?.StartTime,
-                    EndTime = s.TeacherAvailability?.TimeSlot?.EndTime,
+                    scheduleDetailById.TryGetValue(s.Id, out var detailSchedule);
+                    return new AdminEnrollmentSessionDto
+                    {
+                        ScheduleId = s.Id,
+                        SessionNumber = i + 1,
+                        Date = s.Date,
+                        DurationMinutes = s.DurationMinutes,
+                        Status = s.Status.ToString(),
+                        IsFreeSession = e.IsFreeTrial && i == 0,
+                        Title = detailSchedule?.TeacherAvailability?.TimeSlot?.LabelEn
+                                ?? detailSchedule?.TeacherAvailability?.TimeSlot?.LabelAr,
+                        StartTime = detailSchedule?.TeacherAvailability?.TimeSlot?.StartTime,
+                        EndTime = detailSchedule?.TeacherAvailability?.TimeSlot?.EndTime,
+                    };
                 }).ToList()
         };
 
@@ -266,6 +287,77 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
         detail.RefundCount = await _db.Refunds
             .AsNoTracking()
             .CountAsync(r => r.EnrollmentId == enrollmentId, cancellationToken);
+
+        var allLines = await _db.TeacherEarningLines
+            .AsNoTracking()
+            .Include(l => l.PayoutItem)
+                .ThenInclude(p => p!.PayoutBatch)
+            .Where(l => l.EnrollmentId == enrollmentId)
+            .OrderBy(l => l.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var lineInfos = allLines
+            .Select(l => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
+                l.Status,
+                l.PayoutItem?.PayoutBatch?.Status,
+                l.Amount))
+            .ToList();
+        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(e, lineInfos, starterSharePct);
+
+        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
+            ? earningsBreakdown.ProjectedTeacherEarningsDue
+            : earningsBreakdown.TeacherEarningsDue;
+        var accruedNet = earningsBreakdown.AccruedNet;
+
+        detail.AccruedNet = accruedNet;
+        detail.PackageTeacherDue = packageTeacherDue;
+        detail.RemainingToAccrue = Math.Max(
+            0m,
+            Math.Round(packageTeacherDue - accruedNet, 2, MidpointRounding.AwayFromZero));
+        detail.EnrollmentEarningUiStatus = earningsBreakdown.EarningUiStatus;
+
+        var lineByScheduleId = allLines
+            .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
+            .ToDictionary(l => l.CourseScheduleId!.Value);
+
+        detail.Sessions = orderedSchedules
+            .Select((s, i) =>
+            {
+                var isFree = e.IsFreeTrial && i == 0;
+                lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
+                scheduleDetailById.TryGetValue(s.Id, out var detailSchedule);
+                return new AdminEnrollmentSessionDto
+                {
+                    ScheduleId = s.Id,
+                    SessionNumber = i + 1,
+                    Date = s.Date,
+                    DurationMinutes = s.DurationMinutes,
+                    Status = s.Status.ToString(),
+                    IsFreeSession = isFree,
+                    Title = detailSchedule?.TeacherAvailability?.TimeSlot?.LabelEn
+                            ?? detailSchedule?.TeacherAvailability?.TimeSlot?.LabelAr,
+                    StartTime = detailSchedule?.TeacherAvailability?.TimeSlot?.StartTime,
+                    EndTime = detailSchedule?.TeacherAvailability?.TimeSlot?.EndTime,
+                    AccruedAmount = isFree
+                        ? null
+                        : accrualLine != null
+                            ? accrualLine.Amount
+                            : null,
+                    EarningLineKey = accrualLine != null ? $"earn-{accrualLine.Id}" : null,
+                };
+            })
+            .ToList();
+
+        detail.EarningLines = allLines.Select(l => new AdminEnrollmentEarningLineDto
+        {
+            LineId = l.Id,
+            TransactionKey = $"earn-{l.Id}",
+            CourseScheduleId = l.CourseScheduleId,
+            Amount = l.Status == TeacherEarningLineStatus.Voided ? -l.Amount : l.Amount,
+            Status = l.Status.ToString(),
+            EarningUiStatus = ResolveEarningUiStatus(l.Status, l.PayoutItem?.PayoutBatch?.Status),
+            CreatedAt = l.CreatedAt,
+        }).ToList();
 
         return detail;
     }
@@ -443,6 +535,20 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                 x => x.Id,
                 x => string.IsNullOrWhiteSpace(x.Name) ? $"#{x.Id}" : x.Name,
                 cancellationToken);
+    }
+
+    private static string ResolveEarningUiStatus(
+        TeacherEarningLineStatus status,
+        PayoutBatchStatus? batchStatus)
+    {
+        return status switch
+        {
+            TeacherEarningLineStatus.Pending => "Available",
+            TeacherEarningLineStatus.Voided => "Refunded",
+            TeacherEarningLineStatus.IncludedInPayout when batchStatus == PayoutBatchStatus.Paid => "Paid",
+            TeacherEarningLineStatus.IncludedInPayout => "Pending",
+            _ => "Pending",
+        };
     }
 
     private static string? FormatStudentName(Data.Entity.Student.Student? student)
