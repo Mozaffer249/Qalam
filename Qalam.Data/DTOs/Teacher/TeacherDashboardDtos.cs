@@ -142,6 +142,46 @@ public class TeacherFinanceCalculationDto
     public decimal ProratedAmount { get; set; }
 }
 
+public class TeacherFinanceEarningLineSummaryDto
+{
+    public int LineId { get; set; }
+    public string TransactionKey { get; set; } = "";
+    public int? CourseScheduleId { get; set; }
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = "";
+    public string EarningUiStatus { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+
+public class TeacherFinanceSessionAccrualDto
+{
+    public int ScheduleId { get; set; }
+    public int SessionNumber { get; set; }
+    public DateOnly Date { get; set; }
+    public TimeSpan? StartTime { get; set; }
+    public TimeSpan? EndTime { get; set; }
+    public int DurationMinutes { get; set; }
+    public bool IsFreeSession { get; set; }
+    public string Status { get; set; } = "";
+    public decimal? AccruedAmount { get; set; }
+    public string? EarningLineKey { get; set; }
+    public bool IsHighlighted { get; set; }
+}
+
+public class TeacherFinanceEnrollmentEarningsDto
+{
+    public int EnrollmentId { get; set; }
+    public string EnrollmentStatus { get; set; } = "";
+    public int SessionsCompleted { get; set; }
+    public int SessionsTotal { get; set; }
+    public decimal AccruedNet { get; set; }
+    public decimal PackageTeacherDue { get; set; }
+    public decimal RemainingToAccrue { get; set; }
+    public string EnrollmentEarningUiStatus { get; set; } = "";
+    public List<TeacherFinanceSessionAccrualDto> Sessions { get; set; } = new();
+    public List<TeacherFinanceEarningLineSummaryDto> EarningLines { get; set; } = new();
+}
+
 public class TeacherFinanceRefundDetailDto
 {
     public int RefundId { get; set; }
@@ -178,6 +218,7 @@ public class TeacherFinancePayoutDetailDto
 
 public class TeacherFinanceTransactionDetailDto : TeacherFinanceTransactionDto
 {
+    public TeacherFinanceEnrollmentEarningsDto? EnrollmentEarnings { get; set; }
     public TeacherFinanceSessionDetailDto? Session { get; set; }
     public TeacherFinancePricingSnapshotDto? Pricing { get; set; }
     public TeacherFinanceProjectionDto? Projection { get; set; }

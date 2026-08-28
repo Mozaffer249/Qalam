@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Entity.Payment;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
@@ -57,6 +58,8 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
                 .ThenInclude(e => e!.PricingSnapshot)
             .Include(l => l.Enrollment)
                 .ThenInclude(e => e!.CourseSchedules)
+                    .ThenInclude(s => s.TeacherAvailability)
+                        .ThenInclude(a => a!.TimeSlot)
             .Include(l => l.Enrollment)
                 .ThenInclude(e => e!.Course)
             .Include(l => l.Enrollment)
@@ -77,13 +80,19 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         var snap = enrollment.PricingSnapshot;
         var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
         var starterShare = await ResolveStarterSharePctAsync(cancellationToken);
-        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterShare);
 
-        var schedules = enrollment.CourseSchedules
-            .Where(s => s.Status != ScheduleStatus.Cancelled && s.Status != ScheduleStatus.Rescheduled)
+        var enrollmentId = line.EnrollmentId > 0 ? line.EnrollmentId : enrollment.Id;
+        var schedules = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == enrollmentId
+                        && s.Status != ScheduleStatus.Cancelled
+                        && s.Status != ScheduleStatus.Rescheduled)
             .OrderBy(s => s.Date)
             .ThenBy(s => s.Id)
-            .ToList();
+            .ToListAsync(cancellationToken);
+
+        enrollment.CourseSchedules = schedules;
+        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterShare);
 
         var schedule = line.CourseSchedule
             ?? schedules.FirstOrDefault(s => s.Id == line.CourseScheduleId);
@@ -113,6 +122,82 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         var uiStatus = ResolveEarningUiStatus(line.Status, line.PayoutItem?.PayoutBatch?.Status);
         var primaryStudent = enrollment.Participants.FirstOrDefault();
 
+        var allLines = await _db.TeacherEarningLines
+            .AsNoTracking()
+            .Include(l => l.PayoutItem)
+                .ThenInclude(p => p!.PayoutBatch)
+            .Where(l => l.EnrollmentId == line.EnrollmentId && l.TeacherId == teacherId)
+            .OrderBy(l => l.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var lineInfos = allLines
+            .Select(l => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
+                l.Status,
+                l.PayoutItem?.PayoutBatch?.Status,
+                l.Amount))
+            .ToList();
+        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(
+            enrollment,
+            lineInfos,
+            starterShare);
+
+        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
+            ? earningsBreakdown.ProjectedTeacherEarningsDue
+            : earningsBreakdown.TeacherEarningsDue;
+        var accruedNet = earningsBreakdown.AccruedNet;
+        var lineByScheduleId = allLines
+            .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
+            .ToDictionary(l => l.CourseScheduleId!.Value);
+
+        var enrollmentSessions = schedules
+            .Select((s, i) =>
+            {
+                var isFree = enrollment.IsFreeTrial && i == 0;
+                lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
+                return new TeacherFinanceSessionAccrualDto
+                {
+                    ScheduleId = s.Id,
+                    SessionNumber = i + 1,
+                    Date = s.Date,
+                    StartTime = s.TeacherAvailability?.TimeSlot?.StartTime,
+                    EndTime = s.TeacherAvailability?.TimeSlot?.EndTime,
+                    DurationMinutes = s.DurationMinutes,
+                    IsFreeSession = isFree,
+                    Status = s.Status.ToString(),
+                    AccruedAmount = isFree
+                        ? null
+                        : accrualLine != null
+                            ? accrualLine.Amount
+                            : null,
+                    EarningLineKey = accrualLine != null ? $"earn-{accrualLine.Id}" : null,
+                    IsHighlighted = s.Id == schedule?.Id,
+                };
+            })
+            .ToList();
+
+        var enrollmentEarnings = new TeacherFinanceEnrollmentEarningsDto
+        {
+            EnrollmentId = enrollment.Id,
+            EnrollmentStatus = enrollment.EnrollmentStatus.ToString(),
+            SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed),
+            SessionsTotal = schedules.Count,
+            AccruedNet = accruedNet,
+            PackageTeacherDue = packageTeacherDue,
+            RemainingToAccrue = Math.Max(0m, Math.Round(packageTeacherDue - accruedNet, 2, MidpointRounding.AwayFromZero)),
+            EnrollmentEarningUiStatus = earningsBreakdown.EarningUiStatus,
+            Sessions = enrollmentSessions,
+            EarningLines = allLines.Select(l => new TeacherFinanceEarningLineSummaryDto
+            {
+                LineId = l.Id,
+                TransactionKey = $"earn-{l.Id}",
+                CourseScheduleId = l.CourseScheduleId,
+                Amount = l.Status == TeacherEarningLineStatus.Voided ? -l.Amount : l.Amount,
+                Status = l.Status.ToString(),
+                EarningUiStatus = ResolveEarningUiStatus(l.Status, l.PayoutItem?.PayoutBatch?.Status),
+                CreatedAt = l.CreatedAt,
+            }).ToList(),
+        };
+
         return new TeacherFinanceTransactionDetailDto
         {
             Id = transactionKey,
@@ -128,6 +213,7 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
             RelatedCourseTitle = enrollment.Course?.Title,
             EnrollmentId = enrollment.Id,
             EarningUiStatus = uiStatus,
+            EnrollmentEarnings = enrollmentEarnings,
             Session = schedule == null
                 ? null
                 : new TeacherFinanceSessionDetailDto

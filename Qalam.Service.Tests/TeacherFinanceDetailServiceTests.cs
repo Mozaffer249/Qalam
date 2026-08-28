@@ -124,6 +124,8 @@ public class TeacherFinanceDetailServiceTests
         db.TeacherEarningLines.Add(line);
         await db.SaveChangesAsync();
 
+        Assert.Equal(2, await db.CourseSchedules.CountAsync(s => s.EnrollmentId == enrollment.Id));
+
         var sut = CreateSut(db);
         var detail = await sut.GetTransactionDetailAsync(TeacherId, $"earn-{line.Id}");
 
@@ -139,6 +141,16 @@ public class TeacherFinanceDetailServiceTests
         Assert.Equal(59.5m, detail.Calculation!.ProratedAmount);
         Assert.NotNull(detail.Session);
         Assert.False(detail.Session!.IsFreeSession);
+        Assert.NotNull(detail.EnrollmentEarnings);
+        Assert.Equal(2, detail.EnrollmentEarnings!.Sessions.Count);
+        Assert.True(detail.EnrollmentEarnings.Sessions[0].IsFreeSession);
+        Assert.Null(detail.EnrollmentEarnings.Sessions[0].AccruedAmount);
+        Assert.Equal(59.5m, detail.EnrollmentEarnings.Sessions[1].AccruedAmount);
+        Assert.True(detail.EnrollmentEarnings.Sessions[1].IsHighlighted);
+        Assert.Equal(59.5m, detail.EnrollmentEarnings.AccruedNet);
+        Assert.Equal(59.5m, detail.EnrollmentEarnings.PackageTeacherDue);
+        Assert.Equal(0m, detail.EnrollmentEarnings.RemainingToAccrue);
+        Assert.Single(detail.EnrollmentEarnings.EarningLines);
     }
 
     [Fact]
