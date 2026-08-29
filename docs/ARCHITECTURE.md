@@ -78,6 +78,7 @@ Controller → Command/Query → Handler → Repository + Service → Response<T
 - **Repositories** (`Qalam.Infrastructure/Abstracts/`) — data access, enhanced query projections
 - **Services** (`Qalam.Service/`) — reusable domain logic across handlers
 - **Enhanced queries** — `AsNoTracking()`, project to DTOs, narrow SELECTs (see `IOpenSessionRequestRepository`)
+- **Session complaints** — `SessionComplaint`, `SessionAuditLog`, admin `/Admin/Sessions` APIs, earnings `OnHold` until blocking complaints resolve (see `BUSINESS_LOGIC.md` §10)
 
 ### Education domains
 
@@ -98,7 +99,7 @@ See `docs/STUDENT-FILTER-OPTIONS.md` and `BUSINESS_LOGIC.md`.
 ### Admin (`apps/admin`)
 
 - **Stack:** Next.js 16, React 19, TanStack Query/DB, Tailwind 4
-- **Purpose:** Education hierarchy CRUD, teacher onboarding review, system settings
+- **Purpose:** Education hierarchy CRUD, teacher onboarding review, enrollments, **session tracking & complaints**, system settings
 - **Env:** `NEXT_PUBLIC_API_URL`
 - **Port:** 3005
 

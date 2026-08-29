@@ -68,4 +68,6 @@ public class CourseSchedule : AuditableEntity
     public Location? Location { get; set; }
     public ICollection<SessionAttendance> Attendances { get; set; } = new List<SessionAttendance>();
     public ICollection<SessionLivePresenceEvent> LivePresenceEvents { get; set; } = new List<SessionLivePresenceEvent>();
+    public ICollection<SessionComplaint> Complaints { get; set; } = new List<SessionComplaint>();
+    public ICollection<SessionAuditLog> AuditLogs { get; set; } = new List<SessionAuditLog>();
 }

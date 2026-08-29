@@ -17,7 +17,8 @@ public enum TeacherEarningLineStatus
 {
     Pending = 1,
     IncludedInPayout = 2,
-    Voided = 3
+    Voided = 3,
+    OnHold = 4,
 }
 
 public enum PayoutBatchStatus

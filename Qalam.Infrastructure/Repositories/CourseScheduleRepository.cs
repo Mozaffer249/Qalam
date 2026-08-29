@@ -136,4 +136,35 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             })
             .ToList();
     }
+
+    public async Task<CourseSchedule?> GetByIdForAdminActionAsync(int id, CancellationToken cancellationToken = default) =>
+        await _context.CourseSchedules
+            .Include(s => s.Enrollment)
+                .ThenInclude(e => e!.Participants)
+            .Include(s => s.Attendances)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+    public async Task<CourseSchedule?> GetWithParticipantsForComplaintAsync(int id, CancellationToken cancellationToken = default) =>
+        await _context.CourseSchedules
+            .Include(s => s.Enrollment)
+                .ThenInclude(e => e!.Participants)
+            .Include(s => s.Enrollment)
+                .ThenInclude(e => e!.Course)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+
+    public async Task<int?> GetEnrollmentIdByScheduleIdAsync(int scheduleId, CancellationToken cancellationToken = default) =>
+        await _context.CourseSchedules.AsNoTracking()
+            .Where(s => s.Id == scheduleId)
+            .Select(s => (int?)s.EnrollmentId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<bool> IsCompletedAsync(int scheduleId, CancellationToken cancellationToken = default) =>
+        await _context.CourseSchedules.AsNoTracking()
+            .AnyAsync(s => s.Id == scheduleId && s.Status == ScheduleStatus.Completed, cancellationToken);
+
+    public async Task<int> GetCourseTeacherIdAsync(int courseId, CancellationToken cancellationToken = default) =>
+        await _context.Courses.AsNoTracking()
+            .Where(c => c.Id == courseId)
+            .Select(c => c.TeacherId)
+            .FirstOrDefaultAsync(cancellationToken);
 }

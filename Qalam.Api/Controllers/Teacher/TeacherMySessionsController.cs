@@ -7,6 +7,7 @@ using Qalam.Core.Features.Teacher.Sessions.Commands.GetMySessionLiveToken;
 using Qalam.Core.Features.Teacher.Sessions.Commands.JoinMySession;
 using Qalam.Core.Features.Teacher.Sessions.Commands.LeaveMySession;
 using Qalam.Core.Features.Teacher.Sessions.Commands.RescheduleMySession;
+using Qalam.Core.Features.Teacher.Sessions.Commands.RespondToSessionComplaint;
 using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionAttendance;
 using Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionTeacherNote;
 using Qalam.Core.Features.Teacher.Sessions.Commands.StartMySession;
@@ -14,9 +15,11 @@ using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessionById;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetMySessions;
 using Qalam.Core.Features.Teacher.Sessions.Queries.GetSessionReviews;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Live;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
 
 namespace Qalam.Api.Controllers.Teacher;
@@ -143,6 +146,20 @@ public class TeacherMySessionsController : AppControllerBase
         if (!ok) return NotFound();
         return Ok();
     }
+
+    [HttpPost("{id:int}/Complaints/{complaintId:int}/Respond")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> RespondToComplaint(
+        int id,
+        int complaintId,
+        [FromBody] TeacherRespondComplaintRequest body,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new RespondToSessionComplaintCommand
+        {
+            ScheduleId = id,
+            ComplaintId = complaintId,
+            Response = body.Response,
+        }, cancellationToken));
 
     private int GetUserId()
     {

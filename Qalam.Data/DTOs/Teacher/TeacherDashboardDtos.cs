@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Results;
 
@@ -49,6 +50,8 @@ public class TeacherMySessionDetailDto : TeacherMySessionListItemDto
     public DateTime? TeacherLeftAt { get; set; }
     public bool TeacherInRoom { get; set; }
     public List<SessionLivePresenceEventDto> LivePresenceEvents { get; set; } = new();
+    public List<SessionComplaintSummaryDto> Complaints { get; set; } = new();
+    public string? EarningLineStatus { get; set; }
 }
 
 public class SessionLivePresenceEventDto

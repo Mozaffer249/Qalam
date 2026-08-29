@@ -47,6 +47,19 @@ namespace Qalam.Data.AppMetaData
         public const string AdminRefundById = AdminRefunds + "/{id}";
         public const string AdminEnrollments = Rule + "Admin/Enrollments";
         public const string AdminEnrollmentById = AdminEnrollments + "/{id}";
+        public const string AdminSessions = Rule + "Admin/Sessions";
+        public const string AdminSessionById = AdminSessions + "/{id}";
+        public const string AdminSessionAttendance = AdminSessionById + "/Attendance";
+        public const string AdminSessionCancel = AdminSessionById + "/Cancel";
+        public const string AdminSessionRefund = AdminSessionById + "/Refund";
+        public const string AdminSessionEarningHold = AdminSessionById + "/Earning/Hold";
+        public const string AdminSessionEarningRelease = AdminSessionById + "/Earning/Release";
+        public const string AdminSessionEarningVoid = AdminSessionById + "/Earning/Void";
+        public const string AdminSessionWarnTeacher = AdminSessionById + "/WarnTeacher";
+        public const string AdminSessionBlockTeacher = AdminSessionById + "/BlockTeacher";
+        public const string AdminSessionComplaintAssign = AdminSessionById + "/Complaints/{complaintId}/Assign";
+        public const string AdminSessionComplaintRequestTeacher = AdminSessionById + "/Complaints/{complaintId}/RequestTeacherResponse";
+        public const string AdminSessionComplaintResolve = AdminSessionById + "/Complaints/{complaintId}/Resolve";
         public const string AdminPayouts = Rule + "Admin/Payouts";
         public const string AdminPayoutById = AdminPayouts + "/{id}";
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";
@@ -435,6 +448,9 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Student course schedules (join / review): Api/V1/Student/Sessions</summary>
         public const string StudentSessions = Rule + "Student/Sessions";
         public const string StudentSessionById = StudentSessions + "/{id:int}";
+        public const string StudentSessionComplaints = StudentSessionById + "/Complaints";
+        public const string StudentSessionComplaintById = StudentSessions + "/Complaints/{complaintId:int}";
+        public const string TeacherMySessionComplaintRespond = TeacherMySessionById + "/Complaints/{complaintId:int}/Respond";
         public const string StudentSessionJoin = StudentSessionById + "/Join";
         public const string StudentSessionLiveToken = StudentSessionById + "/LiveToken";
         public const string StudentSessionReview = StudentSessionById + "/Review";

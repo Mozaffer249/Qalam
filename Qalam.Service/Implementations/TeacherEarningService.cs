@@ -24,6 +24,7 @@ public class TeacherEarningService : ITeacherEarningService
 
     public async Task AccrueForCompletedScheduleAsync(
         int courseScheduleId,
+        TeacherEarningLineStatus initialStatus = TeacherEarningLineStatus.Pending,
         CancellationToken cancellationToken = default)
     {
         var exists = await _db.TeacherEarningLines
@@ -131,7 +132,7 @@ public class TeacherEarningService : ITeacherEarningService
             Amount = amount,
             Currency = currency,
             Source = TeacherEarningSource.SessionCompleted,
-            Status = TeacherEarningLineStatus.Pending,
+            Status = initialStatus,
             CreatedAt = DateTime.UtcNow
         });
 

@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
@@ -41,6 +42,12 @@ public class StudentSessionDetailDto
     public List<SessionReviewDto> Reviews { get; set; } = new();
     /// <summary>All enrollment participants with effective attendance for this session.</summary>
     public List<StudentSessionParticipantAttendanceDto> Participants { get; set; } = new();
+    public string DisplayStatus { get; set; } = "";
+    public List<string> DisplayStatusHints { get; set; } = new();
+    public bool CanFileComplaint { get; set; }
+    public bool HasOpenComplaint { get; set; }
+    public int? OpenComplaintId { get; set; }
+    public List<SessionComplaintSummaryDto> Complaints { get; set; } = new();
 }
 
 /// <summary>One participant row on student session detail attendance overview.</summary>

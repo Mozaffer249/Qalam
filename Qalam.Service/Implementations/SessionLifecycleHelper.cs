@@ -18,6 +18,7 @@ public class SessionLifecycleHelper : ISessionLifecycleService
     private readonly ITeacherLevelProgressionService _progressionService;
     private readonly IEnrollmentCompletionService _enrollmentCompletion;
     private readonly ITeacherEarningService _teacherEarning;
+    private readonly ISessionComplaintService _sessionComplaints;
     private readonly ILogger<SessionLifecycleHelper> _logger;
 
     public SessionLifecycleHelper(
@@ -27,6 +28,7 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         ITeacherLevelProgressionService progressionService,
         IEnrollmentCompletionService enrollmentCompletion,
         ITeacherEarningService teacherEarning,
+        ISessionComplaintService sessionComplaints,
         ILogger<SessionLifecycleHelper> logger)
     {
         _courseScheduleRepository = courseScheduleRepository;
@@ -35,6 +37,7 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         _progressionService = progressionService;
         _enrollmentCompletion = enrollmentCompletion;
         _teacherEarning = teacherEarning;
+        _sessionComplaints = sessionComplaints;
         _logger = logger;
     }
 
@@ -122,7 +125,11 @@ public class SessionLifecycleHelper : ISessionLifecycleService
 
         try
         {
-            await _teacherEarning.AccrueForCompletedScheduleAsync(schedule.Id, cancellationToken);
+            var holdStatus = await ResolveAccrualStatusAsync(schedule.Id, cancellationToken);
+            await _teacherEarning.AccrueForCompletedScheduleAsync(
+                schedule.Id,
+                holdStatus,
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -158,6 +165,15 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         schedule.Status = ScheduleStatus.InProgress;
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation("Marked CourseSchedule {ScheduleId} InProgress (auto-start).", schedule.Id);
+    }
+
+    private async Task<TeacherEarningLineStatus> ResolveAccrualStatusAsync(
+        int courseScheduleId,
+        CancellationToken cancellationToken)
+    {
+        if (await _sessionComplaints.HasBlockingComplaintAsync(courseScheduleId, cancellationToken))
+            return TeacherEarningLineStatus.OnHold;
+        return TeacherEarningLineStatus.Pending;
     }
 
     private static int ResolveDomainId(Enrollment? enrollment)

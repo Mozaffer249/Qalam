@@ -1495,6 +1495,190 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("SessionAttendances", "course");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionAuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActionType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActorRole")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayloadJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseScheduleId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("SessionAuditLogs", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionComplaint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedToUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CourseScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FiledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ReasonCode")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresTeacherResponse")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ResolutionCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ResolvedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TeacherRespondedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TeacherResponse")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseScheduleId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("CourseScheduleId", "StudentId", "Status");
+
+                    b.ToTable("SessionComplaints", "course");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionComplaintAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ComplaintId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComplaintId");
+
+                    b.ToTable("SessionComplaintAttachments", "course");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Course.SessionLivePresenceEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -7523,6 +7707,47 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionAuditLog", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CourseSchedule");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionComplaint", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
+                        .WithMany("Complaints")
+                        .HasForeignKey("CourseScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Qalam.Data.Entity.Course.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CourseSchedule");
+
+                    b.Navigation("Enrollment");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionComplaintAttachment", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Course.SessionComplaint", "Complaint")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ComplaintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Complaint");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Course.SessionLivePresenceEvent", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Course.CourseSchedule", "CourseSchedule")
@@ -9263,6 +9488,10 @@ namespace Qalam.Infrastructure.Migrations
                 {
                     b.Navigation("Attendances");
 
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Complaints");
+
                     b.Navigation("LivePresenceEvents");
                 });
 
@@ -9295,6 +9524,11 @@ namespace Qalam.Infrastructure.Migrations
             modelBuilder.Entity("Qalam.Data.Entity.Course.EnrollmentSelectedSessionSlot", b =>
                 {
                     b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Course.SessionComplaint", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Education.AcademicProgram", b =>

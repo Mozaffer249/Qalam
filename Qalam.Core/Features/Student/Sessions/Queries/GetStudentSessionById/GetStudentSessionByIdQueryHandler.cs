@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Commons;
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Course;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.DTOs.Teacher;
@@ -14,6 +15,7 @@ using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.Sessions.Queries.GetStudentSessionById;
@@ -26,6 +28,7 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly ISessionReviewService _reviewService;
     private readonly ITeacherContentService _contentService;
+    private readonly ISessionComplaintService _sessionComplaints;
     private readonly SessionSettings _sessionSettings;
     private readonly LiveSessionSettings _liveSessionSettings;
 
@@ -35,6 +38,7 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
         ICourseScheduleRepository scheduleRepository,
         ISessionReviewService reviewService,
         ITeacherContentService contentService,
+        ISessionComplaintService sessionComplaints,
         IOptions<SessionSettings> sessionSettings,
         IOptions<LiveSessionSettings> liveSessionSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
@@ -44,6 +48,7 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
         _scheduleRepository = scheduleRepository;
         _reviewService = reviewService;
         _contentService = contentService;
+        _sessionComplaints = sessionComplaints;
         _sessionSettings = sessionSettings.Value;
         _liveSessionSettings = liveSessionSettings.Value;
     }
@@ -211,6 +216,33 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Reviews = reviews,
             Participants = participants,
         };
+
+        if (viewingStudentId is int complaintStudentId)
+        {
+            var complaints = await _sessionComplaints.ListForScheduleAsync(schedule.Id, cancellationToken);
+            var mine = complaints.Where(c => c.StudentId == complaintStudentId).ToList();
+            var open = mine.FirstOrDefault(c => SessionComplaintRules.IsBlockingStatus(c.Status));
+            var (primary, hints) = SessionDisplayStatusHelper.Compute(
+                schedule.Status,
+                schedule.TeacherAttendanceStatus,
+                attendance?.Status);
+            dto.DisplayStatus = primary;
+            dto.DisplayStatusHints = hints;
+            dto.HasOpenComplaint = open != null;
+            dto.OpenComplaintId = open?.Id;
+            dto.CanFileComplaint = SessionDisplayStatusHelper.CanStudentFileComplaint(
+                schedule.Status,
+                schedule.TeacherAttendanceStatus,
+                open != null);
+            dto.Complaints = mine.Select(c => new SessionComplaintSummaryDto
+            {
+                ComplaintId = c.Id,
+                ReasonCode = c.ReasonCode.ToString(),
+                Status = c.Status.ToString(),
+                FiledAt = c.FiledAt,
+                ResolutionCode = c.ResolutionCode?.ToString(),
+            }).ToList();
+        }
 
         return Success(entity: dto);
     }

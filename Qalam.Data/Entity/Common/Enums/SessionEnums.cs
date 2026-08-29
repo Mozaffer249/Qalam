@@ -48,3 +48,50 @@ public enum LivePresenceEventType
     Joined = 1,
     Left = 2,
 }
+
+public enum SessionComplaintReason
+{
+    TeacherNoShow = 1,
+    TeacherLate = 2,
+    QualityIssue = 3,
+    TechnicalIssue = 4,
+    StudentNoShow = 5,
+    Other = 6,
+}
+
+public enum SessionComplaintStatus
+{
+    Open = 1,
+    InReview = 2,
+    AwaitingTeacher = 3,
+    AwaitingStudent = 4,
+    Resolved = 5,
+    Rejected = 6,
+}
+
+public enum SessionComplaintResolution
+{
+    NoAction = 1,
+    FullRefund = 2,
+    PartialRefund = 3,
+    ReplacementSession = 4,
+    WarnTeacher = 5,
+    DeductTeacherEarning = 6,
+    RejectComplaint = 7,
+}
+
+public enum SessionAuditActionType
+{
+    ComplaintFiled = 1,
+    ComplaintStatusChanged = 2,
+    AttendanceSet = 3,
+    SessionCancelled = 4,
+    SessionRescheduled = 5,
+    RefundIssued = 6,
+    EarningHeld = 7,
+    EarningReleased = 8,
+    EarningVoided = 9,
+    TeacherWarned = 10,
+    TeacherBlocked = 11,
+    ReplacementSessionGranted = 12,
+}

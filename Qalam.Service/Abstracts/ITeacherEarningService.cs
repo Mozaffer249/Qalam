@@ -1,3 +1,5 @@
+using Qalam.Data.Entity.Common.Enums;
+
 namespace Qalam.Service.Abstracts;
 
 public interface ITeacherEarningService
@@ -8,6 +10,7 @@ public interface ITeacherEarningService
     /// </summary>
     Task AccrueForCompletedScheduleAsync(
         int courseScheduleId,
+        TeacherEarningLineStatus initialStatus = TeacherEarningLineStatus.Pending,
         CancellationToken cancellationToken = default);
 }
 

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Payment;
 using Qalam.Data.Helpers;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -230,6 +232,24 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 DateTime.UtcNow,
                 _sessionSettings.EnforceJoinWindow);
 
+            var complaints = await _context.SessionComplaints.AsNoTracking()
+                .Where(c => c.CourseScheduleId == courseDetail.Id)
+                .OrderByDescending(c => c.FiledAt)
+                .Select(c => new SessionComplaintSummaryDto
+                {
+                    ComplaintId = c.Id,
+                    ReasonCode = c.ReasonCode.ToString(),
+                    Status = c.Status.ToString(),
+                    FiledAt = c.FiledAt,
+                    ResolutionCode = c.ResolutionCode != null ? c.ResolutionCode.ToString() : null,
+                })
+                .ToListAsync(cancellationToken);
+
+            var earningStatus = await _context.TeacherEarningLines.AsNoTracking()
+                .Where(l => l.CourseScheduleId == courseDetail.Id && l.Status != TeacherEarningLineStatus.Voided)
+                .Select(l => l.Status.ToString())
+                .FirstOrDefaultAsync(cancellationToken);
+
             return new TeacherMySessionDetailDto
             {
                 Id = courseDetail.Id,
@@ -252,6 +272,8 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 TeacherLeftAt = courseDetail.TeacherLeftAt,
                 TeacherInRoom = courseDetail.TeacherInRoom,
                 LivePresenceEvents = livePresenceEvents,
+                Complaints = complaints,
+                EarningLineStatus = earningStatus,
             };
         }
 

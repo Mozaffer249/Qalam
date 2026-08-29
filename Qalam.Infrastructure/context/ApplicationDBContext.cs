@@ -151,6 +151,9 @@ namespace Qalam.Infrastructure.context
         public DbSet<CourseSchedule> CourseSchedules { get; set; }
         public DbSet<SessionAttendance> SessionAttendances { get; set; }
         public DbSet<SessionLivePresenceEvent> SessionLivePresenceEvents { get; set; }
+        public DbSet<SessionComplaint> SessionComplaints { get; set; }
+        public DbSet<SessionComplaintAttachment> SessionComplaintAttachments { get; set; }
+        public DbSet<SessionAuditLog> SessionAuditLogs { get; set; }
 
         // Session Schema DbSets (legacy placeholder — kept for production data; not used by new code)
         public DbSet<SessionRequest> SessionRequests { get; set; }

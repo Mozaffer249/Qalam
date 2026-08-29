@@ -47,4 +47,16 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
     Task<List<CourseSchedule>> GetDueForAutoStartAsync(
         DateTime utcNow,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Tracked load for admin attendance/cancel actions.</summary>
+    Task<CourseSchedule?> GetByIdForAdminActionAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>Tracked load with enrollment participants for complaint filing.</summary>
+    Task<CourseSchedule?> GetWithParticipantsForComplaintAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<int?> GetEnrollmentIdByScheduleIdAsync(int scheduleId, CancellationToken cancellationToken = default);
+
+    Task<bool> IsCompletedAsync(int scheduleId, CancellationToken cancellationToken = default);
+
+    Task<int> GetCourseTeacherIdAsync(int courseId, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-namespace Qalam.Service.Implementations;
+namespace Qalam.Data.Helpers;
 
 public static class LiveSessionRoomNames
 {
