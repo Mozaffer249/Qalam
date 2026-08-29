@@ -10,6 +10,10 @@ public class SessionComplaintSummaryDto
     public string Status { get; set; } = "";
     public DateTime FiledAt { get; set; }
     public string? ResolutionCode { get; set; }
+    public string Description { get; set; } = "";
+    public bool RequiresTeacherResponse { get; set; }
+    public string? TeacherResponse { get; set; }
+    public List<AdminSessionComplaintAttachmentDto> Attachments { get; set; } = new();
 }
 
 public class AdminSessionListFilter

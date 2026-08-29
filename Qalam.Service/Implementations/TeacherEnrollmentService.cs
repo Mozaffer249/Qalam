@@ -311,6 +311,27 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         var attended = 0;
         var absentOrLate = 0;
 
+        var scheduleIds = schedules.Select(cs => cs.Id).ToList();
+        var complaintsBySchedule = scheduleIds.Count == 0
+            ? new Dictionary<int, List<SessionComplaint>>()
+            : (await _db.SessionComplaints
+                .AsNoTracking()
+                .Where(c => scheduleIds.Contains(c.CourseScheduleId))
+                .ToListAsync(cancellationToken))
+            .GroupBy(c => c.CourseScheduleId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var earningBySchedule = scheduleIds.Count == 0
+            ? new Dictionary<int, TeacherEarningLineStatus>()
+            : (await _db.TeacherEarningLines
+                .AsNoTracking()
+                .Where(l => l.CourseScheduleId.HasValue
+                            && scheduleIds.Contains(l.CourseScheduleId.Value)
+                            && l.Status != TeacherEarningLineStatus.Voided)
+                .ToListAsync(cancellationToken))
+            .GroupBy(l => l.CourseScheduleId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Status);
+
         for (var i = 0; i < schedules.Count; i++)
         {
             var cs = schedules[i];
@@ -398,6 +419,15 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 })
                 .ToList();
 
+            complaintsBySchedule.TryGetValue(cs.Id, out var sessionComplaints);
+            sessionComplaints ??= [];
+            var openComplaint = sessionComplaints.FirstOrDefault(c =>
+                c.Status is SessionComplaintStatus.Open
+                    or SessionComplaintStatus.InReview
+                    or SessionComplaintStatus.AwaitingTeacher
+                    or SessionComplaintStatus.AwaitingStudent);
+            earningBySchedule.TryGetValue(cs.Id, out var earningStatus);
+
             dto.Sessions.Add(new EnrollmentSessionItemDto
             {
                 ScheduleId = cs.Id,
@@ -429,6 +459,10 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 TeacherNote = cs.TeacherNote ?? primaryAttendance?.Note,
                 ParticipantAttendances = participantAttendances,
                 Units = units,
+                HasOpenComplaint = openComplaint != null,
+                OpenComplaintStatus = openComplaint?.Status.ToString(),
+                ComplaintCount = sessionComplaints.Count,
+                EarningLineStatus = earningStatus != default ? earningStatus.ToString() : null,
             });
         }
 

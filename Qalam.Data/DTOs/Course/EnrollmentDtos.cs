@@ -402,6 +402,11 @@ public class EnrollmentSessionItemDto
 
     /// <summary>Content units / lessons covered in this session (culture-selected names).</summary>
     public List<EnrollmentSessionContentUnitDto> Units { get; set; } = new();
+
+    public bool HasOpenComplaint { get; set; }
+    public string? OpenComplaintStatus { get; set; }
+    public int ComplaintCount { get; set; }
+    public string? EarningLineStatus { get; set; }
 }
 
 /// <summary>One student attendance row on a teacher enrollment session item.</summary>

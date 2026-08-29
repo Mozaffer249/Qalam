@@ -87,6 +87,10 @@ public class AdminEnrollmentSessionDto
     public TimeSpan? EndTime { get; set; }
     public decimal? AccruedAmount { get; set; }
     public string? EarningLineKey { get; set; }
+    public bool HasOpenComplaint { get; set; }
+    public string? OpenComplaintStatus { get; set; }
+    public int ComplaintCount { get; set; }
+    public string? EarningLineStatus { get; set; }
 }
 
 public class AdminEnrollmentEarningLineDto

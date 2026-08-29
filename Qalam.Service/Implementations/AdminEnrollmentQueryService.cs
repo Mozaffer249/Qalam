@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Payment;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
@@ -320,12 +321,29 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
             .ToDictionary(l => l.CourseScheduleId!.Value);
 
+        var scheduleIds = orderedSchedules.Select(s => s.Id).ToList();
+        var complaintsBySchedule = scheduleIds.Count == 0
+            ? new Dictionary<int, List<SessionComplaint>>()
+            : (await _db.SessionComplaints
+                .AsNoTracking()
+                .Where(c => scheduleIds.Contains(c.CourseScheduleId))
+                .ToListAsync(cancellationToken))
+            .GroupBy(c => c.CourseScheduleId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         detail.Sessions = orderedSchedules
             .Select((s, i) =>
             {
                 var isFree = e.IsFreeTrial && i == 0;
                 lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
                 scheduleDetailById.TryGetValue(s.Id, out var detailSchedule);
+                complaintsBySchedule.TryGetValue(s.Id, out var sessionComplaints);
+                sessionComplaints ??= [];
+                var openComplaint = sessionComplaints.FirstOrDefault(c =>
+                    c.Status is SessionComplaintStatus.Open
+                        or SessionComplaintStatus.InReview
+                        or SessionComplaintStatus.AwaitingTeacher
+                        or SessionComplaintStatus.AwaitingStudent);
                 return new AdminEnrollmentSessionDto
                 {
                     ScheduleId = s.Id,
@@ -344,6 +362,10 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                             ? accrualLine.Amount
                             : null,
                     EarningLineKey = accrualLine != null ? $"earn-{accrualLine.Id}" : null,
+                    HasOpenComplaint = openComplaint != null,
+                    OpenComplaintStatus = openComplaint?.Status.ToString(),
+                    ComplaintCount = sessionComplaints.Count,
+                    EarningLineStatus = accrualLine?.Status.ToString(),
                 };
             })
             .ToList();

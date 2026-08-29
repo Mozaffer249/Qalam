@@ -242,6 +242,16 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                     Status = c.Status.ToString(),
                     FiledAt = c.FiledAt,
                     ResolutionCode = c.ResolutionCode != null ? c.ResolutionCode.ToString() : null,
+                    Description = c.Description,
+                    RequiresTeacherResponse = c.RequiresTeacherResponse,
+                    TeacherResponse = c.TeacherResponse,
+                    Attachments = c.Attachments.Select(a => new AdminSessionComplaintAttachmentDto
+                    {
+                        AttachmentId = a.Id,
+                        FileName = a.FileName,
+                        FileUrl = a.FileUrl,
+                        ContentType = a.ContentType,
+                    }).ToList(),
                 })
                 .ToListAsync(cancellationToken);
 
