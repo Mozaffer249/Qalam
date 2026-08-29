@@ -17,4 +17,5 @@ public class RabbitMQSettings
     public string OpenSessionRequestAttachmentUploadQueueName { get; set; } = "open-session-request-attachment-upload-queue";
     public string TeacherContentFileUploadQueueName { get; set; } = "teacher-content-file-upload-queue";
     public string CourseImageUploadQueueName { get; set; } = "course-image-upload-queue";
+    public string SessionComplaintAttachmentUploadQueueName { get; set; } = "session-complaint-attachment-upload-queue";
 }

@@ -88,6 +88,15 @@ public class SessionComplaintRepository : ISessionComplaintRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task RemoveAttachmentAsync(int attachmentId, CancellationToken cancellationToken = default)
+    {
+        var row = await _context.SessionComplaintAttachments.FindAsync([attachmentId], cancellationToken);
+        if (row == null)
+            return;
+        _context.SessionComplaintAttachments.Remove(row);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 

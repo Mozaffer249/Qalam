@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Qalam.Data.Entity.Common.Enums;
@@ -94,7 +95,24 @@ public class SessionComplaintServiceTests
         var scheduleRepo = new CourseScheduleRepository(db);
         var earning = new TeacherEarningService(db, NullLogger<TeacherEarningService>.Instance);
         var refund = refundMock ?? new Mock<IRefundService>();
-        return new SessionComplaintService(complaintRepo, scheduleRepo, audit, earning, refund.Object);
+        var fileStorage = new Mock<IFileStorageService>();
+        fileStorage
+            .Setup(f => f.ValidateFileAsync(It.IsAny<IFormFile>(), It.IsAny<string[]>(), It.IsAny<long>()))
+            .ReturnsAsync(true);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
+            })
+            .Build();
+        return new SessionComplaintService(
+            complaintRepo,
+            scheduleRepo,
+            audit,
+            earning,
+            refund.Object,
+            fileStorage.Object,
+            config);
     }
 
     [Fact]

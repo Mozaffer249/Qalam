@@ -80,6 +80,10 @@ namespace Qalam.Service.Implementations
                     queue: _settings.CourseImageUploadQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.SessionComplaintAttachmentUploadQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
                 _initialized = true;
                 _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}, {TeacherDocQueue}, {ProfilePicQueue}",
                     _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName,
@@ -305,6 +309,34 @@ namespace Qalam.Service.Implementations
                 _logger.LogError(ex,
                     "Failed to queue course image upload: TeacherId={TeacherId}",
                     message.TeacherId);
+                throw;
+            }
+        }
+
+        public async Task QueueSessionComplaintAttachmentUploadAsync(SessionComplaintAttachmentUploadMessage message)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                message.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(message);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.SessionComplaintAttachmentUploadQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation(
+                    "Session complaint attachment upload queued: ComplaintId={ComplaintId}, AttachmentId={AttachmentId}",
+                    message.ComplaintId, message.AttachmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to queue session complaint attachment upload: ComplaintId={ComplaintId}, AttachmentId={AttachmentId}",
+                    message.ComplaintId, message.AttachmentId);
                 throw;
             }
         }

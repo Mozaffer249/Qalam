@@ -12,5 +12,6 @@ namespace Qalam.Service.Abstracts
         Task QueueOpenSessionRequestAttachmentUploadAsync(OpenSessionRequestAttachmentUploadMessage message);
         Task QueueTeacherContentFileUploadAsync(TeacherContentFileUploadMessage message);
         Task QueueCourseImageUploadAsync(CourseImageUploadMessage message);
+        Task QueueSessionComplaintAttachmentUploadAsync(SessionComplaintAttachmentUploadMessage message);
     }
 }

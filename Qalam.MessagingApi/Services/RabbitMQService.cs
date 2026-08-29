@@ -56,6 +56,7 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
                 _settings.OpenSessionRequestAttachmentUploadQueueName,
                 _settings.TeacherContentFileUploadQueueName,
                 _settings.CourseImageUploadQueueName,
+                _settings.SessionComplaintAttachmentUploadQueueName,
             };
 
             foreach (var queue in queues)

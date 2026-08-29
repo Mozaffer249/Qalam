@@ -268,6 +268,33 @@ public class FileStorageService : IFileStorageService
             teacherId, contentItemId, storageKey);
     }
 
+    public async Task QueueSessionComplaintAttachmentUploadAsync(
+        IFormFile file,
+        int complaintId,
+        int attachmentId,
+        string storageKey)
+    {
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        var message = new SessionComplaintAttachmentUploadMessage
+        {
+            ComplaintId = complaintId,
+            AttachmentId = attachmentId,
+            FileName = file.FileName,
+            ContentType = file.ContentType ?? "application/octet-stream",
+            StorageKey = storageKey,
+            FileData = base64Data,
+        };
+
+        await _rabbitMQService.QueueSessionComplaintAttachmentUploadAsync(message);
+
+        _logger.LogInformation(
+            "Session complaint attachment queued: ComplaintId={ComplaintId}, AttachmentId={AttachmentId}, Key={Key}",
+            complaintId, attachmentId, storageKey);
+    }
+
     public async Task<string> SaveTeacherContentFileAsync(IFormFile file, int teacherId, int itemId)
     {
         var contentPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teacher-content", teacherId.ToString());

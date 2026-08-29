@@ -34,6 +34,8 @@ public interface ISessionComplaintRepository
 
     Task AddAttachmentAsync(SessionComplaintAttachment attachment, CancellationToken cancellationToken = default);
 
+    Task RemoveAttachmentAsync(int attachmentId, CancellationToken cancellationToken = default);
+
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task<TeacherEarningLine?> GetActiveEarningLineForScheduleAsync(

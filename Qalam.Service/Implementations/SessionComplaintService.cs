@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
@@ -9,25 +10,34 @@ namespace Qalam.Service.Implementations;
 
 public class SessionComplaintService : ISessionComplaintService
 {
+    private const long MaxAttachmentSizeBytes = 25 * 1024 * 1024;
+    private static readonly string[] AllowedAttachmentExtensions =
+        { ".pdf", ".png", ".jpg", ".jpeg", ".webp" };
+
     private readonly ISessionComplaintRepository _complaints;
     private readonly ICourseScheduleRepository _schedules;
     private readonly ISessionAuditService _audit;
     private readonly ITeacherEarningService _teacherEarning;
-
     private readonly IRefundService _refundService;
+    private readonly IFileStorageService _fileStorage;
+    private readonly IConfiguration _configuration;
 
     public SessionComplaintService(
         ISessionComplaintRepository complaints,
         ICourseScheduleRepository schedules,
         ISessionAuditService audit,
         ITeacherEarningService teacherEarning,
-        IRefundService refundService)
+        IRefundService refundService,
+        IFileStorageService fileStorage,
+        IConfiguration configuration)
     {
         _complaints = complaints;
         _schedules = schedules;
         _audit = audit;
         _teacherEarning = teacherEarning;
         _refundService = refundService;
+        _fileStorage = fileStorage;
+        _configuration = configuration;
     }
 
     public Task<bool> HasBlockingComplaintAsync(int courseScheduleId, CancellationToken cancellationToken = default) =>
@@ -75,8 +85,7 @@ public class SessionComplaintService : ISessionComplaintService
         {
             foreach (var file in attachments.Where(f => f.Length > 0))
             {
-                var saved = await SaveAttachmentAsync(file, complaint.Id, userId, cancellationToken);
-                await _complaints.AddAttachmentAsync(saved, cancellationToken);
+                await SaveAndQueueAttachmentAsync(file, complaint.Id, userId, cancellationToken);
             }
         }
 
@@ -273,31 +282,55 @@ public class SessionComplaintService : ISessionComplaintService
         await _complaints.GetByIdTrackedAsync(complaintId, cancellationToken)
         ?? throw new InvalidOperationException("Complaint not found.");
 
-    private static async Task<SessionComplaintAttachment> SaveAttachmentAsync(
+    private async Task SaveAndQueueAttachmentAsync(
         IFormFile file,
         int complaintId,
         int userId,
         CancellationToken cancellationToken)
     {
-        var basePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "session-complaints", complaintId.ToString());
-        Directory.CreateDirectory(basePath);
-        var extension = Path.GetExtension(file.FileName);
-        var fileName = $"{Guid.NewGuid()}{extension}";
-        var fullPath = Path.Combine(basePath, fileName);
-        await using (var stream = new FileStream(fullPath, FileMode.Create))
-            await file.CopyToAsync(stream, cancellationToken);
+        if (!await _fileStorage.ValidateFileAsync(file, AllowedAttachmentExtensions, MaxAttachmentSizeBytes))
+            throw new InvalidOperationException(
+                "Invalid attachment — allowed: PDF/PNG/JPG/WEBP, max 25 MB.");
 
-        var relative = Path.Combine("uploads", "session-complaints", complaintId.ToString(), fileName)
-            .Replace('\\', '/');
-        return new SessionComplaintAttachment
+        var attachment = new SessionComplaintAttachment
         {
             ComplaintId = complaintId,
-            FileUrl = relative,
             FileName = file.FileName,
-            ContentType = file.ContentType,
+            ContentType = file.ContentType ?? "application/octet-stream",
+            FileUrl = "pending",
             UploadedByUserId = userId,
             UploadedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
         };
+        await _complaints.AddAttachmentAsync(attachment, cancellationToken);
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = ".bin";
+
+        var storageKey = $"session-complaints/{complaintId}/{attachment.Id}{ext}";
+        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
+                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
+                          ?? _configuration["OssSettings:PublicBaseUrl"]
+                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
+                          ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(ossPublicBase))
+            throw new InvalidOperationException(
+                "OssSettings:LearningPublicBaseUrl is not configured; cannot upload complaint attachments.");
+
+        attachment.FileUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
+        await _complaints.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _fileStorage.QueueSessionComplaintAttachmentUploadAsync(
+                file, complaintId, attachment.Id, storageKey);
+        }
+        catch
+        {
+            await _complaints.RemoveAttachmentAsync(attachment.Id, cancellationToken);
+            throw;
+        }
     }
 }

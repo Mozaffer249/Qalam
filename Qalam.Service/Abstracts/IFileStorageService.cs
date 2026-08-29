@@ -53,6 +53,15 @@ public interface IFileStorageService
         int contentItemId,
         string storageKey);
 
+    /// <summary>
+    /// Queue a session complaint attachment for OSS upload at <paramref name="storageKey"/>.
+    /// </summary>
+    Task QueueSessionComplaintAttachmentUploadAsync(
+        IFormFile file,
+        int complaintId,
+        int attachmentId,
+        string storageKey);
+
     /// <summary>Saves a teacher content library file locally and returns a relative storage path.</summary>
     Task<string> SaveTeacherContentFileAsync(IFormFile file, int teacherId, int itemId);
 }

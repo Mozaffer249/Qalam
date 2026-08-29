@@ -84,12 +84,21 @@ public class AdminSessionActionTests
         var audit = new SessionAuditService(auditRepo);
         var earning = new TeacherEarningService(db, NullLogger<TeacherEarningService>.Instance);
         var refundMock = new Mock<IRefundService>();
+        var fileStorageMock = new Mock<IFileStorageService>();
+        var ossConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
+            })
+            .Build();
         var complaints = new SessionComplaintService(
             new SessionComplaintRepository(db),
             scheduleRepo,
             audit,
             earning,
-            refundMock.Object);
+            refundMock.Object,
+            fileStorageMock.Object,
+            ossConfig);
         var teacherMgmtMock = new Mock<ITeacherManagementService>();
         return new AdminSessionActionService(scheduleRepo, audit, complaints, refundMock.Object, teacherMgmtMock.Object);
     }
