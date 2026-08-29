@@ -167,4 +167,8 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             .Where(c => c.Id == courseId)
             .Select(c => c.TeacherId)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<CourseSchedule?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken = default) =>
+        _context.CourseSchedules.AsNoTracking()
+            .FirstOrDefaultAsync(cs => cs.Id == id, cancellationToken);
 }

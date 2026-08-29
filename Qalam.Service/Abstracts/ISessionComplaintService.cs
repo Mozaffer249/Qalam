@@ -39,12 +39,21 @@ public interface ISessionComplaintService
         CancellationToken cancellationToken = default);
 
     Task ResolveAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         SessionComplaintResolution resolutionCode,
         string? resolutionNotes,
         decimal? refundAmount,
         int? paymentId,
+        CancellationToken cancellationToken = default);
+
+    Task<ComplaintResolvePreviewDto> GetResolvePreviewAsync(
+        int scheduleId,
+        int complaintId,
+        SessionComplaintResolution resolutionCode,
+        decimal? refundAmountOverride,
+        int? paymentIdOverride,
         CancellationToken cancellationToken = default);
 
     Task RespondAsTeacherAsync(

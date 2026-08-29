@@ -91,14 +91,7 @@ public class AdminSessionActionTests
                 ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
             })
             .Build();
-        var complaints = new SessionComplaintService(
-            new SessionComplaintRepository(db),
-            scheduleRepo,
-            audit,
-            earning,
-            refundMock.Object,
-            fileStorageMock.Object,
-            ossConfig);
+        var complaints = ComplaintResolutionTestHelper.CreateComplaintService(db, refundMock);
         var teacherMgmtMock = new Mock<ITeacherManagementService>();
         return new AdminSessionActionService(scheduleRepo, audit, complaints, refundMock.Object, teacherMgmtMock.Object);
     }

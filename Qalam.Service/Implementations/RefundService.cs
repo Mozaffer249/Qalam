@@ -264,7 +264,7 @@ public class RefundService : IRefundService
     }
 
     /// <summary>
-    /// Full payment refund voids all Pending lines. Partial refund voids newest Pending lines
+    /// Full payment refund voids all Pending/OnHold lines. Partial refund voids newest Pending/OnHold lines
     /// until the refund amount (or remaining pending) is covered. Paid-batch lines are left alone.
     /// </summary>
     private async Task VoidTeacherEarningsForRefundAsync(
@@ -276,7 +276,8 @@ public class RefundService : IRefundService
     {
         var pending = await _db.TeacherEarningLines
             .Where(l => l.EnrollmentId == enrollmentId
-                        && l.Status == TeacherEarningLineStatus.Pending)
+                        && (l.Status == TeacherEarningLineStatus.Pending
+                            || l.Status == TeacherEarningLineStatus.OnHold))
             .OrderByDescending(l => l.CreatedAt)
             .ThenByDescending(l => l.Id)
             .ToListAsync(cancellationToken);

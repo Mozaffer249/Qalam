@@ -59,4 +59,6 @@ public interface ICourseScheduleRepository : IGenericRepositoryAsync<CourseSched
     Task<bool> IsCompletedAsync(int scheduleId, CancellationToken cancellationToken = default);
 
     Task<int> GetCourseTeacherIdAsync(int courseId, CancellationToken cancellationToken = default);
+
+    Task<CourseSchedule?> GetByIdNoTrackingAsync(int id, CancellationToken cancellationToken = default);
 }

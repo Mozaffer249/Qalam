@@ -60,6 +60,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminSessionComplaintAssign = AdminSessionById + "/Complaints/{complaintId}/Assign";
         public const string AdminSessionComplaintRequestTeacher = AdminSessionById + "/Complaints/{complaintId}/RequestTeacherResponse";
         public const string AdminSessionComplaintResolve = AdminSessionById + "/Complaints/{complaintId}/Resolve";
+        public const string AdminSessionComplaintResolvePreview = AdminSessionById + "/Complaints/{complaintId}/ResolvePreview";
         public const string AdminPayouts = Rule + "Admin/Payouts";
         public const string AdminPayoutById = AdminPayouts + "/{id}";
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";

@@ -25,6 +25,7 @@ public class ResolveSessionComplaintCommandHandler : ResponseHandler,
         try
         {
             await _complaints.ResolveAsync(
+                request.ScheduleId,
                 request.ComplaintId,
                 request.UserId,
                 request.Body.ResolutionCode,

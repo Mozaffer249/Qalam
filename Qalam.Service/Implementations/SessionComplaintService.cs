@@ -18,26 +18,26 @@ public class SessionComplaintService : ISessionComplaintService
     private readonly ICourseScheduleRepository _schedules;
     private readonly ISessionAuditService _audit;
     private readonly ITeacherEarningService _teacherEarning;
-    private readonly IRefundService _refundService;
     private readonly IFileStorageService _fileStorage;
     private readonly IConfiguration _configuration;
+    private readonly IComplaintResolutionOrchestrator _resolutionOrchestrator;
 
     public SessionComplaintService(
         ISessionComplaintRepository complaints,
         ICourseScheduleRepository schedules,
         ISessionAuditService audit,
         ITeacherEarningService teacherEarning,
-        IRefundService refundService,
         IFileStorageService fileStorage,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IComplaintResolutionOrchestrator resolutionOrchestrator)
     {
         _complaints = complaints;
         _schedules = schedules;
         _audit = audit;
         _teacherEarning = teacherEarning;
-        _refundService = refundService;
         _fileStorage = fileStorage;
         _configuration = configuration;
+        _resolutionOrchestrator = resolutionOrchestrator;
     }
 
     public Task<bool> HasBlockingComplaintAsync(int courseScheduleId, CancellationToken cancellationToken = default) =>
@@ -150,63 +150,39 @@ public class SessionComplaintService : ISessionComplaintService
             cancellationToken);
     }
 
-    public async Task ResolveAsync(
+    public Task<ComplaintResolvePreviewDto> GetResolvePreviewAsync(
+        int scheduleId,
+        int complaintId,
+        SessionComplaintResolution resolutionCode,
+        decimal? refundAmountOverride,
+        int? paymentIdOverride,
+        CancellationToken cancellationToken = default) =>
+        _resolutionOrchestrator.GetPreviewAsync(
+            scheduleId,
+            complaintId,
+            resolutionCode,
+            refundAmountOverride,
+            paymentIdOverride,
+            cancellationToken);
+
+    public Task ResolveAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         SessionComplaintResolution resolutionCode,
         string? resolutionNotes,
         decimal? refundAmount,
         int? paymentId,
-        CancellationToken cancellationToken = default)
-    {
-        var complaint = await GetTrackedComplaintAsync(complaintId, cancellationToken);
-        complaint.Status = resolutionCode == SessionComplaintResolution.RejectComplaint
-            ? SessionComplaintStatus.Rejected
-            : SessionComplaintStatus.Resolved;
-        complaint.ResolutionCode = resolutionCode;
-        complaint.ResolutionNotes = resolutionNotes;
-        complaint.ResolvedAt = DateTime.UtcNow;
-        complaint.ResolvedByUserId = adminUserId;
-        complaint.RequiresTeacherResponse = false;
-        await _complaints.SaveChangesAsync(cancellationToken);
-
-        if (resolutionCode is SessionComplaintResolution.FullRefund or SessionComplaintResolution.PartialRefund
-            && paymentId.HasValue && refundAmount.HasValue && refundAmount.Value > 0)
-        {
-            await _refundService.IssueRefundAsync(
-                paymentId.Value,
-                complaint.EnrollmentId,
-                refundAmount.Value,
-                "SAR",
-                resolutionNotes ?? "Session complaint refund",
-                adminUserId,
-                cancellationToken);
-            await _audit.LogAsync(
-                complaint.CourseScheduleId,
-                adminUserId,
-                "Admin",
-                SessionAuditActionType.RefundIssued,
-                new { complaintId, paymentId, refundAmount },
-                cancellationToken);
-        }
-
-        if (resolutionCode == SessionComplaintResolution.DeductTeacherEarning)
-            await VoidEarningForScheduleAsync(complaint.CourseScheduleId, cancellationToken);
-        else if (resolutionCode is SessionComplaintResolution.RejectComplaint or SessionComplaintResolution.NoAction)
-            await ReleaseEarningForScheduleAsync(complaint.CourseScheduleId, cancellationToken);
-        else if (resolutionCode is SessionComplaintResolution.FullRefund or SessionComplaintResolution.PartialRefund)
-            await VoidEarningForScheduleAsync(complaint.CourseScheduleId, cancellationToken);
-        else
-            await ReleaseEarningForScheduleAsync(complaint.CourseScheduleId, cancellationToken);
-
-        await _audit.LogAsync(
-            complaint.CourseScheduleId,
+        CancellationToken cancellationToken = default) =>
+        _resolutionOrchestrator.ResolveAsync(
+            scheduleId,
+            complaintId,
             adminUserId,
-            "Admin",
-            SessionAuditActionType.ComplaintStatusChanged,
-            new { complaintId, resolutionCode = resolutionCode.ToString() },
+            resolutionCode,
+            resolutionNotes,
+            refundAmount,
+            paymentId,
             cancellationToken);
-    }
 
     public async Task RespondAsTeacherAsync(
         int complaintId,

@@ -23,6 +23,8 @@ public class SessionComplaint : AuditableEntity
     public DateTime? TeacherRespondedAt { get; set; }
     public string? TeacherResponse { get; set; }
     public int? AssignedToUserId { get; set; }
+    public int? RefundId { get; set; }
+    public int? ReplacementScheduleId { get; set; }
 
     public CourseSchedule CourseSchedule { get; set; } = null!;
     public Enrollment Enrollment { get; set; } = null!;

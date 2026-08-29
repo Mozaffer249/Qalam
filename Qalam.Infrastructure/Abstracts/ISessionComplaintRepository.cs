@@ -16,6 +16,23 @@ public interface ISessionComplaintRepository
 
     Task<SessionComplaint?> GetByIdTrackedAsync(int complaintId, CancellationToken cancellationToken = default);
 
+    Task<SessionComplaint?> GetByIdAsync(int complaintId, CancellationToken cancellationToken = default);
+
+    Task<bool> BelongsToScheduleAsync(
+        int complaintId,
+        int courseScheduleId,
+        CancellationToken cancellationToken = default);
+
+    Task<ComplaintSessionFinancialContextDto?> LoadFinancialContextAsync(
+        int enrollmentId,
+        int courseScheduleId,
+        CancellationToken cancellationToken = default);
+
+    Task<string> GetPayoutImpactAsync(
+        int enrollmentId,
+        decimal refundAmount,
+        CancellationToken cancellationToken = default);
+
     Task<SessionComplaint?> GetByIdForTeacherTrackedAsync(
         int complaintId,
         int teacherId,

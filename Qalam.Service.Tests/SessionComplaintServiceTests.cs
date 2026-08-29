@@ -89,30 +89,7 @@ public class SessionComplaintServiceTests
 
     private static SessionComplaintService CreateSut(ApplicationDBContext db, Mock<IRefundService>? refundMock = null)
     {
-        var auditRepo = new SessionAuditLogRepository(db);
-        var audit = new SessionAuditService(auditRepo);
-        var complaintRepo = new SessionComplaintRepository(db);
-        var scheduleRepo = new CourseScheduleRepository(db);
-        var earning = new TeacherEarningService(db, NullLogger<TeacherEarningService>.Instance);
-        var refund = refundMock ?? new Mock<IRefundService>();
-        var fileStorage = new Mock<IFileStorageService>();
-        fileStorage
-            .Setup(f => f.ValidateFileAsync(It.IsAny<IFormFile>(), It.IsAny<string[]>(), It.IsAny<long>()))
-            .ReturnsAsync(true);
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
-            })
-            .Build();
-        return new SessionComplaintService(
-            complaintRepo,
-            scheduleRepo,
-            audit,
-            earning,
-            refund.Object,
-            fileStorage.Object,
-            config);
+        return ComplaintResolutionTestHelper.CreateComplaintService(db, refundMock);
     }
 
     [Fact]
@@ -198,6 +175,7 @@ public class SessionComplaintServiceTests
             schedule.Id, studentId, 99, SessionComplaintReason.Other, "Issue", null);
 
         await sut.ResolveAsync(
+            schedule.Id,
             filed.Id,
             adminUserId: 1,
             SessionComplaintResolution.NoAction,

@@ -170,6 +170,8 @@ public class SessionComplaintDetailDto
     public bool RequiresTeacherResponse { get; set; }
     public string? TeacherResponse { get; set; }
     public List<AdminSessionComplaintAttachmentDto> Attachments { get; set; } = new();
+    public int? RefundId { get; set; }
+    public int? ReplacementScheduleId { get; set; }
 }
 
 public class StudentSessionListItemDto
@@ -200,6 +202,44 @@ public class ResolveSessionComplaintRequest
     public string? ResolutionNotes { get; set; }
     public decimal? RefundAmount { get; set; }
     public int? PaymentId { get; set; }
+}
+
+public class ComplaintResolvePreviewDto
+{
+    public string ResolutionCode { get; set; } = "";
+    public decimal? SuggestedRefundAmount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public int? PaymentId { get; set; }
+    public decimal RemainingRefundable { get; set; }
+    public decimal? SessionEarningAmount { get; set; }
+    public string? CurrentEarningStatus { get; set; }
+    /// <summary>None | VoidedPending | AlreadyPaid</summary>
+    public string PayoutImpact { get; set; } = "None";
+    public decimal? PlatformBearEstimate { get; set; }
+    /// <summary>Release | Void | None</summary>
+    public string SessionEarningEffect { get; set; } = "None";
+    public ComplaintReplacementSchedulePreviewDto? ReplacementPreview { get; set; }
+}
+
+public class ComplaintReplacementSchedulePreviewDto
+{
+    public int DurationMinutes { get; set; }
+    public int TeacherId { get; set; }
+    public string? SuggestedDate { get; set; }
+}
+
+/// <summary>Read model for complaint resolve refund/earning calculations.</summary>
+public class ComplaintSessionFinancialContextDto
+{
+    public decimal AmountDue { get; init; }
+    public int SessionDurationMinutes { get; init; }
+    public int EarnablePackageMinutes { get; init; }
+    public string Currency { get; init; } = "SAR";
+    public int? PrimaryPaymentId { get; init; }
+    public decimal RemainingRefundable { get; init; }
+    public decimal PaymentTotal { get; init; }
+    public decimal? SessionEarningAmount { get; init; }
+    public string? SessionEarningStatus { get; init; }
 }
 
 public class AdminSetSessionAttendanceRequest
