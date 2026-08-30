@@ -9,10 +9,14 @@ namespace Qalam.Service.Implementations;
 public class RefundService : IRefundService
 {
     private readonly IRefundRepository _refunds;
+    private readonly ITeacherFinanceImpactService _financeImpact;
 
-    public RefundService(IRefundRepository refunds)
+    public RefundService(
+        IRefundRepository refunds,
+        ITeacherFinanceImpactService financeImpact)
     {
         _refunds = refunds;
+        _financeImpact = financeImpact;
     }
 
     public async Task<Refund> IssueRefundAsync(
@@ -69,12 +73,30 @@ public class RefundService : IRefundService
                 ep.Status = PaymentStatus.Refunded;
         }
 
-        await VoidTeacherEarningsForRefundAsync(
+        var voidedAmount = await VoidTeacherEarningsForRefundAsync(
             enrollmentId,
             refund.Amount,
             payment.TotalAmount,
             isFullRefund,
             cancellationToken);
+
+        if (voidedAmount > 0
+            && await _financeImpact.IsAlreadyPaidForEnrollmentAsync(enrollmentId, cancellationToken))
+        {
+            var teacherId = await _refunds.GetTeacherIdForEnrollmentAsync(enrollmentId, cancellationToken);
+            if (teacherId > 0)
+            {
+                await _financeImpact.RecordSettlementForAlreadyPaidAsync(
+                    teacherId,
+                    voidedAmount,
+                    refund.Currency,
+                    refund.Id,
+                    complaintId: null,
+                    earningLineId: null,
+                    initiatedByUserId,
+                    cancellationToken);
+            }
+        }
 
         await _refunds.SaveChangesAsync(cancellationToken);
         return refund;
@@ -237,7 +259,7 @@ public class RefundService : IRefundService
         };
     }
 
-    private async Task VoidTeacherEarningsForRefundAsync(
+    private async Task<decimal> VoidTeacherEarningsForRefundAsync(
         int enrollmentId,
         decimal refundAmount,
         decimal paymentTotal,
@@ -248,13 +270,18 @@ public class RefundService : IRefundService
             enrollmentId, cancellationToken);
 
         if (pending.Count == 0)
-            return;
+            return 0m;
+
+        decimal voidedTotal = 0m;
 
         if (isFullRefund || refundAmount >= paymentTotal - 0.001m)
         {
             foreach (var line in pending)
+            {
                 line.Status = TeacherEarningLineStatus.Voided;
-            return;
+                voidedTotal += line.Amount;
+            }
+            return voidedTotal;
         }
 
         var remaining = refundAmount;
@@ -263,7 +290,10 @@ public class RefundService : IRefundService
             if (remaining <= 0.001m)
                 break;
             line.Status = TeacherEarningLineStatus.Voided;
+            voidedTotal += line.Amount;
             remaining -= line.Amount;
         }
+
+        return voidedTotal;
     }
 }

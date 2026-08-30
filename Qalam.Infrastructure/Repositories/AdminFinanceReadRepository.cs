@@ -9,10 +9,14 @@ namespace Qalam.Infrastructure.Repositories;
 public class AdminFinanceReadRepository : IAdminFinanceReadRepository
 {
     private readonly ApplicationDBContext _context;
+    private readonly ITeacherLedgerReadRepository _ledger;
 
-    public AdminFinanceReadRepository(ApplicationDBContext context)
+    public AdminFinanceReadRepository(
+        ApplicationDBContext context,
+        ITeacherLedgerReadRepository ledger)
     {
         _context = context;
+        _ledger = ledger;
     }
 
     public async Task<FinanceAggregateProjection> GetAggregatesAsync(
@@ -61,7 +65,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             .SumAsync(l => l.Amount, cancellationToken);
 
         var payoutsDraft = await batches
-            .Where(b => b.Status == PayoutBatchStatus.Draft)
+            .Where(b => b.Status == PayoutBatchStatus.Pending)
             .SumAsync(b => b.TotalAmount, cancellationToken);
         var payoutsApproved = await batches
             .Where(b => b.Status == PayoutBatchStatus.Approved)
@@ -182,6 +186,11 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
                         && r.Enrollment.ApprovedByTeacherId == teacherId)
             .SumAsync(r => r.Amount, cancellationToken);
 
+        var (adjDeductions, penalties, settlements, warningsCount) =
+            await _ledger.GetImpactBucketsAsync(teacherId, cancellationToken);
+
+        var currentBalance = pending - settlements - penalties;
+
         return new AdminTeacherFinanceSummaryDto
         {
             TeacherId = teacherId,
@@ -194,7 +203,11 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             Available = pending,
             PaidOut = paidOut,
             RefundsImpact = refundsImpact,
-            Deductions = voided,
+            Deductions = voided + adjDeductions,
+            Penalties = penalties,
+            Settlements = settlements,
+            WarningsCount = warningsCount,
+            CurrentBalance = currentBalance,
             PlatformCommission = commission
         };
     }
@@ -403,73 +416,36 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
         AdminFinanceTransactionFilter filter,
         CancellationToken cancellationToken)
     {
-        var result = new List<AdminFinanceTransactionDto>();
+        var entries = await _ledger.BuildLedgerAsync(
+            filter.TeacherId,
+            filter.EnrollmentId,
+            string.IsNullOrWhiteSpace(filter.Type) ? null : filter.Type,
+            filter.FromUtc,
+            filter.ToUtc,
+            cancellationToken);
 
-        var earningQ = _context.TeacherEarningLines.AsNoTracking().AsQueryable();
-        if (filter.TeacherId.HasValue)
-            earningQ = earningQ.Where(l => l.TeacherId == filter.TeacherId.Value);
-        if (filter.EnrollmentId.HasValue)
-            earningQ = earningQ.Where(l => l.EnrollmentId == filter.EnrollmentId.Value);
-        if (filter.FromUtc.HasValue)
-            earningQ = earningQ.Where(l => l.CreatedAt >= filter.FromUtc.Value);
-        if (filter.ToUtc.HasValue)
-            earningQ = earningQ.Where(l => l.CreatedAt <= filter.ToUtc.Value);
-
-        var earnings = await earningQ.Select(l => new AdminFinanceTransactionDto
+        var result = entries.Select(e => new AdminFinanceTransactionDto
         {
-            Key = "earn-" + l.Id,
-            Type = "Earning",
-            Title = "Teacher earning",
-            Amount = l.Amount,
-            Currency = l.Currency,
-            Direction = "credit",
-            Status = l.Status.ToString(),
-            OccurredAt = l.CreatedAt,
-            TeacherId = l.TeacherId,
-            TeacherName = l.Teacher.User != null
-                ? ((l.Teacher.User.FirstName ?? "") + " " + (l.Teacher.User.LastName ?? "")).Trim()
-                : null,
-            EnrollmentId = l.EnrollmentId,
-            CourseTitle = l.Enrollment.Course != null ? l.Enrollment.Course.Title : null,
-            ScheduleId = l.CourseScheduleId,
-            Reference = "earn-" + l.Id
-        }).ToListAsync(cancellationToken);
-        result.AddRange(earnings);
-
-        var refundQ = _context.Refunds.AsNoTracking().AsQueryable();
-        if (filter.TeacherId.HasValue)
-            refundQ = refundQ.Where(r => r.Enrollment.ApprovedByTeacherId == filter.TeacherId.Value);
-        if (filter.EnrollmentId.HasValue)
-            refundQ = refundQ.Where(r => r.EnrollmentId == filter.EnrollmentId.Value);
-        if (filter.FromUtc.HasValue)
-            refundQ = refundQ.Where(r => r.CreatedAt >= filter.FromUtc.Value);
-        if (filter.ToUtc.HasValue)
-            refundQ = refundQ.Where(r => r.CreatedAt <= filter.ToUtc.Value);
-
-        var refunds = await refundQ.Select(r => new AdminFinanceTransactionDto
-        {
-            Key = "ref-" + r.Id,
-            Type = "Refund",
-            Title = "Refund",
-            Description = r.Reason,
-            Amount = r.Amount,
-            Currency = r.Currency,
-            Direction = "debit",
-            Status = r.Status.ToString(),
-            OccurredAt = r.CreatedAt,
-            TeacherId = r.Enrollment.ApprovedByTeacherId,
-            EnrollmentId = r.EnrollmentId,
-            CourseTitle = r.Enrollment.Course != null ? r.Enrollment.Course.Title : null,
-            Reference = r.ProviderRefundId
-        }).ToListAsync(cancellationToken);
-        result.AddRange(refunds);
-
-        if (!string.IsNullOrWhiteSpace(filter.Type))
-        {
-            var type = filter.Type.Trim();
-            result = result.Where(t =>
-                t.Type.Equals(type, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
+            Key = e.TransactionKey,
+            Type = e.Type,
+            Category = e.Category,
+            Title = e.Type,
+            Description = e.Reason,
+            Amount = e.Amount,
+            Currency = e.Currency,
+            Direction = e.Direction.Equals("Debit", StringComparison.OrdinalIgnoreCase) ? "debit" : "credit",
+            Status = e.Status,
+            OccurredAt = e.OccurredAt,
+            TeacherId = e.TeacherId,
+            EnrollmentId = e.EnrollmentId,
+            CourseTitle = e.CourseTitle,
+            ScheduleId = e.ScheduleId,
+            ComplaintId = e.ComplaintId,
+            ReasonCode = e.ReasonCode,
+            Source = e.Source,
+            RelatedTransactionKey = e.RelatedTransactionKey,
+            Reference = e.TransactionKey,
+        }).ToList();
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {

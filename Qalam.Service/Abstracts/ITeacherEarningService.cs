@@ -24,10 +24,36 @@ public interface IPayoutService
 
     Task<Data.DTOs.Admin.AdminPayoutBatchDto?> ApproveAsync(
         int batchId,
+        int? approvedByUserId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> RejectAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> CancelAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> ProcessAsync(
+        int batchId,
+        int? processedByUserId = null,
         CancellationToken cancellationToken = default);
 
     Task<Data.DTOs.Admin.AdminPayoutBatchDto?> MarkPaidAsync(
         int batchId,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> MarkFailedAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> RetryAsync(
+        int batchId,
+        int? processedByUserId = null,
         CancellationToken cancellationToken = default);
 
     Task<Data.DTOs.Admin.PagedResult<Data.DTOs.Admin.AdminPayoutBatchListItemDto>> ListBatchesAsync(

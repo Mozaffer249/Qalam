@@ -90,6 +90,10 @@ public class TeacherFinanceSummaryDto
     public decimal PaidOut { get; set; }
     public decimal RefundsImpact { get; set; }
     public decimal Deductions { get; set; }
+    public decimal Penalties { get; set; }
+    public decimal Settlements { get; set; }
+    public int WarningsCount { get; set; }
+    public decimal CurrentBalance { get; set; }
 }
 
 public class TeacherFinanceTransactionDto
@@ -108,6 +112,11 @@ public class TeacherFinanceTransactionDto
     /// <summary>Pending | Available | Paid | Refunded — for earning rows.</summary>
     public string? EarningUiStatus { get; set; }
     public int? ScheduleId { get; set; }
+    public string? ReasonCode { get; set; }
+    public string? Source { get; set; }
+    public string? RelatedTransactionKey { get; set; }
+    public string? LedgerCategory { get; set; }
+    public int? ComplaintId { get; set; }
 }
 
 public class TeacherFinanceSessionDetailDto

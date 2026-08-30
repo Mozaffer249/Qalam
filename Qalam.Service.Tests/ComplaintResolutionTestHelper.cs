@@ -18,11 +18,13 @@ internal static class ComplaintResolutionTestHelper
         var audit = new SessionAuditService(new SessionAuditLogRepository(db));
         var complaintRepo = new SessionComplaintRepository(db);
         var scheduleRepo = new CourseScheduleRepository(db);
+        var financeImpact = new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db));
         return new ComplaintResolutionOrchestrator(
             complaintRepo,
             scheduleRepo,
-            refundService ?? new RefundService(new RefundRepository(db)),
-            audit);
+            refundService ?? new RefundService(new RefundRepository(db), financeImpact),
+            audit,
+            financeImpact);
     }
 
     internal static SessionComplaintService CreateComplaintService(
@@ -44,7 +46,9 @@ internal static class ComplaintResolutionTestHelper
                 ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
             })
             .Build();
-        var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(new RefundRepository(db)));
+        var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(
+            new RefundRepository(db),
+            new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db))));
         return new SessionComplaintService(
             complaintRepo,
             scheduleRepo,

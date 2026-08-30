@@ -265,7 +265,7 @@ public class TeacherDashboardQueryHandlerTests
 
         var dashboardRepo = new Mock<ITeacherDashboardReadRepository>();
         dashboardRepo
-            .Setup(r => r.GetFinanceTransactionsAsync(4, "all", 1, 20, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetFinanceTransactionsAsync(4, "all", null, 1, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(emptyPage);
 
         var handler = new GetFinanceTransactionsQueryHandler(

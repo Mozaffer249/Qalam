@@ -5,14 +5,14 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Service.Abstracts;
 
-namespace Qalam.Core.Features.Admin.Finance.Commands.ApproveAdminPayoutBatch;
+namespace Qalam.Core.Features.Admin.Finance.Commands.CancelAdminPayoutBatch;
 
-public class ApproveAdminPayoutBatchCommandHandler : ResponseHandler,
-    IRequestHandler<ApproveAdminPayoutBatchCommand, Response<AdminPayoutBatchDto>>
+public class CancelAdminPayoutBatchCommandHandler : ResponseHandler,
+    IRequestHandler<CancelAdminPayoutBatchCommand, Response<AdminPayoutBatchDto>>
 {
     private readonly IPayoutService _payouts;
 
-    public ApproveAdminPayoutBatchCommandHandler(
+    public CancelAdminPayoutBatchCommandHandler(
         IPayoutService payouts,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
@@ -20,12 +20,12 @@ public class ApproveAdminPayoutBatchCommandHandler : ResponseHandler,
     }
 
     public async Task<Response<AdminPayoutBatchDto>> Handle(
-        ApproveAdminPayoutBatchCommand request,
+        CancelAdminPayoutBatchCommand request,
         CancellationToken cancellationToken)
     {
         try
         {
-            var batch = await _payouts.ApproveAsync(request.Id, request.ApprovedByUserId, cancellationToken);
+            var batch = await _payouts.CancelAsync(request.Id, request.Reason, cancellationToken);
             if (batch == null)
                 return NotFound<AdminPayoutBatchDto>("Payout batch not found.");
 

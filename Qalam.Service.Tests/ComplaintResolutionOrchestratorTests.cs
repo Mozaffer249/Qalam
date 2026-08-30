@@ -229,6 +229,10 @@ public class ComplaintResolutionOrchestratorTests
             db.SessionAuditLogs.ToList(),
             l => l.ActionType == SessionAuditActionType.TeacherWarned);
 
+        var warning = Assert.Single(db.TeacherDisciplinaryRecords.ToList());
+        Assert.Equal(TeacherDisciplinaryKind.Warning, warning.Kind);
+        Assert.Equal(complaintId, warning.ComplaintId);
+
         var line = Assert.Single(db.TeacherEarningLines.ToList());
         Assert.Equal(TeacherEarningLineStatus.Pending, line.Status);
     }

@@ -2,8 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Finance.Commands.ApproveAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.CancelAdminPayoutBatch;
 using Qalam.Core.Features.Admin.Finance.Commands.CreateAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.MarkAdminPayoutBatchFailed;
 using Qalam.Core.Features.Admin.Finance.Commands.MarkAdminPayoutBatchPaid;
+using Qalam.Core.Features.Admin.Finance.Commands.ProcessAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.RejectAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.RetryAdminPayoutBatch;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminPayoutBatchById;
 using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPayoutBatches;
 using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPendingEarnings;
@@ -19,6 +24,12 @@ namespace Qalam.Api.Controllers.Admin;
 [Tags("Admin · Payouts")]
 public class PayoutsController : AppControllerBase
 {
+    private int? CurrentUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(userIdClaim, out var uid) ? uid : null;
+    }
+
     [HttpGet(Router.AdminPayoutPendingEarnings)]
     [ProducesResponseType(typeof(PagedResult<AdminPendingEarningDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListPendingEarnings(
@@ -65,24 +76,77 @@ public class PayoutsController : AppControllerBase
     public async Task<IActionResult> CreateBatch(
         [FromBody] CreatePayoutBatchDto? body,
         CancellationToken cancellationToken = default)
-    {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        int? userId = int.TryParse(userIdClaim, out var uid) ? uid : null;
-
-        return NewResult(await Mediator.Send(new CreateAdminPayoutBatchCommand
+        => NewResult(await Mediator.Send(new CreateAdminPayoutBatchCommand
         {
             Body = body,
-            CreatedByUserId = userId
+            CreatedByUserId = CurrentUserId()
         }, cancellationToken));
-    }
 
     [HttpPost(Router.AdminPayoutApprove)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken = default)
-        => NewResult(await Mediator.Send(new ApproveAdminPayoutBatchCommand { Id = id }, cancellationToken));
+        => NewResult(await Mediator.Send(new ApproveAdminPayoutBatchCommand
+        {
+            Id = id,
+            ApprovedByUserId = CurrentUserId()
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutReject)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Reject(
+        int id,
+        [FromBody] PayoutActionReasonDto? body,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new RejectAdminPayoutBatchCommand
+        {
+            Id = id,
+            Reason = body?.Reason
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutCancel)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Cancel(
+        int id,
+        [FromBody] PayoutActionReasonDto? body,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new CancelAdminPayoutBatchCommand
+        {
+            Id = id,
+            Reason = body?.Reason
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutProcess)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Process(int id, CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new ProcessAdminPayoutBatchCommand
+        {
+            Id = id,
+            ProcessedByUserId = CurrentUserId()
+        }, cancellationToken));
 
     [HttpPost(Router.AdminPayoutMarkPaid)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkPaid(int id, CancellationToken cancellationToken = default)
         => NewResult(await Mediator.Send(new MarkAdminPayoutBatchPaidCommand { Id = id }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutFail)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> MarkFailed(
+        int id,
+        [FromBody] PayoutActionReasonDto? body,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new MarkAdminPayoutBatchFailedCommand
+        {
+            Id = id,
+            Reason = body?.Reason
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutRetry)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Retry(int id, CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new RetryAdminPayoutBatchCommand
+        {
+            Id = id,
+            ProcessedByUserId = CurrentUserId()
+        }, cancellationToken));
 }

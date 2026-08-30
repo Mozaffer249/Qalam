@@ -51,7 +51,7 @@ public class PayoutService : IPayoutService
             PeriodStart = start,
             PeriodEnd = end,
             Currency = currency,
-            Status = PayoutBatchStatus.Draft,
+            Status = PayoutBatchStatus.Pending,
             CreatedByUserId = createdByUserId,
             CreatedAt = DateTime.UtcNow,
             TotalAmount = 0
@@ -85,16 +85,74 @@ public class PayoutService : IPayoutService
 
     public async Task<AdminPayoutBatchDto?> ApproveAsync(
         int batchId,
+        int? approvedByUserId = null,
         CancellationToken cancellationToken = default)
     {
         var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
-        if (batch.Status != PayoutBatchStatus.Draft)
-            throw new InvalidOperationException("Only draft batches can be approved.");
+        if (batch.Status != PayoutBatchStatus.Pending)
+            throw new InvalidOperationException("Only pending batches can be approved.");
 
         batch.Status = PayoutBatchStatus.Approved;
         batch.ApprovedAt = DateTime.UtcNow;
+        batch.ApprovedByUserId = approvedByUserId;
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
+    public async Task<AdminPayoutBatchDto?> RejectAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedWithLinesAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status != PayoutBatchStatus.Pending)
+            throw new InvalidOperationException("Only pending batches can be rejected.");
+
+        ReleaseBatchLines(batch);
+        batch.Status = PayoutBatchStatus.Rejected;
+        batch.RejectedAt = DateTime.UtcNow;
+        batch.RejectionReason = reason?.Trim();
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
+    public async Task<AdminPayoutBatchDto?> CancelAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedWithLinesAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status is not PayoutBatchStatus.Pending and not PayoutBatchStatus.Approved)
+            throw new InvalidOperationException("Batch cannot be cancelled in its current status.");
+
+        ReleaseBatchLines(batch);
+        batch.Status = PayoutBatchStatus.Cancelled;
+        batch.CancelledAt = DateTime.UtcNow;
+        batch.AdminNotes = reason?.Trim();
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
+    public async Task<AdminPayoutBatchDto?> ProcessAsync(
+        int batchId,
+        int? processedByUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status != PayoutBatchStatus.Approved)
+            throw new InvalidOperationException("Only approved batches can be processed.");
+
+        batch.Status = PayoutBatchStatus.Processing;
+        batch.ProcessedAt = DateTime.UtcNow;
+        batch.ProcessedByUserId = processedByUserId;
         await _payouts.SaveChangesAsync(cancellationToken);
         return await GetBatchAsync(batchId, cancellationToken);
     }
@@ -106,13 +164,50 @@ public class PayoutService : IPayoutService
         var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
-        if (batch.Status is not PayoutBatchStatus.Approved and not PayoutBatchStatus.Draft)
-            throw new InvalidOperationException("Batch cannot be marked paid in its current status.");
+        if (batch.Status != PayoutBatchStatus.Processing)
+            throw new InvalidOperationException("Only processing batches can be marked paid.");
 
         batch.Status = PayoutBatchStatus.Paid;
         batch.PaidAt = DateTime.UtcNow;
-        batch.ApprovedAt ??= batch.PaidAt;
         batch.MockTransferRef ??= $"MOCK-PAYOUT-{batch.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
+    public async Task<AdminPayoutBatchDto?> MarkFailedAsync(
+        int batchId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status != PayoutBatchStatus.Processing)
+            throw new InvalidOperationException("Only processing batches can be marked failed.");
+
+        batch.Status = PayoutBatchStatus.Failed;
+        batch.FailedAt = DateTime.UtcNow;
+        batch.FailureReason = reason?.Trim();
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
+    public async Task<AdminPayoutBatchDto?> RetryAsync(
+        int batchId,
+        int? processedByUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status != PayoutBatchStatus.Failed)
+            throw new InvalidOperationException("Only failed batches can be retried.");
+
+        batch.Status = PayoutBatchStatus.Processing;
+        batch.ProcessedAt = DateTime.UtcNow;
+        batch.ProcessedByUserId = processedByUserId;
+        batch.FailedAt = null;
+        batch.FailureReason = null;
         await _payouts.SaveChangesAsync(cancellationToken);
         return await GetBatchAsync(batchId, cancellationToken);
     }
@@ -150,36 +245,7 @@ public class PayoutService : IPayoutService
         var commissionByEnrollment = await _payouts.GetCommissionByEnrollmentIdsAsync(
             enrollmentIds, cancellationToken);
 
-        var timeline = new List<FinanceTimelineEventDto>
-        {
-            new()
-            {
-                EventType = "Created",
-                Label = "Payout batch created",
-                OccurredAt = batch.CreatedAt
-            }
-        };
-
-        if (batch.ApprovedAt.HasValue)
-        {
-            timeline.Add(new FinanceTimelineEventDto
-            {
-                EventType = "Approved",
-                Label = "Batch approved",
-                OccurredAt = batch.ApprovedAt.Value
-            });
-        }
-
-        if (batch.PaidAt.HasValue)
-        {
-            timeline.Add(new FinanceTimelineEventDto
-            {
-                EventType = "Paid",
-                Label = "Batch marked paid",
-                OccurredAt = batch.PaidAt.Value,
-                Notes = batch.MockTransferRef
-            });
-        }
+        var timeline = BuildTimeline(batch);
 
         return new AdminPayoutBatchDto
         {
@@ -192,9 +258,16 @@ public class PayoutService : IPayoutService
             MockTransferRef = batch.MockTransferRef,
             ItemsCount = batch.Items.Count,
             CreatedAt = batch.CreatedAt,
-            UpdatedAt = batch.PaidAt ?? batch.ApprovedAt ?? batch.CreatedAt,
+            UpdatedAt = batch.PaidAt ?? batch.ProcessedAt ?? batch.ApprovedAt ?? batch.CreatedAt,
             ApprovedAt = batch.ApprovedAt,
             PaidAt = batch.PaidAt,
+            ProcessedAt = batch.ProcessedAt,
+            RejectedAt = batch.RejectedAt,
+            CancelledAt = batch.CancelledAt,
+            FailedAt = batch.FailedAt,
+            RejectionReason = batch.RejectionReason,
+            FailureReason = batch.FailureReason,
+            AdminNotes = batch.AdminNotes,
             Timeline = timeline,
             Items = batch.Items.Select(i =>
             {
@@ -243,5 +316,93 @@ public class PayoutService : IPayoutService
                 };
             }).ToList()
         };
+    }
+
+    private static void ReleaseBatchLines(PayoutBatch batch)
+    {
+        foreach (var line in batch.Items.SelectMany(i => i.EarningLines))
+        {
+            line.Status = TeacherEarningLineStatus.Pending;
+            line.PayoutItemId = null;
+        }
+    }
+
+    private static List<FinanceTimelineEventDto> BuildTimeline(PayoutBatch batch)
+    {
+        var timeline = new List<FinanceTimelineEventDto>
+        {
+            new()
+            {
+                EventType = "Created",
+                Label = "Payout batch created",
+                OccurredAt = batch.CreatedAt
+            }
+        };
+
+        if (batch.ApprovedAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Approved",
+                Label = "Batch approved",
+                OccurredAt = batch.ApprovedAt.Value
+            });
+        }
+
+        if (batch.ProcessedAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Processing",
+                Label = "Transfer processing started",
+                OccurredAt = batch.ProcessedAt.Value
+            });
+        }
+
+        if (batch.PaidAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Paid",
+                Label = "Batch marked paid",
+                OccurredAt = batch.PaidAt.Value,
+                Notes = batch.MockTransferRef
+            });
+        }
+
+        if (batch.RejectedAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Rejected",
+                Label = "Batch rejected",
+                OccurredAt = batch.RejectedAt.Value,
+                Notes = batch.RejectionReason
+            });
+        }
+
+        if (batch.CancelledAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Cancelled",
+                Label = "Batch cancelled",
+                OccurredAt = batch.CancelledAt.Value,
+                Notes = batch.AdminNotes
+            });
+        }
+
+        if (batch.FailedAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Failed",
+                Label = "Transfer failed",
+                OccurredAt = batch.FailedAt.Value,
+                Notes = batch.FailureReason
+            });
+        }
+
+        return timeline;
     }
 }

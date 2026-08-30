@@ -65,6 +65,11 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPayoutById = AdminPayouts + "/{id}";
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";
         public const string AdminPayoutMarkPaid = AdminPayoutById + "/MarkPaid";
+        public const string AdminPayoutReject = AdminPayoutById + "/Reject";
+        public const string AdminPayoutCancel = AdminPayoutById + "/Cancel";
+        public const string AdminPayoutProcess = AdminPayoutById + "/Process";
+        public const string AdminPayoutFail = AdminPayoutById + "/Fail";
+        public const string AdminPayoutRetry = AdminPayoutById + "/Retry";
         public const string AdminPayoutPendingEarnings = AdminPayouts + "/PendingEarnings";
         public const string AdminFinance = Rule + "Admin/Finance";
         public const string AdminFinanceSummary = AdminFinance + "/Summary";

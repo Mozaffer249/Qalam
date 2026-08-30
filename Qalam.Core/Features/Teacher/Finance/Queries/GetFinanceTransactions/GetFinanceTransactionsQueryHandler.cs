@@ -34,6 +34,7 @@ public class GetFinanceTransactionsQueryHandler : ResponseHandler,
         var page = await _dashboardRepository.GetFinanceTransactionsAsync(
             teacher.Id,
             request.Filter,
+            request.EnrollmentId,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

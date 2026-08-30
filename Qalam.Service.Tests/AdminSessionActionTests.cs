@@ -93,7 +93,9 @@ public class AdminSessionActionTests
             .Build();
         var complaints = ComplaintResolutionTestHelper.CreateComplaintService(db, refundMock);
         var teacherMgmtMock = new Mock<ITeacherManagementService>();
-        return new AdminSessionActionService(scheduleRepo, audit, complaints, refundMock.Object, teacherMgmtMock.Object);
+        var financeImpact = new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db));
+        return new AdminSessionActionService(
+            scheduleRepo, audit, complaints, refundMock.Object, teacherMgmtMock.Object, financeImpact);
     }
 
     [Fact]

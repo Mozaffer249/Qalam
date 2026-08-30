@@ -23,6 +23,7 @@ public interface ITeacherDashboardReadRepository
     Task<PaginatedResult<TeacherFinanceTransactionDto>> GetFinanceTransactionsAsync(
         int teacherId,
         string? typeFilter,
+        int? enrollmentId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

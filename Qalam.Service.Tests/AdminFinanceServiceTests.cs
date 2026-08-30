@@ -29,7 +29,7 @@ public class AdminFinanceServiceTests
     public async Task GetSummaryAsync_ReturnsZeroTotals_WhenDatabaseEmpty()
     {
         await using var db = CreateDb();
-        var service = new AdminFinanceService(new AdminFinanceReadRepository(db));
+        var service = new AdminFinanceService(new AdminFinanceReadRepository(db, new TeacherLedgerReadRepository(db)));
 
         var summary = await service.GetSummaryAsync(null, null);
 

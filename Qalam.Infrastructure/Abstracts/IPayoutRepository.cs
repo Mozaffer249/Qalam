@@ -26,6 +26,10 @@ public interface IPayoutRepository
         DateTime end,
         CancellationToken cancellationToken = default);
 
+    Task<PayoutBatch?> GetBatchTrackedWithLinesAsync(
+        int batchId,
+        CancellationToken cancellationToken = default);
+
     Task AddBatchAsync(PayoutBatch batch, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

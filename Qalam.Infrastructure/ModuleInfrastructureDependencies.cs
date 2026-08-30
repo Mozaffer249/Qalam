@@ -105,6 +105,8 @@ namespace Qalam.Infrastructure
             services.AddTransient<IRefundRepository, RefundRepository>();
             services.AddTransient<IPayoutRepository, PayoutRepository>();
             services.AddTransient<IAdminFinanceReadRepository, AdminFinanceReadRepository>();
+            services.AddTransient<ITeacherFinanceImpactRepository, TeacherFinanceImpactRepository>();
+            services.AddTransient<ITeacherLedgerReadRepository, TeacherLedgerReadRepository>();
 
             // Database Seeder
             services.AddTransient<DatabaseSeeder>();

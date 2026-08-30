@@ -44,6 +44,10 @@ public interface IRefundRepository
     Task<int?> GetComplaintIdForRefundAsync(
         int refundId,
         CancellationToken cancellationToken = default);
+
+    Task<int> GetTeacherIdForEnrollmentAsync(
+        int enrollmentId,
+        CancellationToken cancellationToken = default);
 }
 
 public class RefundDetailProjection

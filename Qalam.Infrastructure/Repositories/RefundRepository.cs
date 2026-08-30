@@ -261,4 +261,22 @@ public class RefundRepository : IRefundRepository
             .Where(c => c.RefundId == refundId)
             .Select(c => (int?)c.Id)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<int> GetTeacherIdForEnrollmentAsync(
+        int enrollmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var teacherId = await _context.Enrollments.AsNoTracking()
+            .Where(e => e.Id == enrollmentId)
+            .Select(e => e.ApprovedByTeacherId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (teacherId > 0)
+            return teacherId;
+
+        return await _context.Enrollments.AsNoTracking()
+            .Where(e => e.Id == enrollmentId && e.Course != null)
+            .Select(e => e.Course!.TeacherId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

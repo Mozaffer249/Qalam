@@ -102,7 +102,7 @@ public class PayoutRepository : IPayoutRepository
                 MockTransferRef = b.MockTransferRef,
                 ItemsCount = b.Items.Count,
                 CreatedAt = b.CreatedAt,
-                UpdatedAt = b.PaidAt ?? b.ApprovedAt ?? b.CreatedAt,
+                UpdatedAt = b.PaidAt ?? b.ProcessedAt ?? b.ApprovedAt ?? b.CreatedAt,
                 ApprovedAt = b.ApprovedAt,
                 PaidAt = b.PaidAt
             })
@@ -115,6 +115,14 @@ public class PayoutRepository : IPayoutRepository
         int batchId,
         CancellationToken cancellationToken = default) =>
         _context.PayoutBatches.FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
+
+    public Task<PayoutBatch?> GetBatchTrackedWithLinesAsync(
+        int batchId,
+        CancellationToken cancellationToken = default) =>
+        _context.PayoutBatches
+            .Include(b => b.Items)
+                .ThenInclude(i => i.EarningLines)
+            .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
 
     public Task<PayoutBatch?> GetBatchWithDetailsAsync(
         int batchId,

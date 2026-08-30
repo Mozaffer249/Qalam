@@ -10,6 +10,7 @@ namespace Qalam.Core.Features.Teacher.Finance.Queries.GetFinanceTransactions;
 public class GetFinanceTransactionsQuery : IRequest<Response<PaginatedResult<TeacherFinanceTransactionDto>>>, IAuthenticatedRequest
 {
     public string? Filter { get; set; }
+    public int? EnrollmentId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 

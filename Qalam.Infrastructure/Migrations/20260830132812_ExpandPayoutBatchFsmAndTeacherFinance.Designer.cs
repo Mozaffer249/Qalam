@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Qalam.Infrastructure.context;
 
@@ -11,9 +12,11 @@ using Qalam.Infrastructure.context;
 namespace Qalam.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDBContext))]
-    partial class ApplicationDBContextModelSnapshot : ModelSnapshot
+    [Migration("20260830132812_ExpandPayoutBatchFsmAndTeacherFinance")]
+    partial class ExpandPayoutBatchFsmAndTeacherFinance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4599,130 +4602,6 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("Refunds", (string)null);
                 });
 
-            modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherBalanceAdjustment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<int>("Kind")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReasonCode")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("ReasonText")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int?>("RelatedComplaintId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("RelatedEarningLineId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("RelatedRefundId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TeacherId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedBy")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TeacherId");
-
-                    b.ToTable("TeacherBalanceAdjustments");
-                });
-
-            modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherDisciplinaryRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("Amount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("ComplaintId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CourseScheduleId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<int>("Kind")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("ResolutionCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<int>("TeacherId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedBy")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TeacherId");
-
-                    b.ToTable("TeacherDisciplinaryRecords");
-                });
-
             modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherEarningLine", b =>
                 {
                     b.Property<int>("Id")
@@ -8740,28 +8619,6 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("InitiatedByUser");
 
                     b.Navigation("Payment");
-                });
-
-            modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherBalanceAdjustment", b =>
-                {
-                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
-                        .WithMany()
-                        .HasForeignKey("TeacherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Teacher");
-                });
-
-            modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherDisciplinaryRecord", b =>
-                {
-                    b.HasOne("Qalam.Data.Entity.Teacher.Teacher", "Teacher")
-                        .WithMany()
-                        .HasForeignKey("TeacherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Teacher");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Payment.TeacherEarningLine", b =>

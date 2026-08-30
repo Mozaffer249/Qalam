@@ -13,19 +13,22 @@ public class AdminSessionActionService : IAdminSessionActionService
     private readonly ISessionComplaintService _complaints;
     private readonly IRefundService _refundService;
     private readonly ITeacherManagementService _teacherManagement;
+    private readonly ITeacherFinanceImpactService _financeImpact;
 
     public AdminSessionActionService(
         ICourseScheduleRepository schedules,
         ISessionAuditService audit,
         ISessionComplaintService complaints,
         IRefundService refundService,
-        ITeacherManagementService teacherManagement)
+        ITeacherManagementService teacherManagement,
+        ITeacherFinanceImpactService financeImpact)
     {
         _schedules = schedules;
         _audit = audit;
         _complaints = complaints;
         _refundService = refundService;
         _teacherManagement = teacherManagement;
+        _financeImpact = financeImpact;
     }
 
     public async Task SetAttendanceAsync(
@@ -136,6 +139,24 @@ public class AdminSessionActionService : IAdminSessionActionService
         string? notes,
         CancellationToken cancellationToken = default)
     {
+        var schedule = await _schedules.GetWithParticipantsForComplaintAsync(scheduleId, cancellationToken)
+            ?? throw new InvalidOperationException("Session not found.");
+
+        var teacherId = schedule.Enrollment.ApprovedByTeacherId > 0
+            ? schedule.Enrollment.ApprovedByTeacherId
+            : schedule.Enrollment.Course?.TeacherId ?? 0;
+        if (teacherId <= 0)
+            throw new InvalidOperationException("Teacher not found for session.");
+
+        await _financeImpact.RecordWarningAsync(
+            teacherId,
+            scheduleId,
+            notes,
+            complaintId: null,
+            resolutionCode: "AdminWarning",
+            adminUserId,
+            cancellationToken);
+
         await _audit.LogAsync(
             scheduleId,
             adminUserId,

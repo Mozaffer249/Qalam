@@ -155,6 +155,24 @@ public class AdminPayoutBatchListItemDto
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public DateTime? PaidAt { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+}
+
+public class AdminPayoutBatchDto : AdminPayoutBatchListItemDto
+{
+    public DateTime? RejectedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public DateTime? FailedAt { get; set; }
+    public string? RejectionReason { get; set; }
+    public string? FailureReason { get; set; }
+    public string? AdminNotes { get; set; }
+    public List<AdminPayoutItemDto> Items { get; set; } = new();
+    public List<FinanceTimelineEventDto> Timeline { get; set; } = new();
+}
+
+public class PayoutActionReasonDto
+{
+    public string? Reason { get; set; }
 }
 
 public class AdminPayoutEarningLineDto
@@ -186,12 +204,6 @@ public class AdminPayoutItemDto
     public List<AdminPayoutEarningLineDto> Lines { get; set; } = new();
 }
 
-public class AdminPayoutBatchDto : AdminPayoutBatchListItemDto
-{
-    public List<AdminPayoutItemDto> Items { get; set; } = new();
-    public List<FinanceTimelineEventDto> Timeline { get; set; } = new();
-}
-
 public class CreatePayoutBatchDto
 {
     public DateTime? PeriodStart { get; set; }
@@ -217,6 +229,7 @@ public class AdminFinanceTransactionDto
 {
     public string Key { get; set; } = "";
     public string Type { get; set; } = "";
+    public string Category { get; set; } = "Financial";
     public string Title { get; set; } = "";
     public string? Description { get; set; }
     public decimal Amount { get; set; }
@@ -231,7 +244,32 @@ public class AdminFinanceTransactionDto
     public int? EnrollmentId { get; set; }
     public string? CourseTitle { get; set; }
     public int? ScheduleId { get; set; }
+    public int? ComplaintId { get; set; }
+    public string? ReasonCode { get; set; }
+    public string? Source { get; set; }
+    public string? RelatedTransactionKey { get; set; }
     public string? Reference { get; set; }
+}
+
+public class TeacherLedgerEntryDto
+{
+    public string TransactionKey { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Category { get; set; } = "Financial";
+    public string Direction { get; set; } = "Credit";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public string ReasonCode { get; set; } = "";
+    public string Reason { get; set; } = "";
+    public string Source { get; set; } = "";
+    public string? RelatedTransactionKey { get; set; }
+    public int? ComplaintId { get; set; }
+    public int? EnrollmentId { get; set; }
+    public int? ScheduleId { get; set; }
+    public int? TeacherId { get; set; }
+    public string Status { get; set; } = "";
+    public DateTime OccurredAt { get; set; }
+    public string? CourseTitle { get; set; }
 }
 
 public class AdminTeacherFinanceSummaryDto
@@ -245,6 +283,10 @@ public class AdminTeacherFinanceSummaryDto
     public decimal PaidOut { get; set; }
     public decimal RefundsImpact { get; set; }
     public decimal Deductions { get; set; }
+    public decimal Penalties { get; set; }
+    public decimal Settlements { get; set; }
+    public int WarningsCount { get; set; }
+    public decimal CurrentBalance { get; set; }
     public decimal PlatformCommission { get; set; }
     public string Currency { get; set; } = "SAR";
 }

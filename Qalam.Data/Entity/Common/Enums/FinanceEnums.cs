@@ -23,7 +23,31 @@ public enum TeacherEarningLineStatus
 
 public enum PayoutBatchStatus
 {
-    Draft = 1,
+    Pending = 1,
     Approved = 2,
-    Paid = 3
+    Processing = 3,
+    Paid = 4,
+    Rejected = 5,
+    Failed = 6,
+    Cancelled = 7,
+}
+
+public enum TeacherBalanceAdjustmentKind
+{
+    Deduction = 1,
+    Settlement = 2,
+    Correction = 3,
+}
+
+public enum TeacherBalanceAdjustmentStatus
+{
+    Pending = 1,
+    Applied = 2,
+}
+
+public enum TeacherDisciplinaryKind
+{
+    Warning = 1,
+    EarningDeduction = 2,
+    Fine = 3,
 }
