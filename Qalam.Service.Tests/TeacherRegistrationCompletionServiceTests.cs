@@ -596,22 +596,7 @@ public class TeacherRegistrationCompletionServiceTests
     }
 
     [Fact]
-    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsTrue_WhenApprovedAndRejectedDomains()
-    {
-        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
-        var service = BuildServiceWithDomainGroups(
-            teacherStatus: TeacherStatus.PendingVerification,
-            requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
-            domainIds: [1, 2],
-            domainGroups: groups,
-            hasApprovedDomain: true);
-
-        Assert.True(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
-    }
-
-    [Fact]
-    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsFalse_WhenAllDomainsApprovedOnly()
+    public async Task GetPartialDomainActivationCandidates_IncludesWhenAllDomainsApprovedOnly()
     {
         var groups = new List<TeacherDomainQuestionGroupDto>
         {
@@ -639,41 +624,18 @@ public class TeacherRegistrationCompletionServiceTests
             snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
             domainIds: [1, 2],
             domainGroups: groups,
-            hasApprovedDomain: true);
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = TeacherId, FullName = "All Approved" },
+            ]);
 
-        Assert.False(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
-    }
+        var candidates = await service.GetPartialDomainActivationCandidatesAsync();
 
-    [Fact]
-    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsFalse_WhenAllDomainsRejectedOnly()
-    {
-        var groups = new List<TeacherDomainQuestionGroupDto>
-        {
-            new()
-            {
-                DomainId = 1,
-                DomainCode = "school",
-                DomainNameEn = "School",
-                IsApproved = false,
-                Questions =
-                [
-                    new TeacherDomainQuestionSubmissionStatusDto
-                    {
-                        VerificationStatus = DocumentVerificationStatus.Rejected,
-                    },
-                ],
-            },
-        };
-
-        var service = BuildServiceWithDomainGroups(
-            teacherStatus: TeacherStatus.PendingVerification,
-            requirementsApproved: true,
-            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
-            domainIds: [1],
-            domainGroups: groups,
-            hasApprovedDomain: false);
-
-        Assert.False(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
+        Assert.Single(candidates);
+        Assert.Equal(TeacherId, candidates[0].TeacherId);
+        Assert.Equal(2, candidates[0].ApprovedDomainCount);
+        Assert.Equal(0, candidates[0].RejectedDomainCount);
     }
 
     [Fact]
@@ -696,7 +658,6 @@ public class TeacherRegistrationCompletionServiceTests
 
         Assert.Empty(candidates);
         Assert.False(await service.AreRegistrationRequirementsApprovedForActivationAsync(TeacherId));
-        Assert.True(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
     }
 
     [Fact]

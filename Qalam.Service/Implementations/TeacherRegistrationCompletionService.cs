@@ -248,20 +248,6 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         return reasons.Count == 0;
     }
 
-    public async Task<bool> HasPartialDomainQuestionReviewOutcomeAsync(
-        int teacherId,
-        CancellationToken cancellationToken = default)
-    {
-        var groups = await _domainQuestionStatusService.GetChecklistForTeacherAsync(teacherId, cancellationToken);
-        if (groups.Count == 0)
-            return false;
-
-        var hasApproved = groups.Any(g => g.IsApproved);
-        var hasRejected = groups.Any(g => !g.IsApproved
-            && g.Questions.Any(q => q.VerificationStatus == DocumentVerificationStatus.Rejected));
-        return hasApproved && hasRejected;
-    }
-
     public async Task<IReadOnlyList<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -332,7 +318,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         if (!await _domainApprovalService.HasAnyApprovedDomainAsync(teacherId, cancellationToken))
             return false;
 
-        return await HasPartialDomainQuestionReviewOutcomeAsync(teacherId, cancellationToken);
+        return true;
     }
 
     private async Task RefreshLegacyDocumentStatusAsync(int teacherId, List<TeacherDocument> documents)
