@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Service.Abstracts;
@@ -50,6 +51,24 @@ public interface ITeacherRegistrationCompletionService
     /// <returns>Success flag and error message when not eligible.</returns>
     Task<(bool Success, string? ErrorMessage)> ActivateTeacherAccountAsync(
         int teacherId,
+        int adminId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when the teacher has at least one approved domain and at least one non-approved domain with rejected submissions.
+    /// </summary>
+    Task<bool> HasPartialDomainReviewOutcomeAsync(int teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// PendingVerification teachers eligible for bulk activation: partial domain outcome and <see cref="CanActivateTeacherAccountAsync"/> true.
+    /// </summary>
+    Task<IReadOnlyList<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Activates every partial-domain candidate via <see cref="ActivateTeacherAccountAsync"/>.
+    /// </summary>
+    Task<BulkActivatePartialDomainTeachersResultDto> BulkActivatePartialDomainTeachersAsync(
         int adminId,
         CancellationToken cancellationToken = default);
 }

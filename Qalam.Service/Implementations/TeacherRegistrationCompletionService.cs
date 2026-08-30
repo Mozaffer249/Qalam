@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
@@ -15,6 +16,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
     private readonly ITeacherDomainQuestionRepository _domainQuestionRepository;
     private readonly ITeacherDomainQuestionSubmissionRepository _domainSubmissionRepository;
     private readonly ITeacherDomainApprovalService _domainApprovalService;
+    private readonly ITeacherDomainQuestionStatusService _domainQuestionStatusService;
     private readonly ITeacherLifecycleEmailService _lifecycleEmailService;
     private readonly ILogger<TeacherRegistrationCompletionService> _logger;
 
@@ -26,6 +28,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         ITeacherDomainQuestionRepository domainQuestionRepository,
         ITeacherDomainQuestionSubmissionRepository domainSubmissionRepository,
         ITeacherDomainApprovalService domainApprovalService,
+        ITeacherDomainQuestionStatusService domainQuestionStatusService,
         ITeacherLifecycleEmailService lifecycleEmailService,
         ILogger<TeacherRegistrationCompletionService> logger)
     {
@@ -36,6 +39,7 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         _domainQuestionRepository = domainQuestionRepository;
         _domainSubmissionRepository = domainSubmissionRepository;
         _domainApprovalService = domainApprovalService;
+        _domainQuestionStatusService = domainQuestionStatusService;
         _lifecycleEmailService = lifecycleEmailService;
         _logger = logger;
     }
@@ -234,6 +238,90 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         await _lifecycleEmailService.SendAccountActivatedAsync(teacherId, cancellationToken);
 
         return (true, null);
+    }
+
+    public async Task<bool> HasPartialDomainReviewOutcomeAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var groups = await _domainQuestionStatusService.GetChecklistForTeacherAsync(teacherId, cancellationToken);
+        if (groups.Count == 0)
+            return false;
+
+        var hasApproved = groups.Any(g => g.IsApproved);
+        var hasRejected = groups.Any(g => !g.IsApproved
+            && g.Questions.Any(q => q.VerificationStatus == DocumentVerificationStatus.Rejected));
+        return hasApproved && hasRejected;
+    }
+
+    public async Task<IReadOnlyList<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var summaries = await _teacherRepository.GetPendingVerificationTeacherSummariesAsync(cancellationToken);
+        var candidates = new List<PartialDomainActivationCandidateDto>();
+
+        foreach (var summary in summaries)
+        {
+            if (!await IsPartialDomainActivationCandidateAsync(summary.TeacherId, cancellationToken))
+                continue;
+
+            var groups = await _domainQuestionStatusService.GetChecklistForTeacherAsync(
+                summary.TeacherId,
+                cancellationToken);
+            candidates.Add(new PartialDomainActivationCandidateDto
+            {
+                TeacherId = summary.TeacherId,
+                FullName = summary.FullName.Trim(),
+                Email = summary.Email,
+                ApprovedDomainCount = groups.Count(g => g.IsApproved),
+                RejectedDomainCount = groups.Count(g => !g.IsApproved
+                    && g.Questions.Any(q => q.VerificationStatus == DocumentVerificationStatus.Rejected)),
+            });
+        }
+
+        return candidates;
+    }
+
+    public async Task<BulkActivatePartialDomainTeachersResultDto> BulkActivatePartialDomainTeachersAsync(
+        int adminId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await GetPartialDomainActivationCandidatesAsync(cancellationToken);
+        var result = new BulkActivatePartialDomainTeachersResultDto();
+
+        foreach (var candidate in candidates)
+        {
+            var (success, error) = await ActivateTeacherAccountAsync(candidate.TeacherId, adminId, cancellationToken);
+            if (success)
+            {
+                result.ActivatedCount++;
+                continue;
+            }
+
+            result.Failures.Add(new BulkActivateTeacherFailureDto
+            {
+                TeacherId = candidate.TeacherId,
+                FullName = candidate.FullName,
+                ErrorMessage = error ?? "Unknown error",
+            });
+        }
+
+        result.SkippedCount = result.Failures.Count;
+        return result;
+    }
+
+    private async Task<bool> IsPartialDomainActivationCandidateAsync(
+        int teacherId,
+        CancellationToken cancellationToken)
+    {
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null || teacher.Status != TeacherStatus.PendingVerification)
+            return false;
+
+        if (!await CanActivateTeacherAccountAsync(teacherId, cancellationToken))
+            return false;
+
+        return await HasPartialDomainReviewOutcomeAsync(teacherId, cancellationToken);
     }
 
     private async Task RefreshLegacyDocumentStatusAsync(int teacherId, List<TeacherDocument> documents)

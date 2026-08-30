@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
@@ -594,6 +595,246 @@ public class TeacherRegistrationCompletionServiceTests
         Assert.Equal(TeacherStatus.DocumentsRejected, updatedStatus);
     }
 
+    [Fact]
+    public async Task HasPartialDomainReviewOutcome_ReturnsTrue_WhenApprovedAndRejectedDomains()
+    {
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true);
+
+        Assert.True(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task HasPartialDomainReviewOutcome_ReturnsFalse_WhenAllDomainsApprovedOnly()
+    {
+        var groups = new List<TeacherDomainQuestionGroupDto>
+        {
+            new()
+            {
+                DomainId = 1,
+                DomainCode = "school",
+                DomainNameEn = "School",
+                IsApproved = true,
+                Questions = [],
+            },
+            new()
+            {
+                DomainId = 2,
+                DomainCode = "quran",
+                DomainNameEn = "Quran",
+                IsApproved = true,
+                Questions = [],
+            },
+        };
+
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true);
+
+        Assert.False(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task HasPartialDomainReviewOutcome_ReturnsFalse_WhenAllDomainsRejectedOnly()
+    {
+        var groups = new List<TeacherDomainQuestionGroupDto>
+        {
+            new()
+            {
+                DomainId = 1,
+                DomainCode = "school",
+                DomainNameEn = "School",
+                IsApproved = false,
+                Questions =
+                [
+                    new TeacherDomainQuestionSubmissionStatusDto
+                    {
+                        VerificationStatus = DocumentVerificationStatus.Rejected,
+                    },
+                ],
+            },
+        };
+
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1],
+            domainGroups: groups,
+            hasApprovedDomain: false);
+
+        Assert.False(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task GetPartialDomainActivationCandidates_IncludesEligibleTeacherOnly()
+    {
+        const int eligibleId = 42;
+        const int ineligibleId = 43;
+
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = eligibleId, FullName = "Eligible Teacher" },
+                new PendingVerificationTeacherSummaryDto { TeacherId = ineligibleId, FullName = "Ineligible Teacher" },
+            ],
+            teacherId: eligibleId);
+
+        var candidates = await service.GetPartialDomainActivationCandidatesAsync();
+
+        Assert.Single(candidates);
+        Assert.Equal(eligibleId, candidates[0].TeacherId);
+        Assert.Equal(1, candidates[0].ApprovedDomainCount);
+        Assert.Equal(1, candidates[0].RejectedDomainCount);
+    }
+
+    [Fact]
+    public async Task GetPartialDomainActivationCandidates_ExcludesWhenCannotActivate()
+    {
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: false,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = TeacherId, FullName = "Blocked Teacher" },
+            ]);
+
+        var candidates = await service.GetPartialDomainActivationCandidatesAsync();
+
+        Assert.Empty(candidates);
+    }
+
+    [Fact]
+    public async Task BulkActivatePartialDomainTeachers_ActivatesEligibleTeachers()
+    {
+        TeacherStatus? updatedStatus = null;
+        var lifecycleEmail = new Mock<ITeacherLifecycleEmailService>();
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = TeacherId, FullName = "Eligible Teacher" },
+            ],
+            onStatusUpdate: status => updatedStatus = status,
+            lifecycleEmail: lifecycleEmail.Object);
+
+        var result = await service.BulkActivatePartialDomainTeachersAsync(AdminId);
+
+        Assert.Equal(1, result.ActivatedCount);
+        Assert.Empty(result.Failures);
+        Assert.Equal(TeacherStatus.Active, updatedStatus);
+        lifecycleEmail.Verify(
+            e => e.SendAccountActivatedAsync(TeacherId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkActivatePartialDomainTeachers_SkipsAlreadyActiveTeacher()
+    {
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.Active,
+            requirementsApproved: true,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = TeacherId, FullName = "Already Active" },
+            ]);
+
+        var result = await service.BulkActivatePartialDomainTeachersAsync(AdminId);
+
+        Assert.Equal(0, result.ActivatedCount);
+        Assert.Empty(result.Failures);
+    }
+
+    private static List<TeacherDomainQuestionGroupDto> PartialDomainGroups(int approvedDomainId, int rejectedDomainId) =>
+    [
+        new()
+        {
+            DomainId = approvedDomainId,
+            DomainCode = "school",
+            DomainNameEn = "School",
+            IsApproved = true,
+            Questions = [],
+        },
+        new()
+        {
+            DomainId = rejectedDomainId,
+            DomainCode = "quran",
+            DomainNameEn = "Quran",
+            IsApproved = false,
+            Questions =
+            [
+                new TeacherDomainQuestionSubmissionStatusDto
+                {
+                    VerificationStatus = DocumentVerificationStatus.Rejected,
+                },
+            ],
+        },
+    ];
+
+    private static TeacherRegistrationCompletionService BuildServiceWithDomainGroups(
+        TeacherStatus teacherStatus,
+        bool requirementsApproved,
+        TeacherSubjectActivationSnapshot snapshot,
+        List<int>? domainIds = null,
+        List<TeacherDomainQuestionGroupDto>? domainGroups = null,
+        List<PendingVerificationTeacherSummaryDto>? pendingSummaries = null,
+        Action<TeacherStatus>? onStatusUpdate = null,
+        ITeacherLifecycleEmailService? lifecycleEmail = null,
+        bool hasApprovedDomain = false,
+        int teacherId = TeacherId)
+    {
+        var domainQuestionStatus = new Mock<ITeacherDomainQuestionStatusService>();
+        domainQuestionStatus
+            .Setup(s => s.GetChecklistForTeacherAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) =>
+                id == teacherId ? (domainGroups ?? []) : []);
+
+        return BuildService(
+            teacherStatus,
+            requirementsApproved,
+            snapshot,
+            onStatusUpdate,
+            lifecycleEmail,
+            domainIds,
+            hasApprovedDomain: hasApprovedDomain,
+            teacherId: teacherId,
+            pendingSummaries: pendingSummaries,
+            domainQuestionStatus: domainQuestionStatus.Object);
+    }
+
     private static TeacherRegistrationCompletionService BuildService(
         TeacherStatus teacherStatus,
         bool requirementsApproved,
@@ -605,9 +846,12 @@ public class TeacherRegistrationCompletionServiceTests
         List<TeacherDomainQuestionSubmission>? domainSubmissions = null,
         List<TeacherRegistrationRequirement>? requirements = null,
         List<TeacherRegistrationSubmission>? registrationSubmissions = null,
-        bool hasApprovedDomain = false)
+        bool hasApprovedDomain = false,
+        int teacherId = TeacherId,
+        List<PendingVerificationTeacherSummaryDto>? pendingSummaries = null,
+        ITeacherDomainQuestionStatusService? domainQuestionStatus = null)
     {
-        var teacher = new Teacher { Id = TeacherId, Status = teacherStatus };
+        var teacher = new Teacher { Id = teacherId, Status = teacherStatus };
 
         var requirement = new TeacherRegistrationRequirement
         {
@@ -652,9 +896,9 @@ public class TeacherRegistrationCompletionServiceTests
             .ReturnsAsync([]);
 
         var teacherRepo = new Mock<ITeacherRepository>();
-        teacherRepo.Setup(r => r.GetByIdAsync(TeacherId)).ReturnsAsync(teacher);
+        teacherRepo.Setup(r => r.GetByIdAsync(teacherId)).ReturnsAsync(teacher);
         teacherRepo
-            .Setup(r => r.UpdateStatusAsync(TeacherId, It.IsAny<TeacherStatus>()))
+            .Setup(r => r.UpdateStatusAsync(teacherId, It.IsAny<TeacherStatus>()))
             .Callback<int, TeacherStatus>((_, status) =>
             {
                 teacher.Status = status;
@@ -662,6 +906,9 @@ public class TeacherRegistrationCompletionServiceTests
             })
             .Returns(Task.CompletedTask);
         teacherRepo.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+        teacherRepo
+            .Setup(r => r.GetPendingVerificationTeacherSummariesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingSummaries ?? []);
 
         var domainQuestionRepo = new Mock<ITeacherDomainQuestionRepository>();
         domainQuestionRepo
@@ -673,15 +920,15 @@ public class TeacherRegistrationCompletionServiceTests
 
         var domainSubmissionRepo = new Mock<ITeacherDomainQuestionSubmissionRepository>();
         domainSubmissionRepo
-            .Setup(r => r.GetByTeacherIdAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTeacherIdAsync(teacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainSubmissions ?? []);
         domainSubmissionRepo
-            .Setup(r => r.GetByTeacherIdWithQuestionsAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTeacherIdWithQuestionsAsync(teacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(domainSubmissions ?? []);
 
         var domainApproval = new Mock<ITeacherDomainApprovalService>();
         domainApproval
-            .Setup(s => s.HasAnyApprovedDomainAsync(TeacherId, It.IsAny<CancellationToken>()))
+            .Setup(s => s.HasAnyApprovedDomainAsync(teacherId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(hasApprovedDomain);
 
         return new TeacherRegistrationCompletionService(
@@ -692,6 +939,7 @@ public class TeacherRegistrationCompletionServiceTests
             domainQuestionRepo.Object,
             domainSubmissionRepo.Object,
             domainApproval.Object,
+            domainQuestionStatus ?? Mock.Of<ITeacherDomainQuestionStatusService>(),
             lifecycleEmail ?? Mock.Of<ITeacherLifecycleEmailService>(),
             NullLogger<TeacherRegistrationCompletionService>.Instance);
     }

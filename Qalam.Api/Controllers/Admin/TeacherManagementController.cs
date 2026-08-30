@@ -7,11 +7,13 @@ using Qalam.Core.Features.Admin.Commands.ApproveDocument;
 using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomain;
 using Qalam.Core.Features.Admin.Commands.ApproveTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.BlockTeacher;
+using Qalam.Core.Features.Admin.Commands.BulkActivatePartialDomainTeachers;
 using Qalam.Core.Features.Admin.Commands.DeleteTeacher;
 using Qalam.Core.Features.Admin.Commands.RejectDocument;
 using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.RevokeTeacherDomainApproval;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
+using Qalam.Core.Features.Admin.Queries.GetPartialDomainActivationCandidates;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.ExportTeachersForAdmin;
@@ -152,6 +154,27 @@ public class TeacherManagementController : AppControllerBase
 		};
 		var response = await _mediator.Send(query);
 		return NewResult(response);
+	}
+
+	/// <summary>
+	/// Teachers pending verification with partial domain approval (≥1 approved domain, ≥1 rejected domain) who can be activated.
+	/// </summary>
+	[HttpGet("PartialDomainActivationCandidates")]
+	[ProducesResponseType(typeof(List<PartialDomainActivationCandidateDto>), StatusCodes.Status200OK)]
+	public async Task<IActionResult> GetPartialDomainActivationCandidates()
+	{
+		return NewResult(await _mediator.Send(new GetPartialDomainActivationCandidatesQuery()));
+	}
+
+	/// <summary>
+	/// Bulk-activate all partial-domain activation candidates.
+	/// </summary>
+	[HttpPost("BulkActivatePartialDomainTeachers")]
+	[ProducesResponseType(typeof(BulkActivatePartialDomainTeachersResultDto), StatusCodes.Status200OK)]
+	public async Task<IActionResult> BulkActivatePartialDomainTeachers()
+	{
+		var command = new BulkActivatePartialDomainTeachersCommand();
+		return NewResult(await _mediator.Send(command));
 	}
 
 	/// <summary>

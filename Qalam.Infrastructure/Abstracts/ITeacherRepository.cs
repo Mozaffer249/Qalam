@@ -20,6 +20,8 @@ public interface ITeacherRepository : IGenericRepositoryAsync<Teacher>
     IQueryable<Teacher> GetPendingTeachersQueryable();
     Task<int> CountAsync(IQueryable<Teacher> query);
     Task<List<PendingTeacherDto>> GetPendingTeachersDtoAsync(int pageNumber, int pageSize);
+    Task<List<PendingVerificationTeacherSummaryDto>> GetPendingVerificationTeacherSummariesAsync(
+        CancellationToken cancellationToken = default);
     Task<TeacherDetailsDto?> GetTeacherDetailsAsync(int teacherId);
 
     /// <summary>Set starter level on all teachers where <see cref="Teacher.TeacherLevelId"/> is null.</summary>

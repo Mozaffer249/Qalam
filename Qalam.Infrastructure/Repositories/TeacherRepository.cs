@@ -108,6 +108,25 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             .ToListAsync();
     }
 
+    public async Task<List<PendingVerificationTeacherSummaryDto>> GetPendingVerificationTeacherSummariesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _teachers
+            .AsNoTracking()
+            .Include(t => t.User)
+            .Where(t => t.Status == TeacherStatus.PendingVerification)
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(t => new PendingVerificationTeacherSummaryDto
+            {
+                TeacherId = t.Id,
+                FullName = t.User != null
+                    ? ((t.User.FirstName ?? "") + " " + (t.User.LastName ?? "")).Trim()
+                    : "Unknown",
+                Email = t.User != null ? t.User.Email : null,
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<PaginatedResult<AdminTeacherListItemDto>> SearchForAdminAsync(
         AdminTeacherListFilters filters,
         CancellationToken cancellationToken = default)
