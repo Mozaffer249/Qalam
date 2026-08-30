@@ -596,7 +596,7 @@ public class TeacherRegistrationCompletionServiceTests
     }
 
     [Fact]
-    public async Task HasPartialDomainReviewOutcome_ReturnsTrue_WhenApprovedAndRejectedDomains()
+    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsTrue_WhenApprovedAndRejectedDomains()
     {
         var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
         var service = BuildServiceWithDomainGroups(
@@ -607,11 +607,11 @@ public class TeacherRegistrationCompletionServiceTests
             domainGroups: groups,
             hasApprovedDomain: true);
 
-        Assert.True(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+        Assert.True(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
     }
 
     [Fact]
-    public async Task HasPartialDomainReviewOutcome_ReturnsFalse_WhenAllDomainsApprovedOnly()
+    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsFalse_WhenAllDomainsApprovedOnly()
     {
         var groups = new List<TeacherDomainQuestionGroupDto>
         {
@@ -641,11 +641,11 @@ public class TeacherRegistrationCompletionServiceTests
             domainGroups: groups,
             hasApprovedDomain: true);
 
-        Assert.False(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+        Assert.False(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
     }
 
     [Fact]
-    public async Task HasPartialDomainReviewOutcome_ReturnsFalse_WhenAllDomainsRejectedOnly()
+    public async Task HasPartialDomainQuestionReviewOutcome_ReturnsFalse_WhenAllDomainsRejectedOnly()
     {
         var groups = new List<TeacherDomainQuestionGroupDto>
         {
@@ -673,7 +673,30 @@ public class TeacherRegistrationCompletionServiceTests
             domainGroups: groups,
             hasApprovedDomain: false);
 
-        Assert.False(await service.HasPartialDomainReviewOutcomeAsync(TeacherId));
+        Assert.False(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
+    }
+
+    [Fact]
+    public async Task GetPartialDomainActivationCandidates_ExcludesWhenRegistrationStillPending()
+    {
+        var groups = PartialDomainGroups(approvedDomainId: 1, rejectedDomainId: 2);
+        var service = BuildServiceWithDomainGroups(
+            teacherStatus: TeacherStatus.PendingVerification,
+            requirementsApproved: false,
+            snapshot: new TeacherSubjectActivationSnapshot { Total = 0 },
+            domainIds: [1, 2],
+            domainGroups: groups,
+            hasApprovedDomain: true,
+            pendingSummaries:
+            [
+                new PendingVerificationTeacherSummaryDto { TeacherId = TeacherId, FullName = "Pending Registration" },
+            ]);
+
+        var candidates = await service.GetPartialDomainActivationCandidatesAsync();
+
+        Assert.Empty(candidates);
+        Assert.False(await service.AreRegistrationRequirementsApprovedForActivationAsync(TeacherId));
+        Assert.True(await service.HasPartialDomainQuestionReviewOutcomeAsync(TeacherId));
     }
 
     [Fact]

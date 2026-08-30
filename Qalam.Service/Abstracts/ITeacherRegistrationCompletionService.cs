@@ -55,12 +55,24 @@ public interface ITeacherRegistrationCompletionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// True when the teacher has at least one approved domain and at least one non-approved domain with rejected submissions.
+    /// True when every active required registration submission is approved (excludes domain question review).
     /// </summary>
-    Task<bool> HasPartialDomainReviewOutcomeAsync(int teacherId, CancellationToken cancellationToken = default);
+    Task<bool> AreRegistrationRequirementsApprovedForActivationAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// PendingVerification teachers eligible for bulk activation: partial domain outcome and <see cref="CanActivateTeacherAccountAsync"/> true.
+    /// True when the teacher has at least one admin-approved domain and at least one non-approved domain
+    /// with rejected domain question submissions. Partial accept/reject applies to domain questions only,
+    /// not registration checklist items.
+    /// </summary>
+    Task<bool> HasPartialDomainQuestionReviewOutcomeAsync(
+        int teacherId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// PendingVerification teachers eligible for bulk activation: registration fully approved,
+    /// at least one domain approved, and partial domain question outcomes (approved + rejected domains).
     /// </summary>
     Task<IReadOnlyList<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesAsync(
         CancellationToken cancellationToken = default);
