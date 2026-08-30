@@ -16,15 +16,18 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
     private readonly ApplicationDBContext _context;
     private readonly SessionSettings _sessionSettings;
     private readonly ITeacherLedgerReadRepository _ledger;
+    private readonly ITeacherEnrollmentFinanceListBuilder _enrollmentFinanceList;
 
     public TeacherDashboardReadRepository(
         ApplicationDBContext context,
         IOptions<SessionSettings> sessionSettings,
-        ITeacherLedgerReadRepository ledger)
+        ITeacherLedgerReadRepository ledger,
+        ITeacherEnrollmentFinanceListBuilder enrollmentFinanceList)
     {
         _context = context;
         _sessionSettings = sessionSettings.Value;
         _ledger = ledger;
+        _enrollmentFinanceList = enrollmentFinanceList;
     }
 
     public async Task<List<TeacherMySessionListItemDto>> GetMySessionsAsync(
@@ -451,16 +454,11 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var ledgerFilter = MapLedgerTypeFilter(typeFilter);
-        var entries = await _ledger.BuildLedgerAsync(
+        var items = await _enrollmentFinanceList.BuildAsync(
             teacherId,
             enrollmentId,
-            ledgerFilter,
-            fromUtc: null,
-            toUtc: null,
+            typeFilter,
             cancellationToken);
-
-        var items = entries.Select(MapLedgerToTransaction).ToList();
 
         pageSize = Math.Clamp(pageSize, 1, 50);
         pageNumber = Math.Max(1, pageNumber);
@@ -470,74 +468,14 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
         return new PaginatedResult<TeacherFinanceTransactionDto>(page, total, pageNumber, pageSize);
     }
 
-    private static string? MapLedgerTypeFilter(string? typeFilter)
-    {
-        if (string.IsNullOrWhiteSpace(typeFilter) || typeFilter.Equals("all", StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        return typeFilter.ToLowerInvariant() switch
-        {
-            "payment" or "earning" or "earnings" => "Earning",
-            "refund" or "refunds" => "Refund",
-            "payout" or "payouts" => "Payout",
-            "deduction" or "deductions" => "Deduction",
-            "penalty" or "penalties" => "Penalty",
-            "settlement" or "settlements" => "Settlement",
-            _ => typeFilter,
-        };
-    }
-
-    private static TeacherFinanceTransactionDto MapLedgerToTransaction(TeacherLedgerEntryDto e)
-    {
-        var signedAmount = e.Direction.Equals("Debit", StringComparison.OrdinalIgnoreCase)
-            ? -e.Amount
-            : e.Amount;
-
-        var legacyType = e.Type switch
-        {
-            "Earning" => "Payment",
-            "Deduction" => "Deduction",
-            "Penalty" => "Penalty",
-            "Settlement" => "Settlement",
-            _ => e.Type,
-        };
-
-        return new TeacherFinanceTransactionDto
-        {
-            Id = e.TransactionKey,
-            Type = legacyType,
-            Status = e.Status,
-            Amount = signedAmount,
-            Currency = e.Currency,
-            CreatedAt = e.OccurredAt,
-            Description = e.Reason,
-            RelatedCourseTitle = e.CourseTitle,
-            EnrollmentId = e.EnrollmentId,
-            EarningUiStatus = e.Type == "Earning" ? e.Status : null,
-            ScheduleId = e.ScheduleId,
-            ReasonCode = e.ReasonCode,
-            Source = e.Source,
-            RelatedTransactionKey = e.RelatedTransactionKey,
-            LedgerCategory = e.Category,
-            ComplaintId = e.ComplaintId,
-        };
-    }
-
     private async Task<int> CountFinanceTransactionsAsync(int teacherId, CancellationToken cancellationToken)
     {
-        var earnings = await _context.TeacherEarningLines
-            .AsNoTracking()
-            .CountAsync(l => l.TeacherId == teacherId && l.Status != TeacherEarningLineStatus.Voided, cancellationToken);
-        var refunds = await _context.Refunds
-            .AsNoTracking()
-            .CountAsync(r => r.Status == RefundStatus.Succeeded
-                             && (r.Enrollment.ApprovedByTeacherId == teacherId
-                                 || (r.Enrollment.Course != null && r.Enrollment.Course.TeacherId == teacherId)),
-                cancellationToken);
-        var payouts = await _context.PayoutItems
-            .AsNoTracking()
-            .CountAsync(i => i.TeacherId == teacherId && i.PayoutBatch.Status == PayoutBatchStatus.Paid, cancellationToken);
-        return earnings + refunds + payouts;
+        var items = await _enrollmentFinanceList.BuildAsync(
+            teacherId,
+            enrollmentId: null,
+            typeFilter: null,
+            cancellationToken);
+        return items.Count;
     }
 
     public async Task<TeacherNotificationsPageDto> GetNotificationsAsync(

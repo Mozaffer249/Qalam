@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
+using Qalam.Service.Repositories;
 
 namespace Qalam.Service
 {
@@ -100,6 +102,7 @@ namespace Qalam.Service
             services.AddTransient<IEnrollmentCompletionService, EnrollmentCompletionService>();
             services.AddTransient<ITeacherEarningService, TeacherEarningService>();
             services.AddTransient<ITeacherFinanceDetailService, TeacherFinanceDetailService>();
+            services.AddTransient<ITeacherEnrollmentFinanceListBuilder, TeacherEnrollmentFinanceListBuilder>();
             services.AddTransient<IPayoutService, PayoutService>();
 
             // Live session (RTC) — swap via LiveSession:Provider + new ILiveSessionProvider impl

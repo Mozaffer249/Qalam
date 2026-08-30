@@ -235,6 +235,24 @@ public class TeacherFinancePayoutDetailDto
     public List<TeacherFinancePayoutLineSummaryDto> Lines { get; set; } = new();
 }
 
+public class TeacherFinanceRelatedDebitDto
+{
+    public string Code { get; set; } = "";
+    public string Label { get; set; } = "";
+    public decimal Amount { get; set; }
+    public bool InformationalOnly { get; set; }
+}
+
+public class TeacherFinanceLinkedRefundDto
+{
+    public int RefundId { get; set; }
+    public string TransactionKey { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public string Reason { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+
 public class TeacherFinanceTransactionDetailDto : TeacherFinanceTransactionDto
 {
     public TeacherFinanceEnrollmentEarningsDto? EnrollmentEarnings { get; set; }
@@ -244,6 +262,8 @@ public class TeacherFinanceTransactionDetailDto : TeacherFinanceTransactionDto
     public TeacherFinanceCalculationDto? Calculation { get; set; }
     public TeacherFinanceRefundDetailDto? Refund { get; set; }
     public TeacherFinancePayoutDetailDto? Payout { get; set; }
+    public List<TeacherFinanceRelatedDebitDto> RelatedDebits { get; set; } = new();
+    public List<TeacherFinanceLinkedRefundDto> LinkedRefunds { get; set; } = new();
 }
 
 public class TeacherNotificationsPageDto

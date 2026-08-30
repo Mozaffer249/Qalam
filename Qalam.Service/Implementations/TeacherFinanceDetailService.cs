@@ -14,13 +14,16 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
 {
     private readonly ApplicationDBContext _db;
     private readonly ITeacherLevelRepository _teacherLevelRepository;
+    private readonly ITeacherEnrollmentFinanceListBuilder _enrollmentFinanceList;
 
     public TeacherFinanceDetailService(
         ApplicationDBContext db,
-        ITeacherLevelRepository teacherLevelRepository)
+        ITeacherLevelRepository teacherLevelRepository,
+        ITeacherEnrollmentFinanceListBuilder enrollmentFinanceList)
     {
         _db = db;
         _teacherLevelRepository = teacherLevelRepository;
+        _enrollmentFinanceList = enrollmentFinanceList;
     }
 
     public async Task<TeacherFinanceTransactionDetailDto?> GetTransactionDetailAsync(
@@ -42,6 +45,10 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         if (transactionKey.StartsWith("payout-", StringComparison.OrdinalIgnoreCase)
             && int.TryParse(transactionKey["payout-".Length..], out var payoutItemId))
             return await LoadPayoutDetailAsync(teacherId, payoutItemId, transactionKey, cancellationToken);
+
+        if (transactionKey.StartsWith("enr-", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(transactionKey["enr-".Length..], out var enrollmentId))
+            return await LoadEnrollmentDetailAsync(teacherId, enrollmentId, transactionKey, cancellationToken);
 
         return null;
     }
@@ -77,126 +84,44 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
             return null;
 
         var enrollment = line.Enrollment;
-        var snap = enrollment.PricingSnapshot;
-        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
         var starterShare = await ResolveStarterSharePctAsync(cancellationToken);
-
-        var enrollmentId = line.EnrollmentId > 0 ? line.EnrollmentId : enrollment.Id;
-        var schedules = await _db.CourseSchedules
-            .AsNoTracking()
-            .Where(s => s.EnrollmentId == enrollmentId
-                        && s.Status != ScheduleStatus.Cancelled
-                        && s.Status != ScheduleStatus.Rescheduled)
-            .OrderBy(s => s.Date)
-            .ThenBy(s => s.Id)
-            .ToListAsync(cancellationToken);
-
-        enrollment.CourseSchedules = schedules;
-        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterShare);
+        var (enrollmentEarnings, pricing, projection, primaryStudent) =
+            await BuildEnrollmentEarningsAsync(
+                teacherId,
+                enrollment,
+                highlightScheduleId: line.CourseScheduleId,
+                starterShare,
+                cancellationToken);
 
         var schedule = line.CourseSchedule
-            ?? schedules.FirstOrDefault(s => s.Id == line.CourseScheduleId);
+            ?? enrollment.CourseSchedules?.FirstOrDefault(s => s.Id == line.CourseScheduleId);
+        var scheduleList = enrollment.CourseSchedules?.ToList() ?? [];
         var sessionIndex = schedule != null
-            ? schedules.FindIndex(s => s.Id == schedule.Id)
+            ? scheduleList.FindIndex(s => s.Id == schedule.Id)
             : -1;
         var sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : (int?)null;
         var isFreeSession = enrollment.IsFreeTrial && sessionIndex == 0;
 
+        var snap = enrollment.PricingSnapshot;
+        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
         var totalMinutes = snap?.TotalMinutes > 0
             ? snap.TotalMinutes
-            : schedules.Sum(s => s.DurationMinutes);
-        var firstMinutes = schedules.FirstOrDefault()?.DurationMinutes ?? 0;
+            : enrollment.CourseSchedules?.Sum(s => s.DurationMinutes) ?? 0;
+        var firstMinutes = enrollment.CourseSchedules?.FirstOrDefault()?.DurationMinutes ?? 0;
         if (firstMinutes <= 0 && totalMinutes > 0)
-            firstMinutes = totalMinutes / Math.Max(1, schedules.Count);
+            firstMinutes = totalMinutes / Math.Max(1, enrollment.CourseSchedules?.Count ?? 1);
         if (firstMinutes <= 0)
             firstMinutes = 60;
 
         var packageEarnings = snap?.TeacherEarnings > 0
             ? snap.TeacherEarnings
             : projection?.ProjectedTeacherEarningsDue ?? 0m;
-        var earnableMinutes = enrollment.IsFreeTrial && schedules.Count > 0
+        var earnableMinutes = enrollment.IsFreeTrial && (enrollment.CourseSchedules?.Count ?? 0) > 0
             ? Math.Max(0, totalMinutes - firstMinutes)
             : totalMinutes;
         var sessionMinutes = schedule?.DurationMinutes ?? 0;
 
         var uiStatus = ResolveEarningUiStatus(line.Status, line.PayoutItem?.PayoutBatch?.Status);
-        var primaryStudent = enrollment.Participants.FirstOrDefault();
-
-        var allLines = await _db.TeacherEarningLines
-            .AsNoTracking()
-            .Include(l => l.PayoutItem)
-                .ThenInclude(p => p!.PayoutBatch)
-            .Where(l => l.EnrollmentId == line.EnrollmentId && l.TeacherId == teacherId)
-            .OrderBy(l => l.CreatedAt)
-            .ToListAsync(cancellationToken);
-
-        var lineInfos = allLines
-            .Select(l => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
-                l.Status,
-                l.PayoutItem?.PayoutBatch?.Status,
-                l.Amount))
-            .ToList();
-        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(
-            enrollment,
-            lineInfos,
-            starterShare);
-
-        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
-            ? earningsBreakdown.ProjectedTeacherEarningsDue
-            : earningsBreakdown.TeacherEarningsDue;
-        var accruedNet = earningsBreakdown.AccruedNet;
-        var lineByScheduleId = allLines
-            .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
-            .ToDictionary(l => l.CourseScheduleId!.Value);
-
-        var enrollmentSessions = schedules
-            .Select((s, i) =>
-            {
-                var isFree = enrollment.IsFreeTrial && i == 0;
-                lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
-                return new TeacherFinanceSessionAccrualDto
-                {
-                    ScheduleId = s.Id,
-                    SessionNumber = i + 1,
-                    Date = s.Date,
-                    StartTime = s.TeacherAvailability?.TimeSlot?.StartTime,
-                    EndTime = s.TeacherAvailability?.TimeSlot?.EndTime,
-                    DurationMinutes = s.DurationMinutes,
-                    IsFreeSession = isFree,
-                    Status = s.Status.ToString(),
-                    AccruedAmount = isFree
-                        ? null
-                        : accrualLine != null
-                            ? accrualLine.Amount
-                            : null,
-                    EarningLineKey = accrualLine != null ? $"earn-{accrualLine.Id}" : null,
-                    IsHighlighted = s.Id == schedule?.Id,
-                };
-            })
-            .ToList();
-
-        var enrollmentEarnings = new TeacherFinanceEnrollmentEarningsDto
-        {
-            EnrollmentId = enrollment.Id,
-            EnrollmentStatus = enrollment.EnrollmentStatus.ToString(),
-            SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed),
-            SessionsTotal = schedules.Count,
-            AccruedNet = accruedNet,
-            PackageTeacherDue = packageTeacherDue,
-            RemainingToAccrue = Math.Max(0m, Math.Round(packageTeacherDue - accruedNet, 2, MidpointRounding.AwayFromZero)),
-            EnrollmentEarningUiStatus = earningsBreakdown.EarningUiStatus,
-            Sessions = enrollmentSessions,
-            EarningLines = allLines.Select(l => new TeacherFinanceEarningLineSummaryDto
-            {
-                LineId = l.Id,
-                TransactionKey = $"earn-{l.Id}",
-                CourseScheduleId = l.CourseScheduleId,
-                Amount = l.Status == TeacherEarningLineStatus.Voided ? -l.Amount : l.Amount,
-                Status = l.Status.ToString(),
-                EarningUiStatus = ResolveEarningUiStatus(l.Status, l.PayoutItem?.PayoutBatch?.Status),
-                CreatedAt = l.CreatedAt,
-            }).ToList(),
-        };
 
         return new TeacherFinanceTransactionDetailDto
         {
@@ -227,30 +152,8 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
                     IsFreeSession = isFreeSession,
                     Status = schedule.Status.ToString(),
                 },
-            Pricing = snap == null
-                ? null
-                : new TeacherFinancePricingSnapshotDto
-                {
-                    GrossPackageTotal = gross,
-                    FreeSessionCredit = credit,
-                    AmountDue = netDue,
-                    PricePerHour = snap.PricePerHour,
-                    EarningsPricePerHour = snap.EarningsPricePerHour,
-                    TotalMinutes = snap.TotalMinutes,
-                    TeacherSharePct = snap.TeacherSharePct,
-                    TeacherEarningsDue = snap.TeacherEarnings,
-                    PlatformShare = snap.PlatformShare,
-                    IsInterviewPendingAtQuote = projection?.IsInterviewPendingAtQuote ?? false,
-                },
-            Projection = projection == null
-                ? null
-                : new TeacherFinanceProjectionDto
-                {
-                    ProjectedTeacherSharePct = projection.ProjectedTeacherSharePct,
-                    ProjectedTeacherEarningsDue = projection.ProjectedTeacherEarningsDue,
-                    ProjectedFreeSessionTeacherDeduction = projection.ProjectedFreeSessionTeacherDeduction,
-                    ProjectedPerSessionTeacherValue = projection.ProjectedPerSessionTeacherValue,
-                },
+            Pricing = pricing,
+            Projection = projection,
             Calculation = new TeacherFinanceCalculationDto
             {
                 PackageEarningsUsed = packageEarnings,
@@ -259,6 +162,258 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
                 ProratedAmount = line.Amount,
             },
         };
+    }
+
+    private async Task<TeacherFinanceTransactionDetailDto?> LoadEnrollmentDetailAsync(
+        int teacherId,
+        int enrollmentId,
+        string transactionKey,
+        CancellationToken cancellationToken)
+    {
+        var enrollment = await _db.Enrollments
+            .AsNoTracking()
+            .Include(e => e.PricingSnapshot)
+            .Include(e => e.Course)
+            .Include(e => e.Participants)
+                .ThenInclude(p => p.Student)
+                    .ThenInclude(s => s!.User)
+            .FirstOrDefaultAsync(
+                e => e.Id == enrollmentId
+                     && (e.ApprovedByTeacherId == teacherId
+                         || (e.Course != null && e.Course.TeacherId == teacherId)),
+                cancellationToken);
+
+        if (enrollment == null)
+            return null;
+
+        var starterShare = await ResolveStarterSharePctAsync(cancellationToken);
+        var (enrollmentEarnings, pricing, projection, primaryStudent) =
+            await BuildEnrollmentEarningsAsync(
+                teacherId,
+                enrollment,
+                highlightScheduleId: null,
+                starterShare,
+                cancellationToken);
+
+        var listRows = await _enrollmentFinanceList.BuildAsync(
+            teacherId,
+            enrollmentId,
+            typeFilter: null,
+            cancellationToken);
+        var listRow = listRows.FirstOrDefault(r =>
+            r.Id.Equals(transactionKey, StringComparison.OrdinalIgnoreCase));
+
+        var linkedRefunds = await _db.Refunds
+            .AsNoTracking()
+            .Where(r => r.EnrollmentId == enrollmentId && r.Status == RefundStatus.Succeeded)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new TeacherFinanceLinkedRefundDto
+            {
+                RefundId = r.Id,
+                TransactionKey = $"ref-{r.Id}",
+                Amount = r.Amount,
+                Currency = r.Currency,
+                Reason = string.IsNullOrWhiteSpace(r.Reason) ? "Refund" : r.Reason,
+                CreatedAt = r.CreatedAt,
+            })
+            .ToListAsync(cancellationToken);
+
+        var relatedDebits = BuildRelatedDebits(enrollment, projection);
+
+        return new TeacherFinanceTransactionDetailDto
+        {
+            Id = transactionKey,
+            Type = "EnrollmentRevenue",
+            Status = "Completed",
+            Amount = listRow?.Amount ?? enrollmentEarnings.AccruedNet,
+            Currency = listRow?.Currency ?? "SAR",
+            CreatedAt = listRow?.CreatedAt ?? DateTime.UtcNow,
+            Description = listRow?.Description ?? enrollment.Course?.Title ?? "Enrollment revenue",
+            RelatedStudentName = FormatStudentName(primaryStudent?.Student),
+            RelatedCourseTitle = enrollment.Course?.Title,
+            EnrollmentId = enrollmentId,
+            EarningUiStatus = enrollmentEarnings.EnrollmentEarningUiStatus,
+            ReasonCode = "EnrollmentRevenue",
+            Source = "Enrollment",
+            LedgerCategory = "Financial",
+            EnrollmentEarnings = enrollmentEarnings,
+            Pricing = pricing,
+            Projection = projection,
+            RelatedDebits = relatedDebits,
+            LinkedRefunds = linkedRefunds,
+        };
+    }
+
+    private async Task<(
+        TeacherFinanceEnrollmentEarningsDto EnrollmentEarnings,
+        TeacherFinancePricingSnapshotDto? Pricing,
+        TeacherFinanceProjectionDto? Projection,
+        EnrollmentParticipant? PrimaryStudent)> BuildEnrollmentEarningsAsync(
+        int teacherId,
+        Enrollment enrollment,
+        int? highlightScheduleId,
+        decimal starterShare,
+        CancellationToken cancellationToken)
+    {
+        var enrollmentId = enrollment.Id;
+        var schedules = await _db.CourseSchedules
+            .AsNoTracking()
+            .Where(s => s.EnrollmentId == enrollmentId
+                        && s.Status != ScheduleStatus.Cancelled
+                        && s.Status != ScheduleStatus.Rescheduled)
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.Id)
+            .ToListAsync(cancellationToken);
+
+        enrollment.CourseSchedules = schedules;
+
+        var snap = enrollment.PricingSnapshot;
+        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
+        var projectionEntity = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterShare);
+
+        var allLines = await _db.TeacherEarningLines
+            .AsNoTracking()
+            .Include(l => l.PayoutItem)
+                .ThenInclude(p => p!.PayoutBatch)
+            .Where(l => l.EnrollmentId == enrollmentId && l.TeacherId == teacherId)
+            .OrderBy(l => l.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var lineInfos = allLines
+            .Select(l => new TeacherEnrollmentEarningsHelper.EarningLineInfo(
+                l.Status,
+                l.PayoutItem?.PayoutBatch?.Status,
+                l.Amount))
+            .ToList();
+
+        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(
+            enrollment,
+            lineInfos,
+            starterShare);
+
+        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
+            ? earningsBreakdown.ProjectedTeacherEarningsDue
+            : earningsBreakdown.TeacherEarningsDue;
+
+        var lineByScheduleId = allLines
+            .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
+            .ToDictionary(l => l.CourseScheduleId!.Value);
+
+        var enrollmentSessions = schedules
+            .Select((s, i) =>
+            {
+                var isFree = enrollment.IsFreeTrial && i == 0;
+                lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
+                return new TeacherFinanceSessionAccrualDto
+                {
+                    ScheduleId = s.Id,
+                    SessionNumber = i + 1,
+                    Date = s.Date,
+                    StartTime = s.TeacherAvailability?.TimeSlot?.StartTime,
+                    EndTime = s.TeacherAvailability?.TimeSlot?.EndTime,
+                    DurationMinutes = s.DurationMinutes,
+                    IsFreeSession = isFree,
+                    Status = s.Status.ToString(),
+                    AccruedAmount = isFree
+                        ? null
+                        : accrualLine != null
+                            ? accrualLine.Amount
+                            : null,
+                    EarningLineKey = accrualLine != null ? $"earn-{accrualLine.Id}" : null,
+                    IsHighlighted = highlightScheduleId.HasValue && s.Id == highlightScheduleId.Value,
+                };
+            })
+            .ToList();
+
+        var enrollmentEarnings = new TeacherFinanceEnrollmentEarningsDto
+        {
+            EnrollmentId = enrollment.Id,
+            EnrollmentStatus = enrollment.EnrollmentStatus.ToString(),
+            SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed),
+            SessionsTotal = schedules.Count,
+            AccruedNet = earningsBreakdown.AccruedNet,
+            PackageTeacherDue = packageTeacherDue,
+            RemainingToAccrue = Math.Max(0m, Math.Round(packageTeacherDue - earningsBreakdown.AccruedNet, 2, MidpointRounding.AwayFromZero)),
+            EnrollmentEarningUiStatus = earningsBreakdown.EarningUiStatus,
+            Sessions = enrollmentSessions,
+            EarningLines = allLines.Select(l => new TeacherFinanceEarningLineSummaryDto
+            {
+                LineId = l.Id,
+                TransactionKey = $"earn-{l.Id}",
+                CourseScheduleId = l.CourseScheduleId,
+                Amount = l.Status == TeacherEarningLineStatus.Voided ? -l.Amount : l.Amount,
+                Status = l.Status.ToString(),
+                EarningUiStatus = ResolveEarningUiStatus(l.Status, l.PayoutItem?.PayoutBatch?.Status),
+                CreatedAt = l.CreatedAt,
+            }).ToList(),
+        };
+
+        var pricing = snap == null
+            ? null
+            : new TeacherFinancePricingSnapshotDto
+            {
+                GrossPackageTotal = gross,
+                FreeSessionCredit = credit,
+                AmountDue = netDue,
+                PricePerHour = snap.PricePerHour,
+                EarningsPricePerHour = snap.EarningsPricePerHour,
+                TotalMinutes = snap.TotalMinutes,
+                TeacherSharePct = snap.TeacherSharePct,
+                TeacherEarningsDue = snap.TeacherEarnings,
+                PlatformShare = snap.PlatformShare,
+                IsInterviewPendingAtQuote = projectionEntity?.IsInterviewPendingAtQuote ?? false,
+            };
+
+        var projection = projectionEntity == null
+            ? null
+            : new TeacherFinanceProjectionDto
+            {
+                ProjectedTeacherSharePct = projectionEntity.ProjectedTeacherSharePct,
+                ProjectedTeacherEarningsDue = projectionEntity.ProjectedTeacherEarningsDue,
+                ProjectedFreeSessionTeacherDeduction = projectionEntity.ProjectedFreeSessionTeacherDeduction,
+                ProjectedPerSessionTeacherValue = projectionEntity.ProjectedPerSessionTeacherValue,
+            };
+
+        var primaryStudent = enrollment.Participants.FirstOrDefault();
+
+        return (enrollmentEarnings, pricing, projection, primaryStudent);
+    }
+
+    private static List<TeacherFinanceRelatedDebitDto> BuildRelatedDebits(
+        Enrollment enrollment,
+        TeacherFinanceProjectionDto? projection)
+    {
+        var debits = new List<TeacherFinanceRelatedDebitDto>();
+        var snap = enrollment.PricingSnapshot;
+
+        var freeSessionDeduction = projection?.ProjectedFreeSessionTeacherDeduction
+            ?? (enrollment.IsFreeTrial && snap != null
+                ? TeacherEnrollmentEarningsHelper.Compute(enrollment, [], 0m).FreeSessionTeacherDeduction
+                : 0m);
+
+        if (freeSessionDeduction > 0)
+        {
+            debits.Add(new TeacherFinanceRelatedDebitDto
+            {
+                Code = "FreeSessionDeduction",
+                Label = "Free session teacher deduction",
+                Amount = freeSessionDeduction,
+                InformationalOnly = true,
+            });
+        }
+
+        if (snap?.PlatformShare > 0)
+        {
+            debits.Add(new TeacherFinanceRelatedDebitDto
+            {
+                Code = "PlatformShare",
+                Label = "Platform commission",
+                Amount = snap.PlatformShare,
+                InformationalOnly = true,
+            });
+        }
+
+        return debits;
     }
 
     private async Task<TeacherFinanceTransactionDetailDto?> LoadRefundDetailAsync(

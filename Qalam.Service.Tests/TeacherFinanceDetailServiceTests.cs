@@ -9,6 +9,7 @@ using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Repositories;
 using Qalam.Service.Implementations;
+using Qalam.Service.Repositories;
 
 namespace Qalam.Service.Tests;
 
@@ -33,8 +34,13 @@ public class TeacherFinanceDetailServiceTests
         return new ApplicationDBContext(options, config);
     }
 
-    private static TeacherFinanceDetailService CreateSut(ApplicationDBContext db) =>
-        new(db, new TeacherLevelRepository(db));
+    private static TeacherFinanceDetailService CreateSut(ApplicationDBContext db)
+    {
+        var levelRepo = new TeacherLevelRepository(db);
+        var ledger = new TeacherLedgerReadRepository(db);
+        var listBuilder = new TeacherEnrollmentFinanceListBuilder(db, levelRepo, ledger);
+        return new TeacherFinanceDetailService(db, levelRepo, listBuilder);
+    }
 
     private static async Task SeedStarterLevelAsync(ApplicationDBContext db, decimal sharePct = 70m)
     {
