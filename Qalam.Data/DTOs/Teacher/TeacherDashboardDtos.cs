@@ -52,6 +52,7 @@ public class TeacherMySessionDetailDto : TeacherMySessionListItemDto
     public List<SessionLivePresenceEventDto> LivePresenceEvents { get; set; } = new();
     public List<SessionComplaintSummaryDto> Complaints { get; set; } = new();
     public string? EarningLineStatus { get; set; }
+    public string? EarningLineKey { get; set; }
 }
 
 public class SessionLivePresenceEventDto
@@ -84,6 +85,11 @@ public class TeacherFinanceSummaryDto
     public decimal PlatformFeesThisMonth { get; set; }
     public decimal RefundsThisMonth { get; set; }
     public int TransactionsCount { get; set; }
+    public decimal OnHold { get; set; }
+    public decimal Available { get; set; }
+    public decimal PaidOut { get; set; }
+    public decimal RefundsImpact { get; set; }
+    public decimal Deductions { get; set; }
 }
 
 public class TeacherFinanceTransactionDto
@@ -101,6 +107,7 @@ public class TeacherFinanceTransactionDto
     public int? EnrollmentId { get; set; }
     /// <summary>Pending | Available | Paid | Refunded — for earning rows.</summary>
     public string? EarningUiStatus { get; set; }
+    public int? ScheduleId { get; set; }
 }
 
 public class TeacherFinanceSessionDetailDto

@@ -252,12 +252,13 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                         FileUrl = a.FileUrl,
                         ContentType = a.ContentType,
                     }).ToList(),
+                    RefundId = c.RefundId,
                 })
                 .ToListAsync(cancellationToken);
 
-            var earningStatus = await _context.TeacherEarningLines.AsNoTracking()
+            var earningLine = await _context.TeacherEarningLines.AsNoTracking()
                 .Where(l => l.CourseScheduleId == courseDetail.Id && l.Status != TeacherEarningLineStatus.Voided)
-                .Select(l => l.Status.ToString())
+                .Select(l => new { l.Id, Status = l.Status.ToString() })
                 .FirstOrDefaultAsync(cancellationToken);
 
             return new TeacherMySessionDetailDto
@@ -283,7 +284,8 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 TeacherInRoom = courseDetail.TeacherInRoom,
                 LivePresenceEvents = livePresenceEvents,
                 Complaints = complaints,
-                EarningLineStatus = earningStatus,
+                EarningLineStatus = earningLine?.Status,
+                EarningLineKey = earningLine != null ? $"earn-{earningLine.Id}" : null,
             };
         }
 
@@ -382,6 +384,29 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             .Where(e => e.Status == TeacherEarningLineStatus.Pending)
             .Sum(e => e.Amount);
 
+        var onHold = earnings
+            .Where(e => e.Status == TeacherEarningLineStatus.OnHold)
+            .Sum(e => e.Amount);
+
+        var paidOut = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.TeacherId == teacherId
+                        && l.Status == TeacherEarningLineStatus.IncludedInPayout
+                        && l.PayoutItem != null
+                        && l.PayoutItem.PayoutBatch.Status == PayoutBatchStatus.Paid)
+            .SumAsync(l => (decimal?)l.Amount, cancellationToken) ?? 0m;
+
+        var deductions = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.TeacherId == teacherId && l.Status == TeacherEarningLineStatus.Voided)
+            .SumAsync(l => (decimal?)l.Amount, cancellationToken) ?? 0m;
+
+        var refundsImpact = await _context.Refunds
+            .AsNoTracking()
+            .Where(r => r.Status == RefundStatus.Succeeded
+                        && r.Enrollment.ApprovedByTeacherId == teacherId)
+            .SumAsync(r => (decimal?)r.Amount, cancellationToken) ?? 0m;
+
         var paidOrIncluded = earnings
             .Where(e => e.Status != TeacherEarningLineStatus.Voided)
             .ToList();
@@ -393,11 +418,16 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             EarningsLastMonth = paidOrIncluded
                 .Where(e => e.CreatedAt >= lastMonthStart && e.CreatedAt < thisMonthStart)
                 .Sum(e => e.Amount),
-            PendingPayout = pendingPayout,
+            PendingPayout = pendingPayout + onHold,
             NextPayoutDate = null,
             PlatformFeesThisMonth = 0,
             RefundsThisMonth = refundsThisMonth,
             TransactionsCount = await CountFinanceTransactionsAsync(teacherId, cancellationToken),
+            OnHold = onHold,
+            Available = pendingPayout,
+            PaidOut = paidOut,
+            RefundsImpact = refundsImpact,
+            Deductions = deductions,
         };
     }
 
@@ -421,6 +451,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 l.CreatedAt,
                 l.Status,
                 l.EnrollmentId,
+                l.CourseScheduleId,
                 BatchStatus = l.PayoutItem != null
                     ? (PayoutBatchStatus?)l.PayoutItem.PayoutBatch.Status
                     : null,
@@ -433,6 +464,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             var uiStatus = e.Status switch
             {
                 TeacherEarningLineStatus.Pending => "Available",
+                TeacherEarningLineStatus.OnHold => "OnHold",
                 TeacherEarningLineStatus.Voided => "Refunded",
                 TeacherEarningLineStatus.IncludedInPayout when e.BatchStatus == PayoutBatchStatus.Paid => "Paid",
                 TeacherEarningLineStatus.IncludedInPayout => "Pending",
@@ -453,6 +485,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 RelatedCourseTitle = e.CourseTitle,
                 EnrollmentId = e.EnrollmentId,
                 EarningUiStatus = uiStatus,
+                ScheduleId = e.CourseScheduleId,
             });
         }
 

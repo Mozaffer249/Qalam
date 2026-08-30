@@ -205,6 +205,49 @@ public class TeacherDashboardQueryHandlerTests
     }
 
     [Fact]
+    public async Task GetFinanceSummary_ReturnsBalanceBuckets_WhenRepositoryProvidesThem()
+    {
+        var teacher = new TeacherEntity { Id = 4, UserId = 20 };
+        var summary = new TeacherFinanceSummaryDto
+        {
+            TotalEarningsAllTime = 500m,
+            EarningsThisMonth = 120m,
+            PendingPayout = 80m,
+            OnHold = 30m,
+            Available = 50m,
+            PaidOut = 300m,
+            RefundsImpact = 40m,
+            Deductions = 20m,
+            TransactionsCount = 12,
+        };
+
+        var teacherRepo = new Mock<ITeacherRepository>();
+        teacherRepo.Setup(r => r.GetByUserIdAsync(20)).ReturnsAsync(teacher);
+
+        var dashboardRepo = new Mock<ITeacherDashboardReadRepository>();
+        dashboardRepo
+            .Setup(r => r.GetFinanceSummaryAsync(4, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(summary);
+
+        var handler = new GetFinanceSummaryQueryHandler(
+            CreateSharedLocalizer().Object,
+            teacherRepo.Object,
+            dashboardRepo.Object);
+
+        var response = await handler.Handle(
+            new GetFinanceSummaryQuery { UserId = 20 },
+            CancellationToken.None);
+
+        Assert.True(response.Succeeded);
+        Assert.Equal(500m, response.Data!.TotalEarningsAllTime);
+        Assert.Equal(30m, response.Data.OnHold);
+        Assert.Equal(50m, response.Data.Available);
+        Assert.Equal(300m, response.Data.PaidOut);
+        Assert.Equal(40m, response.Data.RefundsImpact);
+        Assert.Equal(20m, response.Data.Deductions);
+    }
+
+    [Fact]
     public async Task GetFinanceTransactions_ReturnsEmptyPage_WhenNoPayments()
     {
         var teacher = new TeacherEntity { Id = 4, UserId = 20 };

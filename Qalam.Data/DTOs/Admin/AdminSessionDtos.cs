@@ -14,6 +14,7 @@ public class SessionComplaintSummaryDto
     public bool RequiresTeacherResponse { get; set; }
     public string? TeacherResponse { get; set; }
     public List<AdminSessionComplaintAttachmentDto> Attachments { get; set; } = new();
+    public int? RefundId { get; set; }
 }
 
 public class AdminSessionListFilter
