@@ -6,6 +6,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Pricing;
 using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Repositories;
 using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Tests;
@@ -96,10 +97,10 @@ public class TeacherEarningHoldTests
         var earning = new TeacherEarningService(db, NullLogger<TeacherEarningService>.Instance);
         await earning.AccrueForCompletedScheduleAsync(schedule.Id, TeacherEarningLineStatus.OnHold);
 
-        var payout = new PayoutService(db);
-        var pending = await payout.ListPendingEarningsAsync();
+        var payout = new PayoutService(new PayoutRepository(db));
+        var pending = await payout.ListPendingEarningsAsync(new Qalam.Data.DTOs.Admin.AdminPendingEarningsFilter());
 
-        Assert.Empty(pending);
+        Assert.Empty(pending.Items);
     }
 
     [Fact]

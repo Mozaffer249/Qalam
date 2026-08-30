@@ -1,19 +1,18 @@
-using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
-using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
 
 public class RefundService : IRefundService
 {
-    private readonly ApplicationDBContext _db;
+    private readonly IRefundRepository _refunds;
 
-    public RefundService(ApplicationDBContext db)
+    public RefundService(IRefundRepository refunds)
     {
-        _db = db;
+        _refunds = refunds;
     }
 
     public async Task<Refund> IssueRefundAsync(
@@ -28,9 +27,7 @@ public class RefundService : IRefundService
         if (amount <= 0)
             throw new InvalidOperationException("Refund amount must be positive.");
 
-        var payment = await _db.Payments
-            .Include(p => p.Refunds)
-            .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken)
+        var payment = await _refunds.GetTrackedPaymentWithRefundsAsync(paymentId, cancellationToken)
             ?? throw new InvalidOperationException($"Payment {paymentId} not found.");
 
         if (payment.Status is not PaymentStatus.Succeeded and not PaymentStatus.Refunded)
@@ -57,7 +54,7 @@ public class RefundService : IRefundService
             CreatedAt = DateTime.UtcNow
         };
 
-        _db.Refunds.Add(refund);
+        await _refunds.AddRefundAsync(refund, cancellationToken);
 
         var newTotal = alreadyRefunded + refund.Amount;
         var isFullRefund = newTotal >= payment.TotalAmount - 0.001m;
@@ -66,9 +63,8 @@ public class RefundService : IRefundService
 
         if (payment.Status == PaymentStatus.Refunded)
         {
-            var enrollmentPayments = await _db.EnrollmentPayments
-                .Where(ep => ep.PaymentId == paymentId)
-                .ToListAsync(cancellationToken);
+            var enrollmentPayments = await _refunds.GetEnrollmentPaymentsForPaymentAsync(
+                paymentId, cancellationToken);
             foreach (var ep in enrollmentPayments)
                 ep.Status = PaymentStatus.Refunded;
         }
@@ -80,7 +76,7 @@ public class RefundService : IRefundService
             isFullRefund,
             cancellationToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _refunds.SaveChangesAsync(cancellationToken);
         return refund;
     }
 
@@ -90,21 +86,13 @@ public class RefundService : IRefundService
         int? initiatedByUserId,
         CancellationToken cancellationToken = default)
     {
-        var paymentIds = await _db.EnrollmentPayments
-            .AsNoTracking()
-            .Where(ep => ep.EnrollmentParticipant.EnrollmentId == enrollmentId
-                         && (ep.Status == PaymentStatus.Succeeded
-                             || ep.Payment.Status == PaymentStatus.Succeeded))
-            .Select(ep => ep.PaymentId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
+        var paymentIds = await _refunds.GetRefundablePaymentIdsForEnrollmentAsync(
+            enrollmentId, cancellationToken);
 
         var results = new List<Refund>();
         foreach (var paymentId in paymentIds)
         {
-            var payment = await _db.Payments
-                .Include(p => p.Refunds)
-                .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
+            var payment = await _refunds.GetTrackedPaymentWithRefundsAsync(paymentId, cancellationToken);
             if (payment == null)
                 continue;
 
@@ -129,106 +117,40 @@ public class RefundService : IRefundService
         return results;
     }
 
-    public async Task<List<AdminRefundListItemDto>> ListAsync(
+    public async Task<PagedResult<AdminRefundListItemDto>> ListAsync(
         AdminRefundListFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var q = _db.Refunds.AsNoTracking().AsQueryable();
-
-        if (filter.Status.HasValue)
-            q = q.Where(r => r.Status == filter.Status.Value);
-        if (filter.EnrollmentId.HasValue)
-            q = q.Where(r => r.EnrollmentId == filter.EnrollmentId.Value);
-        if (filter.FromUtc.HasValue)
-            q = q.Where(r => r.CreatedAt >= filter.FromUtc.Value);
-        if (filter.ToUtc.HasValue)
-            q = q.Where(r => r.CreatedAt <= filter.ToUtc.Value);
-
-        return await q
-            .OrderByDescending(r => r.CreatedAt)
-            .Select(r => new AdminRefundListItemDto
-            {
-                Id = r.Id,
-                PaymentId = r.PaymentId,
-                EnrollmentId = r.EnrollmentId,
-                Amount = r.Amount,
-                Currency = r.Currency,
-                Reason = r.Reason,
-                Status = r.Status.ToString(),
-                ProviderRefundId = r.ProviderRefundId,
-                CreatedAt = r.CreatedAt,
-                CourseTitle = r.Enrollment.Course != null ? r.Enrollment.Course.Title : null,
-                PayerName = r.Payment.PayerUser != null
-                    ? ((r.Payment.PayerUser.FirstName ?? "") + " " + (r.Payment.PayerUser.LastName ?? "")).Trim()
-                    : null
-            })
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await _refunds.ListAsync(filter, cancellationToken);
+        return new PagedResult<AdminRefundListItemDto>
+        {
+            Items = items,
+            Page = filter.Page < 1 ? 1 : filter.Page,
+            PageSize = filter.PageSize < 1 ? 25 : filter.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AdminRefundDetailDto?> GetByIdAsync(
         int refundId,
         CancellationToken cancellationToken = default)
     {
-        var r = await _db.Refunds
-            .AsNoTracking()
-            .Where(x => x.Id == refundId)
-            .Select(x => new
-            {
-                x.Id,
-                x.PaymentId,
-                x.EnrollmentId,
-                x.Amount,
-                x.Currency,
-                x.Reason,
-                x.Status,
-                x.ProviderRefundId,
-                x.CreatedAt,
-                x.InitiatedByUserId,
-                PaymentTotal = x.Payment.TotalAmount,
-                CourseTitle = x.Enrollment.Course != null ? x.Enrollment.Course.Title : null,
-                PayerName = x.Payment.PayerUser != null
-                    ? ((x.Payment.PayerUser.FirstName ?? "") + " " + (x.Payment.PayerUser.LastName ?? "")).Trim()
-                    : null,
-                RefundedTotal = x.Payment.Refunds
-                    .Where(rr => rr.Status == RefundStatus.Succeeded)
-                    .Sum(rr => rr.Amount)
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
+        var r = await _refunds.GetDetailProjectionAsync(refundId, cancellationToken);
         if (r == null)
             return null;
 
-        var schedules = await _db.CourseSchedules
-            .AsNoTracking()
-            .Where(s => s.EnrollmentId == r.EnrollmentId
-                        && s.Status != ScheduleStatus.Cancelled
-                        && s.Status != ScheduleStatus.Rescheduled)
-            .Select(s => s.Status)
-            .ToListAsync(cancellationToken);
-
-        var used = schedules.Count(s => s == ScheduleStatus.Completed);
+        var schedules = await _refunds.GetScheduleStatusesForEnrollmentAsync(
+            r.EnrollmentId, cancellationToken);
+        var used = schedules.Count(s => s.Status == ScheduleStatus.Completed.ToString());
         var unused = Math.Max(0, schedules.Count - used);
 
-        var lines = await _db.TeacherEarningLines
-            .AsNoTracking()
-            .Where(l => l.EnrollmentId == r.EnrollmentId)
-            .Select(l => new
-            {
-                l.Status,
-                l.Amount,
-                BatchStatus = l.PayoutItem != null
-                    ? (PayoutBatchStatus?)l.PayoutItem.PayoutBatch.Status
-                    : null
-            })
-            .ToListAsync(cancellationToken);
-
+        var lines = await _refunds.GetEarningLinesForEnrollmentAsync(r.EnrollmentId, cancellationToken);
         var voided = lines
-            .Where(l => l.Status == TeacherEarningLineStatus.Voided)
+            .Where(l => l.Status == TeacherEarningLineStatus.Voided.ToString())
             .Sum(l => l.Amount);
         var hasPaid = lines.Any(l =>
-            l.Status == TeacherEarningLineStatus.IncludedInPayout
-            && l.BatchStatus == PayoutBatchStatus.Paid);
+            l.Status == TeacherEarningLineStatus.IncludedInPayout.ToString()
+            && l.BatchStatus == PayoutBatchStatus.Paid.ToString());
         var hasVoidedPending = voided > 0;
 
         var payoutImpact = "None";
@@ -238,6 +160,43 @@ public class RefundService : IRefundService
             payoutImpact = "VoidedPending";
 
         var platformBear = Math.Max(0m, Math.Round(r.Amount - voided, 2, MidpointRounding.AwayFromZero));
+        var complaintId = await _refunds.GetComplaintIdForRefundAsync(refundId, cancellationToken);
+        var linkedLineIds = lines
+            .Where(l => l.Status == TeacherEarningLineStatus.Voided.ToString())
+            .Select(l => l.Id)
+            .ToList();
+
+        var timeline = new List<FinanceTimelineEventDto>
+        {
+            new()
+            {
+                EventType = "Created",
+                Label = "Refund created",
+                OccurredAt = r.CreatedAt,
+                ActorName = r.InitiatedByName
+            }
+        };
+
+        if (r.Status == RefundStatus.Succeeded.ToString())
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Processed",
+                Label = "Refund processed",
+                OccurredAt = r.CreatedAt,
+                Notes = r.ProviderRefundId
+            });
+        }
+
+        foreach (var lineId in linkedLineIds)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "EarningVoided",
+                Label = $"Teacher earning line #{lineId} voided",
+                OccurredAt = r.CreatedAt
+            });
+        }
 
         return new AdminRefundDetailDto
         {
@@ -247,26 +206,37 @@ public class RefundService : IRefundService
             Amount = r.Amount,
             Currency = r.Currency,
             Reason = r.Reason,
-            Status = r.Status.ToString(),
+            Status = r.Status,
             ProviderRefundId = r.ProviderRefundId,
             CreatedAt = r.CreatedAt,
+            ProcessedAt = r.Status == RefundStatus.Succeeded.ToString() ? r.CreatedAt : null,
             InitiatedByUserId = r.InitiatedByUserId,
+            InitiatedByName = r.InitiatedByName,
             PaymentTotalAmount = r.PaymentTotal,
             PaymentRefundedTotal = r.RefundedTotal,
             CourseTitle = r.CourseTitle,
             PayerName = r.PayerName,
+            TeacherId = r.TeacherId,
+            TeacherName = r.TeacherName,
+            StudentId = r.StudentId,
+            StudentName = r.StudentName,
+            ScheduleId = r.ScheduleId,
+            SessionLabel = r.SessionLabel,
+            OriginalPaymentAmount = r.PaymentTotal,
+            TransactionKey = $"ref-{r.Id}",
+            Description = $"Refund to student — {r.Reason}",
             SessionsUsed = used,
             SessionsUnused = unused,
             TeacherDeductionAmount = voided,
             PlatformBearAmount = platformBear,
-            PayoutImpact = payoutImpact
+            PayoutImpact = payoutImpact,
+            SessionComplaintId = complaintId,
+            LinkedEarningLineIds = linkedLineIds,
+            Timeline = timeline,
+            PaymentProviderRef = r.PaymentProviderRef
         };
     }
 
-    /// <summary>
-    /// Full payment refund voids all Pending/OnHold lines. Partial refund voids newest Pending/OnHold lines
-    /// until the refund amount (or remaining pending) is covered. Paid-batch lines are left alone.
-    /// </summary>
     private async Task VoidTeacherEarningsForRefundAsync(
         int enrollmentId,
         decimal refundAmount,
@@ -274,13 +244,8 @@ public class RefundService : IRefundService
         bool isFullRefund,
         CancellationToken cancellationToken)
     {
-        var pending = await _db.TeacherEarningLines
-            .Where(l => l.EnrollmentId == enrollmentId
-                        && (l.Status == TeacherEarningLineStatus.Pending
-                            || l.Status == TeacherEarningLineStatus.OnHold))
-            .OrderByDescending(l => l.CreatedAt)
-            .ThenByDescending(l => l.Id)
-            .ToListAsync(cancellationToken);
+        var pending = await _refunds.GetPendingEarningLinesForEnrollmentAsync(
+            enrollmentId, cancellationToken);
 
         if (pending.Count == 0)
             return;

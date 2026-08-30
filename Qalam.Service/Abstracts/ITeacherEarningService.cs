@@ -30,13 +30,15 @@ public interface IPayoutService
         int batchId,
         CancellationToken cancellationToken = default);
 
-    Task<List<Data.DTOs.Admin.AdminPayoutBatchListItemDto>> ListBatchesAsync(
+    Task<Data.DTOs.Admin.PagedResult<Data.DTOs.Admin.AdminPayoutBatchListItemDto>> ListBatchesAsync(
+        Data.DTOs.Admin.AdminPayoutListFilter filter,
         CancellationToken cancellationToken = default);
 
     Task<Data.DTOs.Admin.AdminPayoutBatchDto?> GetBatchAsync(
         int batchId,
         CancellationToken cancellationToken = default);
 
-    Task<List<Data.DTOs.Admin.AdminPendingEarningDto>> ListPendingEarningsAsync(
+    Task<Data.DTOs.Admin.PagedResult<Data.DTOs.Admin.AdminPendingEarningDto>> ListPendingEarningsAsync(
+        Data.DTOs.Admin.AdminPendingEarningsFilter filter,
         CancellationToken cancellationToken = default);
 }

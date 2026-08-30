@@ -21,7 +21,7 @@ internal static class ComplaintResolutionTestHelper
         return new ComplaintResolutionOrchestrator(
             complaintRepo,
             scheduleRepo,
-            refundService ?? new RefundService(db),
+            refundService ?? new RefundService(new RefundRepository(db)),
             audit);
     }
 
@@ -44,7 +44,7 @@ internal static class ComplaintResolutionTestHelper
                 ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
             })
             .Build();
-        var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(db));
+        var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(new RefundRepository(db)));
         return new SessionComplaintService(
             complaintRepo,
             scheduleRepo,

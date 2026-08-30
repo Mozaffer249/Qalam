@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
-using Qalam.Core.Bases;
+using Qalam.Core.Features.Admin.Finance.Commands.ApproveAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.CreateAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.MarkAdminPayoutBatchPaid;
+using Qalam.Core.Features.Admin.Finance.Queries.GetAdminPayoutBatchById;
+using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPayoutBatches;
+using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPendingEarnings;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
-using Qalam.Service.Abstracts;
-using System.Net;
+using Qalam.Data.Entity.Common.Enums;
 using System.Security.Claims;
 
 namespace Qalam.Api.Controllers.Admin;
@@ -15,33 +19,45 @@ namespace Qalam.Api.Controllers.Admin;
 [Tags("Admin · Payouts")]
 public class PayoutsController : AppControllerBase
 {
-    private readonly IPayoutService _payoutService;
-
-    public PayoutsController(IPayoutService payoutService)
-    {
-        _payoutService = payoutService;
-    }
-
     [HttpGet(Router.AdminPayoutPendingEarnings)]
-    [ProducesResponseType(typeof(List<AdminPendingEarningDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListPendingEarnings(CancellationToken cancellationToken = default)
-        => NewResult(OkResponse(await _payoutService.ListPendingEarningsAsync(cancellationToken)));
+    [ProducesResponseType(typeof(PagedResult<AdminPendingEarningDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendingEarnings(
+        [FromQuery] int? teacherId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new ListAdminPendingEarningsQuery
+        {
+            TeacherId = teacherId,
+            Page = page,
+            PageSize = pageSize
+        }, cancellationToken));
 
     [HttpGet(Router.AdminPayouts)]
-    [ProducesResponseType(typeof(List<AdminPayoutBatchListItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListBatches(CancellationToken cancellationToken = default)
-        => NewResult(OkResponse(await _payoutService.ListBatchesAsync(cancellationToken)));
+    [ProducesResponseType(typeof(PagedResult<AdminPayoutBatchListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListBatches(
+        [FromQuery] PayoutBatchStatus? status = null,
+        [FromQuery] int? teacherId = null,
+        [FromQuery] DateTime? fromUtc = null,
+        [FromQuery] DateTime? toUtc = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new ListAdminPayoutBatchesQuery
+        {
+            Status = status,
+            TeacherId = teacherId,
+            FromUtc = fromUtc,
+            ToUtc = toUtc,
+            Page = page,
+            PageSize = pageSize
+        }, cancellationToken));
 
     [HttpGet(Router.AdminPayoutById)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetBatch(int id, CancellationToken cancellationToken = default)
-    {
-        var batch = await _payoutService.GetBatchAsync(id, cancellationToken);
-        if (batch == null)
-            return NewResult(FailResponse<AdminPayoutBatchDto>("Payout batch not found.", HttpStatusCode.NotFound));
-        return NewResult(OkResponse(batch));
-    }
+        => NewResult(await Mediator.Send(new GetAdminPayoutBatchByIdQuery { Id = id }, cancellationToken));
 
     [HttpPost(Router.AdminPayouts)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
@@ -52,65 +68,21 @@ public class PayoutsController : AppControllerBase
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         int? userId = int.TryParse(userIdClaim, out var uid) ? uid : null;
-        try
+
+        return NewResult(await Mediator.Send(new CreateAdminPayoutBatchCommand
         {
-            var batch = await _payoutService.CreateBatchFromPendingAsync(
-                body?.PeriodStart,
-                body?.PeriodEnd,
-                userId,
-                cancellationToken);
-            return NewResult(OkResponse(batch));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return NewResult(FailResponse<AdminPayoutBatchDto>(ex.Message, HttpStatusCode.BadRequest));
-        }
+            Body = body,
+            CreatedByUserId = userId
+        }, cancellationToken));
     }
 
     [HttpPost(Router.AdminPayoutApprove)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var batch = await _payoutService.ApproveAsync(id, cancellationToken);
-            if (batch == null)
-                return NewResult(FailResponse<AdminPayoutBatchDto>("Payout batch not found.", HttpStatusCode.NotFound));
-            return NewResult(OkResponse(batch));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return NewResult(FailResponse<AdminPayoutBatchDto>(ex.Message, HttpStatusCode.BadRequest));
-        }
-    }
+        => NewResult(await Mediator.Send(new ApproveAdminPayoutBatchCommand { Id = id }, cancellationToken));
 
     [HttpPost(Router.AdminPayoutMarkPaid)]
     [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkPaid(int id, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var batch = await _payoutService.MarkPaidAsync(id, cancellationToken);
-            if (batch == null)
-                return NewResult(FailResponse<AdminPayoutBatchDto>("Payout batch not found.", HttpStatusCode.NotFound));
-            return NewResult(OkResponse(batch));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return NewResult(FailResponse<AdminPayoutBatchDto>(ex.Message, HttpStatusCode.BadRequest));
-        }
-    }
-
-    private static Response<T> OkResponse<T>(T data) => new(data)
-    {
-        StatusCode = HttpStatusCode.OK,
-        Succeeded = true,
-        Message = "Success"
-    };
-
-    private static Response<T> FailResponse<T>(string message, HttpStatusCode code) => new(message)
-    {
-        StatusCode = code,
-        Succeeded = false
-    };
+        => NewResult(await Mediator.Send(new MarkAdminPayoutBatchPaidCommand { Id = id }, cancellationToken));
 }

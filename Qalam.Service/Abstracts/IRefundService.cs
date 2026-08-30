@@ -10,10 +10,6 @@ namespace Qalam.Service.Abstracts;
 /// </summary>
 public interface IRefundService
 {
-    /// <summary>
-    /// Issues a mock refund for a succeeded payment (full or partial).
-    /// Creates a <see cref="Qalam.Data.Entity.Payment.Refund"/> row — not a negative Payment.
-    /// </summary>
     Task<Refund> IssueRefundAsync(
         int paymentId,
         int enrollmentId,
@@ -23,16 +19,13 @@ public interface IRefundService
         int? initiatedByUserId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Refunds all remaining refundable amount on succeeded payments linked to the enrollment (mock).
-    /// </summary>
     Task<IReadOnlyList<Refund>> RefundEnrollmentPaymentsAsync(
         int enrollmentId,
         string reason,
         int? initiatedByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<List<AdminRefundListItemDto>> ListAsync(
+    Task<PagedResult<AdminRefundListItemDto>> ListAsync(
         AdminRefundListFilter filter,
         CancellationToken cancellationToken = default);
 

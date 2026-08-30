@@ -1,49 +1,32 @@
-using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
-using Qalam.Infrastructure.context;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
 
 public class PayoutService : IPayoutService
 {
-    private readonly ApplicationDBContext _db;
+    private readonly IPayoutRepository _payouts;
 
-    public PayoutService(ApplicationDBContext db)
+    public PayoutService(IPayoutRepository payouts)
     {
-        _db = db;
+        _payouts = payouts;
     }
 
-    public async Task<List<AdminPendingEarningDto>> ListPendingEarningsAsync(
+    public async Task<PagedResult<AdminPendingEarningDto>> ListPendingEarningsAsync(
+        AdminPendingEarningsFilter filter,
         CancellationToken cancellationToken = default)
     {
-        return await _db.TeacherEarningLines
-            .AsNoTracking()
-            .Where(l => l.Status == TeacherEarningLineStatus.Pending)
-            .OrderBy(l => l.CreatedAt)
-            .Select(l => new AdminPendingEarningDto
-            {
-                Id = l.Id,
-                TeacherId = l.TeacherId,
-                TeacherName = l.Teacher.User != null
-                    ? ((l.Teacher.User.FirstName ?? "") + " " + (l.Teacher.User.LastName ?? "")).Trim()
-                    : null,
-                EnrollmentId = l.EnrollmentId,
-                CourseTitle = l.Enrollment.Course != null
-                    ? l.Enrollment.Course.Title
-                    : null,
-                CourseScheduleId = l.CourseScheduleId,
-                Amount = l.Amount,
-                Currency = l.Currency,
-                Source = l.Source.ToString(),
-                IsFreeTrialEnrollment = l.Enrollment.IsFreeTrial,
-                FreeSessionsInEnrollment = l.Enrollment.IsFreeTrial ? 1 : 0,
-                CreatedAt = l.CreatedAt
-            })
-            .Take(500)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await _payouts.ListPendingEarningsAsync(filter, cancellationToken);
+        return new PagedResult<AdminPendingEarningDto>
+        {
+            Items = items,
+            Page = filter.Page < 1 ? 1 : filter.Page,
+            PageSize = filter.PageSize < 1 ? 25 : filter.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AdminPayoutBatchDto> CreateBatchFromPendingAsync(
@@ -55,11 +38,7 @@ public class PayoutService : IPayoutService
         var start = periodStart ?? DateTime.UtcNow.AddMonths(-1);
         var end = periodEnd ?? DateTime.UtcNow;
 
-        var lines = await _db.TeacherEarningLines
-            .Where(l => l.Status == TeacherEarningLineStatus.Pending
-                        && l.CreatedAt >= start
-                        && l.CreatedAt <= end)
-            .ToListAsync(cancellationToken);
+        var lines = await _payouts.GetPendingLinesInPeriodAsync(start, end, cancellationToken);
 
         if (lines.Count == 0)
             throw new InvalidOperationException("No pending earnings in the selected period.");
@@ -98,8 +77,8 @@ public class PayoutService : IPayoutService
             }
         }
 
-        _db.PayoutBatches.Add(batch);
-        await _db.SaveChangesAsync(cancellationToken);
+        await _payouts.AddBatchAsync(batch, cancellationToken);
+        await _payouts.SaveChangesAsync(cancellationToken);
 
         return (await GetBatchAsync(batch.Id, cancellationToken))!;
     }
@@ -108,8 +87,7 @@ public class PayoutService : IPayoutService
         int batchId,
         CancellationToken cancellationToken = default)
     {
-        var batch = await _db.PayoutBatches
-            .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
         if (batch.Status != PayoutBatchStatus.Draft)
@@ -117,7 +95,7 @@ public class PayoutService : IPayoutService
 
         batch.Status = PayoutBatchStatus.Approved;
         batch.ApprovedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
+        await _payouts.SaveChangesAsync(cancellationToken);
         return await GetBatchAsync(batchId, cancellationToken);
     }
 
@@ -125,8 +103,7 @@ public class PayoutService : IPayoutService
         int batchId,
         CancellationToken cancellationToken = default)
     {
-        var batch = await _db.PayoutBatches
-            .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
         if (batch.Status is not PayoutBatchStatus.Approved and not PayoutBatchStatus.Draft)
@@ -136,53 +113,29 @@ public class PayoutService : IPayoutService
         batch.PaidAt = DateTime.UtcNow;
         batch.ApprovedAt ??= batch.PaidAt;
         batch.MockTransferRef ??= $"MOCK-PAYOUT-{batch.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        await _db.SaveChangesAsync(cancellationToken);
+        await _payouts.SaveChangesAsync(cancellationToken);
         return await GetBatchAsync(batchId, cancellationToken);
     }
 
-    public async Task<List<AdminPayoutBatchListItemDto>> ListBatchesAsync(
+    public async Task<PagedResult<AdminPayoutBatchListItemDto>> ListBatchesAsync(
+        AdminPayoutListFilter filter,
         CancellationToken cancellationToken = default)
     {
-        return await _db.PayoutBatches
-            .AsNoTracking()
-            .OrderByDescending(b => b.CreatedAt)
-            .Select(b => new AdminPayoutBatchListItemDto
-            {
-                Id = b.Id,
-                PeriodStart = b.PeriodStart,
-                PeriodEnd = b.PeriodEnd,
-                TotalAmount = b.TotalAmount,
-                Currency = b.Currency,
-                Status = b.Status.ToString(),
-                MockTransferRef = b.MockTransferRef,
-                ItemsCount = b.Items.Count,
-                CreatedAt = b.CreatedAt,
-                ApprovedAt = b.ApprovedAt,
-                PaidAt = b.PaidAt
-            })
-            .Take(100)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await _payouts.ListBatchesAsync(filter, cancellationToken);
+        return new PagedResult<AdminPayoutBatchListItemDto>
+        {
+            Items = items,
+            Page = filter.Page < 1 ? 1 : filter.Page,
+            PageSize = filter.PageSize < 1 ? 25 : filter.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AdminPayoutBatchDto?> GetBatchAsync(
         int batchId,
         CancellationToken cancellationToken = default)
     {
-        var batch = await _db.PayoutBatches
-            .AsNoTracking()
-            .Include(b => b.Items)
-                .ThenInclude(i => i.Teacher)
-                    .ThenInclude(t => t.User)
-            .Include(b => b.Items)
-                .ThenInclude(i => i.EarningLines)
-                    .ThenInclude(l => l.Enrollment)
-                        .ThenInclude(e => e.Course)
-            .Include(b => b.Items)
-                .ThenInclude(i => i.EarningLines)
-                    .ThenInclude(l => l.Enrollment)
-                        .ThenInclude(e => e.CourseSchedules)
-            .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
-
+        var batch = await _payouts.GetBatchWithDetailsAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
 
@@ -192,22 +145,41 @@ public class PayoutService : IPayoutService
             .Distinct()
             .ToList();
 
-        var refundsByEnrollment = await _db.Refunds
-            .AsNoTracking()
-            .Where(r => enrollmentIds.Contains(r.EnrollmentId) && r.Status == RefundStatus.Succeeded)
-            .GroupBy(r => r.EnrollmentId)
-            .Select(g => new { EnrollmentId = g.Key, Total = g.Sum(x => x.Amount) })
-            .ToDictionaryAsync(x => x.EnrollmentId, x => x.Total, cancellationToken);
+        var refundsByEnrollment = await _payouts.GetRefundsByEnrollmentIdsAsync(
+            enrollmentIds, cancellationToken);
+        var commissionByEnrollment = await _payouts.GetCommissionByEnrollmentIdsAsync(
+            enrollmentIds, cancellationToken);
 
-        var commissionByEnrollment = await _db.Enrollments
-            .AsNoTracking()
-            .Where(e => enrollmentIds.Contains(e.Id))
-            .Select(e => new
+        var timeline = new List<FinanceTimelineEventDto>
+        {
+            new()
             {
-                e.Id,
-                PlatformShare = e.PricingSnapshot != null ? e.PricingSnapshot.PlatformShare : 0m
-            })
-            .ToDictionaryAsync(x => x.Id, x => x.PlatformShare, cancellationToken);
+                EventType = "Created",
+                Label = "Payout batch created",
+                OccurredAt = batch.CreatedAt
+            }
+        };
+
+        if (batch.ApprovedAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Approved",
+                Label = "Batch approved",
+                OccurredAt = batch.ApprovedAt.Value
+            });
+        }
+
+        if (batch.PaidAt.HasValue)
+        {
+            timeline.Add(new FinanceTimelineEventDto
+            {
+                EventType = "Paid",
+                Label = "Batch marked paid",
+                OccurredAt = batch.PaidAt.Value,
+                Notes = batch.MockTransferRef
+            });
+        }
 
         return new AdminPayoutBatchDto
         {
@@ -220,8 +192,10 @@ public class PayoutService : IPayoutService
             MockTransferRef = batch.MockTransferRef,
             ItemsCount = batch.Items.Count,
             CreatedAt = batch.CreatedAt,
+            UpdatedAt = batch.PaidAt ?? batch.ApprovedAt ?? batch.CreatedAt,
             ApprovedAt = batch.ApprovedAt,
             PaidAt = batch.PaidAt,
+            Timeline = timeline,
             Items = batch.Items.Select(i =>
             {
                 var lineDtos = i.EarningLines.Select(l =>
@@ -241,7 +215,8 @@ public class PayoutService : IPayoutService
                         Status = l.Status.ToString(),
                         CreatedAt = l.CreatedAt,
                         FreeSessionsInEnrollment = l.Enrollment?.IsFreeTrial == true ? 1 : 0,
-                        SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed)
+                        SessionsCompleted = schedules.Count(s => s.Status == ScheduleStatus.Completed),
+                        TransactionKey = $"earn-{l.Id}"
                     };
                 }).ToList();
 

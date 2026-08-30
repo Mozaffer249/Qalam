@@ -66,6 +66,16 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";
         public const string AdminPayoutMarkPaid = AdminPayoutById + "/MarkPaid";
         public const string AdminPayoutPendingEarnings = AdminPayouts + "/PendingEarnings";
+        public const string AdminFinance = Rule + "Admin/Finance";
+        public const string AdminFinanceSummary = AdminFinance + "/Summary";
+        public const string AdminFinanceTransactions = AdminFinance + "/Transactions";
+        public const string AdminFinanceTransactionByKey = AdminFinanceTransactions + "/{key}";
+        public const string AdminTeacherFinance = Rule + "Admin/Teachers/{teacherId}/Finance";
+        public const string AdminTeacherFinanceSummary = AdminTeacherFinance + "/Summary";
+        public const string AdminTeacherFinanceTransactions = AdminTeacherFinance + "/Transactions";
+        public const string AdminRevenue = Rule + "Admin/Revenue";
+        public const string AdminRevenueSummary = AdminRevenue + "/Summary";
+        public const string AdminRevenueById = AdminRevenue + "/{id}";
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
