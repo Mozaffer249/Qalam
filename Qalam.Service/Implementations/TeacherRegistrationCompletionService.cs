@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Teacher;
+using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
@@ -276,16 +277,74 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
         return candidates;
     }
 
-    public async Task<BulkActivatePartialDomainTeachersResultDto> BulkActivatePartialDomainTeachersAsync(
-        int adminId,
+    public async Task<PaginatedResult<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedPage = pageNumber < 1 ? 1 : pageNumber;
+        var normalizedSize = pageSize switch
+        {
+            < 1 => 10,
+            > 50 => 50,
+            _ => pageSize,
+        };
+
+        var all = (await GetPartialDomainActivationCandidatesAsync(cancellationToken)).ToList();
+        var items = all
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
+            .ToList();
+
+        return new PaginatedResult<PartialDomainActivationCandidateDto>(
+            items,
+            all.Count,
+            normalizedPage,
+            normalizedSize);
+    }
+
+    public async Task<IReadOnlyList<int>> GetPartialDomainActivationCandidateIdsAsync(
         CancellationToken cancellationToken = default)
     {
         var candidates = await GetPartialDomainActivationCandidatesAsync(cancellationToken);
-        var result = new BulkActivatePartialDomainTeachersResultDto();
+        return candidates.Select(c => c.TeacherId).ToList();
+    }
 
-        foreach (var candidate in candidates)
+    public async Task<BulkActivatePartialDomainTeachersResultDto> BulkActivatePartialDomainTeachersAsync(
+        int adminId,
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new BulkActivatePartialDomainTeachersResultDto();
+        if (teacherIds.Count == 0)
         {
-            var (success, error) = await ActivateTeacherAccountAsync(candidate.TeacherId, adminId, cancellationToken);
+            result.SkippedCount = 0;
+            return result;
+        }
+
+        var summaries = await _teacherRepository.GetPendingVerificationTeacherSummariesAsync(cancellationToken);
+        var nameById = summaries.ToDictionary(s => s.TeacherId, s => s.FullName.Trim());
+
+        foreach (var teacherId in teacherIds.Distinct())
+        {
+            if (!nameById.TryGetValue(teacherId, out var fullName))
+            {
+                var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+                fullName = teacher != null ? $"Teacher {teacherId}" : $"Teacher {teacherId}";
+            }
+
+            if (!await IsPartialDomainActivationCandidateAsync(teacherId, cancellationToken))
+            {
+                result.Failures.Add(new BulkActivateTeacherFailureDto
+                {
+                    TeacherId = teacherId,
+                    FullName = fullName,
+                    ErrorMessage = "Teacher is not eligible for activation",
+                });
+                continue;
+            }
+
+            var (success, error) = await ActivateTeacherAccountAsync(teacherId, adminId, cancellationToken);
             if (success)
             {
                 result.ActivatedCount++;
@@ -294,8 +353,8 @@ public class TeacherRegistrationCompletionService : ITeacherRegistrationCompleti
 
             result.Failures.Add(new BulkActivateTeacherFailureDto
             {
-                TeacherId = candidate.TeacherId,
-                FullName = candidate.FullName,
+                TeacherId = teacherId,
+                FullName = fullName,
                 ErrorMessage = error ?? "Unknown error",
             });
         }

@@ -10,4 +10,6 @@ public class BulkActivatePartialDomainTeachersCommand : IRequest<Response<BulkAc
 {
     [BindNever]
     public int UserId { get; set; }
+
+    public List<int> TeacherIds { get; set; } = new();
 }

@@ -31,6 +31,7 @@ public class BulkActivatePartialDomainTeachersCommandHandler : ResponseHandler,
         {
             var result = await _completionService.BulkActivatePartialDomainTeachersAsync(
                 request.UserId,
+                request.TeacherIds,
                 cancellationToken);
 
             _logger.LogInformation(

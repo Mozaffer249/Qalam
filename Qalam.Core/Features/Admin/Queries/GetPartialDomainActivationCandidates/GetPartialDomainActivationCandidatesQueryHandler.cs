@@ -29,11 +29,27 @@ public class GetPartialDomainActivationCandidatesQueryHandler : ResponseHandler,
     {
         try
         {
-            var candidates = await _completionService.GetPartialDomainActivationCandidatesAsync(cancellationToken);
+            var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+            var pageSize = request.PageSize switch
+            {
+                < 1 => 10,
+                > 50 => 50,
+                _ => request.PageSize,
+            };
+
+            var result = await _completionService.GetPartialDomainActivationCandidatesPagedAsync(
+                pageNumber,
+                pageSize,
+                cancellationToken);
             _logger.LogInformation(
-                "Found {Count} partial-domain activation candidates",
-                candidates.Count);
-            return Success(entity: candidates.ToList());
+                "Found {Count} partial-domain activation candidates (page {Page} of {TotalPages})",
+                result.TotalCount,
+                result.PageNumber,
+                result.TotalPages);
+            return Success(entity: result.Items, Meta: BuildPaginationMeta(
+                result.PageNumber,
+                result.PageSize,
+                result.TotalCount));
         }
         catch (Exception ex)
         {

@@ -14,6 +14,7 @@ using Qalam.Core.Features.Admin.Commands.RejectTeacherDomainQuestionSubmission;
 using Qalam.Core.Features.Admin.Commands.RevokeTeacherDomainApproval;
 using Qalam.Core.Features.Admin.Queries.GetPendingTeachers;
 using Qalam.Core.Features.Admin.Queries.GetPartialDomainActivationCandidates;
+using Qalam.Core.Features.Admin.Queries.GetPartialDomainActivationCandidateIds;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAvailabilityForAdmin;
 using Qalam.Core.Features.Admin.Queries.GetTeacherDetails;
 using Qalam.Core.Features.Admin.Queries.ExportTeachersForAdmin;
@@ -157,23 +158,43 @@ public class TeacherManagementController : AppControllerBase
 	}
 
 	/// <summary>
-	/// Teachers pending verification with partial domain approval (≥1 approved domain, ≥1 rejected domain) who can be activated.
+	/// Teachers pending verification eligible for bulk activation (registration approved, ≥1 approved domain).
 	/// </summary>
 	[HttpGet("PartialDomainActivationCandidates")]
 	[ProducesResponseType(typeof(List<PartialDomainActivationCandidateDto>), StatusCodes.Status200OK)]
-	public async Task<IActionResult> GetPartialDomainActivationCandidates()
+	public async Task<IActionResult> GetPartialDomainActivationCandidates(
+		[FromQuery] int pageNumber = 1,
+		[FromQuery] int pageSize = 10)
 	{
-		return NewResult(await _mediator.Send(new GetPartialDomainActivationCandidatesQuery()));
+		return NewResult(await _mediator.Send(new GetPartialDomainActivationCandidatesQuery
+		{
+			PageNumber = pageNumber,
+			PageSize = pageSize,
+		}));
 	}
 
 	/// <summary>
-	/// Bulk-activate all partial-domain activation candidates.
+	/// All teacher IDs eligible for bulk partial-domain activation (for cross-page selection).
+	/// </summary>
+	[HttpGet("PartialDomainActivationCandidateIds")]
+	[ProducesResponseType(typeof(List<int>), StatusCodes.Status200OK)]
+	public async Task<IActionResult> GetPartialDomainActivationCandidateIds()
+	{
+		return NewResult(await _mediator.Send(new GetPartialDomainActivationCandidateIdsQuery()));
+	}
+
+	/// <summary>
+	/// Bulk-activate selected eligible partial-domain activation candidates.
 	/// </summary>
 	[HttpPost("BulkActivatePartialDomainTeachers")]
 	[ProducesResponseType(typeof(BulkActivatePartialDomainTeachersResultDto), StatusCodes.Status200OK)]
-	public async Task<IActionResult> BulkActivatePartialDomainTeachers()
+	public async Task<IActionResult> BulkActivatePartialDomainTeachers(
+		[FromBody] BulkActivatePartialDomainTeachersRequestDto body)
 	{
-		var command = new BulkActivatePartialDomainTeachersCommand();
+		var command = new BulkActivatePartialDomainTeachersCommand
+		{
+			TeacherIds = body.TeacherIds,
+		};
 		return NewResult(await _mediator.Send(command));
 	}
 

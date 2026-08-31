@@ -9,6 +9,11 @@ public class PartialDomainActivationCandidateDto
     public int RejectedDomainCount { get; set; }
 }
 
+public class BulkActivatePartialDomainTeachersRequestDto
+{
+    public List<int> TeacherIds { get; set; } = new();
+}
+
 public class BulkActivatePartialDomainTeachersResultDto
 {
     public int ActivatedCount { get; set; }

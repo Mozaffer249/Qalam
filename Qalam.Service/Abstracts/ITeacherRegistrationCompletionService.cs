@@ -1,5 +1,6 @@
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Results;
 
 namespace Qalam.Service.Abstracts;
 
@@ -68,10 +69,19 @@ public interface ITeacherRegistrationCompletionService
     Task<IReadOnlyList<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesAsync(
         CancellationToken cancellationToken = default);
 
+    Task<PaginatedResult<PartialDomainActivationCandidateDto>> GetPartialDomainActivationCandidatesPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<int>> GetPartialDomainActivationCandidateIdsAsync(
+        CancellationToken cancellationToken = default);
+
     /// <summary>
-    /// Activates every partial-domain candidate via <see cref="ActivateTeacherAccountAsync"/>.
+    /// Activates selected eligible teachers via <see cref="ActivateTeacherAccountAsync"/>.
     /// </summary>
     Task<BulkActivatePartialDomainTeachersResultDto> BulkActivatePartialDomainTeachersAsync(
         int adminId,
+        IReadOnlyList<int> teacherIds,
         CancellationToken cancellationToken = default);
 }
