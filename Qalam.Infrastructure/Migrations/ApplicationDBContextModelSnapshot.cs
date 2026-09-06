@@ -3254,6 +3254,28 @@ namespace Qalam.Infrastructure.Migrations
                     b.ToTable("Users", "security");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Identity.UserNotificationPreferences", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EmailDigestEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PushEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SmsAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserNotificationPreferences", "security");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Identity.UserRefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -3654,6 +3676,50 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("MessageLogs", "messaging");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Messaging.UserDeviceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserDeviceTokens", "messaging");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.OpenSessionRequests.OfferConversation", b =>
@@ -8266,6 +8332,17 @@ namespace Qalam.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Identity.UserNotificationPreferences", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Qalam.Data.Entity.Identity.UserNotificationPreferences", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Identity.UserRefreshToken", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Identity.User", "User")
@@ -8339,6 +8416,17 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("LegalDocument");
 
                     b.Navigation("LegalDocumentVersion");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Messaging.UserDeviceToken", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

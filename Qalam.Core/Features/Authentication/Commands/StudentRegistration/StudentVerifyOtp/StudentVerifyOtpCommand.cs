@@ -12,4 +12,12 @@ public class StudentVerifyOtpCommand : IRequest<Response<StudentRegistrationResp
 {
     public string PhoneNumber { get; set; } = default!;
     public string OtpCode { get; set; } = default!;
+
+    /// <summary>Optional FCM / push device token to register after successful verify.</summary>
+    public string? DeviceToken { get; set; }
+
+    /// <summary>ios | android | web — defaults to android when DeviceToken is set.</summary>
+    public string? DeviceTokenPlatform { get; set; }
+
+    public string? AppVersion { get; set; }
 }

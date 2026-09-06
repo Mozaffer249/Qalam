@@ -205,4 +205,20 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Select(ep => ep.Payment.PaymentProvider)
             .FirstOrDefaultAsync(ct);
     }
+
+    public Task<bool> AnyActiveOrPendingPaymentAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (studentIds == null || studentIds.Count == 0)
+            return Task.FromResult(false);
+
+        return _context.Enrollments
+            .AsNoTracking()
+            .AnyAsync(
+                e => e.Participants.Any(p => studentIds.Contains(p.StudentId))
+                     && (e.EnrollmentStatus == EnrollmentStatus.Active
+                         || e.EnrollmentStatus == EnrollmentStatus.PendingPayment),
+                cancellationToken);
+    }
 }

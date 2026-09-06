@@ -7,4 +7,5 @@ public static class LegalDocumentCodes
     public const string TermsConditions = "terms-conditions";
     public const string RefundPolicy = "refund-policy";
     public const string PricingServices = "pricing-services";
+    public const string Faq = "faq";
 }

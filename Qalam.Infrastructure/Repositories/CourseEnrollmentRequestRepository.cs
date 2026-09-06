@@ -290,4 +290,36 @@ public class CourseEnrollmentRequestRepository : GenericRepositoryAsync<CourseEn
             })
             .ToList();
     }
+
+    public async Task<bool> AnyBlockingInvitationsForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        var openStatuses = new[] { RequestStatus.Pending, RequestStatus.Approved };
+
+        if (studentIds.Count > 0)
+        {
+            var hasReceived = await _context.CourseRequestGroupMembers
+                .AsNoTracking()
+                .AnyAsync(
+                    gm => studentIds.Contains(gm.StudentId)
+                          && gm.MemberType == GroupMemberType.Invited
+                          && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending
+                          && openStatuses.Contains(gm.CourseEnrollmentRequest.Status),
+                    cancellationToken);
+            if (hasReceived)
+                return true;
+        }
+
+        return await _context.CourseEnrollmentRequests
+            .AsNoTracking()
+            .AnyAsync(
+                r => r.RequestedByUserId == userId
+                     && openStatuses.Contains(r.Status)
+                     && r.GroupMembers.Any(gm =>
+                         gm.MemberType == GroupMemberType.Invited
+                         && gm.ConfirmationStatus == GroupMemberConfirmationStatus.Pending),
+                cancellationToken);
+    }
 }

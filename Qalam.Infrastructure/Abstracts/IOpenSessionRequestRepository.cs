@@ -138,6 +138,22 @@ public interface IOpenSessionRequestRepository : IGenericRepositoryAsync<OpenSes
         CancellationToken cancellationToken = default);
 
     Task MarkExpiryNudgeStageAsync(int requestId, byte stage, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when the user owns or is the learner on a non-terminal OSR (StudentOpen + OfferAccepted).
+    /// </summary>
+    Task<bool> AnyBlockingForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when the user has pending S2 invitations received or sent on open OSRs.
+    /// </summary>
+    Task<bool> AnyBlockingInvitationsForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Used by availability-match to compute conflicts without loading whole session graphs.</summary>

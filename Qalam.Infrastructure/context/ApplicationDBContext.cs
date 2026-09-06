@@ -48,6 +48,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<SecurityEvent> SecurityEvents { get; set; }
         public DbSet<PasswordHistory> PasswordHistories { get; set; }
         public DbSet<TwoFactorRecoveryCode> TwoFactorRecoveryCodes { get; set; }
+        public DbSet<UserNotificationPreferences> UserNotificationPreferences { get; set; }
         public DbSet<EmailConfirmationOtp> EmailConfirmationOtps { get; set; }
         public DbSet<PhoneConfirmationOtp> PhoneConfirmationOtps { get; set; }
         public DbSet<LoginOtp> LoginOtps { get; set; }
@@ -193,6 +194,7 @@ namespace Qalam.Infrastructure.context
         // Messaging Schema DbSets
         public DbSet<MessageLog> MessageLogs { get; set; }
         public DbSet<EmailSuppression> EmailSuppressions { get; set; }
+        public DbSet<UserDeviceToken> UserDeviceTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

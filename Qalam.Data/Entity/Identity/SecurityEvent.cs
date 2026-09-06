@@ -41,7 +41,8 @@ namespace Qalam.Data.Entity.Identity
         TwoFactorDisabled,
         FailedLoginAttempt,
         AccountLocked,
-        SuspiciousActivity
+        SuspiciousActivity,
+        AccountDeactivated
     }
 }
 

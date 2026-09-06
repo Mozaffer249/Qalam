@@ -145,6 +145,8 @@ namespace Qalam.Data.AppMetaData
         public const string AccountGetSecurityEvents = Authentication + "/SecurityEvents";
         public const string AccountExportData = Authentication + "/ExportData";
         public const string AccountDelete = Authentication + "/Delete";
+        public const string AccountNotificationPreferences = Authentication + "/NotificationPreferences";
+        public const string AccountDeviceTokens = Authentication + "/DeviceTokens";
         #endregion
 
         #region Users

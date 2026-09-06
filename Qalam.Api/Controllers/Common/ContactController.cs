@@ -7,7 +7,8 @@ using Qalam.Data.AppMetaData;
 namespace Qalam.Api.Controllers.Common;
 
 /// <summary>
-/// Public contact form submissions from the marketing site.
+/// Public contact form submissions. Optional JWT: when present, Name/Email/Phone may be omitted
+/// and are prefilled from the authenticated profile.
 /// </summary>
 [ApiController]
 [Route(Router.Contact)]

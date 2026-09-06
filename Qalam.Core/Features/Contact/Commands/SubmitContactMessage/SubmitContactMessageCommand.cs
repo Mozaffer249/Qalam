@@ -5,8 +5,8 @@ namespace Qalam.Core.Features.Contact.Commands.SubmitContactMessage;
 
 public class SubmitContactMessageCommand : IRequest<Response<string>>
 {
-    public string Name { get; set; } = null!;
-    public string Phone { get; set; } = null!;
+    public string? Name { get; set; }
+    public string? Phone { get; set; }
     public string? Email { get; set; }
     public string Reason { get; set; } = null!;
     public string Message { get; set; } = null!;

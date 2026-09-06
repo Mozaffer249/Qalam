@@ -18,6 +18,20 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
                 .NotEmpty().WithMessage(stringLocalizer[AuthenticationResourcesKeys.PasswordIsRequired])
                 .MinimumLength(6).WithMessage(stringLocalizer[AuthenticationResourcesKeys.PasswordMinLength])
                 .OverridePropertyName(string.Empty);
+
+            RuleFor(x => x.DeviceToken)
+                .MaximumLength(512)
+                .When(x => !string.IsNullOrWhiteSpace(x.DeviceToken));
+
+            RuleFor(x => x.DeviceTokenPlatform)
+                .Must(p => string.IsNullOrWhiteSpace(p)
+                           || new[] { "ios", "android", "web" }.Contains(p.Trim().ToLowerInvariant()))
+                .WithMessage("DeviceTokenPlatform must be ios, android, or web")
+                .When(x => !string.IsNullOrWhiteSpace(x.DeviceToken));
+
+            RuleFor(x => x.AppVersion)
+                .MaximumLength(50)
+                .When(x => !string.IsNullOrWhiteSpace(x.AppVersion));
         }
     }
 }

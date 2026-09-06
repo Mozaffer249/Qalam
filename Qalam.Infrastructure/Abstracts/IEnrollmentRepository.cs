@@ -38,4 +38,11 @@ public interface IEnrollmentRepository : IGenericRepositoryAsync<Enrollment>
     Task<string?> GetSucceededInvoiceNumberAsync(int enrollmentId, CancellationToken ct);
 
     Task<string?> GetSucceededPaymentProviderAsync(int enrollmentId, CancellationToken ct);
+
+    /// <summary>
+    /// True when any enrollment for the given students is Active or PendingPayment.
+    /// </summary>
+    Task<bool> AnyActiveOrPendingPaymentAsync(
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default);
 }

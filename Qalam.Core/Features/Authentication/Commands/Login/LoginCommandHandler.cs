@@ -24,6 +24,7 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 		private readonly ISecurityNotificationService _notificationService;
 		private readonly IOptions<SecuritySettings> _securitySettings;
 		private readonly IRiskAssessmentService _riskAssessmentService;
+		private readonly IAuthDeviceTokenRegistrar _deviceTokenRegistrar;
 
 		public LoginCommandHandler(
 			IStringLocalizer<AuthenticationResources> authLocalizer,
@@ -35,7 +36,8 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 			IHttpContextAccessor httpContextAccessor,
 			ISecurityNotificationService notificationService,
 			IOptions<SecuritySettings> securitySettings,
-			IRiskAssessmentService riskAssessmentService) : base(authLocalizer)
+			IRiskAssessmentService riskAssessmentService,
+			IAuthDeviceTokenRegistrar deviceTokenRegistrar) : base(authLocalizer)
 		{
 			_userManager = userManager;
 			_signInManager = signInManager;
@@ -47,6 +49,7 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 			_notificationService = notificationService;
 			_securitySettings = securitySettings;
 			_riskAssessmentService = riskAssessmentService;
+			_deviceTokenRegistrar = deviceTokenRegistrar;
 		}
 
 		public async Task<Response<JwtAuthResult>> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -204,6 +207,13 @@ namespace Qalam.Core.Features.Authentication.Commands.Login
 			// Add device info to response for frontend to prompt "Trust this device?"
 			//result.IsNewDevice = !isTrustedDevice;
 			// result.DeviceId = deviceId;
+
+			await _deviceTokenRegistrar.TryRegisterAsync(
+				user.Id,
+				request.DeviceToken,
+				request.DeviceTokenPlatform,
+				request.AppVersion,
+				cancellationToken);
 
 			return Success(entity: result);
 		}

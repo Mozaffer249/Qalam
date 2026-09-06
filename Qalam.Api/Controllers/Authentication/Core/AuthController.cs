@@ -10,6 +10,7 @@ using Qalam.Core.Features.Authentication.Commands.SendPhoneOtp;
 using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
 using Qalam.Core.Features.Authentication.Commands.ChangePassword;
+using Qalam.Core.Features.Authentication.Commands.DeactivateAccount;
 using Qalam.Core.Features.Authentication.Commands.ResetPassword;
 using Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode;
 using Qalam.Core.Features.Authentication.Commands.UpdateProfile;
@@ -20,6 +21,7 @@ using Qalam.Core.Features.Teacher.Commands.SubmitTeacherRegistrationRequirements
 using Qalam.Core.Features.Teacher.Commands.UploadTeacherDocuments;
 using Qalam.Api.Helpers;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Account;
 using Qalam.Data.DTOs.Common;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
@@ -343,6 +345,32 @@ namespace Qalam.Api.Controllers.Authentication.Core
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateProfilePicture(IFormFile file)
             => NewResult(await Mediator.Send(new UpdateMyProfilePictureCommand { File = file }));
+
+        /// <summary>
+        /// Soft-deactivate the authenticated student or guardian account.
+        /// Blocked when the user has active enrollments, open session requests, or pending invitations.
+        /// </summary>
+        [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
+        [HttpPost(Router.AccountDelete)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AccountDeactivationBlockedDto), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> DeleteAccount([FromBody] DeactivateAccountDto body)
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            var accessToken = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : authHeader;
+
+            var command = new DeactivateAccountCommand
+            {
+                Password = body.Password,
+                AccessToken = accessToken,
+                RefreshToken = Request.Headers["X-Refresh-Token"].ToString(),
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+            };
+            return NewResult(await Mediator.Send(command));
+        }
 
         #endregion
 

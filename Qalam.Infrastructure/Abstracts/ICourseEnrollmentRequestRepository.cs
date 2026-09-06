@@ -37,4 +37,12 @@ public interface ICourseEnrollmentRequestRepository : IGenericRepositoryAsync<Co
         int userId,
         InvitationInboxScope scope,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when the user has pending S1 invitations received or sent on open enrollment requests.
+    /// </summary>
+    Task<bool> AnyBlockingInvitationsForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default);
 }

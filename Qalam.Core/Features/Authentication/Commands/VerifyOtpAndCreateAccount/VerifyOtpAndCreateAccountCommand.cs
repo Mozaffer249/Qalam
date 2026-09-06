@@ -13,4 +13,12 @@ public class VerifyOtpAndCreateAccountCommand : IRequest<Response<object>>
     /// Required for new users; optional for returning users who already accepted.
     /// </summary>
     public bool AcceptedTerms { get; set; }
+
+    /// <summary>Optional FCM / push device token to register after successful verify.</summary>
+    public string? DeviceToken { get; set; }
+
+    /// <summary>ios | android | web — defaults to android when DeviceToken is set.</summary>
+    public string? DeviceTokenPlatform { get; set; }
+
+    public string? AppVersion { get; set; }
 }

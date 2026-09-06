@@ -6,7 +6,7 @@ using Qalam.Infrastructure.Seeding.Data;
 namespace Qalam.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds initial published legal documents (terms, privacy, refund, pricing) from <see cref="LegalDocumentSeedData"/>.
+/// Seeds initial published legal documents (terms, privacy, refund, pricing, faq) from <see cref="LegalDocumentSeedData"/>.
 /// Idempotent: skips when the table is missing or a document Code already exists.
 /// </summary>
 public static class LegalDocumentsSeeder

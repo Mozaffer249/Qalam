@@ -21,6 +21,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
     private readonly IAuthenticationService _authService;
     private readonly IAuthSettingsProvider _authSettingsProvider;
     private readonly IAuthLoginOtpHelper _authLoginOtpHelper;
+    private readonly IAuthDeviceTokenRegistrar _deviceTokenRegistrar;
 
     public StudentVerifyOtpCommandHandler(
         IOtpService otpService,
@@ -29,6 +30,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         IAuthenticationService authService,
         IAuthSettingsProvider authSettingsProvider,
         IAuthLoginOtpHelper authLoginOtpHelper,
+        IAuthDeviceTokenRegistrar deviceTokenRegistrar,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -37,6 +39,7 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         _authService = authService;
         _authSettingsProvider = authSettingsProvider;
         _authLoginOtpHelper = authLoginOtpHelper;
+        _deviceTokenRegistrar = deviceTokenRegistrar;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -79,6 +82,13 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
             var jwtResult = await _authService.GetJWTToken(existingUser);
             var roles = await _userManager.GetRolesAsync(existingUser);
             var hasStudentOrGuardianRole = roles.Contains(Roles.Student) || roles.Contains(Roles.Guardian);
+
+            await _deviceTokenRegistrar.TryRegisterAsync(
+                existingUser.Id,
+                request.DeviceToken,
+                request.DeviceTokenPlatform,
+                request.AppVersion,
+                cancellationToken);
 
             if (hasStudentOrGuardianRole)
             {
@@ -135,6 +145,14 @@ public class StudentVerifyOtpCommandHandler : ResponseHandler,
         await MarkLoginOtpUsedIfNeeded(loginOtp, user.Id, cancellationToken);
 
         var jwt = await _authService.GetJWTToken(user);
+
+        await _deviceTokenRegistrar.TryRegisterAsync(
+            user.Id,
+            request.DeviceToken,
+            request.DeviceTokenPlatform,
+            request.AppVersion,
+            cancellationToken);
+
         return Success(entity: new StudentRegistrationResponseDto
         {
             Token = jwt.AccessToken,

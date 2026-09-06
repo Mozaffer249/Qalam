@@ -7,13 +7,14 @@ public class SubmitContactMessageCommandValidator : AbstractValidator<SubmitCont
 {
     public SubmitContactMessageCommandValidator()
     {
+        // Name/phone may be omitted when JWT is present; handler prefills from profile.
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Name is required")
-            .MaximumLength(100).WithMessage("Name cannot exceed 100 characters");
+            .MaximumLength(100).WithMessage("Name cannot exceed 100 characters")
+            .When(x => !string.IsNullOrWhiteSpace(x.Name));
 
         RuleFor(x => x.Phone)
-            .NotEmpty().WithMessage("Phone is required")
-            .MaximumLength(30).WithMessage("Phone cannot exceed 30 characters");
+            .MaximumLength(30).WithMessage("Phone cannot exceed 30 characters")
+            .When(x => !string.IsNullOrWhiteSpace(x.Phone));
 
         RuleFor(x => x.Email)
             .MaximumLength(200).WithMessage("Email cannot exceed 200 characters")

@@ -27,6 +27,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
     private readonly ITeacherRegistrationCompletionService _completionService;
     private readonly ILegalConsentService _consentService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IAuthDeviceTokenRegistrar _deviceTokenRegistrar;
 
     public VerifyOtpAndCreateAccountCommandHandler(
         IOtpService otpService,
@@ -40,6 +41,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         ITeacherRegistrationCompletionService completionService,
         ILegalConsentService consentService,
         IHttpContextAccessor httpContextAccessor,
+        IAuthDeviceTokenRegistrar deviceTokenRegistrar,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _otpService = otpService;
@@ -53,6 +55,7 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
         _completionService = completionService;
         _consentService = consentService;
         _httpContextAccessor = httpContextAccessor;
+        _deviceTokenRegistrar = deviceTokenRegistrar;
     }
 
     public async Task<Response<object>> Handle(
@@ -121,6 +124,13 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
                 await _loginOtpRepository.SaveChangesAsync(cancellationToken);
             }
 
+            await _deviceTokenRegistrar.TryRegisterAsync(
+                existingUser.Id,
+                request.DeviceToken,
+                request.DeviceTokenPlatform,
+                request.AppVersion,
+                cancellationToken);
+
             return Success<object>(entity: new
             {
                 Token = jwtResult.AccessToken,
@@ -153,6 +163,13 @@ public class VerifyOtpAndCreateAccountCommandHandler : ResponseHandler,
             await _otpService.MarkLoginOtpUsedAsync(loginOtp.Id, result.UserId, cancellationToken);
             await _loginOtpRepository.SaveChangesAsync(cancellationToken);
         }
+
+        await _deviceTokenRegistrar.TryRegisterAsync(
+            result.UserId,
+            request.DeviceToken,
+            request.DeviceTokenPlatform,
+            request.AppVersion,
+            cancellationToken);
 
         return Success<object>(entity: new
         {

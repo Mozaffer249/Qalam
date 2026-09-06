@@ -1,3 +1,5 @@
+using Qalam.Data.Entity.Legal;
+
 namespace Qalam.Infrastructure.Seeding.Data;
 
 public sealed record LegalSeedSection(
@@ -27,7 +29,8 @@ public static class LegalDocumentSeedData
         BuildTerms(),
         BuildPrivacy(),
         BuildRefund(),
-        BuildPricing()
+        BuildPricing(),
+        BuildFaq()
     };
 
     private static LegalSeedDocument BuildTerms() => new(
@@ -236,5 +239,57 @@ public static class LegalDocumentSeedData
                 "<p>يظهر للمستخدم بشكل واضح:</p><blockquote><p><strong>ملخص الطلب</strong></p><p>الخدمة: …</p><p>عدد الجلسات: …</p><p>السعر: …</p><p>الرسوم: …</p><p><strong>الإجمالي المستحق: … ريال</strong></p><p>[الدفع وتأكيد الطلب]</p></blockquote>",
                 null,
                 3),
+        });
+
+    private static LegalSeedDocument BuildFaq() => new(
+        Code: LegalDocumentCodes.Faq,
+        TitleAr: "الأسئلة الشائعة",
+        TitleEn: "Frequently Asked Questions",
+        DisplayOrder: 5,
+        RequiresConsent: false,
+        Sections: new[]
+        {
+            new LegalSeedSection(
+                "faq-what-is-qalam",
+                "ما هي منصة قلم؟",
+                "What is Qalam?",
+                "قلم منصة تعليمية سعودية تربط الطلاب وأولياء الأمور بمعلمين مؤهلين لإدارة الدورات والجلسات التعليمية في بيئة آمنة ومنظمة.",
+                "Qalam is a Saudi education platform that connects students and parents with qualified teachers to manage courses and learning sessions in a safe, organized environment.",
+                1),
+            new LegalSeedSection(
+                "faq-who-can-join",
+                "من يمكنه الانضمام؟",
+                "Who can join?",
+                "المعلمون والمدربون يمكنهم التقديم عبر الموقع الآن. الطلاب وأولياء الأمور سينضمون عبر تطبيق قلم عند إطلاقه مع بداية العام الدراسي.",
+                "Teachers and trainers can apply on the website now. Students and parents will join through the Qalam app when it launches with the new academic year.",
+                2),
+            new LegalSeedSection(
+                "faq-teacher-join",
+                "كيف ينضم المعلم؟",
+                "How does a teacher join?",
+                "اضغط «سجل معنا»، أكمل خطوات التسجيل ورفع المستندات، ثم انتظر مراجعة واعتماد الحساب قبل إنشاء الدورات والجلسات.",
+                "Tap “Register with us”, complete registration and document upload, then wait for account review and approval before creating courses and sessions.",
+                3),
+            new LegalSeedSection(
+                "faq-student-app",
+                "هل تطبيق الطالب متاح الآن؟",
+                "Is the student app available now?",
+                "تطبيق الطالب قيد الإعداد وسيُعلن عن توافره قريباً على متاجر التطبيقات. يمكنك متابعة الموقع أو التواصل معنا للاطلاع على آخر المستجدات.",
+                "The student app is being prepared and will be announced soon on the app stores. Follow the website or contact us for the latest updates.",
+                4),
+            new LegalSeedSection(
+                "faq-sessions",
+                "كيف تتم الجلسات؟",
+                "How do sessions work?",
+                "بعد التسجيل في دورة نشطة، تُعرض الجلسات المجدولة على المنصة. ينضم المعلم والطالب في الوقت المحدد، مع متابعة الحضور والتقييم بعد اكتمال الجلسة.",
+                "After enrolling in an active course, scheduled sessions appear on the platform. Teacher and student join at the set time, with attendance and review after the session is completed.",
+                5),
+            new LegalSeedSection(
+                "faq-support",
+                "كيف أتواصل مع الدعم؟",
+                "How can I contact support?",
+                "تواصل معنا عبر صفحة «تواصل معنا»، أو عبر البريد info@qalam.net.sa، أو الجوال +966 5 3993 1081.",
+                "Reach us via the Contact page, email info@qalam.net.sa, or mobile +966 5 3993 1081.",
+                6),
         });
 }

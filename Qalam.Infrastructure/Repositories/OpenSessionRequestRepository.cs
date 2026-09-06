@@ -721,4 +721,51 @@ public class OpenSessionRequestRepository : GenericRepositoryAsync<OpenSessionRe
         entity.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public Task<bool> AnyBlockingForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        var blocking = OpenSessionRequestStatusSets.StudentOpen
+            .Append(OpenSessionRequestStatus.OfferAccepted)
+            .ToArray();
+
+        return _context.OpenSessionRequests
+            .AsNoTracking()
+            .AnyAsync(
+                r => blocking.Contains(r.Status)
+                     && (r.RequestedByUserId == userId
+                         || (studentIds.Count > 0 && studentIds.Contains(r.StudentId))),
+                cancellationToken);
+    }
+
+    public async Task<bool> AnyBlockingInvitationsForUserAsync(
+        int userId,
+        IReadOnlyCollection<int> studentIds,
+        CancellationToken cancellationToken = default)
+    {
+        var openStatuses = OpenSessionRequestStatusSets.StudentOpen;
+
+        if (studentIds.Count > 0)
+        {
+            var hasReceived = await _context.OpenSessionRequestInvitations
+                .AsNoTracking()
+                .AnyAsync(
+                    i => studentIds.Contains(i.InvitedStudentId)
+                         && i.Status == OpenSessionRequestInvitationStatus.Pending
+                         && openStatuses.Contains(i.OpenSessionRequest.Status),
+                    cancellationToken);
+            if (hasReceived)
+                return true;
+        }
+
+        return await _context.OpenSessionRequests
+            .AsNoTracking()
+            .AnyAsync(
+                r => r.RequestedByUserId == userId
+                     && openStatuses.Contains(r.Status)
+                     && r.Invitations.Any(i => i.Status == OpenSessionRequestInvitationStatus.Pending),
+                cancellationToken);
+    }
 }

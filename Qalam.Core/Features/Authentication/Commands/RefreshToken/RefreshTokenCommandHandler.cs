@@ -22,6 +22,7 @@ namespace Qalam.Core.Features.Authentication.Commands.RefreshToken
         private readonly IStringLocalizer<AuthenticationResources> _authLocalizer;
         private readonly ISessionManagementService _sessionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IAuthDeviceTokenRegistrar _deviceTokenRegistrar;
 
         public RefreshTokenCommandHandler(
             IStringLocalizer<SharedResources> sharedLocalizer,
@@ -29,7 +30,8 @@ namespace Qalam.Core.Features.Authentication.Commands.RefreshToken
             IAuthenticationService authenticationService,
             UserManager<User> userManager,
             ISessionManagementService sessionService,
-            IHttpContextAccessor httpContextAccessor) : base(sharedLocalizer)
+            IHttpContextAccessor httpContextAccessor,
+            IAuthDeviceTokenRegistrar deviceTokenRegistrar) : base(sharedLocalizer)
         {
             _authenticationService = authenticationService;
             _userManager = userManager;
@@ -37,6 +39,7 @@ namespace Qalam.Core.Features.Authentication.Commands.RefreshToken
             _authLocalizer = authLocalizer;
             _sessionService = sessionService;
             _httpContextAccessor = httpContextAccessor;
+            _deviceTokenRegistrar = deviceTokenRegistrar;
         }
 
         public async Task<Response<JwtAuthResult>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -100,6 +103,13 @@ namespace Qalam.Core.Features.Authentication.Commands.RefreshToken
                     refreshToken: result.RefreshToken.TokenString
                 );
             }
+
+            await _deviceTokenRegistrar.TryRegisterAsync(
+                user.Id,
+                request.DeviceToken,
+                request.DeviceTokenPlatform,
+                request.AppVersion,
+                cancellationToken);
 
             return Success(entity: result);
         }
