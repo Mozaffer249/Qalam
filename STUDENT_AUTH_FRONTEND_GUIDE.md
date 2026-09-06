@@ -121,15 +121,11 @@ No auth required.
 interface VerifyOtpRequest {
   phoneNumber: string;  // same phone from step 1 (without country code)
   otpCode: string;      // OTP code (test code: "1234")
-  /** Optional FCM token — register push device on successful verify */
-  deviceToken?: string;
-  /** ios | android | web — defaults to android when deviceToken is set */
-  deviceTokenPlatform?: 'ios' | 'android' | 'web';
-  appVersion?: string;
 }
 ```
 
-See [docs/STUDENT-SETTINGS-API.md](docs/STUDENT-SETTINGS-API.md) (Flutter / Student app) for full push registration guidance.
+Optional push fields (`deviceToken`, `deviceTokenPlatform`, `appVersion`): see **[docs/STUDENT-SETTINGS-API.md](docs/STUDENT-SETTINGS-API.md)** (single guide for device tokens & settings).
+
 ### Response Sample (New User)
 
 ```json

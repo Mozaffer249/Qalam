@@ -1,12 +1,129 @@
-# Student Settings API
+# Device tokens & account settings API
 
-Frontend integration guide for student/guardian account settings endpoints.
+Single frontend guide for push device registration and student/guardian settings.
 
 Base path prefix: `/Api/V1`
 
-## Notification preferences
+---
 
-Local toggles alone are not enough — persist via these endpoints.
+## 1. Device tokens on auth (all roles)
+
+Optional body fields — best-effort; auth never fails if registration fails or fields are omitted.
+
+| Flow | Endpoint |
+|------|----------|
+| Admin password login | `POST /Authentication/Admin/Login` |
+| Teacher verify OTP | `POST /Authentication/Teacher/VerifyOtp` |
+| Student verify OTP | `POST /Authentication/Student/VerifyOtp` |
+| Refresh token | refresh body (same optional fields) |
+
+```json
+{
+  "deviceToken": "<fcm-token>",
+  "deviceTokenPlatform": "ios|android|web",
+  "appVersion": "1.0.0"
+}
+```
+
+If `deviceToken` is set and platform is omitted, platform defaults to **`android`**.
+
+### Dedicated endpoints (after login)
+
+| Method | Path | Auth | Body |
+|--------|------|------|------|
+| POST | `/Authentication/DeviceTokens` | JWT | `{ "token", "platform", "appVersion?" }` |
+| DELETE | `/Authentication/DeviceTokens` | JWT | `{ "token" }` |
+
+Use DELETE on logout. Use POST when FCM refreshes the token (`onTokenRefresh`).
+
+---
+
+## 2. Teacher web
+
+Wired in `apps/teacher`:
+
+- Helper: `src/lib/push/deviceToken.ts` → `resolveDeviceTokenPayload()`
+- Call site: register `StepOTP` → `POST …/Teacher/VerifyOtp`
+- Env (see `apps/teacher/.env.example`): `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` (+ optional authDomain / storageBucket / `VITE_APP_VERSION`)
+- Service worker: `public/firebase-messaging-sw.js` — replace `REPLACE_ME` to match env
+
+If Firebase env is missing, VerifyOtp continues **without** a token.
+
+---
+
+## 3. Admin web
+
+Wired in `apps/admin`:
+
+- Helper: `lib/push/deviceToken.ts` → `resolveDeviceTokenPayload()`
+- Call site: `app/login/page.tsx` → `POST …/Admin/Login`
+- Env (see `apps/admin/.env.example`): `NEXT_PUBLIC_FIREBASE_*` + `NEXT_PUBLIC_FIREBASE_VAPID_KEY`
+- Service worker: `public/firebase-messaging-sw.js` — replace `REPLACE_ME` to match env
+
+If Firebase env is missing, login continues **without** a token.
+
+---
+
+## 4. Student Flutter (implement in app)
+
+Preferred: send FCM token on **Verify OTP**.
+
+### Packages
+
+- `firebase_core`, `firebase_messaging`
+- `package_info_plus` (optional, for `appVersion`)
+
+### Verify OTP
+
+`POST /Api/V1/Authentication/Student/VerifyOtp` (no auth). Live path is **`VerifyOtp`** (not `VerifyOp`).
+
+```json
+{
+  "phoneNumber": "503788444",
+  "otpCode": "1234",
+  "deviceToken": "<fcm-token>",
+  "deviceTokenPlatform": "android",
+  "appVersion": "1.0.0"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `phoneNumber` | yes | Digits without country code (same as SendOtp) |
+| `otpCode` | yes | |
+| `deviceToken` | no | From `FirebaseMessaging.instance.getToken()` |
+| `deviceTokenPlatform` | no | `ios` or `android` |
+| `appVersion` | no | From `PackageInfo.fromPlatform()` |
+
+```dart
+final fcmToken = await FirebaseMessaging.instance.getToken();
+final info = await PackageInfo.fromPlatform();
+final platform = Platform.isIOS ? 'ios' : 'android';
+
+await api.post('/Api/V1/Authentication/Student/VerifyOtp', body: {
+  'phoneNumber': phone,
+  'otpCode': otp,
+  if (fcmToken != null) 'deviceToken': fcmToken,
+  if (fcmToken != null) 'deviceTokenPlatform': platform,
+  'appVersion': info.version,
+});
+```
+
+### Logout
+
+```dart
+await api.delete('/Api/V1/Authentication/DeviceTokens', body: {
+  'token': fcmToken,
+});
+```
+
+### Token refresh
+
+Also call `POST /Authentication/DeviceTokens` from `FirebaseMessaging.instance.onTokenRefresh`.
+
+---
+
+## 5. Notification preferences (student/guardian)
 
 | Method | Path | Auth |
 |--------|------|------|
@@ -23,123 +140,11 @@ Local toggles alone are not enough — persist via these endpoints.
 
 Defaults on first GET: push on, email digest on, SMS alerts off.
 
-Push delivery also requires a registered device token (below). Prefer checking both `pushEnabled` and an active token before expecting pushes.
+Push delivery needs **`pushEnabled` and an active device token**.
 
 ---
 
-## Device tokens (push)
-
-Register during auth (preferred) or via dedicated endpoint after login.
-
-### On login / verify OTP (all roles)
-
-Optional fields on:
-
-| Flow | Endpoint |
-|------|----------|
-| Admin password login | `POST /Authentication/Admin/Login` |
-| Teacher verify OTP | `POST /Authentication/Teacher/VerifyOtp` |
-| Student verify OTP | `POST /Authentication/Student/VerifyOtp` |
-| Refresh token | refresh endpoint body (same optional fields) |
-
-```json
-{
-  "deviceToken": "<fcm-token>",
-  "deviceTokenPlatform": "ios|android|web",
-  "appVersion": "1.0.0"
-}
-```
-
-If `deviceToken` is sent and platform is omitted, platform defaults to `android`. Registration is best-effort and does not fail auth.
-
-### Dedicated endpoint
-
-| Method | Path | Auth |
-|--------|------|------|
-| POST | `/Authentication/DeviceTokens` | JWT |
-| DELETE | `/Authentication/DeviceTokens` | JWT |
-
-Register:
-
-```json
-{ "token": "<fcm-token>", "platform": "ios|android|web", "appVersion": "1.0.0" }
-```
-
-Unregister (logout / disable push):
-
-```json
-{ "token": "<fcm-token>" }
-```
-
----
-
-## Flutter / Student app
-
-Preferred: register the FCM token on **Verify OTP** so the backend stores it as soon as the JWT is issued. Dedicated `DeviceTokens` endpoints remain available for refresh / logout.
-
-### Packages
-
-- `firebase_messaging` — FCM token
-- `package_info_plus` — app version (optional)
-- `firebase_core` — initialize before messaging
-
-### Verify OTP body
-
-`POST /Api/V1/Authentication/Student/VerifyOtp` (no auth):
-
-```json
-{
-  "phoneNumber": "503788444",
-  "otpCode": "1234",
-  "deviceToken": "<fcm-token-from-FirebaseMessaging.instance.getToken>",
-  "deviceTokenPlatform": "android",
-  "appVersion": "1.0.0"
-}
-```
-
-| Field | Required | Notes |
-|-------|----------|--------|
-| `phoneNumber` | yes | Same as SendOtp (digits without country code) |
-| `otpCode` | yes | |
-| `deviceToken` | no | FCM registration token |
-| `deviceTokenPlatform` | no | `ios` or `android` (defaults to `android` if token present and platform omitted) |
-| `appVersion` | no | From `PackageInfo.fromPlatform()` |
-
-Registration is best-effort: auth succeeds even if token registration fails on the server.
-
-### Example (Dart sketch)
-
-```dart
-final fcmToken = await FirebaseMessaging.instance.getToken();
-final info = await PackageInfo.fromPlatform();
-final platform = Platform.isIOS ? 'ios' : 'android';
-
-await api.post('/Api/V1/Authentication/Student/VerifyOtp', body: {
-  'phoneNumber': phone,
-  'otpCode': otp,
-  if (fcmToken != null) 'deviceToken': fcmToken,
-  if (fcmToken != null) 'deviceTokenPlatform': platform,
-  'appVersion': info.version,
-});
-```
-
-### After logout
-
-```dart
-await api.delete('/Api/V1/Authentication/DeviceTokens', body: {
-  'token': fcmToken,
-});
-```
-
-### Settings toggles
-
-- `GET/PUT /Authentication/NotificationPreferences` for `pushEnabled` / email / SMS.
-- Push delivery still requires an **active** device token even when `pushEnabled` is true.
-- Re-register token on login / verify OTP; optionally also call `POST /Authentication/DeviceTokens` when the FCM token refreshes (`onTokenRefresh`).
-
----
-
-## Delete account (soft deactivate)
+## 6. Delete account (soft deactivate)
 
 | Method | Path | Auth |
 |--------|------|------|
@@ -151,11 +156,11 @@ await api.delete('/Api/V1/Authentication/DeviceTokens', body: {
 
 Sets `User.IsActive = false` (and linked Student/Guardian), revokes sessions, deactivates device tokens.
 
-**Blocked (400)** when the account has:
+**Blocked (400)** when:
 
-- Active or pending-payment enrollments → `ActiveEnrollment`
-- Open session requests (`StudentOpen` + `OfferAccepted`) → `OpenSessionRequest`
-- Pending S1/S2 invitations (received or sent) → `PendingInvitation`
+- Active / pending-payment enrollments → `ActiveEnrollment`
+- Open session requests → `OpenSessionRequest`
+- Pending S1/S2 invitations → `PendingInvitation`
 
 Response `meta`:
 
@@ -167,20 +172,18 @@ Optional header: `X-Refresh-Token` for full session revoke.
 
 ---
 
-## FAQ
-
-Reuse legal documents API — no dedicated FAQ controller.
+## 7. FAQ
 
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/Legal/Documents` | Anonymous |
 | GET | `/Legal/Documents/faq` | Anonymous |
 
-Seeded code: `faq` (bilingual Q&A sections). `RequiresConsent: false`.
+Seeded code: `faq`. `RequiresConsent: false`. Admin edits at **Admin → FAQ** (opens the legal document editor for `faq`).
 
 ---
 
-## Support / contact
+## 8. Support / contact
 
 | Method | Path | Auth |
 |--------|------|------|
