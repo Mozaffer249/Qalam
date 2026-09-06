@@ -446,7 +446,7 @@ public class EducationFilterService : IEducationFilterService
                     termId: null,
                     academicProgramId: state.AcademicProgramId);
 
-                if (subjects.Count == 1 && rule.HasWritableFilters)
+                if (subjects.Count == 1 && rule.HasWritableFilters && !rule.HasAcademicProgram)
                 {
                     state.SubjectId = subjects[0].Id;
                 }

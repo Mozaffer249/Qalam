@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Qalam.Data.AppMetaData;
 using Qalam.Data.Entity.Education;
 using Qalam.Infrastructure.context;
 
@@ -28,6 +29,8 @@ public static class UniversityCatalogSeeder
 
     public static async Task SeedAsync(ApplicationDBContext context)
     {
+        await EnsureUniversitySubjectWriteInSlotAsync(context);
+
         if (await SeederHelper.HasAnyDataAsync(context.Universities))
             return;
 
@@ -267,4 +270,36 @@ public static class UniversityCatalogSeeder
                 ]),
             ]),
     ];
+
+    /// <summary>
+    /// Idempotent: ensures university domain has an optional subject write-in slot after Subject.
+    /// </summary>
+    private static async Task EnsureUniversitySubjectWriteInSlotAsync(ApplicationDBContext context)
+    {
+        var universityDomain = await context.EducationDomains
+            .FirstOrDefaultAsync(d => d.Code == EducationDomainCodes.University);
+        if (universityDomain is null)
+            return;
+
+        var exists = await context.WritableFilterSlots.AnyAsync(s =>
+            s.DomainId == universityDomain.Id &&
+            s.Code == WritableFilterSlotCodes.UniversitySubjectWriteIn);
+        if (exists)
+            return;
+
+        context.WritableFilterSlots.Add(new WritableFilterSlot
+        {
+            DomainId = universityDomain.Id,
+            Code = WritableFilterSlotCodes.UniversitySubjectWriteIn,
+            NameAr = "مادة غير موجودة (كتابة)",
+            NameEn = "Missing subject (write-in)",
+            AfterStep = WritableFilterAfterSteps.Subject,
+            OrderIndex = 1,
+            IsRequired = false,
+            RequiredWhenSubjectCodeContains = null,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+    }
 }

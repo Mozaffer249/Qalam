@@ -21,11 +21,7 @@ public static class WritableFilterSlotCodes
     public const string LanguageSkill = "language.skill";
     public const string LanguagePurpose = "language.purpose";
     public const string LanguageCurriculum = "language.curriculum";
-    public const string SchoolOtherSubject = "school.other_subject";
-    public const string UniversityOtherUniversity = "university.other_university";
-    public const string UniversityOtherCollege = "university.other_college";
-    public const string UniversityOtherMajor = "university.other_major";
-    public const string UniversityOtherCourse = "university.other_course";
+    public const string UniversitySubjectWriteIn = "university.subject_writein";
 }
 
 public static class WritableFilterAfterSteps

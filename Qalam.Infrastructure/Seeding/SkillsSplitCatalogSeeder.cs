@@ -25,7 +25,35 @@ public static class SkillsSplitCatalogSeeder
             await SeedSubjectsAsync(context, domain);
             await SeedWritableSlotsAsync(context, domain);
             await EnsureMissingOtherCatalogAsync(context, domain);
+            await DeactivateRetiredTechSlotsAsync(context, domain);
         }
+    }
+
+    /// <summary>
+    /// Soft-disable retired tech writable slots (tool / curriculum) on existing DBs.
+    /// </summary>
+    private static async Task DeactivateRetiredTechSlotsAsync(ApplicationDBContext context, EducationDomain domain)
+    {
+        if (domain.Code != EducationDomainCodes.TechSkills)
+            return;
+
+        var retired = new[]
+        {
+            WritableFilterSlotCodes.TechTool,
+            WritableFilterSlotCodes.TechCurriculum
+        };
+        var slots = await context.WritableFilterSlots
+            .Where(s => s.DomainId == domain.Id && retired.Contains(s.Code) && s.IsActive)
+            .ToListAsync();
+        if (slots.Count == 0)
+            return;
+
+        foreach (var slot in slots)
+        {
+            slot.IsActive = false;
+            slot.UpdatedAt = DateTime.UtcNow;
+        }
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -366,11 +394,11 @@ public static class SkillsSplitCatalogSeeder
         {
             EducationDomainCodes.SoftSkills =>
             [
-                new(WritableFilterSlotCodes.SoftOtherField, "مجال آخر", "Other field",
-                    WritableFilterAfterSteps.ParentSubject, 1, false, ".other",
-                    [("custom-field", "مجال مخصص", "Custom field")]),
+                new(WritableFilterSlotCodes.SoftOtherField, "المجال (كتابة)", "Field (write-in)",
+                    WritableFilterAfterSteps.Subject, 0, false, "soft.other",
+                    []),
                 new(WritableFilterSlotCodes.SoftOtherSkill, "مهارة أخرى", "Other skill",
-                    WritableFilterAfterSteps.Subject, 2, false, null,
+                    WritableFilterAfterSteps.Subject, 1, false, ".other",
                     [("change-mgmt", "إدارة التغيير", "Change management"),
                      ("coaching", "الكوتشينغ المهني", "Career coaching")])
             ],
@@ -385,23 +413,7 @@ public static class SkillsSplitCatalogSeeder
             [
                 new(WritableFilterSlotCodes.TechSpecialty, "التخصص", "Specialty",
                     WritableFilterAfterSteps.Level, 1, false, null,
-                    [("5g", "5G الجيل الخامس", "5G"),
-                     ("react", "React", "React"),
-                     ("flutter", "Flutter", "Flutter"),
-                     ("k8s", "Kubernetes", "Kubernetes"),
-                     ("pentest", "اختبار الاختراق", "Pentesting")]),
-                new(WritableFilterSlotCodes.TechTool, "التقنية / البرنامج", "Tool / program",
-                    WritableFilterAfterSteps.Level, 2, false, null,
-                    [("huawei", "HUAWEI", "HUAWEI"),
-                     ("packet-tracer", "Cisco Packet Tracer", "Cisco Packet Tracer"),
-                     ("vscode", "VS Code", "VS Code"),
-                     ("figma", "Figma", "Figma"),
-                     ("premiere", "Adobe Premiere", "Adobe Premiere"),
-                     ("aws", "AWS", "AWS")]),
-                new(WritableFilterSlotCodes.TechCurriculum, "المنهج", "Curriculum",
-                    WritableFilterAfterSteps.Level, 3, false, null,
-                    [("ccna", "CCNA", "CCNA"),
-                     ("aws-cp", "AWS Cloud Practitioner", "AWS Cloud Practitioner")]),
+                    []),
                 new(WritableFilterSlotCodes.TechOtherPath, "مسار آخر", "Other path",
                     WritableFilterAfterSteps.Subject, 4, false, ".other",
                     [("blockchain", "البلوك تشين", "Blockchain")])
@@ -453,7 +465,24 @@ public static class SkillsSplitCatalogSeeder
         string? RequiredWhen,
         (string Code, string Ar, string En)[] Values);
 
-    private static IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> SoftCategories() =>
+    private static IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> SoftCategories()
+    {
+        return SoftCategoriesCore()
+            .Select(c =>
+            {
+                if (c.Children.Length == 0)
+                    return c;
+                var otherCode = $"{c.Code}.other";
+                if (c.Children.Any(ch =>
+                        string.Equals(ch.Code, otherCode, StringComparison.OrdinalIgnoreCase)))
+                    return c;
+                return (c.Code, c.Ar, c.En,
+                    c.Children.Concat([(otherCode, "أخرى", "Other")]).ToArray());
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<(string Code, string Ar, string En, (string Code, string Ar, string En)[] Children)> SoftCategoriesCore() =>
     [
         ("soft.career", "التوظيف والتطوير المهني", "Career and professional development",
         [

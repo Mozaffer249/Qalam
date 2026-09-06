@@ -218,6 +218,7 @@ public static class EducationRuleDefaults
         HasCollege = true,
         HasDepartment = true,
         HasAcademicProgram = true,
+        HasWritableFilters = true,
         MinSessions = 1,
         MaxSessions = 250,
         DefaultSessionDurationMinutes = 90,

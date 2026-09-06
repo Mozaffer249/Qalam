@@ -61,9 +61,6 @@ public class DatabaseSeeder
         // University institution catalog (KSU, KAU, KFUPM)
         await UniversityCatalogSeeder.SeedAsync(context);
 
-        // Teacher survey «أخرى» write-ins (school / university / soft.other_field)
-        await TeacherSurveyOtherWritableSeeder.SeedAsync(context);
-
         // Excel domains 1–5 leftovers: sharia / flat language / university units + lessons
         await ExcelDomainsUnitsLessonsSeeder.SeedAsync(context);
 
