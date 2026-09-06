@@ -175,9 +175,14 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
 
         // University path: subjects are owned by the program. Do not also require LevelId —
         // seed/data may attach subjects to a single year while the wizard still picks Level.
+        // Domain-level «أخرى» (AcademicProgramId null, code contains .other) is always offered.
         if (academicProgramId.HasValue)
         {
-            query = query.Where(s => s.AcademicProgramId == academicProgramId);
+            query = query.Where(s =>
+                s.AcademicProgramId == academicProgramId
+                || (s.AcademicProgramId == null
+                    && s.Code != null
+                    && s.Code.Contains(".other")));
         }
         else
         {

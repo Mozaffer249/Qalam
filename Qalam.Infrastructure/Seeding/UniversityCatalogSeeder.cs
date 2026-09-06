@@ -29,7 +29,7 @@ public static class UniversityCatalogSeeder
 
     public static async Task SeedAsync(ApplicationDBContext context)
     {
-        await EnsureUniversitySubjectWriteInSlotAsync(context);
+        await EnsureUniversityOtherCatalogAsync(context);
 
         if (await SeederHelper.HasAnyDataAsync(context.Universities))
             return;
@@ -272,34 +272,60 @@ public static class UniversityCatalogSeeder
     ];
 
     /// <summary>
-    /// Idempotent: ensures university domain has an optional subject write-in slot after Subject.
+    /// Idempotent: domain-level «أخرى» subject + gated subject write-in slot.
     /// </summary>
-    private static async Task EnsureUniversitySubjectWriteInSlotAsync(ApplicationDBContext context)
+    private static async Task EnsureUniversityOtherCatalogAsync(ApplicationDBContext context)
     {
         var universityDomain = await context.EducationDomains
             .FirstOrDefaultAsync(d => d.Code == EducationDomainCodes.University);
         if (universityDomain is null)
             return;
 
-        var exists = await context.WritableFilterSlots.AnyAsync(s =>
+        var otherSubject = await context.Subjects.FirstOrDefaultAsync(s =>
+            s.DomainId == universityDomain.Id && s.Code == "university.other");
+        if (otherSubject is null)
+        {
+            context.Subjects.Add(new Subject
+            {
+                DomainId = universityDomain.Id,
+                Code = "university.other",
+                NameAr = "أخرى",
+                NameEn = "Other",
+                AcademicProgramId = null,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var slot = await context.WritableFilterSlots.FirstOrDefaultAsync(s =>
             s.DomainId == universityDomain.Id &&
             s.Code == WritableFilterSlotCodes.UniversitySubjectWriteIn);
-        if (exists)
-            return;
 
-        context.WritableFilterSlots.Add(new WritableFilterSlot
+        if (slot is null)
         {
-            DomainId = universityDomain.Id,
-            Code = WritableFilterSlotCodes.UniversitySubjectWriteIn,
-            NameAr = "مادة غير موجودة (كتابة)",
-            NameEn = "Missing subject (write-in)",
-            AfterStep = WritableFilterAfterSteps.Subject,
-            OrderIndex = 1,
-            IsRequired = false,
-            RequiredWhenSubjectCodeContains = null,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await context.SaveChangesAsync();
+            context.WritableFilterSlots.Add(new WritableFilterSlot
+            {
+                DomainId = universityDomain.Id,
+                Code = WritableFilterSlotCodes.UniversitySubjectWriteIn,
+                NameAr = "مادة غير موجودة (كتابة)",
+                NameEn = "Missing subject (write-in)",
+                AfterStep = WritableFilterAfterSteps.Subject,
+                OrderIndex = 1,
+                IsRequired = false,
+                RequiredWhenSubjectCodeContains = ".other",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+            return;
+        }
+
+        if (slot.RequiredWhenSubjectCodeContains != ".other")
+        {
+            slot.RequiredWhenSubjectCodeContains = ".other";
+            slot.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
     }
 }
