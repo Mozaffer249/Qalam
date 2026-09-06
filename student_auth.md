@@ -73,16 +73,22 @@ Base URL: `Api/V1/Authentication/Student`
 
 ## 2. VerifyOtp
 
-**`POST /VerifyOtp`** — No auth
+**`POST /VerifyOtp`** — No auth  
+Full path: `POST /Api/V1/Authentication/Student/VerifyOtp`
 
 ### Request
 ```json
 {
   "phoneNumber": "503788444",
-  "otpCode": "1234"
+  "otpCode": "1234",
+  "deviceToken": "<optional-fcm-token>",
+  "deviceTokenPlatform": "android",
+  "appVersion": "1.0.0"
 }
 ```
 > Test OTP code: `"1234"` always passes (assumes +966 country code)
+
+Optional push fields (`deviceToken`, `deviceTokenPlatform`, `appVersion`) register the device for FCM on successful verify. See `docs/STUDENT-SETTINGS-API.md`.
 
 ### Case 2.1: New user (no account yet)
 **Next:** ChooseAccountType screen
@@ -609,6 +615,9 @@ Always check: if `response.data.token !== null` → replace stored token.
 ### VerifyOtp
 - `phoneNumber`: required
 - `otpCode`: required
+- `deviceToken`: optional FCM token
+- `deviceTokenPlatform`: optional (`ios` | `android` | `web`)
+- `appVersion`: optional
 
 ### SetAccountTypeAndUsage
 - `accountType`: required, one of "Student" / "Parent" / "Both"

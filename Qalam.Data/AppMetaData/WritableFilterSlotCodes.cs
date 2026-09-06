@@ -2,6 +2,7 @@ namespace Qalam.Data.AppMetaData;
 
 public static class WritableFilterSlotCodes
 {
+    public const string SoftOtherField = "soft.other_field";
     public const string SoftOtherSkill = "soft.other_skill";
     public const string LifeOtherSkill = "life.other_skill";
     public const string TechSpecialty = "tech.specialty";
@@ -20,6 +21,11 @@ public static class WritableFilterSlotCodes
     public const string LanguageSkill = "language.skill";
     public const string LanguagePurpose = "language.purpose";
     public const string LanguageCurriculum = "language.curriculum";
+    public const string SchoolOtherSubject = "school.other_subject";
+    public const string UniversityOtherUniversity = "university.other_university";
+    public const string UniversityOtherCollege = "university.other_college";
+    public const string UniversityOtherMajor = "university.other_major";
+    public const string UniversityOtherCourse = "university.other_course";
 }
 
 public static class WritableFilterAfterSteps

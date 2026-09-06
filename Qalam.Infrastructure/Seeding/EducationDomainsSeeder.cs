@@ -430,10 +430,12 @@ public class EducationDomainsSeeder
                 case "school":
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
                     if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
+                    if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
                     break;
                 case "university":
                     if (!rule.HasContentUnits) { rule.HasContentUnits = true; dirty = true; }
                     if (!rule.HasLessons) { rule.HasLessons = true; dirty = true; }
+                    if (!rule.HasWritableFilters) { rule.HasWritableFilters = true; dirty = true; }
                     break;
             }
 

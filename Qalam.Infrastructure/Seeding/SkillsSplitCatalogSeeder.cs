@@ -366,8 +366,11 @@ public static class SkillsSplitCatalogSeeder
         {
             EducationDomainCodes.SoftSkills =>
             [
+                new(WritableFilterSlotCodes.SoftOtherField, "مجال آخر", "Other field",
+                    WritableFilterAfterSteps.ParentSubject, 1, false, ".other",
+                    [("custom-field", "مجال مخصص", "Custom field")]),
                 new(WritableFilterSlotCodes.SoftOtherSkill, "مهارة أخرى", "Other skill",
-                    WritableFilterAfterSteps.Subject, 1, false, ".other",
+                    WritableFilterAfterSteps.Subject, 2, false, null,
                     [("change-mgmt", "إدارة التغيير", "Change management"),
                      ("coaching", "الكوتشينغ المهني", "Career coaching")])
             ],

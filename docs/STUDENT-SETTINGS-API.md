@@ -73,6 +73,72 @@ Unregister (logout / disable push):
 
 ---
 
+## Flutter / Student app
+
+Preferred: register the FCM token on **Verify OTP** so the backend stores it as soon as the JWT is issued. Dedicated `DeviceTokens` endpoints remain available for refresh / logout.
+
+### Packages
+
+- `firebase_messaging` — FCM token
+- `package_info_plus` — app version (optional)
+- `firebase_core` — initialize before messaging
+
+### Verify OTP body
+
+`POST /Api/V1/Authentication/Student/VerifyOtp` (no auth):
+
+```json
+{
+  "phoneNumber": "503788444",
+  "otpCode": "1234",
+  "deviceToken": "<fcm-token-from-FirebaseMessaging.instance.getToken>",
+  "deviceTokenPlatform": "android",
+  "appVersion": "1.0.0"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `phoneNumber` | yes | Same as SendOtp (digits without country code) |
+| `otpCode` | yes | |
+| `deviceToken` | no | FCM registration token |
+| `deviceTokenPlatform` | no | `ios` or `android` (defaults to `android` if token present and platform omitted) |
+| `appVersion` | no | From `PackageInfo.fromPlatform()` |
+
+Registration is best-effort: auth succeeds even if token registration fails on the server.
+
+### Example (Dart sketch)
+
+```dart
+final fcmToken = await FirebaseMessaging.instance.getToken();
+final info = await PackageInfo.fromPlatform();
+final platform = Platform.isIOS ? 'ios' : 'android';
+
+await api.post('/Api/V1/Authentication/Student/VerifyOtp', body: {
+  'phoneNumber': phone,
+  'otpCode': otp,
+  if (fcmToken != null) 'deviceToken': fcmToken,
+  if (fcmToken != null) 'deviceTokenPlatform': platform,
+  'appVersion': info.version,
+});
+```
+
+### After logout
+
+```dart
+await api.delete('/Api/V1/Authentication/DeviceTokens', body: {
+  'token': fcmToken,
+});
+```
+
+### Settings toggles
+
+- `GET/PUT /Authentication/NotificationPreferences` for `pushEnabled` / email / SMS.
+- Push delivery still requires an **active** device token even when `pushEnabled` is true.
+- Re-register token on login / verify OTP; optionally also call `POST /Authentication/DeviceTokens` when the FCM token refreshes (`onTokenRefresh`).
+
+---
+
 ## Delete account (soft deactivate)
 
 | Method | Path | Auth |
