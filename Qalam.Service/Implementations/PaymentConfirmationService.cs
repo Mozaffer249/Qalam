@@ -47,6 +47,21 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         _logger = logger;
     }
 
+    public async Task<PaymentOwnershipDto?> ResolveLocalPaymentAsync(
+        string providerRef,
+        CancellationToken cancellationToken = default)
+    {
+        var payment = await ResolveLocalPaymentEntityAsync(providerRef, cancellationToken);
+        if (payment == null)
+            return null;
+
+        return new PaymentOwnershipDto
+        {
+            PaymentId = payment.Id,
+            PayerUserId = payment.PayerUserId
+        };
+    }
+
     public async Task<PaymentConfirmationOutcome> ConfirmFromGatewayAsync(
         string providerTransactionId,
         CancellationToken cancellationToken = default)
@@ -54,15 +69,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         if (string.IsNullOrWhiteSpace(providerTransactionId))
             return PaymentConfirmationOutcome.Fail("MISSING_REF", "Provider transaction id is required.");
 
-        var payment = await _paymentRepository.GetByProviderTransactionIdAsync(
-            providerTransactionId, cancellationToken);
-
-        // Moyasar hosted: webhook/return may carry the payment id while we stored the invoice id.
-        if (payment == null)
-        {
-            payment = await ResolveByGatewayInvoiceAsync(providerTransactionId, cancellationToken);
-        }
-
+        var payment = await ResolveLocalPaymentEntityAsync(providerTransactionId, cancellationToken);
         if (payment == null)
             return PaymentConfirmationOutcome.Fail("PAYMENT_NOT_FOUND", "Payment intent not found.");
 
@@ -85,6 +92,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
 
         // Prefer the stored ref (invoice id for Moyasar hosted) so Fetch can load nested payments.
+        // Also try the client-supplied ref (often the Moyasar payment id from return URL).
         var fetchRef = payment.ProviderTransactionId ?? providerTransactionId;
         var remote = await gateway.FetchAsync(fetchRef, cancellationToken);
         if (remote == null && !string.Equals(fetchRef, providerTransactionId, StringComparison.Ordinal))
@@ -120,8 +128,11 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         }
 
         // Promote invoice id → real payment id so refunds hit /payments/{id}.
+        // Hosted Fetch(invoice) maps nested paid payment → remote.Id is the payment id.
         if (!string.IsNullOrWhiteSpace(remote.Id)
-            && !remote.Id.Equals(payment.ProviderTransactionId, StringComparison.OrdinalIgnoreCase))
+            && !remote.Id.Equals(payment.ProviderTransactionId, StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(remote.InvoiceId)
+                || !remote.Id.Equals(remote.InvoiceId, StringComparison.OrdinalIgnoreCase)))
         {
             payment.ProviderTransactionId = remote.Id;
         }
@@ -136,28 +147,52 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     }
 
     /// <summary>
-    /// When the client/webhook sends a Moyasar payment id, resolve the local row via invoice_id.
+    /// Bidirectional Moyasar hosted resolve:
+    /// - client sends payment id, DB has invoice id → Fetch payment → InvoiceId → local row
+    /// - client sends invoice id, DB already promoted to payment id → Fetch invoice → nested payment Id → local row
     /// </summary>
-    private async Task<Data.Entity.Payment.Payment?> ResolveByGatewayInvoiceAsync(
-        string providerPaymentId,
+    private async Task<Data.Entity.Payment.Payment?> ResolveLocalPaymentEntityAsync(
+        string providerRef,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(providerRef))
+            return null;
+
+        var direct = await _paymentRepository.GetByProviderTransactionIdAsync(
+            providerRef, cancellationToken);
+        if (direct != null)
+            return direct;
+
         foreach (var gateway in _gatewayResolver.All)
         {
             try
             {
-                var remote = await gateway.FetchAsync(providerPaymentId, cancellationToken);
-                if (remote == null || string.IsNullOrWhiteSpace(remote.InvoiceId))
+                var remote = await gateway.FetchAsync(providerRef, cancellationToken);
+                if (remote == null)
                     continue;
 
-                var byInvoice = await _paymentRepository.GetByProviderTransactionIdAsync(
-                    remote.InvoiceId, cancellationToken);
-                if (byInvoice != null)
-                    return byInvoice;
+                // Payment id → invoice id still stored on Pending row.
+                if (!string.IsNullOrWhiteSpace(remote.InvoiceId))
+                {
+                    var byInvoice = await _paymentRepository.GetByProviderTransactionIdAsync(
+                        remote.InvoiceId, cancellationToken);
+                    if (byInvoice != null)
+                        return byInvoice;
+                }
+
+                // Invoice fetch mapped to nested payment: DB may already hold payment id (post-promote).
+                if (!string.IsNullOrWhiteSpace(remote.Id)
+                    && !remote.Id.Equals(providerRef, StringComparison.OrdinalIgnoreCase))
+                {
+                    var byPayment = await _paymentRepository.GetByProviderTransactionIdAsync(
+                        remote.Id, cancellationToken);
+                    if (byPayment != null)
+                        return byPayment;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Invoice resolve via {Provider} failed", gateway.ProviderName);
+                _logger.LogDebug(ex, "Payment resolve via {Provider} failed", gateway.ProviderName);
             }
         }
 

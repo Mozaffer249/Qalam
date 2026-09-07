@@ -20,6 +20,21 @@ public interface IPaymentConfirmationService
     Task<PaymentConfirmationOutcome> ConfirmFromGatewayAsync(
         string providerTransactionId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves a local payment by provider ref, invoice id, or gateway payment id
+    /// (Fetch + invoice↔payment mapping). Used for ownership checks before confirm.
+    /// </summary>
+    Task<PaymentOwnershipDto?> ResolveLocalPaymentAsync(
+        string providerRef,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>Minimal ownership projection for student Confirm authorization.</summary>
+public sealed class PaymentOwnershipDto
+{
+    public int PaymentId { get; init; }
+    public int PayerUserId { get; init; }
 }
 
 public sealed class PaymentConfirmationOutcome

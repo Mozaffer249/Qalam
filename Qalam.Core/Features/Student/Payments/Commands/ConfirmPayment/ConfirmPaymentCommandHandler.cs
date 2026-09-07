@@ -3,7 +3,6 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Payment;
-using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.Payments.Commands.ConfirmPayment;
@@ -11,15 +10,12 @@ namespace Qalam.Core.Features.Student.Payments.Commands.ConfirmPayment;
 public class ConfirmPaymentCommandHandler : ResponseHandler,
     IRequestHandler<ConfirmPaymentCommand, Response<PaymentResultDto>>
 {
-    private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentConfirmationService _confirmationService;
 
     public ConfirmPaymentCommandHandler(
-        IPaymentRepository paymentRepository,
         IPaymentConfirmationService confirmationService,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
-        _paymentRepository = paymentRepository;
         _confirmationService = confirmationService;
     }
 
@@ -31,16 +27,19 @@ public class ConfirmPaymentCommandHandler : ResponseHandler,
         if (string.IsNullOrWhiteSpace(givenId))
             return BadRequest<PaymentResultDto>("givenId is required.");
 
-        var payment = await _paymentRepository.GetByProviderTransactionIdAsync(givenId, cancellationToken);
-        if (payment == null)
+        // Full invoice↔payment resolution (not raw ProviderTransactionId equality).
+        var ownership = await _confirmationService.ResolveLocalPaymentAsync(givenId, cancellationToken);
+        if (ownership == null)
             return NotFound<PaymentResultDto>("Payment intent not found.");
 
-        if (payment.PayerUserId != request.UserId)
+        if (ownership.PayerUserId != request.UserId)
             return BadRequest<PaymentResultDto>("Only the payer can confirm this payment.");
 
         var outcome = await _confirmationService.ConfirmFromGatewayAsync(givenId, cancellationToken);
         if (!outcome.Succeeded)
         {
+            if (outcome.ErrorCode == "PAYMENT_NOT_FOUND")
+                return NotFound<PaymentResultDto>(outcome.ErrorMessage ?? "Payment intent not found.");
             if (outcome.ErrorCode is "SCHEDULE_CONFLICT_RELEASED" or "SCHEDULE_CONFLICT_REFUNDED")
                 return BadRequest<PaymentResultDto>(outcome.ErrorCode);
             return BadRequest<PaymentResultDto>(outcome.ErrorMessage ?? "Payment confirmation failed.");
