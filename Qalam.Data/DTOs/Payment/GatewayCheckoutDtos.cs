@@ -19,6 +19,11 @@ public class GatewayCheckoutRequest
     public string Description { get; set; } = string.Empty;
     public Dictionary<string, string> Metadata { get; set; } = new();
     public string? CallbackUrl { get; set; }
+
+    /// <summary>
+    /// When set (e.g. Moyasar admin setting), overrides the gateway's env default ClientMode.
+    /// </summary>
+    public PaymentClientMode? PreferredClientMode { get; set; }
 }
 
 public class GatewayCheckoutDto
@@ -68,17 +73,25 @@ public class PaymentWebhookParseResult
         Message = reason
     };
 
+    /// <summary>
+    /// Alternate refs that may match a local Payment.ProviderTransactionId
+    /// (e.g. Moyasar invoice id when the webhook carries the payment id).
+    /// </summary>
+    public IReadOnlyList<string>? AlternateProviderPaymentIds { get; init; }
+
     public static PaymentWebhookParseResult Success(
         string providerPaymentId,
         string? eventType,
         PaymentStatus? mappedStatus,
-        string? message = null) => new()
+        string? message = null,
+        IReadOnlyList<string>? alternateProviderPaymentIds = null) => new()
     {
         Auth = PaymentWebhookAuthResult.Ok,
         ProviderPaymentId = providerPaymentId,
         EventType = eventType,
         MappedStatus = mappedStatus,
-        Message = message
+        Message = message,
+        AlternateProviderPaymentIds = alternateProviderPaymentIds
     };
 }
 

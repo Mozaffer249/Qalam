@@ -37,7 +37,15 @@ public class PaymentGatewaySettingsProvider : IPaymentGatewaySettingsProvider
         {
             try
             {
-                return PaymentGatewaySettingsDefaults.FromJson(row.Value);
+                var dto = PaymentGatewaySettingsDefaults.FromJson(row.Value);
+                // Older rows may lack MoyasarClientMode — fill from env.
+                if (string.IsNullOrWhiteSpace(dto.MoyasarClientMode))
+                {
+                    dto.MoyasarClientMode = PaymentGatewaySettingsDefaults.NormalizeMoyasarClientMode(
+                        _envSettings.Moyasar.ClientMode);
+                }
+
+                return dto;
             }
             catch (Exception ex)
             {
@@ -45,21 +53,27 @@ public class PaymentGatewaySettingsProvider : IPaymentGatewaySettingsProvider
             }
         }
 
-        return PaymentGatewaySettingsDefaults.Create(_envSettings.Provider);
+        return PaymentGatewaySettingsDefaults.Create(
+            _envSettings.Provider,
+            _envSettings.Moyasar.ClientMode);
     }
 
     public async Task<PaymentGatewaySettingsDto> SaveSettingsAsync(
         PaymentGatewaySettingsDto settings,
         CancellationToken cancellationToken = default)
     {
+        settings.ActiveProvider = settings.ActiveProvider?.Trim() ?? "Mock";
+        settings.MoyasarClientMode =
+            PaymentGatewaySettingsDefaults.NormalizeMoyasarClientMode(settings.MoyasarClientMode);
+
         await _systemSettingRepository.UpsertAsync(new SystemSetting
         {
             Key = PaymentGatewaySettingsKeys.SettingsKey,
             Value = PaymentGatewaySettingsDefaults.ToJson(settings),
             Type = SettingType.JSON,
             IsPublic = false,
-            DescriptionEn = "Active payment gateway for new payment intents",
-            DescriptionAr = "بوابة الدفع النشطة لعمليات الدفع الجديدة"
+            DescriptionEn = "Active payment gateway and Moyasar client mode for new payment intents",
+            DescriptionAr = "بوابة الدفع النشطة ووضع عرض ميسر لعمليات الدفع الجديدة"
         }, cancellationToken);
 
         return settings;
@@ -68,17 +82,28 @@ public class PaymentGatewaySettingsProvider : IPaymentGatewaySettingsProvider
     public async Task<PaymentGatewayAdminDto> GetAdminViewAsync(CancellationToken cancellationToken = default)
     {
         var settings = await GetSettingsAsync(cancellationToken);
+        var moyasarMode = PaymentGatewaySettingsDefaults.NormalizeMoyasarClientMode(settings.MoyasarClientMode);
+
         return new PaymentGatewayAdminDto
         {
             ActiveProvider = settings.ActiveProvider,
+            MoyasarClientMode = moyasarMode,
             Providers = _gateways
                 .DistinctBy(g => g.ProviderName, StringComparer.OrdinalIgnoreCase)
-                .Select(g => new PaymentGatewayInfoDto
+                .Select(g =>
                 {
-                    Name = g.ProviderName,
-                    IsConfigured = g.IsConfigured,
-                    ClientMode = g.ClientMode.ToString(),
-                    SupportsRefund = true
+                    var mode = g.ClientMode.ToString();
+                    // Reflect admin-selected Moyasar mode in the registry row.
+                    if (g.ProviderName.Equals(MoyasarPaymentGateway.Name, StringComparison.OrdinalIgnoreCase))
+                        mode = moyasarMode;
+
+                    return new PaymentGatewayInfoDto
+                    {
+                        Name = g.ProviderName,
+                        IsConfigured = g.IsConfigured,
+                        ClientMode = mode,
+                        SupportsRefund = true
+                    };
                 })
                 .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList()

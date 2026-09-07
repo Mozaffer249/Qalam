@@ -25,8 +25,8 @@ public static class PaymentGatewaySettingsSeeder
             Value = PaymentGatewaySettingsDefaults.ToJson(defaults),
             Type = SettingType.JSON,
             IsPublic = false,
-            DescriptionEn = "Active payment gateway for new payment intents",
-            DescriptionAr = "بوابة الدفع النشطة لعمليات الدفع الجديدة",
+            DescriptionEn = "Active payment gateway and Moyasar client mode for new payment intents",
+            DescriptionAr = "بوابة الدفع النشطة ووضع عرض ميسر لعمليات الدفع الجديدة",
             CreatedAt = DateTime.UtcNow
         });
         await context.SaveChangesAsync();

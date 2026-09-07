@@ -142,6 +142,7 @@ services:
       - PaymentSettings__Moyasar__SecretApiKey=${MOYASAR_SECRET_KEY:-}
       - PaymentSettings__Moyasar__WebhookSharedSecret=${MOYASAR_WEBHOOK_SECRET:-}
       - PaymentSettings__Moyasar__CallbackUrl=${MOYASAR_CALLBACK_URL:-}
+      - PaymentSettings__Moyasar__ClientMode=${MOYASAR_CLIENT_MODE:-HostedRedirect}
       - PaymentSettings__Moyasar__ApplePayMerchantId=${MOYASAR_APPLE_PAY_MERCHANT_ID:-}
       - PaymentSettings__Moyasar__ApplePayLabel=${MOYASAR_APPLE_PAY_LABEL:-Qalam}
       - PaymentSettings__PayTabs__ProfileId=${PAYTABS_PROFILE_ID:-0}

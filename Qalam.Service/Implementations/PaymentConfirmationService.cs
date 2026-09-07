@@ -56,6 +56,13 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
         var payment = await _paymentRepository.GetByProviderTransactionIdAsync(
             providerTransactionId, cancellationToken);
+
+        // Moyasar hosted: webhook/return may carry the payment id while we stored the invoice id.
+        if (payment == null)
+        {
+            payment = await ResolveByGatewayInvoiceAsync(providerTransactionId, cancellationToken);
+        }
+
         if (payment == null)
             return PaymentConfirmationOutcome.Fail("PAYMENT_NOT_FOUND", "Payment intent not found.");
 
@@ -77,7 +84,12 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             return PaymentConfirmationOutcome.Fail("UNKNOWN_PROVIDER", ex.Message);
         }
 
-        var remote = await gateway.FetchAsync(providerTransactionId, cancellationToken);
+        // Prefer the stored ref (invoice id for Moyasar hosted) so Fetch can load nested payments.
+        var fetchRef = payment.ProviderTransactionId ?? providerTransactionId;
+        var remote = await gateway.FetchAsync(fetchRef, cancellationToken);
+        if (remote == null && !string.Equals(fetchRef, providerTransactionId, StringComparison.Ordinal))
+            remote = await gateway.FetchAsync(providerTransactionId, cancellationToken);
+
         if (remote == null)
             return PaymentConfirmationOutcome.Fail("PROVIDER_NOT_FOUND", "Provider payment not found.");
 
@@ -107,6 +119,13 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             return PaymentConfirmationOutcome.Fail("PAYMENT_AMOUNT_MISMATCH", "PAYMENT_AMOUNT_MISMATCH");
         }
 
+        // Promote invoice id → real payment id so refunds hit /payments/{id}.
+        if (!string.IsNullOrWhiteSpace(remote.Id)
+            && !remote.Id.Equals(payment.ProviderTransactionId, StringComparison.OrdinalIgnoreCase))
+        {
+            payment.ProviderTransactionId = remote.Id;
+        }
+
         payment.Status = PaymentStatus.Succeeded;
         if (remote.FeeHalalas.HasValue)
             payment.ProviderFee = MinorUnitConverter.FromHalalas(remote.FeeHalalas.Value);
@@ -114,6 +133,35 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         await _paymentRepository.UpdateAsync(payment);
 
         return await ConfirmAsync(payment.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// When the client/webhook sends a Moyasar payment id, resolve the local row via invoice_id.
+    /// </summary>
+    private async Task<Data.Entity.Payment.Payment?> ResolveByGatewayInvoiceAsync(
+        string providerPaymentId,
+        CancellationToken cancellationToken)
+    {
+        foreach (var gateway in _gatewayResolver.All)
+        {
+            try
+            {
+                var remote = await gateway.FetchAsync(providerPaymentId, cancellationToken);
+                if (remote == null || string.IsNullOrWhiteSpace(remote.InvoiceId))
+                    continue;
+
+                var byInvoice = await _paymentRepository.GetByProviderTransactionIdAsync(
+                    remote.InvoiceId, cancellationToken);
+                if (byInvoice != null)
+                    return byInvoice;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Invoice resolve via {Provider} failed", gateway.ProviderName);
+            }
+        }
+
+        return null;
     }
 
     private static string? Truncate(string? s, int max)

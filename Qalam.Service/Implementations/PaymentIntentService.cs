@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Qalam.Data.DTOs.Payment;
+using Qalam.Data.DTOs.Platform;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
 using Qalam.Data.Helpers;
@@ -16,6 +17,7 @@ public class PaymentIntentService : IPaymentIntentService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPaymentGatewayResolver _gatewayResolver;
+    private readonly IPaymentGatewaySettingsProvider _gatewaySettings;
     private readonly PaymentSettings _settings;
     private readonly ILogger<PaymentIntentService> _logger;
 
@@ -24,6 +26,7 @@ public class PaymentIntentService : IPaymentIntentService
         IPaymentRepository paymentRepository,
         IStudentCoursePriceResolver coursePriceResolver,
         IPaymentGatewayResolver gatewayResolver,
+        IPaymentGatewaySettingsProvider gatewaySettings,
         IOptions<PaymentSettings> settings,
         ILogger<PaymentIntentService> logger)
     {
@@ -31,6 +34,7 @@ public class PaymentIntentService : IPaymentIntentService
         _paymentRepository = paymentRepository;
         _coursePriceResolver = coursePriceResolver;
         _gatewayResolver = gatewayResolver;
+        _gatewaySettings = gatewaySettings;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -99,9 +103,12 @@ public class PaymentIntentService : IPaymentIntentService
                ?? "Session request enrollment")
             : enrollment.Course?.Title ?? $"Enrollment #{enrollment.Id}";
 
+        // Admin-controlled Moyasar mode (DB) with env fallback; other gateways use their fixed ClientMode.
+        var effectiveMode = await ResolveEffectiveClientModeAsync(gateway, cancellationToken);
+
         Payment payment;
         string givenId;
-        var reuseNative = gateway.ClientMode == PaymentClientMode.NativeSdk
+        var reuseNative = effectiveMode == PaymentClientMode.NativeSdk
             ? await _paymentRepository.GetOpenIntentForEnrollmentAsync(
                 enrollment.Id,
                 gateway.ProviderName,
@@ -144,7 +151,7 @@ public class PaymentIntentService : IPaymentIntentService
         {
             // Hosted: cancel prior Pending rows so finance pending sum stays accurate,
             // but keep ProviderTransactionId for late webhook matching.
-            if (gateway.ClientMode == PaymentClientMode.HostedRedirect)
+            if (effectiveMode == PaymentClientMode.HostedRedirect)
             {
                 await _paymentRepository.CancelOpenIntentsForEnrollmentAsync(
                     enrollment.Id,
@@ -191,7 +198,8 @@ public class PaymentIntentService : IPaymentIntentService
                 AmountHalalas = MinorUnitConverter.ToHalalas(payment.TotalAmount),
                 Currency = payment.Currency,
                 Description = description,
-                Metadata = metadata
+                Metadata = metadata,
+                PreferredClientMode = effectiveMode
             }, cancellationToken);
         }
         catch (Exception ex)
@@ -204,7 +212,7 @@ public class PaymentIntentService : IPaymentIntentService
             return PaymentIntentServiceResult.Fail("CHECKOUT_FAILED", ex.Message);
         }
 
-        // Hosted providers return their own transaction ref (tran_ref / checkout id / payment_intent).
+        // Hosted providers return their own transaction ref (tran_ref / checkout id / invoice id).
         if (!string.IsNullOrWhiteSpace(checkout.ProviderPaymentRef)
             && !checkout.ProviderPaymentRef.Equals(givenId, StringComparison.Ordinal))
         {
@@ -230,6 +238,20 @@ public class PaymentIntentService : IPaymentIntentService
             Description = description,
             Metadata = metadata
         });
+    }
+
+    private async Task<PaymentClientMode> ResolveEffectiveClientModeAsync(
+        IPaymentGateway gateway,
+        CancellationToken cancellationToken)
+    {
+        if (!gateway.ProviderName.Equals(MoyasarPaymentGateway.Name, StringComparison.OrdinalIgnoreCase))
+            return gateway.ClientMode;
+
+        var settings = await _gatewaySettings.GetSettingsAsync(cancellationToken);
+        var raw = string.IsNullOrWhiteSpace(settings.MoyasarClientMode)
+            ? _settings.Moyasar.ClientMode
+            : settings.MoyasarClientMode;
+        return PaymentGatewaySettingsDefaults.ToClientMode(raw);
     }
 
     private static string? Truncate(string? s, int max)

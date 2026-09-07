@@ -18,6 +18,9 @@ public class GatewayPaymentDto
     public string? SourceNumber { get; set; }
     public string? Message { get; set; }
     public string? TransactionUrl { get; set; }
+
+    /// <summary>Parent Moyasar invoice id when this payment was created via hosted invoice.</summary>
+    public string? InvoiceId { get; set; }
 }
 
 public class GatewayRefundDto

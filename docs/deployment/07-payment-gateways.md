@@ -49,7 +49,7 @@ The Flutter WebView intercepts this prefix (and falls back to common provider qu
 | Variable | Purpose |
 |----------|---------|
 | `PAYMENT_PROVIDER` | Env default: `Mock`, `Moyasar`, `PayTabs`, `HyperPay`, `Stripe` |
-| `MOYASAR_PUBLISHABLE_KEY` / `MOYASAR_SECRET_KEY` / `MOYASAR_WEBHOOK_SECRET` / `MOYASAR_CALLBACK_URL` / `MOYASAR_APPLE_PAY_MERCHANT_ID` / `MOYASAR_APPLE_PAY_LABEL` | Moyasar (+ Apple Pay merchant id for the Flutter SDK) |
+| `MOYASAR_PUBLISHABLE_KEY` / `MOYASAR_SECRET_KEY` / `MOYASAR_WEBHOOK_SECRET` / `MOYASAR_CALLBACK_URL` / `MOYASAR_CLIENT_MODE` / `MOYASAR_APPLE_PAY_MERCHANT_ID` / `MOYASAR_APPLE_PAY_LABEL` | Moyasar. `MOYASAR_CLIENT_MODE` is the **env default** (`HostedRedirect` or `NativeSdk`); SuperAdmin can override Moyasar presentation at runtime via Settings → Payment gateway → Moyasar checkout mode. |
 | `PAYTABS_PROFILE_ID` / `PAYTABS_SERVER_KEY` / `PAYTABS_BASE_URL` / `PAYTABS_CALLBACK_URL` / `PAYTABS_RETURN_URL` | PayTabs |
 | `HYPERPAY_ENTITY_ID` / `HYPERPAY_ACCESS_TOKEN` / `HYPERPAY_BASE_URL` / `HYPERPAY_WEBHOOK_KEY` / `HYPERPAY_SHOPPER_RESULT_URL` | HyperPay |
 | `STRIPE_PUBLISHABLE_KEY` / `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Stripe |
@@ -59,14 +59,22 @@ Compose maps these to `PaymentSettings__*` (see `docker-compose.yml` / `docker-c
 ## Student API flow
 
 1. `POST /Api/V1/Student/Payments/Intents` → provider-agnostic `PaymentIntentDto` (`provider`, `clientMode`, `givenId`, amount, optional `publishableApiKey` / `redirectUrl` / `clientSecret` / `applePayMerchantId`).
-2. Flutter: `NativeSdk` → Moyasar method picker (Apple Pay / STC Pay / card); `HostedRedirect` → WebView on `redirectUrl`.
-3. `POST /Api/V1/Student/Payments/Confirm` `{ data: { givenId } }` → `ConfirmFromGatewayAsync` (shared with webhooks).
+2. Flutter: `NativeSdk` → Moyasar method picker (Apple Pay / STC Pay / card); `HostedRedirect` → WebView on `redirectUrl` (Moyasar invoice URL when Moyasar is active in hosted mode).
+3. `POST /Api/V1/Student/Payments/Confirm` `{ data: { givenId } }` → `ConfirmFromGatewayAsync` (shared with webhooks). For Moyasar hosted, `givenId` is the invoice id until confirm promotes it to the payment id.
 4. Free-trial / Mock: `POST /Api/V1/Student/Payments/Participants`.
 5. History: `GET /Api/V1/Student/Payments?pageNumber=1&pageSize=20` and receipt `GET /Api/V1/Student/Payments/{paymentId}`.
 
+## Moyasar presentation (admin)
+
+- SuperAdmin → Settings → Payment gateway → **Moyasar checkout mode**:
+  - `HostedRedirect` (recommended): backend creates a Moyasar invoice; student pays in WebView.
+  - `NativeSdk`: Flutter Moyasar widgets (card / Apple Pay / STC Pay).
+- Stored in `SystemSettings` key `Payments.Gateway` as `moyasarClientMode` (same JSON as `activeProvider`).
+- Env `MOYASAR_CLIENT_MODE` is only the seed/fallback when the DB field is empty.
+
 ## Intent reuse
 
-- **NativeSdk (Moyasar):** reuses the open Pending payment row for the enrollment (same `givenId`) when the student re-enters checkout.
+- **NativeSdk:** reuses the open Pending payment row for the enrollment (same `givenId`) when the student re-enters checkout.
 - **HostedRedirect:** cancels prior Pending rows (keeps `ProviderTransactionId` for late webhooks) and creates a fresh checkout session.
 ## Flip procedure
 

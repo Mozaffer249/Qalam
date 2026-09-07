@@ -56,6 +56,16 @@ public class PaymentWebhookService : IPaymentWebhookService
 
         var paymentId = parsed.ProviderPaymentId!;
         var payment = await _paymentRepository.GetByProviderTransactionIdAsync(paymentId, cancellationToken);
+        if (payment == null && parsed.AlternateProviderPaymentIds != null)
+        {
+            foreach (var alt in parsed.AlternateProviderPaymentIds)
+            {
+                if (string.IsNullOrWhiteSpace(alt)) continue;
+                payment = await _paymentRepository.GetByProviderTransactionIdAsync(alt, cancellationToken);
+                if (payment != null) break;
+            }
+        }
+
         if (payment == null)
         {
             _logger.LogInformation(
@@ -80,11 +90,21 @@ public class PaymentWebhookService : IPaymentWebhookService
         var normalized = (parsed.EventType ?? string.Empty).Trim().ToLowerInvariant();
         var isPaid = parsed.MappedStatus == PaymentStatus.Succeeded
             || normalized is "payment_paid" or "payment_intent.succeeded" or "checkout.session.completed"
+                or "invoice_paid"
             || MoyasarStatusMapperIsPaid(normalized);
 
         if (isPaid)
         {
+            // Confirm with the primary id (payment id when available); confirmation resolves invoice rows.
             var outcome = await _confirmationService.ConfirmFromGatewayAsync(paymentId, cancellationToken);
+            if (!outcome.Succeeded
+                && payment.ProviderTransactionId != null
+                && !payment.ProviderTransactionId.Equals(paymentId, StringComparison.OrdinalIgnoreCase))
+            {
+                outcome = await _confirmationService.ConfirmFromGatewayAsync(
+                    payment.ProviderTransactionId, cancellationToken);
+            }
+
             _logger.LogInformation(
                 "Webhook paid confirm: provider={Provider} paymentId={PaymentId} ok={Ok} code={Code}",
                 gateway.ProviderName,

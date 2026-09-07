@@ -40,7 +40,9 @@ public class UpdatePaymentGatewaySettingsCommandHandler : ResponseHandler,
             ClientIpHelper.GetClientIpAddress(_httpContextAccessor.HttpContext),
             success: true,
             userAgent: ClientIpHelper.GetUserAgent(_httpContextAccessor.HttpContext),
-            details: $"Active payment gateway changed from '{previous.ActiveProvider}' to '{saved.ActiveProvider}'",
+            details:
+                $"Active payment gateway '{previous.ActiveProvider}'→'{saved.ActiveProvider}'; "
+                + $"MoyasarClientMode '{previous.MoyasarClientMode}'→'{saved.MoyasarClientMode}'",
             entityType: "SystemSetting",
             entityId: "Payments.Gateway");
 

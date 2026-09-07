@@ -38,13 +38,19 @@ public class MoyasarPaymentSettings
     /// <summary>Shared secret echoed by Moyasar webhooks as secret_token.</summary>
     public string WebhookSharedSecret { get; set; } = string.Empty;
 
-    /// <summary>3DS return URL registered with Moyasar card payments.</summary>
+    /// <summary>3DS / hosted return URL (browser redirect after payment).</summary>
     public string CallbackUrl { get; set; } = string.Empty;
 
-    /// <summary>Apple Pay merchant id registered in the Moyasar dashboard and Xcode.</summary>
+    /// <summary>
+    /// How the student app presents Moyasar checkout:
+    /// <c>HostedRedirect</c> (default, WebView + invoices API) or <c>NativeSdk</c> (Flutter widgets).
+    /// </summary>
+    public string ClientMode { get; set; } = "HostedRedirect";
+
+    /// <summary>Apple Pay merchant id registered in the Moyasar dashboard and Xcode (NativeSdk only).</summary>
     public string ApplePayMerchantId { get; set; } = string.Empty;
 
-    /// <summary>Store name shown in the Apple Pay sheet.</summary>
+    /// <summary>Store name shown in the Apple Pay sheet (NativeSdk only).</summary>
     public string ApplePayLabel { get; set; } = "Qalam";
 
     public bool Use3ds { get; set; } = true;

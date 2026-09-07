@@ -1,4 +1,6 @@
 using FluentValidation;
+using Qalam.Data.DTOs.Payment;
+using Qalam.Data.DTOs.Platform;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
 
@@ -25,5 +27,13 @@ public class UpdatePaymentGatewaySettingsCommandValidator : AbstractValidator<Up
                 }
             })
             .WithMessage("ActiveProvider must be a registered and configured payment gateway.");
+
+        RuleFor(x => x.Settings.MoyasarClientMode)
+            .Must(mode =>
+            {
+                var n = PaymentGatewaySettingsDefaults.NormalizeMoyasarClientMode(mode);
+                return n is nameof(PaymentClientMode.HostedRedirect) or nameof(PaymentClientMode.NativeSdk);
+            })
+            .WithMessage("MoyasarClientMode must be HostedRedirect or NativeSdk.");
     }
 }
