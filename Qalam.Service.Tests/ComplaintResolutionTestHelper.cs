@@ -11,6 +11,19 @@ namespace Qalam.Service.Tests;
 
 internal static class ComplaintResolutionTestHelper
 {
+    internal static IPaymentGatewayResolver CreateMockResolver()
+    {
+        var mockGateway = new MockPaymentGateway();
+        var settingsProvider = new Mock<IPaymentGatewaySettingsProvider>();
+        settingsProvider
+            .Setup(s => s.GetSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Qalam.Data.DTOs.Platform.PaymentGatewaySettingsDto
+            {
+                ActiveProvider = MockPaymentGateway.Name
+            });
+        return new PaymentGatewayResolver(new[] { mockGateway }, settingsProvider.Object);
+    }
+
     internal static ComplaintResolutionOrchestrator CreateOrchestrator(
         ApplicationDBContext db,
         IRefundService? refundService = null)
@@ -22,7 +35,10 @@ internal static class ComplaintResolutionTestHelper
         return new ComplaintResolutionOrchestrator(
             complaintRepo,
             scheduleRepo,
-            refundService ?? new RefundService(new RefundRepository(db), financeImpact),
+            refundService ?? new RefundService(
+                new RefundRepository(db),
+                financeImpact,
+                CreateMockResolver()),
             audit,
             financeImpact);
     }
@@ -48,7 +64,8 @@ internal static class ComplaintResolutionTestHelper
             .Build();
         var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(
             new RefundRepository(db),
-            new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db))));
+            new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db)),
+            CreateMockResolver()));
         return new SessionComplaintService(
             complaintRepo,
             scheduleRepo,

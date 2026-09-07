@@ -25,6 +25,17 @@ public class Payment : AuditableEntity
     
     [MaxLength(120)]
     public string? ProviderTransactionId { get; set; }
+
+    /// <summary>
+    /// Gateway processing fee (e.g. Moyasar fee including their VAT), in major currency units.
+    /// </summary>
+    public decimal? ProviderFee { get; set; }
+
+    /// <summary>
+    /// Failure reason from the gateway (e.g. source.message) when Status is Failed.
+    /// </summary>
+    [MaxLength(500)]
+    public string? FailureMessage { get; set; }
     
     /// <summary>
     /// المبلغ قبل الضريبة

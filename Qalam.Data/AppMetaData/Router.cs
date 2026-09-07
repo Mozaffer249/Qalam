@@ -460,8 +460,17 @@ namespace Qalam.Data.AppMetaData
 
         /// <summary>Pay one participant of an enrollment (individual = the only participant; group = one member). Api/V1/Student/Payments/Participants</summary>
         public const string StudentPayEnrollmentParticipant = Rule + "Student/Payments/Participants";
+        /// <summary>Create Moyasar payment intent: Api/V1/Student/Payments/Intents</summary>
+        public const string StudentPaymentIntent = Rule + "Student/Payments/Intents";
+        /// <summary>Confirm Moyasar payment after SDK/3DS: Api/V1/Student/Payments/Confirm</summary>
+        public const string StudentPaymentConfirm = Rule + "Student/Payments/Confirm";
         /// <summary>Unified enrollment payment summary: Api/V1/Student/Payments/Enrollments/{enrollmentId}/Summary</summary>
         public const string StudentEnrollmentPaymentSummary = Rule + "Student/Payments/Enrollments/{enrollmentId}/Summary";
+
+        /// <summary>Provider webhook receiver: Api/V1/Payments/Webhooks/{provider}</summary>
+        public const string PaymentWebhook = Rule + "Payments/Webhooks/{provider}";
+        /// <summary>Moyasar webhook receiver (legacy alias): Api/V1/Payments/Webhooks/Moyasar</summary>
+        public const string MoyasarWebhook = Rule + "Payments/Webhooks/Moyasar";
 
         /// <summary>Student course schedules (join / review): Api/V1/Student/Sessions</summary>
         public const string StudentSessions = Rule + "Student/Sessions";

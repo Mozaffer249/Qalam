@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Commands.UpdateAuthSettings;
 using Qalam.Core.Features.Admin.Commands.UpdateOsrNotificationSettings;
+using Qalam.Core.Features.Admin.Commands.UpdatePaymentGatewaySettings;
 using Qalam.Core.Features.Admin.Commands.UpdateTeacherAccessSettings;
 using Qalam.Core.Features.Admin.Queries.GetAuthSettings;
 using Qalam.Core.Features.Admin.Queries.GetOsrNotificationSettings;
+using Qalam.Core.Features.Admin.Queries.GetPaymentGatewaySettings;
 using Qalam.Core.Features.Admin.Queries.GetTeacherAccessSettings;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Auth;
@@ -79,5 +81,27 @@ public class SystemSettingsController : AppControllerBase
     public async Task<IActionResult> UpdateOsrNotificationSettings([FromBody] OsrNotificationSettingsDto settings)
     {
         return NewResult(await Mediator.Send(new UpdateOsrNotificationSettingsCommand { Settings = settings }));
+    }
+
+    /// <summary>
+    /// Get active payment gateway and registry status (no secrets).
+    /// </summary>
+    [HttpGet("PaymentGateway")]
+    [ProducesResponseType(typeof(PaymentGatewayAdminDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaymentGatewaySettings()
+    {
+        return NewResult(await Mediator.Send(new GetPaymentGatewaySettingsQuery()));
+    }
+
+    /// <summary>
+    /// Switch the active payment gateway for new intents. Rejects unconfigured providers.
+    /// Existing payments keep confirming/refunding via their recorded provider.
+    /// </summary>
+    [HttpPut("PaymentGateway")]
+    [ProducesResponseType(typeof(PaymentGatewayAdminDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdatePaymentGatewaySettings([FromBody] PaymentGatewaySettingsDto settings)
+    {
+        return NewResult(await Mediator.Send(new UpdatePaymentGatewaySettingsCommand { Settings = settings }));
     }
 }

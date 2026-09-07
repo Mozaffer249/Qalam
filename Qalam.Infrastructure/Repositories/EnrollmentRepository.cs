@@ -90,6 +90,11 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .Include(e => e.SelectedSessionSlots)
                 .ThenInclude(ss => ss.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
+            .Include(e => e.OpenSessionRequest!)
+                .ThenInclude(r => r.Sessions)
+            .Include(e => e.OpenSessionRequest!)
+                .ThenInclude(r => r.Subject)
+            .Include(e => e.CourseSchedules)
             .FirstOrDefaultAsync(e => e.Id == id, ct);
     }
 

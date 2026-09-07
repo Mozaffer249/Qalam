@@ -4372,6 +4372,10 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("FailureMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("InvoiceNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -4383,6 +4387,9 @@ namespace Qalam.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal?>("ProviderFee")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ProviderTransactionId")
                         .HasMaxLength(120)

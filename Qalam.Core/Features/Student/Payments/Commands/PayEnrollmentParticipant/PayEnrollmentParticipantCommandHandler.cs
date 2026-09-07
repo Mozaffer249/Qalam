@@ -5,53 +5,42 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Payment;
 using Qalam.Data.Entity.Common.Enums;
-using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Payment;
-using Qalam.Data.Entity.Teacher;
-using Qalam.Data.Helpers;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
 
 /// <summary>
-/// Single-payer: request owner pays full <see cref="Enrollment.AmountDue"/> once;
-/// all participants become Succeeded and enrollment activates.
+/// Mock / free-trial pay path: creates a succeeded payment then activates via
+/// <see cref="IPaymentConfirmationService"/>. Card payments use CreatePaymentIntent + Confirm.
 /// </summary>
 public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
     IRequestHandler<PayEnrollmentParticipantCommand, Response<PaymentResultDto>>
 {
     private readonly IEnrollmentParticipantRepository _participantRepository;
     private readonly IPaymentRepository _paymentRepository;
-    private readonly IEnrollmentPaymentRepository _enrollmentPaymentRepository;
-    private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
-    private readonly ICourseScheduleRepository _scheduleRepository;
-    private readonly IScheduleGenerationService _scheduleGenerator;
-    private readonly IOpenSessionRequestReleaseService _releaseService;
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
+    private readonly IPaymentConfirmationService _confirmationService;
+    private readonly IPaymentGatewayResolver _gatewayResolver;
     private readonly PaymentSettings _settings;
 
     public PayEnrollmentParticipantCommandHandler(
         IEnrollmentParticipantRepository participantRepository,
         IPaymentRepository paymentRepository,
-        IEnrollmentPaymentRepository enrollmentPaymentRepository,
-        ITeacherAvailabilityRepository teacherAvailabilityRepository,
-        ICourseScheduleRepository scheduleRepository,
-        IScheduleGenerationService scheduleGenerator,
-        IOpenSessionRequestReleaseService releaseService,
         IStudentCoursePriceResolver coursePriceResolver,
+        IPaymentConfirmationService confirmationService,
+        IPaymentGatewayResolver gatewayResolver,
         IOptions<PaymentSettings> settings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _participantRepository = participantRepository;
         _paymentRepository = paymentRepository;
-        _enrollmentPaymentRepository = enrollmentPaymentRepository;
-        _teacherAvailabilityRepository = teacherAvailabilityRepository;
-        _scheduleRepository = scheduleRepository;
-        _scheduleGenerator = scheduleGenerator;
-        _releaseService = releaseService;
         _coursePriceResolver = coursePriceResolver;
+        _confirmationService = confirmationService;
+        _gatewayResolver = gatewayResolver;
         _settings = settings.Value;
     }
 
@@ -79,7 +68,6 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
             return BadRequest<PaymentResultDto>(
                 "Enrollment is missing schedule selections — cannot generate schedules.");
 
-        // Single payer: request owner when request-backed; otherwise Enrollment.OwnerUserId.
         var ownerUserId = enrollment.EnrollmentRequest?.RequestedByUserId ?? enrollment.OwnerUserId;
         if (!ownerUserId.HasValue || ownerUserId.Value != request.UserId)
             return BadRequest<PaymentResultDto>("Only the enrollment owner can pay for this enrollment.");
@@ -90,7 +78,6 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
 
         var totalAmount = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
 
-        // AmountDue == 0 is the free-trial path (student first individual session).
         var isFreeTrial = totalAmount == 0
             && enrollment.Source == EnrollmentSource.SessionRequest
             && enrollment.Kind == EnrollmentKind.Individual;
@@ -101,6 +88,24 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         if (isFreeTrial)
             totalAmount = 0;
 
+        // Card path must use intent + confirm when a non-Mock gateway is active and amount > 0.
+        if (totalAmount > 0)
+        {
+            try
+            {
+                var active = await _gatewayResolver.ResolveActiveAsync(cancellationToken);
+                if (!active.ProviderName.Equals(MockPaymentGateway.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest<PaymentResultDto>(
+                        "Use payment intent checkout for card payments.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Unconfigured active provider — fall through to mock only if amount is free-trial.
+            }
+        }
+
         var pendingParticipants = enrollment.Participants
             .Where(p => p.PaymentStatus == PaymentStatus.Pending)
             .ToList();
@@ -108,284 +113,43 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
         if (pendingParticipants.Count == 0)
             return BadRequest<PaymentResultDto>("Enrollment has no payable participants.");
 
-        var transaction = await _participantRepository.BeginTransactionAsync();
-        try
+        var isSessionRequest = enrollment.Source == EnrollmentSource.SessionRequest
+            || enrollment.CourseId == null;
+
+        var payment = new Payment
         {
-            var payment = new Payment
-            {
-                PayerUserId = request.UserId,
-                Currency = _settings.DefaultCurrency,
-                PaymentProvider = _settings.MockProviderName,
-                ProviderTransactionId = "MOCK-" + Guid.NewGuid().ToString("N").Substring(0, 16),
-                Subtotal = totalAmount,
-                VatAmount = 0,
-                DiscountAmount = 0,
-                TotalAmount = totalAmount,
-                Status = PaymentStatus.Succeeded
-            };
-            var isSessionRequest = enrollment.Source == EnrollmentSource.SessionRequest
-                || enrollment.CourseId == null;
+            PayerUserId = request.UserId,
+            Currency = _settings.DefaultCurrency,
+            PaymentProvider = _settings.MockProviderName,
+            ProviderTransactionId = "MOCK-" + Guid.NewGuid().ToString("N")[..16],
+            Subtotal = totalAmount,
+            VatAmount = 0,
+            DiscountAmount = 0,
+            TotalAmount = totalAmount,
+            Status = PaymentStatus.Succeeded
+        };
 
-            payment.PaymentItems.Add(new PaymentItem
-            {
-                ItemType = PaymentItemType.CourseEnrollment,
-                ReferenceId = enrollment.Id,
-                Description = isSessionRequest
-                    ? (enrollment.OpenSessionRequest?.Subject?.NameEn
-                       ?? enrollment.OpenSessionRequest?.Subject?.NameAr
-                       ?? "Session request enrollment")
-                    : enrollment.Course?.Title,
-                Amount = totalAmount
-            });
-            await _paymentRepository.AddAsync(payment);
-
-            foreach (var p in pendingParticipants)
-            {
-                await _enrollmentPaymentRepository.AddAsync(new EnrollmentPayment
-                {
-                    EnrollmentParticipantId = p.Id,
-                    PaymentId = payment.Id,
-                    Status = PaymentStatus.Succeeded
-                });
-                p.PaymentStatus = PaymentStatus.Succeeded;
-                p.PaidAt = now;
-            }
-
-            enrollment.PaidByUserId = request.UserId;
-            enrollment.AmountDue = totalAmount;
-
-            var schedulesCreated = 0;
-            enrollment.EnrollmentStatus = EnrollmentStatus.Active;
-            enrollment.ActivatedAt = now;
-
-            var today = DateOnly.FromDateTime(now);
-            var enrollmentRequest = enrollment.EnrollmentRequest;
-            DateOnly preferredStart;
-            DateOnly preferredEnd;
-            List<(DateOnly Date, int TeacherAvailabilityId)> selections;
-            Dictionary<int, TeacherAvailability> availabilityById;
-
-            if (enrollmentRequest != null
-                && enrollmentRequest.SelectedSessionSlots != null
-                && enrollmentRequest.SelectedSessionSlots.Count > 0)
-            {
-                preferredStart = enrollmentRequest.PreferredStartDate;
-                preferredEnd = enrollmentRequest.PreferredEndDate;
-                var ordered = enrollmentRequest.SelectedSessionSlots.OrderBy(s => s.SessionNumber).ToList();
-                selections = ordered.Select(s => (s.SessionDate, s.TeacherAvailabilityId)).ToList();
-                availabilityById = new Dictionary<int, TeacherAvailability>();
-                foreach (var row in ordered)
-                {
-                    if (row.TeacherAvailability != null)
-                        availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
-                }
-                foreach (var sa in enrollmentRequest.SelectedAvailabilities)
-                {
-                    if (sa.TeacherAvailability != null)
-                        availabilityById[sa.TeacherAvailability.Id] = sa.TeacherAvailability;
-                }
-            }
-            else
-            {
-                preferredStart = enrollment.PreferredStartDate ?? today;
-                preferredEnd = enrollment.PreferredEndDate ?? preferredStart.AddYears(2);
-                var ordered = enrollment.SelectedSessionSlots.OrderBy(s => s.SessionNumber).ToList();
-                selections = ordered.Select(s => (s.SessionDate, s.TeacherAvailabilityId)).ToList();
-                availabilityById = new Dictionary<int, TeacherAvailability>();
-                foreach (var row in ordered)
-                {
-                    if (row.TeacherAvailability != null)
-                        availabilityById[row.TeacherAvailabilityId] = row.TeacherAvailability;
-                }
-            }
-
-            var effectiveStart = preferredStart < today ? today : preferredStart;
-            var teacherId = isSessionRequest
-                ? enrollment.ApprovedByTeacherId
-                : enrollment.Course!.TeacherId;
-
-            var blockedExceptions = await _teacherAvailabilityRepository.GetTeacherExceptionsAsync(
-                teacherId,
-                effectiveStart,
-                preferredEnd);
-
-            var existingScheduledSlots = await _scheduleRepository.GetScheduledSlotsAsync(
-                effectiveStart,
-                preferredEnd,
-                availabilityById.Keys.ToList(),
-                cancellationToken);
-
-            ScheduleGenerationResult preview;
-            int teachingModeId;
-            Dictionary<int, int>? courseSessionIdByNumber = null;
-
-            if (isSessionRequest)
-            {
-                if (selections.Count == 0)
-                {
-                    await _participantRepository.RollBackAsync();
-                    return BadRequest<PaymentResultDto>(
-                        "Enrollment has no selected session slots to schedule.");
-                }
-
-                teachingModeId = enrollment.OpenSessionRequest?.TeachingModeId
-                    ?? throw new InvalidOperationException("Session request enrollment missing OpenSessionRequest.");
-
-                var durationBySession = enrollment.OpenSessionRequest!.Sessions
-                    .ToDictionary(s => s.SequenceNumber, s => s.DurationMinutes);
-
-                var proposed = selections
-                    .Select((sel, idx) =>
-                    {
-                        var sessionNumber = enrollment.SelectedSessionSlots
-                            .OrderBy(s => s.SessionNumber)
-                            .ElementAt(idx).SessionNumber;
-                        var duration = durationBySession.TryGetValue(sessionNumber, out var d)
-                            ? d
-                            : (availabilityById.TryGetValue(sel.TeacherAvailabilityId, out var ta)
-                               && ta.TimeSlot != null
-                                ? ta.TimeSlot.ResolveDurationMinutes()
-                                : 60);
-                        return new CourseRequestProposedSession
-                        {
-                            SessionNumber = sessionNumber,
-                            DurationMinutes = duration
-                        };
-                    })
-                    .ToList();
-
-                var stubCourse = new Course { IsFlexible = true, TeachingModeId = teachingModeId };
-                var stubRequest = new CourseEnrollmentRequest { ProposedSessions = proposed };
-
-                preview = _scheduleGenerator.PreviewExplicit(
-                    stubCourse,
-                    stubRequest,
-                    selections,
-                    availabilityById,
-                    blockedExceptions,
-                    existingScheduledSlots,
-                    preferredEnd);
-            }
-            else
-            {
-                teachingModeId = enrollment.Course!.TeachingModeId;
-                var stubOrRequest = enrollmentRequest ?? new CourseEnrollmentRequest { ProposedSessions = [] };
-
-                if (selections.Count > 0)
-                {
-                    preview = _scheduleGenerator.PreviewExplicit(
-                        enrollment.Course!,
-                        stubOrRequest,
-                        selections,
-                        availabilityById,
-                        blockedExceptions,
-                        existingScheduledSlots,
-                        preferredEnd);
-                }
-                else if (enrollmentRequest != null)
-                {
-                    var slots = enrollmentRequest.SelectedAvailabilities
-                        .Select(sa => sa.TeacherAvailability)
-                        .Where(ta => ta != null)
-                        .ToList();
-
-                    var existingForAvail = await _scheduleRepository.GetScheduledSlotsAsync(
-                        effectiveStart,
-                        preferredEnd,
-                        slots.Select(s => s!.Id).ToList(),
-                        cancellationToken);
-
-                    preview = _scheduleGenerator.Preview(
-                        enrollment.Course!,
-                        enrollmentRequest,
-                        slots!,
-                        blockedExceptions,
-                        existingForAvail,
-                        effectiveStart,
-                        preferredEnd);
-                }
-                else
-                {
-                    await _participantRepository.RollBackAsync();
-                    return BadRequest<PaymentResultDto>(
-                        "Enrollment has no selected session slots to schedule.");
-                }
-
-                if (!enrollment.Course!.IsFlexible && enrollment.Course.Sessions != null)
-                {
-                    courseSessionIdByNumber = enrollment.Course.Sessions
-                        .GroupBy(cs => cs.SessionNumber)
-                        .ToDictionary(g => g.Key, g => g.First().Id);
-                }
-            }
-
-            if (preview.Conflicts.Count > 0)
-            {
-                await _participantRepository.RollBackAsync();
-
-                if (isSessionRequest && enrollment.Id > 0)
-                {
-                    await _releaseService.ReleaseAfterPaymentConflictAsync(
-                        enrollment.Id, cancellationToken);
-                }
-
-                return BadRequest<PaymentResultDto>("SCHEDULE_CONFLICT_RELEASED");
-            }
-
-            if (!preview.FitsInWindow)
-            {
-                await _participantRepository.RollBackAsync();
-                return BadRequest<PaymentResultDto>(
-                    $"Schedule no longer fits before {preferredEnd:yyyy-MM-dd}. Please re-submit with a longer window.");
-            }
-
-            foreach (var s in preview.Slots)
-            {
-                int? courseSessionId = null;
-                if (courseSessionIdByNumber != null
-                    && courseSessionIdByNumber.TryGetValue(s.SessionNumber, out var sid))
-                {
-                    courseSessionId = sid;
-                }
-
-                enrollment.CourseSchedules.Add(new CourseSchedule
-                {
-                    Date = s.Date,
-                    TeacherAvailabilityId = s.TeacherAvailabilityId,
-                    DurationMinutes = s.DurationMinutes,
-                    TeachingModeId = teachingModeId,
-                    CourseSessionId = courseSessionId,
-                    LocationId = null,
-                    Status = ScheduleStatus.Scheduled
-                });
-            }
-
-            schedulesCreated = preview.Slots.Count;
-
-            if (isSessionRequest && enrollment.OpenSessionRequest != null)
-            {
-                enrollment.OpenSessionRequest.Status = OpenSessionRequestStatus.Paid;
-                enrollment.OpenSessionRequest.UpdatedAt = now;
-            }
-
-            await _participantRepository.SaveChangesAsync();
-            await _participantRepository.CommitAsync();
-
-            return Success(entity: new PaymentResultDto
-            {
-                PaymentId = payment.Id,
-                Status = payment.Status,
-                TotalAmount = payment.TotalAmount,
-                Currency = payment.Currency,
-                PaidAt = now,
-                EnrollmentActivated = true,
-                SchedulesCreated = schedulesCreated
-            });
-        }
-        catch
+        payment.PaymentItems.Add(new PaymentItem
         {
-            await _participantRepository.RollBackAsync();
-            throw;
+            ItemType = PaymentItemType.CourseEnrollment,
+            ReferenceId = enrollment.Id,
+            Description = isSessionRequest
+                ? (enrollment.OpenSessionRequest?.Subject?.NameEn
+                   ?? enrollment.OpenSessionRequest?.Subject?.NameAr
+                   ?? "Session request enrollment")
+                : enrollment.Course?.Title,
+            Amount = totalAmount
+        });
+        await _paymentRepository.AddAsync(payment);
+
+        var outcome = await _confirmationService.ConfirmAsync(payment.Id, cancellationToken);
+        if (!outcome.Succeeded)
+        {
+            if (outcome.ErrorCode is "SCHEDULE_CONFLICT_RELEASED" or "SCHEDULE_CONFLICT_REFUNDED")
+                return BadRequest<PaymentResultDto>(outcome.ErrorCode);
+            return BadRequest<PaymentResultDto>(outcome.ErrorMessage ?? outcome.ErrorCode ?? "Payment confirmation failed.");
         }
+
+        return Success(entity: outcome.Result!);
     }
 }

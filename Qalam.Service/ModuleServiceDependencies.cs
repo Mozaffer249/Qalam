@@ -94,6 +94,23 @@ namespace Qalam.Service
             services.AddTransient<ISessionPresenceService, SessionPresenceService>();
             services.AddTransient<ISessionReviewService, SessionReviewService>();
             services.AddTransient<IRefundService, RefundService>();
+            services.AddTransient<IPaymentConfirmationService, PaymentConfirmationService>();
+            services.AddTransient<IPaymentIntentService, PaymentIntentService>();
+            services.AddTransient<IPaymentWebhookService, PaymentWebhookService>();
+            services.AddScoped<IPaymentGatewaySettingsProvider, PaymentGatewaySettingsProvider>();
+            services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
+
+            services.AddHttpClient<MoyasarPaymentGateway>();
+            services.AddHttpClient<PayTabsPaymentGateway>();
+            services.AddHttpClient<HyperPayPaymentGateway>();
+            services.AddHttpClient<StripePaymentGateway>();
+            services.AddTransient<MockPaymentGateway>();
+
+            services.AddTransient<IPaymentGateway>(sp => sp.GetRequiredService<MockPaymentGateway>());
+            services.AddTransient<IPaymentGateway>(sp => sp.GetRequiredService<MoyasarPaymentGateway>());
+            services.AddTransient<IPaymentGateway>(sp => sp.GetRequiredService<PayTabsPaymentGateway>());
+            services.AddTransient<IPaymentGateway>(sp => sp.GetRequiredService<HyperPayPaymentGateway>());
+            services.AddTransient<IPaymentGateway>(sp => sp.GetRequiredService<StripePaymentGateway>());
             services.AddTransient<IAdminFinanceService, AdminFinanceService>();
             services.AddTransient<IAdminFinanceTransactionService, AdminFinanceTransactionService>();
             services.AddTransient<ITeacherFinanceImpactService, TeacherFinanceImpactService>();

@@ -3,6 +3,7 @@ using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Payments;
 
 namespace Qalam.Service.Implementations;
 
@@ -10,13 +11,16 @@ public class RefundService : IRefundService
 {
     private readonly IRefundRepository _refunds;
     private readonly ITeacherFinanceImpactService _financeImpact;
+    private readonly IPaymentGatewayResolver _gatewayResolver;
 
     public RefundService(
         IRefundRepository refunds,
-        ITeacherFinanceImpactService financeImpact)
+        ITeacherFinanceImpactService financeImpact,
+        IPaymentGatewayResolver gatewayResolver)
     {
         _refunds = refunds;
         _financeImpact = financeImpact;
+        _gatewayResolver = gatewayResolver;
     }
 
     public async Task<Refund> IssueRefundAsync(
@@ -45,6 +49,49 @@ public class RefundService : IRefundService
             throw new InvalidOperationException(
                 $"Refund amount {amount} exceeds remaining refundable {remaining}.");
 
+        string? providerRefundId = null;
+        var refundStatus = RefundStatus.Succeeded;
+
+        IPaymentGateway gateway;
+        try
+        {
+            gateway = _gatewayResolver.Resolve(payment.PaymentProvider);
+        }
+        catch (InvalidOperationException)
+        {
+            gateway = _gatewayResolver.Resolve(MockPaymentGateway.Name);
+        }
+
+        var isMock = gateway.ProviderName.Equals(MockPaymentGateway.Name, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(payment.ProviderTransactionId);
+
+        if (!isMock)
+        {
+            try
+            {
+                var amountHalalas = MinorUnitConverter.ToHalalas(amount);
+                var fullRefund = amount >= remaining - 0.001m;
+                var gatewayRefund = await gateway.RefundAsync(
+                    payment.ProviderTransactionId!,
+                    fullRefund ? null : amountHalalas,
+                    cancellationToken);
+                providerRefundId = gatewayRefund.Id;
+            }
+            catch
+            {
+                refundStatus = RefundStatus.Pending;
+                providerRefundId = null;
+            }
+        }
+        else
+        {
+            var mockRefund = await gateway.RefundAsync(
+                payment.ProviderTransactionId ?? "MOCK",
+                MinorUnitConverter.ToHalalas(amount),
+                cancellationToken);
+            providerRefundId = mockRefund.Id;
+        }
+
         var refund = new Refund
         {
             PaymentId = paymentId,
@@ -52,49 +99,52 @@ public class RefundService : IRefundService
             Amount = Math.Round(amount, 2),
             Currency = string.IsNullOrWhiteSpace(currency) ? payment.Currency : currency,
             Reason = string.IsNullOrWhiteSpace(reason) ? "Refund" : reason.Trim(),
-            Status = RefundStatus.Succeeded,
-            ProviderRefundId = ("MOCK-REF-" + Guid.NewGuid().ToString("N"))[..24].ToUpperInvariant(),
+            Status = refundStatus,
+            ProviderRefundId = providerRefundId,
             InitiatedByUserId = initiatedByUserId,
             CreatedAt = DateTime.UtcNow
         };
 
         await _refunds.AddRefundAsync(refund, cancellationToken);
 
-        var newTotal = alreadyRefunded + refund.Amount;
-        var isFullRefund = newTotal >= payment.TotalAmount - 0.001m;
-        if (isFullRefund)
-            payment.Status = PaymentStatus.Refunded;
-
-        if (payment.Status == PaymentStatus.Refunded)
+        if (refundStatus == RefundStatus.Succeeded)
         {
-            var enrollmentPayments = await _refunds.GetEnrollmentPaymentsForPaymentAsync(
-                paymentId, cancellationToken);
-            foreach (var ep in enrollmentPayments)
-                ep.Status = PaymentStatus.Refunded;
-        }
+            var newTotal = alreadyRefunded + refund.Amount;
+            var isFullRefund = newTotal >= payment.TotalAmount - 0.001m;
+            if (isFullRefund)
+                payment.Status = PaymentStatus.Refunded;
 
-        var voidedAmount = await VoidTeacherEarningsForRefundAsync(
-            enrollmentId,
-            refund.Amount,
-            payment.TotalAmount,
-            isFullRefund,
-            cancellationToken);
-
-        if (voidedAmount > 0
-            && await _financeImpact.IsAlreadyPaidForEnrollmentAsync(enrollmentId, cancellationToken))
-        {
-            var teacherId = await _refunds.GetTeacherIdForEnrollmentAsync(enrollmentId, cancellationToken);
-            if (teacherId > 0)
+            if (payment.Status == PaymentStatus.Refunded)
             {
-                await _financeImpact.RecordSettlementForAlreadyPaidAsync(
-                    teacherId,
-                    voidedAmount,
-                    refund.Currency,
-                    refund.Id,
-                    complaintId: null,
-                    earningLineId: null,
-                    initiatedByUserId,
-                    cancellationToken);
+                var enrollmentPayments = await _refunds.GetEnrollmentPaymentsForPaymentAsync(
+                    paymentId, cancellationToken);
+                foreach (var ep in enrollmentPayments)
+                    ep.Status = PaymentStatus.Refunded;
+            }
+
+            var voidedAmount = await VoidTeacherEarningsForRefundAsync(
+                enrollmentId,
+                refund.Amount,
+                payment.TotalAmount,
+                isFullRefund,
+                cancellationToken);
+
+            if (voidedAmount > 0
+                && await _financeImpact.IsAlreadyPaidForEnrollmentAsync(enrollmentId, cancellationToken))
+            {
+                var teacherId = await _refunds.GetTeacherIdForEnrollmentAsync(enrollmentId, cancellationToken);
+                if (teacherId > 0)
+                {
+                    await _financeImpact.RecordSettlementForAlreadyPaidAsync(
+                        teacherId,
+                        voidedAmount,
+                        refund.Currency,
+                        refund.Id,
+                        complaintId: null,
+                        earningLineId: null,
+                        initiatedByUserId,
+                        cancellationToken);
+                }
             }
         }
 
