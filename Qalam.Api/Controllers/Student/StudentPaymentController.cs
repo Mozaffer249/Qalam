@@ -5,13 +5,15 @@ using Qalam.Core.Features.Student.Payments.Commands.ConfirmPayment;
 using Qalam.Core.Features.Student.Payments.Commands.CreatePaymentIntent;
 using Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
 using Qalam.Core.Features.Student.Payments.Queries.GetEnrollmentPaymentSummary;
+using Qalam.Core.Features.Student.Payments.Queries.GetMyPayments;
+using Qalam.Core.Features.Student.Payments.Queries.GetPaymentReceipt;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Payment;
 
 namespace Qalam.Api.Controllers.Student;
 
 /// <summary>
-/// Student enrollment payments. Mock/free-trial use Participants; Moyasar uses Intents + Confirm.
+/// Student enrollment payments. Mock/free-trial use Participants; card gateways use Intents + Confirm.
 /// </summary>
 [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
 [ApiController]
@@ -30,7 +32,7 @@ public class StudentPaymentController : AppControllerBase
     }
 
     /// <summary>
-    /// Create a Moyasar payment intent (Pending payment + given_id for the Flutter SDK).
+    /// Create a payment intent (Pending payment + checkout payload for the Flutter client).
     /// </summary>
     [HttpPost(Router.StudentPaymentIntent)]
     [ProducesResponseType(typeof(PaymentIntentDto), StatusCodes.Status200OK)]
@@ -42,7 +44,7 @@ public class StudentPaymentController : AppControllerBase
     }
 
     /// <summary>
-    /// Confirm a Moyasar payment after the SDK reports paid (re-fetches from Moyasar).
+    /// Confirm a payment after the SDK / hosted return reports paid.
     /// </summary>
     [HttpPost(Router.StudentPaymentConfirm)]
     [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]
@@ -62,6 +64,28 @@ public class StudentPaymentController : AppControllerBase
     public async Task<IActionResult> GetEnrollmentPaymentSummary(int enrollmentId)
     {
         var query = new GetEnrollmentPaymentSummaryQuery { EnrollmentId = enrollmentId };
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Paginated payment history for the authenticated payer.
+    /// </summary>
+    [HttpGet(Router.StudentPayments)]
+    [ProducesResponseType(typeof(List<StudentPaymentListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyPayments([FromQuery] GetMyPaymentsQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Payment receipt detail for the authenticated payer.
+    /// </summary>
+    [HttpGet(Router.StudentPaymentById)]
+    [ProducesResponseType(typeof(StudentPaymentReceiptDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPaymentReceipt(int paymentId)
+    {
+        var query = new GetPaymentReceiptQuery { PaymentId = paymentId };
         return NewResult(await Mediator.Send(query));
     }
 }

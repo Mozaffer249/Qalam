@@ -18,6 +18,25 @@ POST /Api/V1/Payments/Webhooks/{provider}
 
 Legacy Moyasar path is kept: `/Api/V1/Payments/Webhooks/Moyasar`.
 
+## Hosted return URL
+
+Configure each hosted gateway's browser return URL to:
+
+```
+GET /Api/V1/Payments/Return/{provider}
+```
+
+Examples (staging):
+
+| Variable | Suggested value |
+|----------|-----------------|
+| `MOYASAR_CALLBACK_URL` | `https://api-staging.qalam.net.sa/Api/V1/Payments/Return/Moyasar` |
+| `PAYTABS_RETURN_URL` | `https://api-staging.qalam.net.sa/Api/V1/Payments/Return/PayTabs` |
+| `HYPERPAY_SHOPPER_RESULT_URL` | `https://api-staging.qalam.net.sa/Api/V1/Payments/Return/HyperPay` |
+| `STRIPE_SUCCESS_URL` | `https://api-staging.qalam.net.sa/Api/V1/Payments/Return/Stripe` |
+
+The Flutter WebView intercepts this prefix (and falls back to common provider query markers).
+
 | Provider | Auth | Notes |
 |----------|------|-------|
 | Moyasar | `secret_token` constant-time compare | Always re-fetch payment after auth |
@@ -30,7 +49,7 @@ Legacy Moyasar path is kept: `/Api/V1/Payments/Webhooks/Moyasar`.
 | Variable | Purpose |
 |----------|---------|
 | `PAYMENT_PROVIDER` | Env default: `Mock`, `Moyasar`, `PayTabs`, `HyperPay`, `Stripe` |
-| `MOYASAR_PUBLISHABLE_KEY` / `MOYASAR_SECRET_KEY` / `MOYASAR_WEBHOOK_SECRET` / `MOYASAR_CALLBACK_URL` | Moyasar |
+| `MOYASAR_PUBLISHABLE_KEY` / `MOYASAR_SECRET_KEY` / `MOYASAR_WEBHOOK_SECRET` / `MOYASAR_CALLBACK_URL` / `MOYASAR_APPLE_PAY_MERCHANT_ID` / `MOYASAR_APPLE_PAY_LABEL` | Moyasar (+ Apple Pay merchant id for the Flutter SDK) |
 | `PAYTABS_PROFILE_ID` / `PAYTABS_SERVER_KEY` / `PAYTABS_BASE_URL` / `PAYTABS_CALLBACK_URL` / `PAYTABS_RETURN_URL` | PayTabs |
 | `HYPERPAY_ENTITY_ID` / `HYPERPAY_ACCESS_TOKEN` / `HYPERPAY_BASE_URL` / `HYPERPAY_WEBHOOK_KEY` / `HYPERPAY_SHOPPER_RESULT_URL` | HyperPay |
 | `STRIPE_PUBLISHABLE_KEY` / `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Stripe |
@@ -39,11 +58,16 @@ Compose maps these to `PaymentSettings__*` (see `docker-compose.yml` / `docker-c
 
 ## Student API flow
 
-1. `POST /Api/V1/Student/Payments/Intents` → provider-agnostic `PaymentIntentDto` (`provider`, `clientMode`, `givenId`, amount, optional `publishableApiKey` / `redirectUrl` / `clientSecret`).
-2. Flutter: `NativeSdk` → Moyasar `CreditCard`; `HostedRedirect` → WebView on `redirectUrl`.
+1. `POST /Api/V1/Student/Payments/Intents` → provider-agnostic `PaymentIntentDto` (`provider`, `clientMode`, `givenId`, amount, optional `publishableApiKey` / `redirectUrl` / `clientSecret` / `applePayMerchantId`).
+2. Flutter: `NativeSdk` → Moyasar method picker (Apple Pay / STC Pay / card); `HostedRedirect` → WebView on `redirectUrl`.
 3. `POST /Api/V1/Student/Payments/Confirm` `{ data: { givenId } }` → `ConfirmFromGatewayAsync` (shared with webhooks).
 4. Free-trial / Mock: `POST /Api/V1/Student/Payments/Participants`.
+5. History: `GET /Api/V1/Student/Payments?pageNumber=1&pageSize=20` and receipt `GET /Api/V1/Student/Payments/{paymentId}`.
 
+## Intent reuse
+
+- **NativeSdk (Moyasar):** reuses the open Pending payment row for the enrollment (same `givenId`) when the student re-enters checkout.
+- **HostedRedirect:** cancels prior Pending rows (keeps `ProviderTransactionId` for late webhooks) and creates a fresh checkout session.
 ## Flip procedure
 
 1. Put keys for the target gateway in VPS `.env` and restart once so `IsConfigured` becomes true.
@@ -53,7 +77,7 @@ Compose maps these to `PaymentSettings__*` (see `docker-compose.yml` / `docker-c
 
 ## Moyasar webhook registration (example)
 
-```bash
+```sh
 curl -X POST https://api.moyasar.com/v1/webhooks \
   -u "$MOYASAR_SECRET_KEY:" \
   -H "Content-Type: application/json" \

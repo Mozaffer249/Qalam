@@ -41,6 +41,12 @@ public class MoyasarPaymentSettings
     /// <summary>3DS return URL registered with Moyasar card payments.</summary>
     public string CallbackUrl { get; set; } = string.Empty;
 
+    /// <summary>Apple Pay merchant id registered in the Moyasar dashboard and Xcode.</summary>
+    public string ApplePayMerchantId { get; set; } = string.Empty;
+
+    /// <summary>Store name shown in the Apple Pay sheet.</summary>
+    public string ApplePayLabel { get; set; } = "Qalam";
+
     public bool Use3ds { get; set; } = true;
 }
 

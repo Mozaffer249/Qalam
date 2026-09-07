@@ -90,7 +90,6 @@ public class PaymentIntentService : IPaymentIntentService
                 "ZERO_AMOUNT",
                 "Use the free-trial pay endpoint for zero-amount enrollments.");
 
-        var givenId = Guid.NewGuid().ToString();
         var isSessionRequest = enrollment.Source == EnrollmentSource.SessionRequest
             || enrollment.CourseId == null;
 
@@ -100,26 +99,81 @@ public class PaymentIntentService : IPaymentIntentService
                ?? "Session request enrollment")
             : enrollment.Course?.Title ?? $"Enrollment #{enrollment.Id}";
 
-        var payment = new Payment
+        Payment payment;
+        string givenId;
+        var reuseNative = gateway.ClientMode == PaymentClientMode.NativeSdk
+            ? await _paymentRepository.GetOpenIntentForEnrollmentAsync(
+                enrollment.Id,
+                gateway.ProviderName,
+                cancellationToken)
+            : null;
+
+        if (reuseNative != null)
         {
-            PayerUserId = userId,
-            Currency = _settings.DefaultCurrency,
-            PaymentProvider = gateway.ProviderName,
-            ProviderTransactionId = givenId,
-            Subtotal = totalAmount,
-            VatAmount = 0,
-            DiscountAmount = 0,
-            TotalAmount = totalAmount,
-            Status = PaymentStatus.Pending
-        };
-        payment.PaymentItems.Add(new PaymentItem
+            payment = reuseNative;
+            givenId = string.IsNullOrWhiteSpace(payment.ProviderTransactionId)
+                ? Guid.NewGuid().ToString()
+                : payment.ProviderTransactionId!;
+
+            if (payment.TotalAmount != totalAmount
+                || payment.Subtotal != totalAmount
+                || payment.Currency != _settings.DefaultCurrency
+                || payment.PayerUserId != userId
+                || string.IsNullOrWhiteSpace(payment.ProviderTransactionId))
+            {
+                payment.PayerUserId = userId;
+                payment.Currency = _settings.DefaultCurrency;
+                payment.ProviderTransactionId = givenId;
+                payment.Subtotal = totalAmount;
+                payment.VatAmount = 0;
+                payment.DiscountAmount = 0;
+                payment.TotalAmount = totalAmount;
+                payment.UpdatedAt = now;
+                foreach (var item in payment.PaymentItems.Where(i =>
+                             i.ItemType == PaymentItemType.CourseEnrollment
+                             && i.ReferenceId == enrollment.Id))
+                {
+                    item.Amount = totalAmount;
+                    item.Description = description;
+                }
+
+                await _paymentRepository.UpdateAsync(payment);
+            }
+        }
+        else
         {
-            ItemType = PaymentItemType.CourseEnrollment,
-            ReferenceId = enrollment.Id,
-            Description = description,
-            Amount = totalAmount
-        });
-        await _paymentRepository.AddAsync(payment);
+            // Hosted: cancel prior Pending rows so finance pending sum stays accurate,
+            // but keep ProviderTransactionId for late webhook matching.
+            if (gateway.ClientMode == PaymentClientMode.HostedRedirect)
+            {
+                await _paymentRepository.CancelOpenIntentsForEnrollmentAsync(
+                    enrollment.Id,
+                    gateway.ProviderName,
+                    cancellationToken);
+            }
+
+            givenId = Guid.NewGuid().ToString();
+            payment = new Payment
+            {
+                PayerUserId = userId,
+                Currency = _settings.DefaultCurrency,
+                PaymentProvider = gateway.ProviderName,
+                ProviderTransactionId = givenId,
+                Subtotal = totalAmount,
+                VatAmount = 0,
+                DiscountAmount = 0,
+                TotalAmount = totalAmount,
+                Status = PaymentStatus.Pending
+            };
+            payment.PaymentItems.Add(new PaymentItem
+            {
+                ItemType = PaymentItemType.CourseEnrollment,
+                ReferenceId = enrollment.Id,
+                Description = description,
+                Amount = totalAmount
+            });
+            await _paymentRepository.AddAsync(payment);
+        }
 
         var metadata = new Dictionary<string, string>
         {
@@ -171,6 +225,8 @@ public class PaymentIntentService : IPaymentIntentService
             RedirectUrl = checkout.RedirectUrl,
             ClientSecret = checkout.ClientSecret,
             CallbackUrl = checkout.CallbackUrl,
+            ApplePayMerchantId = checkout.ApplePayMerchantId,
+            ApplePayLabel = checkout.ApplePayLabel,
             Description = description,
             Metadata = metadata
         });

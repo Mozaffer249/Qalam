@@ -74,7 +74,13 @@ public class MoyasarPaymentGateway : IPaymentGateway
             PublishableKey = _settings.Moyasar.PublishableApiKey,
             CallbackUrl = string.IsNullOrWhiteSpace(request.CallbackUrl)
                 ? _settings.Moyasar.CallbackUrl
-                : request.CallbackUrl
+                : request.CallbackUrl,
+            ApplePayMerchantId = string.IsNullOrWhiteSpace(_settings.Moyasar.ApplePayMerchantId)
+                ? null
+                : _settings.Moyasar.ApplePayMerchantId.Trim(),
+            ApplePayLabel = string.IsNullOrWhiteSpace(_settings.Moyasar.ApplePayLabel)
+                ? "Qalam"
+                : _settings.Moyasar.ApplePayLabel.Trim()
         });
     }
 

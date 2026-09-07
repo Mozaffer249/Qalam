@@ -29,6 +29,8 @@ public class GatewayCheckoutDto
     public string? RedirectUrl { get; set; }
     public string? ClientSecret { get; set; }
     public string? CallbackUrl { get; set; }
+    public string? ApplePayMerchantId { get; set; }
+    public string? ApplePayLabel { get; set; }
 }
 
 public enum PaymentWebhookAuthResult

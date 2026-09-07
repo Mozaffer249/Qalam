@@ -52,8 +52,65 @@ public class PaymentIntentDto
     public string? RedirectUrl { get; set; }
     public string? ClientSecret { get; set; }
     public string? CallbackUrl { get; set; }
+    public string? ApplePayMerchantId { get; set; }
+    public string? ApplePayLabel { get; set; }
     public string Description { get; set; } = string.Empty;
     public Dictionary<string, string> Metadata { get; set; } = new();
+}
+
+/// <summary>Paginated student payment history row.</summary>
+public class StudentPaymentListItemDto
+{
+    public int PaymentId { get; set; }
+    public PaymentStatus Status { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public DateTime? PaidAt { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int? EnrollmentId { get; set; }
+    public string Provider { get; set; } = string.Empty;
+    public decimal RefundedAmount { get; set; }
+}
+
+public class PaymentReceiptItemDto
+{
+    public string ItemType { get; set; } = string.Empty;
+    public int ReferenceId { get; set; }
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
+}
+
+public class PaymentReceiptRefundDto
+{
+    public int RefundId { get; set; }
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public string Status { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Student-facing payment receipt detail.</summary>
+public class StudentPaymentReceiptDto
+{
+    public int PaymentId { get; set; }
+    public PaymentStatus Status { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal Subtotal { get; set; }
+    public decimal VatAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public DateTime? PaidAt { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int? EnrollmentId { get; set; }
+    public string Provider { get; set; } = string.Empty;
+    public string? ProviderTransactionId { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public string? CourseTitle { get; set; }
+    public string? TeacherName { get; set; }
+    public List<PaymentReceiptItemDto> Items { get; set; } = new();
+    public List<PaymentReceiptRefundDto> Refunds { get; set; } = new();
 }
 
 /// <summary>Body for confirming a Moyasar payment after 3DS / SDK result.</summary>
