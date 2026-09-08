@@ -376,7 +376,8 @@ public class MoyasarPaymentGateway : IPaymentGateway
             primary,
             eventType: "invoice_" + (status ?? "updated"),
             mappedStatus: mapped,
-            alternateProviderPaymentIds: alts);
+            alternateProviderPaymentIds: alts,
+            requiresRemoteVerification: true);
     }
 
     private async Task<GatewayPaymentDto?> FetchPaymentAsync(
@@ -478,7 +479,9 @@ public class MoyasarPaymentGateway : IPaymentGateway
         SourceNumber = p.Source?.Number,
         Message = p.Source?.Message,
         TransactionUrl = p.Source?.TransactionUrl,
-        InvoiceId = p.InvoiceId
+        InvoiceId = p.InvoiceId,
+        Metadata = p.Metadata,
+        CreatedAt = p.CreatedAt
     };
 
     public static PaymentClientMode ParseClientMode(string? raw)
@@ -554,7 +557,102 @@ public class MoyasarPaymentGateway : IPaymentGateway
         public string? Currency { get; set; }
         [JsonPropertyName("invoice_id")]
         public string? InvoiceId { get; set; }
+        [JsonPropertyName("created_at")]
+        public DateTime? CreatedAt { get; set; }
+        public Dictionary<string, string>? Metadata { get; set; }
         public MoyasarSourceResponse? Source { get; set; }
+    }
+
+    private sealed class MoyasarPaymentListResponse
+    {
+        public List<MoyasarPaymentResponse>? Payments { get; set; }
+        public MoyasarListMeta? Meta { get; set; }
+    }
+
+    private sealed class MoyasarInvoiceListResponse
+    {
+        public List<MoyasarInvoiceResponse>? Invoices { get; set; }
+        public MoyasarListMeta? Meta { get; set; }
+    }
+
+    private sealed class MoyasarListMeta
+    {
+        [JsonPropertyName("current_page")]
+        public int CurrentPage { get; set; }
+        [JsonPropertyName("next_page")]
+        public int? NextPage { get; set; }
+        [JsonPropertyName("total_pages")]
+        public int TotalPages { get; set; }
+        [JsonPropertyName("total_count")]
+        public int TotalCount { get; set; }
+    }
+
+    /// <summary>Paginated Moyasar payments for reconciliation.</summary>
+    public async Task<(IReadOnlyList<GatewayPaymentDto> Items, int? NextPage)> ListPaymentsAsync(
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _http.GetAsync($"payments?page={Math.Max(1, page)}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Moyasar list payments failed: {Status} {Body}", (int)response.StatusCode, Truncate(body));
+            response.EnsureSuccessStatusCode();
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<MoyasarPaymentListResponse>(JsonOptions, cancellationToken);
+        var items = payload?.Payments?.Select(MapPayment).ToList() ?? new List<GatewayPaymentDto>();
+        return (items, payload?.Meta?.NextPage);
+    }
+
+    /// <summary>Paginated Moyasar invoices for reconciliation (mapped to nested/paid payment when present).</summary>
+    public async Task<(IReadOnlyList<GatewayPaymentDto> Items, int? NextPage)> ListInvoicesAsync(
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _http.GetAsync($"invoices?page={Math.Max(1, page)}", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Moyasar list invoices failed: {Status} {Body}", (int)response.StatusCode, Truncate(body));
+            response.EnsureSuccessStatusCode();
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<MoyasarInvoiceListResponse>(JsonOptions, cancellationToken);
+        var items = new List<GatewayPaymentDto>();
+        if (payload?.Invoices != null)
+        {
+            foreach (var invoice in payload.Invoices)
+            {
+                if (string.IsNullOrWhiteSpace(invoice.Id))
+                    continue;
+
+                var paid = invoice.Payments?
+                    .FirstOrDefault(p => MoyasarStatusMapper.IsPaid(p.Status))
+                    ?? invoice.Payments?.LastOrDefault();
+
+                if (paid != null && !string.IsNullOrWhiteSpace(paid.Id))
+                {
+                    var mapped = MapPayment(paid);
+                    mapped.InvoiceId = invoice.Id;
+                    items.Add(mapped);
+                }
+                else
+                {
+                    items.Add(new GatewayPaymentDto
+                    {
+                        Id = invoice.Id,
+                        Status = invoice.Status ?? "initiated",
+                        MappedStatus = MapInvoiceStatus(invoice.Status),
+                        AmountHalalas = invoice.Amount,
+                        Currency = invoice.Currency ?? "SAR",
+                        InvoiceId = invoice.Id
+                    });
+                }
+            }
+        }
+
+        return (items, payload?.Meta?.NextPage);
     }
 
     private sealed class MoyasarSourceResponse

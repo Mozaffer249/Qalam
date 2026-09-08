@@ -18,6 +18,7 @@ public class PaymentIntentService : IPaymentIntentService
     private readonly IStudentCoursePriceResolver _coursePriceResolver;
     private readonly IPaymentGatewayResolver _gatewayResolver;
     private readonly IPaymentGatewaySettingsProvider _gatewaySettings;
+    private readonly IPaymentTransactionEventService _events;
     private readonly PaymentSettings _settings;
     private readonly ILogger<PaymentIntentService> _logger;
 
@@ -27,6 +28,7 @@ public class PaymentIntentService : IPaymentIntentService
         IStudentCoursePriceResolver coursePriceResolver,
         IPaymentGatewayResolver gatewayResolver,
         IPaymentGatewaySettingsProvider gatewaySettings,
+        IPaymentTransactionEventService events,
         IOptions<PaymentSettings> settings,
         ILogger<PaymentIntentService> logger)
     {
@@ -35,6 +37,7 @@ public class PaymentIntentService : IPaymentIntentService
         _coursePriceResolver = coursePriceResolver;
         _gatewayResolver = gatewayResolver;
         _gatewaySettings = gatewaySettings;
+        _events = events;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -146,6 +149,16 @@ public class PaymentIntentService : IPaymentIntentService
 
                 await _paymentRepository.UpdateAsync(payment);
             }
+
+            await RecordIntentEventAsync(
+                payment,
+                enrollment.Id,
+                participant.Id,
+                enrollment.EnrollmentRequestId,
+                enrollment.SessionRequestId,
+                PaymentTransactionEventType.IntentReused,
+                PaymentTransactionEventResult.Success,
+                cancellationToken);
         }
         else
         {
@@ -180,6 +193,16 @@ public class PaymentIntentService : IPaymentIntentService
                 Amount = totalAmount
             });
             await _paymentRepository.AddAsync(payment);
+
+            await RecordIntentEventAsync(
+                payment,
+                enrollment.Id,
+                participant.Id,
+                enrollment.EnrollmentRequestId,
+                enrollment.SessionRequestId,
+                PaymentTransactionEventType.IntentCreated,
+                PaymentTransactionEventResult.Success,
+                cancellationToken);
         }
 
         var metadata = new Dictionary<string, string>
@@ -209,6 +232,16 @@ public class PaymentIntentService : IPaymentIntentService
             payment.FailureMessage = Truncate(ex.Message, 500);
             payment.UpdatedAt = DateTime.UtcNow;
             await _paymentRepository.UpdateAsync(payment);
+            await RecordIntentEventAsync(
+                payment,
+                enrollment.Id,
+                participant.Id,
+                enrollment.EnrollmentRequestId,
+                enrollment.SessionRequestId,
+                PaymentTransactionEventType.CheckoutFailed,
+                PaymentTransactionEventResult.Failed,
+                cancellationToken,
+                error: Truncate(ex.Message, 1000));
             return PaymentIntentServiceResult.Fail("CHECKOUT_FAILED", ex.Message);
         }
 
@@ -217,9 +250,27 @@ public class PaymentIntentService : IPaymentIntentService
             && !checkout.ProviderPaymentRef.Equals(givenId, StringComparison.Ordinal))
         {
             payment.ProviderTransactionId = checkout.ProviderPaymentRef;
+            // Moyasar HostedRedirect: ProviderPaymentRef is the invoice id — retain it permanently.
+            if (checkout.ClientMode == PaymentClientMode.HostedRedirect
+                && gateway.ProviderName.Equals(MoyasarPaymentGateway.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                payment.ProviderInvoiceId = checkout.ProviderPaymentRef;
+            }
+
             payment.UpdatedAt = DateTime.UtcNow;
             await _paymentRepository.UpdateAsync(payment);
         }
+
+        await RecordIntentEventAsync(
+            payment,
+            enrollment.Id,
+            participant.Id,
+            enrollment.EnrollmentRequestId,
+            enrollment.SessionRequestId,
+            PaymentTransactionEventType.CheckoutCreated,
+            PaymentTransactionEventResult.Success,
+            cancellationToken,
+            notes: checkout.ClientMode.ToString());
 
         return PaymentIntentServiceResult.Ok(new PaymentIntentDto
         {
@@ -238,6 +289,40 @@ public class PaymentIntentService : IPaymentIntentService
             Description = description,
             Metadata = metadata
         });
+    }
+
+    private async Task RecordIntentEventAsync(
+        Payment payment,
+        int enrollmentId,
+        int participantId,
+        int? enrollmentRequestId,
+        int? openSessionRequestId,
+        PaymentTransactionEventType eventType,
+        PaymentTransactionEventResult result,
+        CancellationToken cancellationToken,
+        string? error = null,
+        string? notes = null)
+    {
+        await _events.RecordAsync(new PaymentTransactionEventRequest
+        {
+            PaymentId = payment.Id,
+            EnrollmentId = enrollmentId,
+            EnrollmentParticipantId = participantId,
+            EnrollmentRequestId = enrollmentRequestId,
+            OpenSessionRequestId = openSessionRequestId,
+            PaymentProvider = payment.PaymentProvider,
+            Source = PaymentTransactionEventSource.Intent,
+            EventType = eventType,
+            Result = result,
+            StatusBefore = null,
+            StatusAfter = payment.Status,
+            Amount = payment.TotalAmount,
+            Currency = payment.Currency,
+            ProviderPaymentId = payment.ProviderTransactionId,
+            ProviderInvoiceId = payment.ProviderInvoiceId,
+            ErrorMessage = error,
+            Notes = notes
+        }, cancellationToken);
     }
 
     private async Task<PaymentClientMode> ResolveEffectiveClientModeAsync(

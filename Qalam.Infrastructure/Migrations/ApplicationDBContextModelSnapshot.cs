@@ -4391,6 +4391,10 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<decimal?>("ProviderFee")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("ProviderInvoiceId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<string>("ProviderTransactionId")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
@@ -4424,6 +4428,12 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PayerUserId");
+
+                    b.HasIndex("PaymentProvider", "ProviderInvoiceId")
+                        .HasFilter("[ProviderInvoiceId] IS NOT NULL");
+
+                    b.HasIndex("PaymentProvider", "ProviderTransactionId")
+                        .HasFilter("[ProviderTransactionId] IS NOT NULL");
 
                     b.ToTable("Payments");
                 });
@@ -4469,6 +4479,221 @@ namespace Qalam.Infrastructure.Migrations
                     b.HasIndex("PaymentId");
 
                     b.ToTable("PaymentItems");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Payment.PaymentReconciliationRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ErrorSummary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LookbackFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LookbackToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MatchedCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MismatchCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MissingRemoteCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PaginationCursor")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentProvider")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("RemoteInvoicesSeen")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RemotePaymentsSeen")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RepairedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScheduleKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TriggeredByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnresolvedRemoteCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleKey")
+                        .IsUnique()
+                        .HasFilter("[ScheduleKey] IS NOT NULL");
+
+                    b.HasIndex("StartedAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("PaymentReconciliationRuns", "payment");
+                });
+
+            modelBuilder.Entity("Qalam.Data.Entity.Payment.PaymentTransactionEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<int?>("EnrollmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EnrollmentParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EnrollmentRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("OpenSessionRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayloadHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("PayloadJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentProvider")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderEventId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ProviderInvoiceId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Result")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StatusAfter")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StatusBefore")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("EnrollmentRequestId");
+
+                    b.HasIndex("OpenSessionRequestId");
+
+                    b.HasIndex("PayloadHash");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("ReceivedAt");
+
+                    b.HasIndex("PaymentProvider", "ProviderEventId");
+
+                    b.HasIndex("PaymentProvider", "ProviderInvoiceId");
+
+                    b.HasIndex("PaymentProvider", "ProviderPaymentId");
+
+                    b.ToTable("PaymentTransactionEvents", "payment");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Payment.PayoutBatch", b =>
@@ -8782,6 +9007,16 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Payment");
                 });
 
+            modelBuilder.Entity("Qalam.Data.Entity.Payment.PaymentTransactionEvent", b =>
+                {
+                    b.HasOne("Qalam.Data.Entity.Payment.Payment", "Payment")
+                        .WithMany("TransactionEvents")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Payment");
+                });
+
             modelBuilder.Entity("Qalam.Data.Entity.Payment.PayoutBatch", b =>
                 {
                     b.HasOne("Qalam.Data.Entity.Identity.User", "CreatedByUser")
@@ -9965,6 +10200,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("PaymentItems");
 
                     b.Navigation("Refunds");
+
+                    b.Navigation("TransactionEvents");
                 });
 
             modelBuilder.Entity("Qalam.Data.Entity.Payment.PayoutBatch", b =>

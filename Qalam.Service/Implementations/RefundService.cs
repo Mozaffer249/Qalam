@@ -12,15 +12,18 @@ public class RefundService : IRefundService
     private readonly IRefundRepository _refunds;
     private readonly ITeacherFinanceImpactService _financeImpact;
     private readonly IPaymentGatewayResolver _gatewayResolver;
+    private readonly IPaymentTransactionEventService _events;
 
     public RefundService(
         IRefundRepository refunds,
         ITeacherFinanceImpactService financeImpact,
-        IPaymentGatewayResolver gatewayResolver)
+        IPaymentGatewayResolver gatewayResolver,
+        IPaymentTransactionEventService events)
     {
         _refunds = refunds;
         _financeImpact = financeImpact;
         _gatewayResolver = gatewayResolver;
+        _events = events;
     }
 
     public async Task<Refund> IssueRefundAsync(
@@ -51,6 +54,23 @@ public class RefundService : IRefundService
 
         string? providerRefundId = null;
         var refundStatus = RefundStatus.Succeeded;
+        var statusBefore = payment.Status;
+
+        await _events.RecordAsync(new PaymentTransactionEventRequest
+        {
+            PaymentId = payment.Id,
+            EnrollmentId = enrollmentId,
+            PaymentProvider = payment.PaymentProvider,
+            Source = PaymentTransactionEventSource.Admin,
+            EventType = PaymentTransactionEventType.RefundRequested,
+            Result = PaymentTransactionEventResult.Pending,
+            StatusBefore = statusBefore,
+            Amount = amount,
+            Currency = currency,
+            ProviderPaymentId = payment.ProviderTransactionId,
+            ProviderInvoiceId = payment.ProviderInvoiceId,
+            Notes = reason
+        }, cancellationToken);
 
         IPaymentGateway gateway;
         try
@@ -149,6 +169,29 @@ public class RefundService : IRefundService
         }
 
         await _refunds.SaveChangesAsync(cancellationToken);
+
+        await _events.RecordAsync(new PaymentTransactionEventRequest
+        {
+            PaymentId = payment.Id,
+            EnrollmentId = enrollmentId,
+            PaymentProvider = payment.PaymentProvider,
+            Source = PaymentTransactionEventSource.Admin,
+            EventType = refundStatus == RefundStatus.Succeeded
+                ? PaymentTransactionEventType.RefundSucceeded
+                : PaymentTransactionEventType.RefundFailed,
+            Result = refundStatus == RefundStatus.Succeeded
+                ? PaymentTransactionEventResult.Success
+                : PaymentTransactionEventResult.Failed,
+            StatusBefore = statusBefore,
+            StatusAfter = payment.Status,
+            Amount = refund.Amount,
+            Currency = refund.Currency,
+            ProviderPaymentId = payment.ProviderTransactionId,
+            ProviderInvoiceId = payment.ProviderInvoiceId,
+            Notes = providerRefundId,
+            ErrorMessage = refundStatus == RefundStatus.Succeeded ? null : "gateway_refund_pending_or_failed"
+        }, cancellationToken);
+
         return refund;
     }
 

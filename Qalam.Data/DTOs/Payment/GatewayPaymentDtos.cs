@@ -21,6 +21,11 @@ public class GatewayPaymentDto
 
     /// <summary>Parent Moyasar invoice id when this payment was created via hosted invoice.</summary>
     public string? InvoiceId { get; set; }
+
+    /// <summary>Gateway metadata (e.g. Moyasar metadata.paymentId / enrollmentId).</summary>
+    public Dictionary<string, string>? Metadata { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
 }
 
 public class GatewayRefundDto

@@ -23,6 +23,23 @@ public class PaymentSettings
     public HyperPayPaymentSettings HyperPay { get; set; } = new();
 
     public StripePaymentSettings Stripe { get; set; } = new();
+
+    public PaymentReconciliationSettings Reconciliation { get; set; } = new();
+}
+
+public class PaymentReconciliationSettings
+{
+    /// <summary>When true, API hosts a background Moyasar reconciliation sweep.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Minutes between scheduled reconciliation runs (minimum 5).</summary>
+    public int IntervalMinutes { get; set; } = 15;
+
+    /// <summary>How far back to query Moyasar list APIs each run.</summary>
+    public int LookbackDays { get; set; } = 7;
+
+    /// <summary>Max pages to fetch per resource (payments / invoices) per run.</summary>
+    public int MaxPagesPerRun { get; set; } = 5;
 }
 
 public class MoyasarPaymentSettings

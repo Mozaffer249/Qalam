@@ -27,6 +27,13 @@ public class Payment : AuditableEntity
     public string? ProviderTransactionId { get; set; }
 
     /// <summary>
+    /// Moyasar hosted invoice id retained when <see cref="ProviderTransactionId"/> is promoted
+    /// to the final payment id after capture.
+    /// </summary>
+    [MaxLength(120)]
+    public string? ProviderInvoiceId { get; set; }
+
+    /// <summary>
     /// Gateway processing fee (e.g. Moyasar fee including their VAT), in major currency units.
     /// </summary>
     public decimal? ProviderFee { get; set; }
@@ -74,4 +81,5 @@ public class Payment : AuditableEntity
     public ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();
     public ICollection<EnrollmentPayment> EnrollmentPayments { get; set; } = new List<EnrollmentPayment>();
     public ICollection<Refund> Refunds { get; set; } = new List<Refund>();
+    public ICollection<PaymentTransactionEvent> TransactionEvents { get; set; } = new List<PaymentTransactionEvent>();
 }

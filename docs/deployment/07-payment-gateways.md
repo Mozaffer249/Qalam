@@ -12,11 +12,56 @@ Card payments go through a pluggable `IPaymentGateway` registry: **Mock**, **Moy
 
 ## Webhook URL pattern
 
+Canonical (multi-provider):
+
 ```
 POST /Api/V1/Payments/Webhooks/{provider}
 ```
 
-Legacy Moyasar path is kept: `/Api/V1/Payments/Webhooks/Moyasar`.
+Legacy Moyasar path: `/Api/V1/Payments/Webhooks/Moyasar`.
+
+**Compatibility alias** (currently configured in some Moyasar dashboards — keep until updated):
+
+```
+POST /Api/V1/Payments/Webhook
+```
+
+That singular path always routes as Moyasar. Prefer the canonical URL going forward.
+
+Moyasar dashboard events: `payment_paid`, `payment_failed`, `payment_refunded`.
+
+Unsigned Moyasar **invoice** callback bodies are logged, then **re-fetched** with the secret key before status mutation (body alone is not trusted).
+
+## Payment audit trail
+
+Every intent/webhook/confirm/refund/reconciliation step appends a row to `payment.PaymentTransactionEvents` (correlated to `PaymentId`, `EnrollmentId`, enrollment request, and OSR when known). Payloads are sanitized (secrets/card/contact fields redacted).
+
+Admin:
+
+- `GET /Api/V1/Admin/Payments/Events`
+- `GET /Api/V1/Admin/Payments/{paymentId}/Events`
+- Revenue detail timeline uses persisted events when present.
+
+## Moyasar reconciliation
+
+Scheduled background sweep (default every 15 minutes, 7-day lookback) plus manual:
+
+- `POST /Api/V1/Admin/Payments/Reconciliation/Start` `{ fromUtc?, toUtc?, providerPaymentIds? }`
+- `GET /Api/V1/Admin/Payments/Reconciliation/Runs`
+- `GET /Api/V1/Admin/Payments/Reconciliation/Runs/{id}`
+
+Uses Moyasar `GET /v1/payments` and `GET /v1/invoices`. Safe repairs: remote paid + local pending → `ConfirmFromGatewayAsync`; remote refunded → sync local refunded. Never downgrades a local succeeded payment from an ambiguous remote status.
+
+Env:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PAYMENT_RECONCILIATION_ENABLED` | `true` | Hosted background service |
+| `PAYMENT_RECONCILIATION_INTERVAL_MINUTES` | `15` | Sweep interval (min 5) |
+| `PAYMENT_RECONCILIATION_LOOKBACK_DAYS` | `7` | List window |
+| `PAYMENT_RECONCILIATION_MAX_PAGES` | `5` | Max pages per resource per run |
+
+After deploy: set Moyasar webhook URL to the **canonical** path, retry failed attempts if the dashboard allows, and optionally `Start` reconciliation with the failed subject payment ids.
 
 ## Hosted return URL
 

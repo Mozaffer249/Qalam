@@ -101,6 +101,7 @@ public class PaymentIntentReuseTests
             priceResolver.Object,
             gatewayResolver.Object,
             Settings("NativeSdk").Object,
+            Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
             NullLogger<PaymentIntentService>.Instance);
 
@@ -167,6 +168,7 @@ public class PaymentIntentReuseTests
             priceResolver.Object,
             gatewayResolver.Object,
             Settings().Object,
+            Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
             NullLogger<PaymentIntentService>.Instance);
 
@@ -236,6 +238,7 @@ public class PaymentIntentReuseTests
             priceResolver.Object,
             gatewayResolver.Object,
             Settings("HostedRedirect").Object,
+            Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
             NullLogger<PaymentIntentService>.Instance);
 

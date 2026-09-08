@@ -79,19 +79,27 @@ public class PaymentWebhookParseResult
     /// </summary>
     public IReadOnlyList<string>? AlternateProviderPaymentIds { get; init; }
 
+    /// <summary>
+    /// When true, webhook service must re-fetch from the gateway before mutating state
+    /// (unsigned invoice callback bodies must not be trusted alone).
+    /// </summary>
+    public bool RequiresRemoteVerification { get; init; }
+
     public static PaymentWebhookParseResult Success(
         string providerPaymentId,
         string? eventType,
         PaymentStatus? mappedStatus,
         string? message = null,
-        IReadOnlyList<string>? alternateProviderPaymentIds = null) => new()
+        IReadOnlyList<string>? alternateProviderPaymentIds = null,
+        bool requiresRemoteVerification = false) => new()
     {
         Auth = PaymentWebhookAuthResult.Ok,
         ProviderPaymentId = providerPaymentId,
         EventType = eventType,
         MappedStatus = mappedStatus,
         Message = message,
-        AlternateProviderPaymentIds = alternateProviderPaymentIds
+        AlternateProviderPaymentIds = alternateProviderPaymentIds,
+        RequiresRemoteVerification = requiresRemoteVerification
     };
 }
 

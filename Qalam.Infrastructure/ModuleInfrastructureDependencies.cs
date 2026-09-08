@@ -75,6 +75,8 @@ namespace Qalam.Infrastructure
             // Payment Repositories
             services.AddTransient<IPaymentRepository, PaymentRepository>();
             services.AddTransient<IEnrollmentPaymentRepository, EnrollmentPaymentRepository>();
+            services.AddTransient<IPaymentTransactionEventRepository, PaymentTransactionEventRepository>();
+            services.AddTransient<IPaymentReconciliationRunRepository, PaymentReconciliationRunRepository>();
 
             // Common Repositories
             services.AddTransient<ITimeSlotRepository, TimeSlotRepository>();

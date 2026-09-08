@@ -11,6 +11,10 @@ public interface IPaymentRepository : IGenericRepositoryAsync<Payment>
         string providerTransactionId,
         CancellationToken cancellationToken = default);
 
+    Task<Payment?> GetByProviderInvoiceIdAsync(
+        string providerInvoiceId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Newest Pending payment for an enrollment under the given provider, if any.
     /// </summary>

@@ -344,4 +344,75 @@ public class AdminRevenueDetailDto : AdminRevenueRecordDto
     public List<FinanceTimelineEventDto> Timeline { get; set; } = new();
     public int? ScheduleId { get; set; }
     public string? PaymentProviderRef { get; set; }
+    public string? ProviderInvoiceId { get; set; }
+    public int? EnrollmentRequestId { get; set; }
+    public int? OpenSessionRequestId { get; set; }
+}
+
+public class AdminPaymentTransactionEventDto
+{
+    public long Id { get; set; }
+    public int? PaymentId { get; set; }
+    public int? EnrollmentId { get; set; }
+    public int? EnrollmentRequestId { get; set; }
+    public int? OpenSessionRequestId { get; set; }
+    public string PaymentProvider { get; set; } = "";
+    public string Source { get; set; } = "";
+    public string EventType { get; set; } = "";
+    public string Result { get; set; } = "";
+    public string? StatusBefore { get; set; }
+    public string? StatusAfter { get; set; }
+    public decimal? Amount { get; set; }
+    public string? Currency { get; set; }
+    public string? ProviderPaymentId { get; set; }
+    public string? ProviderInvoiceId { get; set; }
+    public string? Notes { get; set; }
+    public string? ErrorMessage { get; set; }
+    public DateTime ReceivedAt { get; set; }
+}
+
+public class AdminPaymentTransactionEventFilter
+{
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 25;
+    public int? PaymentId { get; set; }
+    public int? EnrollmentId { get; set; }
+    public int? EnrollmentRequestId { get; set; }
+    public int? OpenSessionRequestId { get; set; }
+    public string? Provider { get; set; }
+    public string? ProviderPaymentId { get; set; }
+    public string? ProviderInvoiceId { get; set; }
+    public string? Source { get; set; }
+    public string? EventType { get; set; }
+    public string? Result { get; set; }
+    public DateTime? FromUtc { get; set; }
+    public DateTime? ToUtc { get; set; }
+}
+
+public class AdminPaymentReconciliationRunDto
+{
+    public int Id { get; set; }
+    public string PaymentProvider { get; set; } = "";
+    public string Source { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string? ScheduleKey { get; set; }
+    public DateTime LookbackFromUtc { get; set; }
+    public DateTime LookbackToUtc { get; set; }
+    public int RemotePaymentsSeen { get; set; }
+    public int RemoteInvoicesSeen { get; set; }
+    public int MatchedCount { get; set; }
+    public int RepairedCount { get; set; }
+    public int MismatchCount { get; set; }
+    public int UnresolvedRemoteCount { get; set; }
+    public int MissingRemoteCount { get; set; }
+    public string? ErrorSummary { get; set; }
+    public DateTime StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+}
+
+public class StartPaymentReconciliationRequestDto
+{
+    public DateTime? FromUtc { get; set; }
+    public DateTime? ToUtc { get; set; }
+    public List<string>? ProviderPaymentIds { get; set; }
 }

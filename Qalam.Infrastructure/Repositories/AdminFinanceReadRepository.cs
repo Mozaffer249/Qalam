@@ -352,24 +352,60 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             .Select(p => p.ProviderTransactionId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        detail.Timeline =
-        [
-            new FinanceTimelineEventDto
-            {
-                EventType = "PaymentSucceeded",
-                Label = "Payment succeeded",
-                OccurredAt = detail.OccurredAt
-            }
-        ];
+        var paymentMeta = await _context.Payments.AsNoTracking()
+            .Where(p => p.Id == paymentId)
+            .Select(p => new { p.ProviderInvoiceId })
+            .FirstOrDefaultAsync(cancellationToken);
+        detail.ProviderInvoiceId = paymentMeta?.ProviderInvoiceId;
 
-        if (detail.Refunds > 0)
+        if (detail.EnrollmentId.HasValue)
         {
-            detail.Timeline.Add(new FinanceTimelineEventDto
+            var links = await _context.Enrollments.AsNoTracking()
+                .Where(e => e.Id == detail.EnrollmentId.Value)
+                .Select(e => new { e.EnrollmentRequestId, e.SessionRequestId })
+                .FirstOrDefaultAsync(cancellationToken);
+            detail.EnrollmentRequestId = links?.EnrollmentRequestId;
+            detail.OpenSessionRequestId = links?.SessionRequestId;
+        }
+
+        var events = await _context.PaymentTransactionEvents.AsNoTracking()
+            .Where(e => e.PaymentId == paymentId)
+            .OrderByDescending(e => e.ReceivedAt)
+            .ThenByDescending(e => e.Id)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        if (events.Count > 0)
+        {
+            detail.Timeline = events.Select(e => new FinanceTimelineEventDto
             {
-                EventType = "RefundIssued",
-                Label = "Refund issued",
-                OccurredAt = detail.OccurredAt
-            });
+                EventType = e.EventType.ToString(),
+                Label = $"{e.Source}/{e.EventType} ({e.Result})",
+                OccurredAt = e.ReceivedAt,
+                Notes = e.ErrorMessage ?? e.Notes
+            }).ToList();
+        }
+        else
+        {
+            detail.Timeline =
+            [
+                new FinanceTimelineEventDto
+                {
+                    EventType = "PaymentSucceeded",
+                    Label = "Payment succeeded",
+                    OccurredAt = detail.OccurredAt
+                }
+            ];
+
+            if (detail.Refunds > 0)
+            {
+                detail.Timeline.Add(new FinanceTimelineEventDto
+                {
+                    EventType = "RefundIssued",
+                    Label = "Refund issued",
+                    OccurredAt = detail.OccurredAt
+                });
+            }
         }
 
         return detail;

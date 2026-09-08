@@ -39,7 +39,24 @@ public class PaymentRepository : GenericRepositoryAsync<Payment>, IPaymentReposi
             .Include(p => p.EnrollmentPayments)
             .Include(p => p.Refunds)
             .FirstOrDefaultAsync(
-                p => p.ProviderTransactionId == providerTransactionId,
+                p => p.ProviderTransactionId == providerTransactionId
+                     || p.ProviderInvoiceId == providerTransactionId,
+                cancellationToken);
+    }
+
+    public async Task<Payment?> GetByProviderInvoiceIdAsync(
+        string providerInvoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(providerInvoiceId))
+            return null;
+
+        return await _context.Payments
+            .Include(p => p.PaymentItems)
+            .Include(p => p.EnrollmentPayments)
+            .Include(p => p.Refunds)
+            .FirstOrDefaultAsync(
+                p => p.ProviderInvoiceId == providerInvoiceId,
                 cancellationToken);
     }
 

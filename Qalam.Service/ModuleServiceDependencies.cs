@@ -97,6 +97,9 @@ namespace Qalam.Service
             services.AddTransient<IPaymentConfirmationService, PaymentConfirmationService>();
             services.AddTransient<IPaymentIntentService, PaymentIntentService>();
             services.AddTransient<IPaymentWebhookService, PaymentWebhookService>();
+            services.AddTransient<IPaymentTransactionEventService, PaymentTransactionEventService>();
+            services.AddTransient<IPaymentReconciliationService, PaymentReconciliationService>();
+            services.AddTransient<IAdminPaymentAuditService, AdminPaymentAuditService>();
             services.AddScoped<IPaymentGatewaySettingsProvider, PaymentGatewaySettingsProvider>();
             services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
 

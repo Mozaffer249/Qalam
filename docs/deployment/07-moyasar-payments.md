@@ -1,3 +1,13 @@
-# Moyasar payments
+# Moyasar payments (staging notes)
 
-Moved to **[07-payment-gateways.md](07-payment-gateways.md)** — multi-gateway registry (Mock, Moyasar, PayTabs, HyperPay, Stripe) with admin switch.
+Canonical webhook URL:
+
+`https://api-staging.qalam.net.sa/Api/V1/Payments/Webhooks/Moyasar`
+
+Compatibility alias (still accepted by API):
+
+`https://api-staging.qalam.net.sa/Api/V1/Payments/Webhook`
+
+Events: `payment_paid`, `payment_failed`, `payment_refunded`.
+
+See [07-payment-gateways.md](07-payment-gateways.md) for audit trail, reconciliation, and env vars.

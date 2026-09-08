@@ -81,6 +81,11 @@ namespace Qalam.Data.AppMetaData
         public const string AdminRevenue = Rule + "Admin/Revenue";
         public const string AdminRevenueSummary = AdminRevenue + "/Summary";
         public const string AdminRevenueById = AdminRevenue + "/{id}";
+        public const string AdminPaymentEvents = Rule + "Admin/Payments/Events";
+        public const string AdminPaymentEventsByPayment = Rule + "Admin/Payments/{paymentId:int}/Events";
+        public const string AdminPaymentReconciliationRuns = Rule + "Admin/Payments/Reconciliation/Runs";
+        public const string AdminPaymentReconciliationRunById = AdminPaymentReconciliationRuns + "/{id:int}";
+        public const string AdminPaymentReconciliationStart = Rule + "Admin/Payments/Reconciliation/Start";
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
@@ -475,6 +480,11 @@ namespace Qalam.Data.AppMetaData
         public const string PaymentWebhook = Rule + "Payments/Webhooks/{provider}";
         /// <summary>Moyasar webhook receiver (legacy alias): Api/V1/Payments/Webhooks/Moyasar</summary>
         public const string MoyasarWebhook = Rule + "Payments/Webhooks/Moyasar";
+        /// <summary>
+        /// Backward-compatible Moyasar dashboard URL (singular): Api/V1/Payments/Webhook.
+        /// Prefer <see cref="MoyasarWebhook"/> going forward.
+        /// </summary>
+        public const string MoyasarWebhookSingularAlias = Rule + "Payments/Webhook";
         /// <summary>Hosted-gateway browser return page: Api/V1/Payments/Return/{provider}</summary>
         public const string PaymentReturn = Rule + "Payments/Return/{provider}";
 

@@ -38,7 +38,8 @@ internal static class ComplaintResolutionTestHelper
             refundService ?? new RefundService(
                 new RefundRepository(db),
                 financeImpact,
-                CreateMockResolver()),
+                CreateMockResolver(),
+                Mock.Of<IPaymentTransactionEventService>()),
             audit,
             financeImpact);
     }
@@ -65,7 +66,8 @@ internal static class ComplaintResolutionTestHelper
         var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(
             new RefundRepository(db),
             new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db)),
-            CreateMockResolver()));
+            CreateMockResolver(),
+            Mock.Of<IPaymentTransactionEventService>()));
         return new SessionComplaintService(
             complaintRepo,
             scheduleRepo,

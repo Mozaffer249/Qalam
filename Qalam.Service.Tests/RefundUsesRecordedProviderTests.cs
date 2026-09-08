@@ -68,7 +68,7 @@ public class RefundUsesRecordedProviderTests
             });
 
         var resolver = new PaymentGatewayResolver(new IPaymentGateway[] { mockGw, moyasar.Object }, settings.Object);
-        var service = new RefundService(refunds.Object, finance.Object, resolver);
+        var service = new RefundService(refunds.Object, finance.Object, resolver, Mock.Of<IPaymentTransactionEventService>());
 
         var refund = await service.IssueRefundAsync(
             paymentId: 10,

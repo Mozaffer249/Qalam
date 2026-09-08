@@ -25,12 +25,14 @@ public class PaymentWebhooksController : ControllerBase
 
     [HttpPost(Router.PaymentWebhook)]
     [HttpPost(Router.MoyasarWebhook)]
+    [HttpPost(Router.MoyasarWebhookSingularAlias)]
     [Consumes("application/json", "application/x-www-form-urlencoded", "text/plain")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Receive(string? provider, CancellationToken cancellationToken)
     {
+        // Singular alias /Api/V1/Payments/Webhook has no {provider} — treat as Moyasar.
         var resolvedProvider = string.IsNullOrWhiteSpace(provider)
             ? MoyasarPaymentGateway.Name
             : provider;

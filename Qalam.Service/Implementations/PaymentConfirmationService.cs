@@ -21,6 +21,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     private readonly IOpenSessionRequestReleaseService _releaseService;
     private readonly IRefundService _refundService;
     private readonly IPaymentGatewayResolver _gatewayResolver;
+    private readonly IPaymentTransactionEventService _events;
     private readonly ILogger<PaymentConfirmationService> _logger;
 
     public PaymentConfirmationService(
@@ -33,6 +34,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         IOpenSessionRequestReleaseService releaseService,
         IRefundService refundService,
         IPaymentGatewayResolver gatewayResolver,
+        IPaymentTransactionEventService events,
         ILogger<PaymentConfirmationService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -44,6 +46,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         _releaseService = releaseService;
         _refundService = refundService;
         _gatewayResolver = gatewayResolver;
+        _events = events;
         _logger = logger;
     }
 
@@ -74,12 +77,35 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             return PaymentConfirmationOutcome.Fail("PAYMENT_NOT_FOUND", "Payment intent not found.");
 
         if (payment.Status == PaymentStatus.Succeeded)
-            return await ConfirmAsync(payment.Id, cancellationToken);
+        {
+            var replay = await ConfirmAsync(payment.Id, cancellationToken);
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.ConfirmIdempotentReplay,
+                replay.Succeeded ? PaymentTransactionEventResult.Success : PaymentTransactionEventResult.Failed,
+                PaymentStatus.Succeeded,
+                payment.Status,
+                providerTransactionId,
+                replay.ErrorCode,
+                cancellationToken);
+            return replay;
+        }
 
         if (payment.Status is PaymentStatus.Failed or PaymentStatus.Cancelled or PaymentStatus.Refunded)
             return PaymentConfirmationOutcome.Fail(
                 "PAYMENT_NOT_PAYABLE",
                 $"Payment is {payment.Status}.");
+
+        var statusBefore = payment.Status;
+        await RecordConfirmEventAsync(
+            payment,
+            PaymentTransactionEventType.ConfirmRequested,
+            PaymentTransactionEventResult.Pending,
+            statusBefore,
+            null,
+            providerTransactionId,
+            null,
+            cancellationToken);
 
         IPaymentGateway gateway;
         try
@@ -99,7 +125,28 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             remote = await gateway.FetchAsync(providerTransactionId, cancellationToken);
 
         if (remote == null)
+        {
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.ConfirmFailed,
+                PaymentTransactionEventResult.NotFound,
+                statusBefore,
+                payment.Status,
+                providerTransactionId,
+                "PROVIDER_NOT_FOUND",
+                cancellationToken);
             return PaymentConfirmationOutcome.Fail("PROVIDER_NOT_FOUND", "Provider payment not found.");
+        }
+
+        await RecordConfirmEventAsync(
+            payment,
+            PaymentTransactionEventType.ConfirmRemoteVerified,
+            PaymentTransactionEventResult.Success,
+            statusBefore,
+            payment.Status,
+            providerTransactionId,
+            remote.Status,
+            cancellationToken);
 
         if (remote.MappedStatus != PaymentStatus.Succeeded
             && !MoyasarStatusMapper.IsPaid(remote.Status))
@@ -111,6 +158,16 @@ public class PaymentConfirmationService : IPaymentConfirmationService
                 payment.UpdatedAt = DateTime.UtcNow;
                 await _paymentRepository.UpdateAsync(payment);
             }
+
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.ConfirmFailed,
+                PaymentTransactionEventResult.Failed,
+                statusBefore,
+                payment.Status,
+                providerTransactionId,
+                remote.Message ?? remote.Status,
+                cancellationToken);
 
             return PaymentConfirmationOutcome.Fail(
                 "NOT_PAID",
@@ -124,7 +181,33 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             && (remote.AmountHalalas != expectedHalalas
                 || !string.Equals(remote.Currency, payment.Currency, StringComparison.OrdinalIgnoreCase)))
         {
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.ConfirmAmountMismatch,
+                PaymentTransactionEventResult.Mismatch,
+                statusBefore,
+                payment.Status,
+                providerTransactionId,
+                "PAYMENT_AMOUNT_MISMATCH",
+                cancellationToken);
             return PaymentConfirmationOutcome.Fail("PAYMENT_AMOUNT_MISMATCH", "PAYMENT_AMOUNT_MISMATCH");
+        }
+
+        // Retain invoice id before promoting ProviderTransactionId to the real payment id.
+        if (!string.IsNullOrWhiteSpace(remote.InvoiceId)
+            && string.IsNullOrWhiteSpace(payment.ProviderInvoiceId))
+        {
+            payment.ProviderInvoiceId = remote.InvoiceId;
+        }
+        else if (string.IsNullOrWhiteSpace(payment.ProviderInvoiceId)
+                 && !string.IsNullOrWhiteSpace(payment.ProviderTransactionId)
+                 && !string.IsNullOrWhiteSpace(remote.Id)
+                 && !remote.Id.Equals(payment.ProviderTransactionId, StringComparison.OrdinalIgnoreCase)
+                 && (string.IsNullOrWhiteSpace(remote.InvoiceId)
+                     || payment.ProviderTransactionId.Equals(remote.InvoiceId, StringComparison.OrdinalIgnoreCase)))
+        {
+            // Current stored ref is the invoice; keep it when promoting to payment id.
+            payment.ProviderInvoiceId = payment.ProviderTransactionId;
         }
 
         // Promote invoice id → real payment id so refunds hit /payments/{id}.
@@ -143,7 +226,81 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         payment.UpdatedAt = DateTime.UtcNow;
         await _paymentRepository.UpdateAsync(payment);
 
-        return await ConfirmAsync(payment.Id, cancellationToken);
+        var outcome = await ConfirmAsync(payment.Id, cancellationToken);
+        await RecordConfirmEventAsync(
+            payment,
+            outcome.Succeeded
+                ? PaymentTransactionEventType.ConfirmSucceeded
+                : PaymentTransactionEventType.ConfirmFailed,
+            outcome.Succeeded
+                ? PaymentTransactionEventResult.Success
+                : PaymentTransactionEventResult.Failed,
+            statusBefore,
+            payment.Status,
+            providerTransactionId,
+            outcome.ErrorCode,
+            cancellationToken);
+
+        if (outcome.Succeeded)
+        {
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.EnrollmentActivated,
+                PaymentTransactionEventResult.Success,
+                statusBefore,
+                payment.Status,
+                providerTransactionId,
+                null,
+                cancellationToken);
+        }
+        else if (outcome.ErrorCode is "SCHEDULE_CONFLICT_RELEASED" or "SCHEDULE_CONFLICT_REFUNDED")
+        {
+            await RecordConfirmEventAsync(
+                payment,
+                PaymentTransactionEventType.ScheduleConflict,
+                PaymentTransactionEventResult.Failed,
+                statusBefore,
+                payment.Status,
+                providerTransactionId,
+                outcome.ErrorCode,
+                cancellationToken);
+        }
+
+        return outcome;
+    }
+
+    private async Task RecordConfirmEventAsync(
+        Data.Entity.Payment.Payment payment,
+        PaymentTransactionEventType eventType,
+        PaymentTransactionEventResult result,
+        PaymentStatus? statusBefore,
+        PaymentStatus? statusAfter,
+        string? providerRef,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var req = new PaymentTransactionEventRequest
+        {
+            PaymentId = payment.Id,
+            PaymentProvider = payment.PaymentProvider,
+            Source = PaymentTransactionEventSource.ClientConfirm,
+            EventType = eventType,
+            Result = result,
+            StatusBefore = statusBefore,
+            StatusAfter = statusAfter,
+            Amount = payment.TotalAmount,
+            Currency = payment.Currency,
+            ProviderPaymentId = payment.ProviderTransactionId ?? providerRef,
+            ProviderInvoiceId = payment.ProviderInvoiceId,
+            Notes = notes,
+            ErrorMessage = result is PaymentTransactionEventResult.Failed
+                or PaymentTransactionEventResult.Mismatch
+                or PaymentTransactionEventResult.NotFound
+                ? notes
+                : null
+        };
+        await _events.EnrichLinksFromPaymentAsync(req, payment, cancellationToken);
+        await _events.RecordAsync(req, cancellationToken);
     }
 
     /// <summary>

@@ -91,6 +91,7 @@ builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.OpenSessionRequestLifecycleService>();
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.SessionLifecycleService>();
+builder.Services.AddHostedService<Qalam.Service.BackgroundServices.PaymentReconciliationBackgroundService>();
 
 // Service Registration
 builder.Services.AddHttpContextAccessor();
