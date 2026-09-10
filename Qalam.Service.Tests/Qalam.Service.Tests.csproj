@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Qalam.Core\Qalam.Core.csproj" />
     <ProjectReference Include="..\Qalam.Service\Qalam.Service.csproj" />
     <ProjectReference Include="..\Qalam.Infrastructure\Qalam.Infrastructure.csproj" />
+    <ProjectReference Include="..\Qalam.MessagingApi\Qalam.MessagingApi.csproj" />
   </ItemGroup>
 
 </Project>

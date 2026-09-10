@@ -163,10 +163,10 @@ df -h /
 
 ## Env files (messaging / email)
 
-SMTP and object storage env vars are wired on **messaging-api** only (see `.env.example`). After changing `EMAIL_*` or `WASABI_*`:
+SMTP and object storage env vars are wired on **messaging-api** (uploads) and **qalam-api** (public URL precompute). See `.env.example`. Switch providers with `STORAGE_PROVIDER=alibaba|wasabi`. After changing `EMAIL_*`, `OSS_*`, `WASABI_*`, or `STORAGE_PROVIDER`:
 
 ```sh
-docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build messaging-api
+docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build messaging-api qalam-api
 ```
 
 Main API (`qalam-api`) queues email to RabbitMQ; it does not need SMTP credentials when using the default **Queued** strategy.

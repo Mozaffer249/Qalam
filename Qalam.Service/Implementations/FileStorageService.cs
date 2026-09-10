@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Service.Abstracts;
@@ -10,17 +9,17 @@ public class FileStorageService : IFileStorageService
 {
     private readonly ILogger<FileStorageService> _logger;
     private readonly IRabbitMQService _rabbitMQService;
-    private readonly IConfiguration _configuration;
+    private readonly IStoragePublicUrlProvider _storagePublicUrls;
     private readonly string _uploadPath;
 
     public FileStorageService(
         ILogger<FileStorageService> logger,
         IRabbitMQService rabbitMQService,
-        IConfiguration configuration)
+        IStoragePublicUrlProvider storagePublicUrls)
     {
         _logger = logger;
         _rabbitMQService = rabbitMQService;
-        _configuration = configuration;
+        _storagePublicUrls = storagePublicUrls;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "teachers");
 
         // Ensure directory exists
@@ -70,15 +69,11 @@ public class FileStorageService : IFileStorageService
             extension = ".jpg";
 
         var storageKey = $"courses/{teacherId}/{Guid.NewGuid()}{extension}";
-        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
-                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
-                          ?? _configuration["OssSettings:PublicBaseUrl"]
-                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
-                          ?? string.Empty;
+        var ossPublicBase = _storagePublicUrls.GetLearningPublicBaseUrl();
 
         if (string.IsNullOrWhiteSpace(ossPublicBase))
             throw new InvalidOperationException(
-                "OssSettings:LearningPublicBaseUrl is not configured; cannot upload course images to OSS.");
+                "Learning public base URL is not configured; cannot upload course images.");
 
         var publicUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
 

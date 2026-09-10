@@ -57,12 +57,12 @@ internal static class ComplaintResolutionTestHelper
         fileStorage
             .Setup(f => f.ValidateFileAsync(It.IsAny<IFormFile>(), It.IsAny<string[]>(), It.IsAny<long>()))
             .ReturnsAsync(true);
-        var config = new ConfigurationBuilder()
+        var storageUrls = new StoragePublicUrlProvider(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
             })
-            .Build();
+            .Build());
         var orchestrator = CreateOrchestrator(db, refundMock?.Object ?? new RefundService(
             new RefundRepository(db),
             new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db)),
@@ -74,7 +74,7 @@ internal static class ComplaintResolutionTestHelper
             audit,
             earning,
             fileStorage.Object,
-            config,
+            storageUrls,
             orchestrator);
     }
 }

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
@@ -19,7 +18,7 @@ public class SessionComplaintService : ISessionComplaintService
     private readonly ISessionAuditService _audit;
     private readonly ITeacherEarningService _teacherEarning;
     private readonly IFileStorageService _fileStorage;
-    private readonly IConfiguration _configuration;
+    private readonly IStoragePublicUrlProvider _storagePublicUrls;
     private readonly IComplaintResolutionOrchestrator _resolutionOrchestrator;
 
     public SessionComplaintService(
@@ -28,7 +27,7 @@ public class SessionComplaintService : ISessionComplaintService
         ISessionAuditService audit,
         ITeacherEarningService teacherEarning,
         IFileStorageService fileStorage,
-        IConfiguration configuration,
+        IStoragePublicUrlProvider storagePublicUrls,
         IComplaintResolutionOrchestrator resolutionOrchestrator)
     {
         _complaints = complaints;
@@ -36,7 +35,7 @@ public class SessionComplaintService : ISessionComplaintService
         _audit = audit;
         _teacherEarning = teacherEarning;
         _fileStorage = fileStorage;
-        _configuration = configuration;
+        _storagePublicUrls = storagePublicUrls;
         _resolutionOrchestrator = resolutionOrchestrator;
     }
 
@@ -285,15 +284,11 @@ public class SessionComplaintService : ISessionComplaintService
             ext = ".bin";
 
         var storageKey = $"session-complaints/{complaintId}/{attachment.Id}{ext}";
-        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
-                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
-                          ?? _configuration["OssSettings:PublicBaseUrl"]
-                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
-                          ?? string.Empty;
+        var ossPublicBase = _storagePublicUrls.GetLearningPublicBaseUrl();
 
         if (string.IsNullOrWhiteSpace(ossPublicBase))
             throw new InvalidOperationException(
-                "OssSettings:LearningPublicBaseUrl is not configured; cannot upload complaint attachments.");
+                "Learning public base URL is not configured; cannot upload complaint attachments.");
 
         attachment.FileUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
         await _complaints.SaveChangesAsync(cancellationToken);

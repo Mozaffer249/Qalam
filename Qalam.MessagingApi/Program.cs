@@ -33,6 +33,8 @@ builder.Services.Configure<SmsSettings>(builder.Configuration.GetSection("SmsSet
 builder.Services.Configure<PushSettings>(builder.Configuration.GetSection("PushNotificationSettings"));
 builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("RabbitMQSettings"));
 builder.Services.Configure<OssSettings>(builder.Configuration.GetSection("OssSettings"));
+builder.Services.Configure<WasabiSettings>(builder.Configuration.GetSection("WasabiSettings"));
+builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("StorageSettings"));
 
 // Services
 builder.Services.AddSingleton<IMessageQueueService, RabbitMQService>();
@@ -41,7 +43,9 @@ builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<IMessageTrackingService, MessageTrackingService>();
 builder.Services.AddScoped<IEmailSuppressionService, EmailSuppressionService>();
-builder.Services.AddScoped<IObjectStorageService, OssStorageService>();
+builder.Services.AddScoped<OssStorageService>();
+builder.Services.AddScoped<WasabiStorageService>();
+builder.Services.AddScoped<IObjectStorageService, StorageProviderRouter>();
 
 // Background consumers
 builder.Services.AddHostedService<EmailConsumerService>();

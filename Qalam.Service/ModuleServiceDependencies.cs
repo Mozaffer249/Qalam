@@ -40,6 +40,7 @@ namespace Qalam.Service
             services.AddScoped<ITeacherAccessSettingsProvider, TeacherAccessSettingsProvider>();
             services.AddScoped<IOsrNotificationSettingsProvider, OsrNotificationSettingsProvider>();
             services.AddTransient<IFileStorageService, FileStorageService>();
+            services.AddSingleton<IStoragePublicUrlProvider, StoragePublicUrlProvider>();
             services.AddSingleton<IMediaUrlResolver, MediaUrlResolver>();
             services.AddTransient<ITeacherRegistrationService, TeacherRegistrationService>();
             services.AddTransient<ITeacherRegistrationSubmitService, TeacherRegistrationSubmitService>();

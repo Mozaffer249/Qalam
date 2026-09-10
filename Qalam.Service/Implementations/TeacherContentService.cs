@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
@@ -48,13 +47,16 @@ public class TeacherContentService : ITeacherContentService
 
     private readonly ApplicationDBContext _db;
     private readonly IFileStorageService _fileStorage;
-    private readonly IConfiguration _configuration;
+    private readonly IStoragePublicUrlProvider _storagePublicUrls;
 
-    public TeacherContentService(ApplicationDBContext db, IFileStorageService fileStorage, IConfiguration configuration)
+    public TeacherContentService(
+        ApplicationDBContext db,
+        IFileStorageService fileStorage,
+        IStoragePublicUrlProvider storagePublicUrls)
     {
         _db = db;
         _fileStorage = fileStorage;
-        _configuration = configuration;
+        _storagePublicUrls = storagePublicUrls;
     }
 
     public async Task<List<TeacherContentFolderDto>> ListFoldersAsync(int teacherId, int? parentFolderId, CancellationToken ct)
@@ -226,11 +228,7 @@ public class TeacherContentService : ITeacherContentService
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         var storageKey = $"teachers/{teacherId}/content/{item.Id}{ext}";
-        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
-                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
-                          ?? _configuration["OssSettings:PublicBaseUrl"]
-                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
-                          ?? string.Empty;
+        var ossPublicBase = _storagePublicUrls.GetLearningPublicBaseUrl();
         item.StorageKey = storageKey;
         item.PublicUrl = string.IsNullOrEmpty(ossPublicBase)
             ? null

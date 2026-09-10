@@ -84,13 +84,6 @@ public class AdminSessionActionTests
         var audit = new SessionAuditService(auditRepo);
         var earning = new TeacherEarningService(db, NullLogger<TeacherEarningService>.Instance);
         var refundMock = new Mock<IRefundService>();
-        var fileStorageMock = new Mock<IFileStorageService>();
-        var ossConfig = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
-            })
-            .Build();
         var complaints = ComplaintResolutionTestHelper.CreateComplaintService(db, refundMock);
         var teacherMgmtMock = new Mock<ITeacherManagementService>();
         var financeImpact = new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db));

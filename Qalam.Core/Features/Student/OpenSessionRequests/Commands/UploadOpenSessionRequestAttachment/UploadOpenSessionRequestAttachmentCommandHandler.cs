@@ -1,7 +1,6 @@
 using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Student.OpenSessionRequests.Services;
@@ -34,7 +33,7 @@ public class UploadOpenSessionRequestAttachmentCommandHandler
     private readonly ApplicationDBContext _db;
     private readonly IOpenSessionRequestAccessGuard _accessGuard;
     private readonly IFileStorageService _fileStorage;
-    private readonly IConfiguration _configuration;
+    private readonly IStoragePublicUrlProvider _storagePublicUrls;
     private readonly IMapper _mapper;
 
     public UploadOpenSessionRequestAttachmentCommandHandler(
@@ -42,13 +41,13 @@ public class UploadOpenSessionRequestAttachmentCommandHandler
         ApplicationDBContext db,
         IOpenSessionRequestAccessGuard accessGuard,
         IFileStorageService fileStorage,
-        IConfiguration configuration,
+        IStoragePublicUrlProvider storagePublicUrls,
         IMapper mapper) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
         _fileStorage = fileStorage;
-        _configuration = configuration;
+        _storagePublicUrls = storagePublicUrls;
         _mapper = mapper;
     }
 
@@ -96,11 +95,7 @@ public class UploadOpenSessionRequestAttachmentCommandHandler
         //    The consumer uploads to exactly this key; no cross-DB write needed afterward.
         var ext = Path.GetExtension(request.File.FileName).ToLowerInvariant();
         var storageKey = $"open-session-requests/{entity.Id}/{attachment.Id}{ext}";
-        var ossPublicBase = _configuration["OssSettings:LearningPublicBaseUrl"]
-                          ?? _configuration["OSS_LEARNING_PUBLIC_BASE_URL"]
-                          ?? _configuration["OssSettings:PublicBaseUrl"]
-                          ?? _configuration["OSS_PUBLIC_BASE_URL"]
-                          ?? string.Empty;
+        var ossPublicBase = _storagePublicUrls.GetLearningPublicBaseUrl();
         var publicUrl = string.IsNullOrEmpty(ossPublicBase)
             ? null
             : $"{ossPublicBase.TrimEnd('/')}/{storageKey}";

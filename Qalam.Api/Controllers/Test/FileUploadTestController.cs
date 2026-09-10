@@ -6,7 +6,7 @@ using Qalam.Service.Abstracts;
 namespace Qalam.Api.Controllers.Test;
 
 /// <summary>
-/// Test endpoint for the file-upload pipeline (RabbitMQ → MessagingApi → Aliyun OSS).
+/// Test endpoint for the file-upload pipeline (RabbitMQ → MessagingApi → active object storage).
 /// Two layers of protection:
 ///   1. Requires <c>SuperAdmin</c> JWT
 ///   2. Blocked entirely when ASPNETCORE_ENVIRONMENT == "Production" (returns 404)

@@ -86,6 +86,15 @@ services:
       - OssSettings__LearningPublicBaseUrl=${OSS_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.oss-me-central-1.aliyuncs.com}
       - OssSettings__UseInternalEndpoint=${OSS_USE_INTERNAL_ENDPOINT:-false}
       - OssSettings__EcsRoleName=${OSS_ECS_ROLE_NAME:-}
+      - StorageSettings__Provider=${STORAGE_PROVIDER:-alibaba}
+      - WasabiSettings__AccessKeyId=${WASABI_ACCESS_KEY_ID:-}
+      - WasabiSettings__AccessKeySecret=${WASABI_ACCESS_KEY_SECRET:-}
+      - WasabiSettings__Region=${WASABI_REGION:-ap-southeast-1}
+      - WasabiSettings__Endpoint=${WASABI_ENDPOINT:-https://s3.ap-southeast-1.wasabisys.com}
+      - WasabiSettings__BucketName=${WASABI_BUCKET:-auth-and-identities-certificates-staging}
+      - WasabiSettings__PublicBaseUrl=${WASABI_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.s3.ap-southeast-1.wasabisys.com}
+      - WasabiSettings__LearningBucketName=${WASABI_LEARNING_BUCKET:-qalam-content-dev}
+      - WasabiSettings__LearningPublicBaseUrl=${WASABI_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.s3.ap-southeast-1.wasabisys.com}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -178,6 +187,9 @@ services:
       - RabbitMQSettings__TeacherContentFileUploadQueueName=teacher-content-file-upload-queue
       - OssSettings__PublicBaseUrl=${OSS_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com}
       - OssSettings__LearningPublicBaseUrl=${OSS_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.oss-me-central-1.aliyuncs.com}
+      - StorageSettings__Provider=${STORAGE_PROVIDER:-alibaba}
+      - WasabiSettings__PublicBaseUrl=${WASABI_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.s3.ap-southeast-1.wasabisys.com}
+      - WasabiSettings__LearningPublicBaseUrl=${WASABI_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.s3.ap-southeast-1.wasabisys.com}
     ports:
       - "8080:80"
     volumes:
