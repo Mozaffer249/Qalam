@@ -26,7 +26,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
 DO_PULL=1
 
-# rabbitmq first (image pull only), then apps that depend on it
+# rabbitmq first (start only, never recreate), then apps that depend on it
 ALL_SERVICES=(rabbitmq messaging-api qalam-api qalam-admin qalam-teacher)
 
 fail() { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
@@ -63,17 +63,47 @@ if [[ "$DO_PULL" -eq 1 ]]; then
   ok "source synced"
 fi
 
+needs_rabbitmq() {
+  case "$1" in
+    messaging-api|qalam-api) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Never recreate rabbitmq when deploying apps:
+# - `up --force-recreate messaging-api` without --no-deps also recreates rabbitmq
+#   (depends_on) and waits on its healthcheck (~60s+): "Container qalam-rabbitmq Error"
+# - `up -d rabbitmq` still recreates if compose spec changed (hostname / healthcheck).
+#   Recreating with a new hostname against rabbitmq_data breaks Erlang node name.
+ensure_rabbitmq() {
+  note "ensure rabbitmq is up (never recreate)"
+  local cid
+  cid="$("${COMPOSE[@]}" ps -aq rabbitmq 2>/dev/null || true)"
+  if [[ -n "${cid}" ]]; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "${cid}" 2>/dev/null || true)" == "true" ]]; then
+      note "rabbitmq already running — leave it"
+      return 0
+    fi
+    note "rabbitmq exists but is stopped — docker start (no recreate)"
+    docker start "${cid}" >/dev/null
+    return 0
+  fi
+  "${COMPOSE[@]}" up -d --no-recreate rabbitmq
+}
+
 for svc in "${SERVICES[@]}"; do
   printf '\n\033[1;36m== %s ==\033[0m\n' "$svc"
-  note "stop + remove"
-  "${COMPOSE[@]}" stop "$svc" || true
-  "${COMPOSE[@]}" rm -f "$svc" || true
   if [[ "$svc" == "rabbitmq" ]]; then
-    note "up (no build — image pull)"
-    "${COMPOSE[@]}" up -d --force-recreate "$svc"
+    ensure_rabbitmq
   else
-    note "build + recreate"
-    "${COMPOSE[@]}" up -d --build --force-recreate "$svc"
+    note "stop + remove"
+    "${COMPOSE[@]}" stop "$svc" || true
+    "${COMPOSE[@]}" rm -f "$svc" || true
+    if needs_rabbitmq "$svc"; then
+      ensure_rabbitmq
+    fi
+    note "build + recreate (--no-deps, leave rabbitmq alone)"
+    "${COMPOSE[@]}" up -d --no-deps --build --force-recreate "$svc"
   fi
   ok "$svc running"
 done
