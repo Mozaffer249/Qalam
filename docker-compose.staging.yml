@@ -16,7 +16,6 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: qalam-staging-rabbitmq
-    hostname: qalam-staging-rabbitmq
     logging: *docker-logging
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-qalam}
@@ -27,11 +26,11 @@ services:
       - qalam-staging-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 10s
       timeout: 10s
-      retries: 12
-      start_period: 60s
+      retries: 6
+      start_period: 20s
 
   messaging-api:
     build:

@@ -1,11 +1,11 @@
--- Staging rollback: Wasabi → Alibaba OSS. Database: qalam_staging only.
+-- Production rollback: Wasabi Sydney → Alibaba OSS. Database: qalam_prod only.
 
-USE qalam_staging;
+USE qalam_prod;
 GO
 
-IF DB_NAME() <> N'qalam_staging'
+IF DB_NAME() <> N'qalam_prod'
 BEGIN
-    THROW 50001, N'Refused: this script must run on qalam_staging only.', 1;
+    THROW 50001, N'Refused: this script must run on qalam_prod only.', 1;
 END
 GO
 
@@ -16,10 +16,10 @@ DECLARE @NewIdentities NVARCHAR(400);
 DECLARE @OldLearning NVARCHAR(400);
 DECLARE @NewLearning NVARCHAR(400);
 
-SET @OldIdentities = N'https://auth-and-identities-certificates-staging.s3.ap-southeast-2.wasabisys.com/';
-SET @NewIdentities = N'https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com/';
-SET @OldLearning = N'https://qalam-content-stg.s3.ap-southeast-2.wasabisys.com/';
-SET @NewLearning = N'https://qalam-content-stg.oss-me-central-1.aliyuncs.com/';
+SET @OldIdentities = N'https://auth-and-identities-certificates.s3.ap-southeast-2.wasabisys.com/';
+SET @NewIdentities = N'https://auth-and-identities-certificates.oss-me-central-1.aliyuncs.com/';
+SET @OldLearning = N'https://qalam-content-prod.s3.ap-southeast-2.wasabisys.com/';
+SET @NewLearning = N'https://qalam-content-prod.oss-me-central-1.aliyuncs.com/';
 
 BEGIN TRANSACTION;
 
