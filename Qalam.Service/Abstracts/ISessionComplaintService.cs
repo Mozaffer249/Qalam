@@ -28,12 +28,14 @@ public interface ISessionComplaintService
         CancellationToken cancellationToken = default);
 
     Task AssignAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         int assignedToUserId,
         CancellationToken cancellationToken = default);
 
     Task RequestTeacherResponseAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         CancellationToken cancellationToken = default);

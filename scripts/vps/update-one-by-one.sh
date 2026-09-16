@@ -72,8 +72,9 @@ for svc in "${SERVICES[@]}"; do
     note "up (no build — image pull)"
     "${COMPOSE[@]}" up -d --force-recreate "$svc"
   else
-    note "build + recreate"
-    "${COMPOSE[@]}" up -d --build --force-recreate "$svc"
+    # --no-deps: do not recreate rabbitmq (fixed container_name → name conflict in <1s)
+    note "build + recreate (no deps)"
+    "${COMPOSE[@]}" up -d --build --force-recreate --no-deps "$svc"
   fi
   ok "$svc running"
 done

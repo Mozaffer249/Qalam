@@ -92,6 +92,7 @@ namespace Qalam.Infrastructure
             services.AddTransient<ITeacherDashboardReadRepository, TeacherDashboardReadRepository>();
             services.AddTransient<ISessionAuditLogRepository, SessionAuditLogRepository>();
             services.AddTransient<ISessionComplaintRepository, SessionComplaintRepository>();
+            services.AddTransient<IComplaintRepository, ComplaintRepository>();
             services.AddTransient<IAdminSessionReadRepository, AdminSessionReadRepository>();
             services.AddTransient<IStudentSessionReadRepository, StudentSessionReadRepository>();
             services.AddTransient<IOfferConversationRepository, OfferConversationRepository>();

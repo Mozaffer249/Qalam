@@ -14,6 +14,7 @@ All production/staging setup docs live in this folder. Follow the numbered files
 | 5 | [`05-nginx-subdomains.md`](./05-nginx-subdomains.md) | Frontend SPA vhosts + consolidated Certbot |
 | — | [`06-livekit-webhooks.md`](./06-livekit-webhooks.md) | LiveKit Cloud webhooks (prod / staging / ngrok) |
 | — | [`08-admin-frontend-docker.md`](./08-admin-frontend-docker.md) | Admin app Docker (`8090`) + `admin.qalam.net.sa` |
+| — | [`09-student-frontend-web.md`](./09-student-frontend-web.md) | Student Flutter web Docker (`8094`/`8095`) + `student(-staging).qalam.net.sa` |
 | — | [`06-oss-storage.md`](./06-oss-storage.md) | Object storage (Alibaba OSS ⇄ Wasabi), env switch, staging cutover |
 | — | [`07-vps-logging-limits.md`](./07-vps-logging-limits.md) | Cap Docker/rsyslog/journald so `/` cannot fill from logs |
 

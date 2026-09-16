@@ -25,6 +25,7 @@ public class RequestTeacherComplaintResponseCommandHandler : ResponseHandler,
         try
         {
             await _complaints.RequestTeacherResponseAsync(
+                request.ScheduleId,
                 request.ComplaintId,
                 request.UserId,
                 cancellationToken);

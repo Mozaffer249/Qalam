@@ -2,7 +2,7 @@
 # Usage:
 #   docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build
 #
-# Binds: API 127.0.0.1:8081, admin 127.0.0.1:8092, teacher 127.0.0.1:8093
+# Binds: API 127.0.0.1:8081, admin 127.0.0.1:8092, teacher 127.0.0.1:8093, student 127.0.0.1:8094
 
 name: qalam-staging
 
@@ -251,6 +251,24 @@ services:
       - HOST=0.0.0.0
     ports:
       - "127.0.0.1:8093:3000"
+    networks:
+      - qalam-staging-network
+    restart: unless-stopped
+
+  # ─────────────── Student Frontend (Flutter web, static) ───────────────
+  # Source lives in apps/Qalam. Built to a static bundle and served by nginx.
+  # API base URL is compiled in via the staging flavor (api-staging.qalam.net.sa).
+  qalam-student:
+    build:
+      context: ${STUDENT_APP_PATH:-./apps/Qalam}
+      dockerfile: Dockerfile
+      args:
+        FLAVOR: staging
+    image: qalam-student:staging
+    container_name: qalam-staging-student
+    logging: *docker-logging
+    ports:
+      - "127.0.0.1:8094:80"
     networks:
       - qalam-staging-network
     restart: unless-stopped

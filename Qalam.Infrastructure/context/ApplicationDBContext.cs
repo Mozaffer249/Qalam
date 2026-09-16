@@ -156,6 +156,11 @@ namespace Qalam.Infrastructure.context
         public DbSet<SessionComplaintAttachment> SessionComplaintAttachments { get; set; }
         public DbSet<SessionAuditLog> SessionAuditLogs { get; set; }
 
+        // Unified complaint hub (schema "complaint")
+        public DbSet<Qalam.Data.Entity.Complaint.Complaint> Complaints { get; set; }
+        public DbSet<Qalam.Data.Entity.Complaint.ComplaintAttachment> ComplaintAttachments { get; set; }
+        public DbSet<Qalam.Data.Entity.Complaint.ComplaintTimelineEntry> ComplaintTimelineEntries { get; set; }
+
         // Session Schema DbSets (legacy placeholder — kept for production data; not used by new code)
         public DbSet<SessionRequest> SessionRequests { get; set; }
         public DbSet<SessionRequestOffer> SessionRequestOffers { get; set; }

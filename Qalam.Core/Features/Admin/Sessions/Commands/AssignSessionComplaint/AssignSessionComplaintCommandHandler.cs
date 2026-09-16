@@ -25,6 +25,7 @@ public class AssignSessionComplaintCommandHandler : ResponseHandler,
         try
         {
             await _complaints.AssignAsync(
+                request.ScheduleId,
                 request.ComplaintId,
                 request.UserId,
                 request.AssignedToUserId,

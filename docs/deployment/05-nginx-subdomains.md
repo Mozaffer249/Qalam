@@ -9,7 +9,7 @@ This guide assumes:
 - One Linux VPS with public IP **8.213.80.90** (replace with yours).
 - Domain **qalam.net.sa** (replace with yours).
 - Backend runs in Docker (one stack per environment — see compose files) and listens on the host at **`127.0.0.1:8080`** (prod) / **`127.0.0.1:8081`** (staging).
-- You will serve **eight** vhosts on the same machine — one set per environment:
+- You will serve multiple vhosts on the same machine — one set per environment (API + teacher + admin + student):
 
 **Production** (live mapping)
 
@@ -18,6 +18,7 @@ This guide assumes:
 | `api.qalam.net.sa` | ASP.NET Core API (prod) | Reverse proxy → `http://127.0.0.1:8080` |
 | **`qalam.net.sa`** | **Teacher app (prod)** | Reverse proxy → `http://127.0.0.1:8091` |
 | `admin.qalam.net.sa` | Admin dashboard (prod) | Reverse proxy → `http://127.0.0.1:8090` |
+| `student.qalam.net.sa` | Student Flutter web (prod) | Reverse proxy → `http://127.0.0.1:8095` |
 
 **Staging** (keep off the apex so prod teacher stays untouched)
 
@@ -26,6 +27,7 @@ This guide assumes:
 | `api-staging.qalam.net.sa` | ASP.NET Core API (staging) | Reverse proxy → `http://127.0.0.1:8081` |
 | `teacher-staging.qalam.net.sa` | Teacher app (staging) | Reverse proxy → `http://127.0.0.1:8093` |
 | `admin-staging.qalam.net.sa` | Admin dashboard (staging) | Reverse proxy → `http://127.0.0.1:8092` |
+| `student-staging.qalam.net.sa` | Student Flutter web (staging) | Reverse proxy → `http://127.0.0.1:8094` |
 
 Do **not** put staging teacher on `qalam.net.sa` — that host is production. Optional legacy DNS `teacher.qalam.net.sa` can 301 → `https://qalam.net.sa` if it still exists.
 
@@ -42,6 +44,7 @@ Keep **one subdomain per environment for the API** so HTTPS and CORS stay simple
 | A | `@` (root `qalam.net.sa` — **teacher prod**) | `8.213.80.90` |
 | A | `api` | `8.213.80.90` |
 | A | `admin` | `8.213.80.90` |
+| A | `student` | `8.213.80.90` |
 | A | `teacher` (optional legacy → redirect to apex) | `8.213.80.90` |
 
 **Staging records — add these** before running the staging setup or issuing certs:
@@ -51,6 +54,7 @@ Keep **one subdomain per environment for the API** so HTTPS and CORS stay simple
 | A | `api-staging` | `8.213.80.90` |
 | A | `teacher-staging` | `8.213.80.90` |
 | A | `admin-staging` | `8.213.80.90` |
+| A | `student-staging` | `8.213.80.90` |
 
 Wait until DNS resolves before continuing:
 
@@ -140,13 +144,13 @@ Each environment's API must allow browser calls only from its own frontends. Set
 **Production** — in `/opt/qalam-backend/Qalam/.env.prod` (or `.env`):
 
 ```env
-CORS_ALLOWED_ORIGINS=https://qalam.net.sa,https://admin.qalam.net.sa
+CORS_ALLOWED_ORIGINS=https://qalam.net.sa,https://admin.qalam.net.sa,https://student.qalam.net.sa
 ```
 
 **Staging** — in the same repo, `.env.staging`:
 
 ```env
-CORS_ALLOWED_ORIGINS=https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa
+CORS_ALLOWED_ORIGINS=https://teacher-staging.qalam.net.sa,https://admin-staging.qalam.net.sa,https://student-staging.qalam.net.sa,https://api-staging.qalam.net.sa,http://localhost:3001,http://localhost:8092,http://localhost:8093
 ```
 
 If you still use Vercel during migration, append it to the relevant env file.
@@ -241,12 +245,14 @@ server {
 
 - `qalam.net.sa` → `proxy_pass http://127.0.0.1:8091;` (**teacher**)
 - `admin.qalam.net.sa` → `proxy_pass http://127.0.0.1:8090;`
+- `student.qalam.net.sa` → `proxy_pass http://127.0.0.1:8095;` (**student Flutter web** — see [`09-student-frontend-web.md`](./09-student-frontend-web.md))
 - Optional: `teacher.qalam.net.sa` → `return 301 https://qalam.net.sa$request_uri;`
 
 **Staging**:
 
 - `teacher-staging.qalam.net.sa` → `proxy_pass http://127.0.0.1:8093;`
 - `admin-staging.qalam.net.sa` → `proxy_pass http://127.0.0.1:8092;`
+- `student-staging.qalam.net.sa` → `proxy_pass http://127.0.0.1:8094;`
 
 Enable site files under `/etc/nginx/sites-available/`, then:
 
@@ -266,6 +272,7 @@ sudo certbot --nginx \
   -d api.qalam.net.sa \
   -d qalam.net.sa \
   -d admin.qalam.net.sa \
+  -d student.qalam.net.sa \
   --redirect --agree-tos -m info@qalam.net.sa
 
 # Staging cert
@@ -273,6 +280,7 @@ sudo certbot --nginx \
   -d api-staging.qalam.net.sa \
   -d teacher-staging.qalam.net.sa \
   -d admin-staging.qalam.net.sa \
+  -d student-staging.qalam.net.sa \
   --redirect --agree-tos -m info@qalam.net.sa
 ```
 
@@ -304,11 +312,13 @@ From your laptop:
 curl -I https://api.qalam.net.sa/swagger/index.html
 curl -I https://qalam.net.sa/
 curl -I https://admin.qalam.net.sa/
+curl -I https://student.qalam.net.sa/
 
 # Staging
 curl -I https://api-staging.qalam.net.sa/swagger/index.html
 curl -I https://teacher-staging.qalam.net.sa/
 curl -I https://admin-staging.qalam.net.sa/
+curl -I https://student-staging.qalam.net.sa/
 ```
 
 All should return `HTTP/2 200` (or `301` for the HTTP redirect followed by `200` on HTTPS). From the browser, open `https://api.qalam.net.sa/swagger` and `https://api-staging.qalam.net.sa/swagger`; confirm no mixed-content errors when each SPA calls its matching API.

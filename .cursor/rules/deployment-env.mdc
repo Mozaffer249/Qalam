@@ -24,7 +24,7 @@ Required vars: `DB_CONNECTION_STRING`, `ENCRYPTION_KEY`, `JWT_SECRET`, `RABBITMQ
 | `docker-compose.staging.yml` | VPS staging |
 | `docker-compose.override.yml` | Local overrides |
 
-Services: `qalam-api` (8080), `messaging-api`, `rabbitmq`, `qalam-admin`, `qalam-teacher`
+Services: `qalam-api` (8080), `messaging-api`, `rabbitmq`, `qalam-admin` (8090), `qalam-teacher` (8091), `qalam-student` (8095 prod / 8094 staging — Flutter web static)
 
 ## Local dev (PowerShell, from root)
 

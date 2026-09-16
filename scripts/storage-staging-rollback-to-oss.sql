@@ -1,4 +1,5 @@
 -- Staging rollback: Wasabi → Alibaba OSS. Database: qalam_staging only.
+-- Batched COMMITs so the API is not locked out (same pattern as the switch script).
 
 USE qalam_staging;
 GO
@@ -10,32 +11,91 @@ END
 GO
 
 SET NOCOUNT ON;
+SET DEADLOCK_PRIORITY LOW;
+SET XACT_ABORT ON;
 
 DECLARE @OldIdentities NVARCHAR(400);
 DECLARE @NewIdentities NVARCHAR(400);
 DECLARE @OldLearning NVARCHAR(400);
 DECLARE @NewLearning NVARCHAR(400);
+DECLARE @BatchSize INT;
+DECLARE @Rows INT;
 
 SET @OldIdentities = N'https://auth-and-identities-certificates-staging.s3.ap-southeast-2.wasabisys.com/';
 SET @NewIdentities = N'https://auth-and-identities-certificates-staging.oss-me-central-1.aliyuncs.com/';
 SET @OldLearning = N'https://qalam-content-stg.s3.ap-southeast-2.wasabisys.com/';
 SET @NewLearning = N'https://qalam-content-stg.oss-me-central-1.aliyuncs.com/';
+SET @BatchSize = 200;
 
-BEGIN TRANSACTION;
+SELECT COUNT(*) AS TeacherDocuments_Wasabi FROM dbo.TeacherDocuments WITH (NOLOCK) WHERE FilePath LIKE @OldIdentities + N'%';
+SELECT COUNT(*) AS Users_Wasabi FROM security.Users WITH (NOLOCK) WHERE ProfilePictureUrl LIKE @OldIdentities + N'%';
+SELECT COUNT(*) AS Courses_Wasabi FROM course.Courses WITH (NOLOCK) WHERE ImageUrl LIKE @OldLearning + N'%';
+SELECT COUNT(*) AS OsrAttachments_Wasabi FROM sr.SessionRequestAttachments WITH (NOLOCK) WHERE PublicUrl LIKE @OldLearning + N'%';
+SELECT COUNT(*) AS TeacherContent_Wasabi FROM teacher.TeacherContentItems WITH (NOLOCK) WHERE PublicUrl LIKE @OldLearning + N'%';
+SELECT COUNT(*) AS ComplaintAttachments_Wasabi FROM course.SessionComplaintAttachments WITH (NOLOCK) WHERE FileUrl LIKE @OldLearning + N'%';
 
-SELECT COUNT(*) AS TeacherDocuments_Wasabi FROM dbo.TeacherDocuments WHERE FilePath LIKE @OldIdentities + N'%';
-SELECT COUNT(*) AS Users_Wasabi FROM security.Users WHERE ProfilePictureUrl LIKE @OldIdentities + N'%';
-SELECT COUNT(*) AS Courses_Wasabi FROM course.Courses WHERE ImageUrl LIKE @OldLearning + N'%';
-SELECT COUNT(*) AS OsrAttachments_Wasabi FROM sr.SessionRequestAttachments WHERE PublicUrl LIKE @OldLearning + N'%';
-SELECT COUNT(*) AS TeacherContent_Wasabi FROM teacher.TeacherContentItems WHERE PublicUrl LIKE @OldLearning + N'%';
-SELECT COUNT(*) AS ComplaintAttachments_Wasabi FROM course.SessionComplaintAttachments WHERE FileUrl LIKE @OldLearning + N'%';
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) dbo.TeacherDocuments WITH (ROWLOCK)
+    SET FilePath = REPLACE(FilePath, @OldIdentities, @NewIdentities)
+    WHERE FilePath LIKE @OldIdentities + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END
 
-UPDATE dbo.TeacherDocuments SET FilePath = REPLACE(FilePath, @OldIdentities, @NewIdentities) WHERE FilePath LIKE @OldIdentities + N'%';
-UPDATE security.Users SET ProfilePictureUrl = REPLACE(ProfilePictureUrl, @OldIdentities, @NewIdentities) WHERE ProfilePictureUrl LIKE @OldIdentities + N'%';
-UPDATE course.Courses SET ImageUrl = REPLACE(ImageUrl, @OldLearning, @NewLearning) WHERE ImageUrl LIKE @OldLearning + N'%';
-UPDATE sr.SessionRequestAttachments SET PublicUrl = REPLACE(PublicUrl, @OldLearning, @NewLearning) WHERE PublicUrl LIKE @OldLearning + N'%';
-UPDATE teacher.TeacherContentItems SET PublicUrl = REPLACE(PublicUrl, @OldLearning, @NewLearning) WHERE PublicUrl LIKE @OldLearning + N'%';
-UPDATE course.SessionComplaintAttachments SET FileUrl = REPLACE(FileUrl, @OldLearning, @NewLearning) WHERE FileUrl LIKE @OldLearning + N'%';
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) security.Users WITH (ROWLOCK)
+    SET ProfilePictureUrl = REPLACE(ProfilePictureUrl, @OldIdentities, @NewIdentities)
+    WHERE ProfilePictureUrl LIKE @OldIdentities + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END
 
--- COMMIT TRANSACTION;
--- ROLLBACK TRANSACTION;
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) course.Courses WITH (ROWLOCK)
+    SET ImageUrl = REPLACE(ImageUrl, @OldLearning, @NewLearning)
+    WHERE ImageUrl LIKE @OldLearning + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END
+
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) sr.SessionRequestAttachments WITH (ROWLOCK)
+    SET PublicUrl = REPLACE(PublicUrl, @OldLearning, @NewLearning)
+    WHERE PublicUrl LIKE @OldLearning + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END
+
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) teacher.TeacherContentItems WITH (ROWLOCK)
+    SET PublicUrl = REPLACE(PublicUrl, @OldLearning, @NewLearning)
+    WHERE PublicUrl LIKE @OldLearning + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END
+
+SET @Rows = 1;
+WHILE @Rows > 0
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE TOP (@BatchSize) course.SessionComplaintAttachments WITH (ROWLOCK)
+    SET FileUrl = REPLACE(FileUrl, @OldLearning, @NewLearning)
+    WHERE FileUrl LIKE @OldLearning + N'%';
+    SET @Rows = @@ROWCOUNT;
+    COMMIT TRANSACTION;
+END

@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Complaint;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations;
@@ -20,6 +24,7 @@ public class SessionComplaintService : ISessionComplaintService
     private readonly IFileStorageService _fileStorage;
     private readonly IStoragePublicUrlProvider _storagePublicUrls;
     private readonly IComplaintResolutionOrchestrator _resolutionOrchestrator;
+    private readonly ApplicationDBContext _db;
 
     public SessionComplaintService(
         ISessionComplaintRepository complaints,
@@ -28,7 +33,8 @@ public class SessionComplaintService : ISessionComplaintService
         ITeacherEarningService teacherEarning,
         IFileStorageService fileStorage,
         IStoragePublicUrlProvider storagePublicUrls,
-        IComplaintResolutionOrchestrator resolutionOrchestrator)
+        IComplaintResolutionOrchestrator resolutionOrchestrator,
+        ApplicationDBContext db)
     {
         _complaints = complaints;
         _schedules = schedules;
@@ -37,6 +43,7 @@ public class SessionComplaintService : ISessionComplaintService
         _fileStorage = fileStorage;
         _storagePublicUrls = storagePublicUrls;
         _resolutionOrchestrator = resolutionOrchestrator;
+        _db = db;
     }
 
     public Task<bool> HasBlockingComplaintAsync(int courseScheduleId, CancellationToken cancellationToken = default) =>
@@ -90,6 +97,8 @@ public class SessionComplaintService : ISessionComplaintService
 
         await HoldEarningForScheduleAsync(courseScheduleId, cancellationToken);
 
+        await MirrorToUnifiedHubAsync(complaint, userId, cancellationToken);
+
         await _audit.LogAsync(
             courseScheduleId,
             userId,
@@ -113,12 +122,16 @@ public class SessionComplaintService : ISessionComplaintService
         _complaints.ListForScheduleAsync(courseScheduleId, cancellationToken);
 
     public async Task AssignAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         int assignedToUserId,
         CancellationToken cancellationToken = default)
     {
         var complaint = await GetTrackedComplaintAsync(complaintId, cancellationToken);
+        if (complaint.CourseScheduleId != scheduleId)
+            throw new InvalidOperationException("Complaint does not belong to this session.");
+
         complaint.AssignedToUserId = assignedToUserId;
         complaint.Status = SessionComplaintStatus.InReview;
         await _complaints.SaveChangesAsync(cancellationToken);
@@ -132,11 +145,15 @@ public class SessionComplaintService : ISessionComplaintService
     }
 
     public async Task RequestTeacherResponseAsync(
+        int scheduleId,
         int complaintId,
         int adminUserId,
         CancellationToken cancellationToken = default)
     {
         var complaint = await GetTrackedComplaintAsync(complaintId, cancellationToken);
+        if (complaint.CourseScheduleId != scheduleId)
+            throw new InvalidOperationException("Complaint does not belong to this session.");
+
         complaint.RequiresTeacherResponse = true;
         complaint.Status = SessionComplaintStatus.AwaitingTeacher;
         await _complaints.SaveChangesAsync(cancellationToken);
@@ -251,6 +268,56 @@ public class SessionComplaintService : ISessionComplaintService
 
         line.Status = TeacherEarningLineStatus.Voided;
         await _complaints.UpdateEarningLineAsync(line, cancellationToken);
+    }
+
+    private async Task MirrorToUnifiedHubAsync(
+        SessionComplaint legacy,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        if (await _db.Complaints.AnyAsync(c => c.LegacySessionComplaintId == legacy.Id, cancellationToken))
+            return;
+
+        var now = DateTime.UtcNow;
+        var unified = new Complaint
+        {
+            SubjectType = ComplaintSubjectType.Session,
+            CourseScheduleId = legacy.CourseScheduleId,
+            EnrollmentId = legacy.EnrollmentId,
+            ComplainantUserId = userId,
+            ComplainantRole = ComplaintComplainantRole.Student,
+            AffectedStudentId = legacy.StudentId,
+            RespondentTeacherId = legacy.TeacherId > 0 ? legacy.TeacherId : null,
+            ReasonCode = ComplaintRules.FromLegacySessionReason(legacy.ReasonCode),
+            Description = legacy.Description,
+            Status = ComplaintRules.FromLegacySessionStatus(legacy.Status),
+            Priority = ComplaintPriority.Normal,
+            FiledAt = legacy.FiledAt,
+            CreatedAt = now,
+            LegacySessionComplaintId = legacy.Id,
+        };
+        _db.Complaints.Add(unified);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var attachments = await _db.SessionComplaintAttachments.AsNoTracking()
+            .Where(a => a.ComplaintId == legacy.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var a in attachments)
+        {
+            _db.ComplaintAttachments.Add(new ComplaintAttachment
+            {
+                ComplaintId = unified.Id,
+                FileUrl = a.FileUrl,
+                FileName = a.FileName,
+                ContentType = a.ContentType,
+                UploadedByUserId = a.UploadedByUserId,
+                UploadedAt = a.UploadedAt,
+                CreatedAt = a.CreatedAt,
+            });
+        }
+
+        if (attachments.Count > 0)
+            await _db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<SessionComplaint> GetTrackedComplaintAsync(int complaintId, CancellationToken cancellationToken) =>

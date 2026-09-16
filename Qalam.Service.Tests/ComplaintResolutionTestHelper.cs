@@ -41,7 +41,8 @@ internal static class ComplaintResolutionTestHelper
                 CreateMockResolver(),
                 Mock.Of<IPaymentTransactionEventService>()),
             audit,
-            financeImpact);
+            financeImpact,
+            db);
     }
 
     internal static SessionComplaintService CreateComplaintService(
@@ -75,6 +76,30 @@ internal static class ComplaintResolutionTestHelper
             earning,
             fileStorage.Object,
             storageUrls,
-            orchestrator);
+            orchestrator,
+            db);
+    }
+
+    internal static ComplaintService CreateUnifiedComplaintService(
+        ApplicationDBContext db,
+        Mock<IRefundService>? refundMock = null)
+    {
+        var fileStorage = new Mock<IFileStorageService>();
+        fileStorage
+            .Setup(f => f.ValidateFileAsync(It.IsAny<IFormFile>(), It.IsAny<string[]>(), It.IsAny<long>()))
+            .ReturnsAsync(true);
+        var storageUrls = new StoragePublicUrlProvider(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["OssSettings:LearningPublicBaseUrl"] = "https://cdn.example.com",
+            })
+            .Build());
+        return new ComplaintService(
+            new ComplaintRepository(db),
+            db,
+            CreateComplaintService(db, refundMock),
+            CreateOrchestrator(db, refundMock?.Object),
+            fileStorage.Object,
+            storageUrls);
     }
 }

@@ -109,6 +109,7 @@ public class SessionComplaintServiceTests
 
         Assert.Equal(SessionComplaintStatus.Open, complaint.Status);
         Assert.Single(db.SessionComplaints.ToList());
+        Assert.Single(db.Complaints.ToList());
         Assert.Contains(db.SessionAuditLogs.ToList(), l => l.ActionType == SessionAuditActionType.ComplaintFiled);
     }
 
@@ -128,6 +129,20 @@ public class SessionComplaintServiceTests
     }
 
     [Fact]
+    public async Task AssignAsync_WrongSchedule_Throws()
+    {
+        await using var db = CreateDb();
+        var (schedule, studentId) = await SeedCompletedSessionAsync(db);
+        var sut = CreateSut(db);
+
+        var filed = await sut.FileComplaintAsync(
+            schedule.Id, studentId, 99, SessionComplaintReason.TeacherLate, "Late", null);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.AssignAsync(schedule.Id + 1, filed.Id, adminUserId: 1, assignedToUserId: 2));
+    }
+
+    [Fact]
     public async Task AssignAsync_MovesComplaintToInReview()
     {
         await using var db = CreateDb();
@@ -137,7 +152,7 @@ public class SessionComplaintServiceTests
         var filed = await sut.FileComplaintAsync(
             schedule.Id, studentId, 99, SessionComplaintReason.TeacherLate, "Late", null);
 
-        await sut.AssignAsync(filed.Id, adminUserId: 1, assignedToUserId: 2);
+        await sut.AssignAsync(schedule.Id, filed.Id, adminUserId: 1, assignedToUserId: 2);
 
         var updated = await db.SessionComplaints.FindAsync(filed.Id);
         Assert.Equal(SessionComplaintStatus.InReview, updated!.Status);
@@ -154,7 +169,7 @@ public class SessionComplaintServiceTests
         var filed = await sut.FileComplaintAsync(
             schedule.Id, studentId, 99, SessionComplaintReason.QualityIssue, "Bad audio", null);
 
-        await sut.RequestTeacherResponseAsync(filed.Id, adminUserId: 1);
+        await sut.RequestTeacherResponseAsync(schedule.Id, filed.Id, adminUserId: 1);
 
         var updated = await db.SessionComplaints.FindAsync(filed.Id);
         Assert.Equal(SessionComplaintStatus.AwaitingTeacher, updated!.Status);

@@ -122,6 +122,7 @@ namespace Qalam.Service
             services.AddTransient<IAdminSessionActionService, AdminSessionActionService>();
             services.AddTransient<ISessionAuditService, SessionAuditService>();
             services.AddTransient<ISessionComplaintService, SessionComplaintService>();
+            services.AddTransient<IComplaintService, ComplaintService>();
             services.AddTransient<IComplaintResolutionOrchestrator, ComplaintResolutionOrchestrator>();
             services.AddTransient<IEnrollmentCancellationService, EnrollmentCancellationService>();
             services.AddTransient<IEnrollmentCompletionService, EnrollmentCompletionService>();

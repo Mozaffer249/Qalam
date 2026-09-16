@@ -25,6 +25,7 @@ Follow **in order** — details in [`docs/deployment/`](./docs/deployment/README
 | 3 | [`03-staging-setup.md`](./docs/deployment/03-staging-setup.md) — staging stack + Nginx |
 | 4 | [`04-production-setup.md`](./docs/deployment/04-production-setup.md) — production stack + Nginx |
 | 5 | [`05-nginx-subdomains.md`](./docs/deployment/05-nginx-subdomains.md) — frontend vhosts |
+| — | [`09-student-frontend-web.md`](./docs/deployment/09-student-frontend-web.md) — student Flutter web (`student(-staging).qalam.net.sa`) |
 
 Before first build:
 

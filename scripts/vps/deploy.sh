@@ -120,6 +120,7 @@ add_all_services() {
   add_service qalam-api
   add_service qalam-admin
   add_service qalam-teacher
+  add_service qalam-student
 }
 
 map_changed_paths() {
@@ -130,6 +131,7 @@ map_changed_paths() {
       Qalam.*|*.sln)  add_service qalam-api; add_service messaging-api ;;
       apps/admin*)    add_service qalam-admin ;;
       apps/teacher*)  add_service qalam-teacher ;;
+      apps/Qalam*)    add_service qalam-student ;;
       docker-compose.yml|scripts/vps/deploy.sh)
         # Compose / deploy script change can affect any service.
         add_all_services ;;

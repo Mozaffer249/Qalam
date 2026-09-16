@@ -256,6 +256,30 @@ services:
       retries: 3
       start_period: 60s
 
+  # ─────────────── Student Frontend (Flutter web, static) ───────────────
+  # Source lives in apps/Qalam. Built to a static bundle and served by nginx.
+  # API base URL is compiled in via the production flavor (api.qalam.net.sa).
+  qalam-student:
+    build:
+      context: ${STUDENT_APP_PATH:-./apps/Qalam}
+      dockerfile: Dockerfile
+      args:
+        FLAVOR: production
+    image: qalam-student:latest
+    container_name: qalam-student
+    logging: *docker-logging
+    ports:
+      - "127.0.0.1:8095:80"
+    networks:
+      - qalam-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/", "||", "exit", "1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   rabbitmq_data:
   app_logs:

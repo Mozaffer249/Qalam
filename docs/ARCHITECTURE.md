@@ -78,7 +78,7 @@ Controller → Command/Query → Handler → Repository + Service → Response<T
 - **Repositories** (`Qalam.Infrastructure/Abstracts/`) — data access, enhanced query projections
 - **Services** (`Qalam.Service/`) — reusable domain logic across handlers
 - **Enhanced queries** — `AsNoTracking()`, project to DTOs, narrow SELECTs (see `IOpenSessionRequestRepository`)
-- **Session complaints** — `SessionComplaint`, `SessionAuditLog`, admin `/Admin/Sessions` APIs, earnings `OnHold` until blocking complaints resolve (see `BUSINESS_LOGIC.md` §10)
+- **Complaints hub** — unified `Complaint` + timeline (`/Admin/Complaints`, student/teacher `/Complaints`); session rows dual-write `SessionComplaint` and earnings `OnHold` until blocking complaints resolve (see `BUSINESS_LOGIC.md` §10)
 
 ### Education domains
 

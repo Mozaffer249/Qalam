@@ -1,10 +1,17 @@
-using Qalam.Data.DTOs.Admin;
+using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Data.Entity.Complaint;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Helpers;
+using AdminPreview = Qalam.Data.DTOs.Admin.ComplaintResolvePreviewDto;
+using UnifiedPreview = Qalam.Data.DTOs.Complaint.ComplaintResolvePreviewDto;
+using ResolveComplaintRequest = Qalam.Data.DTOs.Complaint.ResolveComplaintRequest;
+using ComplaintSessionFinancialContextDto = Qalam.Data.DTOs.Admin.ComplaintSessionFinancialContextDto;
+using ComplaintReplacementSchedulePreviewDto = Qalam.Data.DTOs.Admin.ComplaintReplacementSchedulePreviewDto;
 
 namespace Qalam.Service.Implementations;
 
@@ -15,22 +22,25 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
     private readonly IRefundService _refundService;
     private readonly ISessionAuditService _audit;
     private readonly ITeacherFinanceImpactService _financeImpact;
+    private readonly ApplicationDBContext _db;
 
     public ComplaintResolutionOrchestrator(
         ISessionComplaintRepository complaints,
         ICourseScheduleRepository schedules,
         IRefundService refundService,
         ISessionAuditService audit,
-        ITeacherFinanceImpactService financeImpact)
+        ITeacherFinanceImpactService financeImpact,
+        ApplicationDBContext db)
     {
         _complaints = complaints;
         _schedules = schedules;
         _refundService = refundService;
         _audit = audit;
         _financeImpact = financeImpact;
+        _db = db;
     }
 
-    public Task<ComplaintResolvePreviewDto> GetPreviewAsync(
+    public Task<AdminPreview> GetPreviewAsync(
         int scheduleId,
         int complaintId,
         SessionComplaintResolution resolutionCode,
@@ -197,7 +207,7 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
             throw new InvalidOperationException("Complaint not found.");
     }
 
-    private async Task<ComplaintResolvePreviewDto> BuildPreviewAsync(
+    private async Task<AdminPreview> BuildPreviewAsync(
         int scheduleId,
         int complaintId,
         SessionComplaintResolution resolutionCode,
@@ -246,7 +256,7 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
             };
         }
 
-        return new ComplaintResolvePreviewDto
+        return new AdminPreview
         {
             ResolutionCode = resolutionCode.ToString(),
             SuggestedRefundAmount = plan.IssueRefund ? plan.RefundAmount : null,
@@ -361,6 +371,301 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
 
         line.Status = TeacherEarningLineStatus.Pending;
         await _complaints.UpdateEarningLineAsync(line, cancellationToken);
+    }
+
+    public async Task<UnifiedPreview> GetPreviewUnifiedAsync(
+        Complaint complaint,
+        ComplaintResolution resolutionCode,
+        decimal? refundAmountOverride,
+        int? paymentIdOverride,
+        CancellationToken cancellationToken = default)
+    {
+        if (complaint.SubjectType == ComplaintSubjectType.Session
+            && complaint.CourseScheduleId.HasValue
+            && complaint.LegacySessionComplaintId.HasValue)
+        {
+            var legacy = await GetPreviewAsync(
+                complaint.CourseScheduleId.Value,
+                complaint.LegacySessionComplaintId.Value,
+                ComplaintRules.ToLegacySessionResolution(resolutionCode),
+                refundAmountOverride,
+                paymentIdOverride,
+                cancellationToken);
+
+            return new UnifiedPreview
+            {
+                ResolutionCode = legacy.ResolutionCode,
+                SuggestedRefundAmount = legacy.SuggestedRefundAmount,
+                Currency = legacy.Currency,
+                PaymentId = legacy.PaymentId,
+                RemainingRefundable = legacy.RemainingRefundable,
+                SessionEarningAmount = legacy.SessionEarningAmount,
+                CurrentEarningStatus = legacy.CurrentEarningStatus,
+                PayoutImpact = legacy.PayoutImpact,
+                PlatformBearEstimate = legacy.PlatformBearEstimate,
+                SessionEarningEffect = legacy.SessionEarningEffect,
+                Warnings = new List<string>(),
+            };
+        }
+
+        return await BuildNonSessionPreviewAsync(complaint, resolutionCode, refundAmountOverride, paymentIdOverride, cancellationToken);
+    }
+
+    public async Task ResolveUnifiedAsync(
+        Complaint complaint,
+        int adminUserId,
+        ResolveComplaintRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ComplaintRules.IsOpen(complaint.Status))
+            throw new InvalidOperationException("Complaint is already closed.");
+
+        if (complaint.SubjectType == ComplaintSubjectType.Session
+            && complaint.CourseScheduleId.HasValue
+            && complaint.LegacySessionComplaintId.HasValue)
+        {
+            await ResolveAsync(
+                complaint.CourseScheduleId.Value,
+                complaint.LegacySessionComplaintId.Value,
+                adminUserId,
+                ComplaintRules.ToLegacySessionResolution(request.ResolutionCode),
+                request.ResolutionNotes,
+                request.RefundAmount,
+                request.PaymentId,
+                cancellationToken);
+
+            await ApplyUnifiedClosureAsync(complaint, adminUserId, request, cancellationToken);
+            return;
+        }
+
+        await ResolveNonSessionAsync(complaint, adminUserId, request, cancellationToken);
+    }
+
+    private async Task<UnifiedPreview> BuildNonSessionPreviewAsync(
+        Complaint complaint,
+        ComplaintResolution resolutionCode,
+        decimal? refundAmountOverride,
+        int? paymentIdOverride,
+        CancellationToken cancellationToken)
+    {
+        var warnings = new List<string>();
+        decimal remaining = 0m;
+        string currency = "SAR";
+        int? paymentId = paymentIdOverride ?? complaint.PaymentId;
+        decimal? suggested = null;
+
+        if (complaint.SubjectType is ComplaintSubjectType.Enrollment
+            or ComplaintSubjectType.Payment
+            or ComplaintSubjectType.Refund)
+        {
+            var payment = paymentId.HasValue
+                ? await _db.Payments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken)
+                : null;
+
+            if (payment == null && complaint.EnrollmentId.HasValue)
+            {
+                var enrollmentId = complaint.EnrollmentId.Value;
+                payment = await _db.Payments.AsNoTracking()
+                    .Where(p => p.Status == PaymentStatus.Succeeded
+                                && (p.EnrollmentPayments.Any(ep => ep.EnrollmentParticipant.EnrollmentId == enrollmentId)
+                                    || p.PaymentItems.Any(i => i.ReferenceId == enrollmentId)))
+                    .OrderByDescending(p => p.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            if (payment != null)
+            {
+                paymentId = payment.Id;
+                currency = payment.Currency;
+                var refunded = await _db.Refunds.AsNoTracking()
+                    .Where(r => r.PaymentId == payment.Id && r.Status == RefundStatus.Succeeded)
+                    .SumAsync(r => (decimal?)r.Amount, cancellationToken) ?? 0m;
+                remaining = Math.Max(0m, payment.TotalAmount - refunded);
+            }
+            else
+            {
+                warnings.Add("No succeeded payment found for refund preview.");
+            }
+
+            if (resolutionCode is ComplaintResolution.FullRefund or ComplaintResolution.PartialRefund)
+            {
+                suggested = resolutionCode == ComplaintResolution.FullRefund
+                    ? remaining
+                    : Math.Min(refundAmountOverride ?? remaining, remaining);
+                if (suggested <= 0)
+                    warnings.Add("No remaining refundable amount.");
+            }
+            else if (resolutionCode is not ComplaintResolution.NoAction
+                     and not ComplaintResolution.RejectComplaint
+                     and not ComplaintResolution.WarnTeacher
+                     and not ComplaintResolution.CancelledByAdmin)
+            {
+                warnings.Add("This resolution has limited financial effect for non-session complaints.");
+            }
+        }
+        else if (complaint.SubjectType == ComplaintSubjectType.OpenSessionRequest)
+        {
+            warnings.Add("Open-session-request complaints have no automatic financial effects unless a payment is linked.");
+            if (paymentId.HasValue)
+            {
+                var payment = await _db.Payments.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
+                if (payment != null)
+                {
+                    currency = payment.Currency;
+                    var refunded = await _db.Refunds.AsNoTracking()
+                        .Where(r => r.PaymentId == payment.Id && r.Status == RefundStatus.Succeeded)
+                        .SumAsync(r => (decimal?)r.Amount, cancellationToken) ?? 0m;
+                    remaining = Math.Max(0m, payment.TotalAmount - refunded);
+                }
+            }
+        }
+        else
+        {
+            warnings.Add("Other complaints are administrative only — no automatic financial effects.");
+        }
+
+        return new UnifiedPreview
+        {
+            ResolutionCode = resolutionCode.ToString(),
+            SuggestedRefundAmount = suggested,
+            Currency = currency,
+            PaymentId = paymentId,
+            RemainingRefundable = remaining,
+            SessionEarningEffect = "None",
+            PayoutImpact = "None",
+            Warnings = warnings,
+        };
+    }
+
+    private async Task ResolveNonSessionAsync(
+        Complaint complaint,
+        int adminUserId,
+        ResolveComplaintRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tracked = await _db.Complaints.FirstOrDefaultAsync(c => c.Id == complaint.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Complaint not found.");
+
+        int? refundId = null;
+        if (request.ResolutionCode is ComplaintResolution.FullRefund or ComplaintResolution.PartialRefund)
+        {
+            if (tracked.SubjectType is not (ComplaintSubjectType.Enrollment
+                or ComplaintSubjectType.Payment
+                or ComplaintSubjectType.Refund)
+                && tracked.PaymentId is null)
+                throw new InvalidOperationException("Refunds are only allowed for financial subjects.");
+
+            var preview = await BuildNonSessionPreviewAsync(
+                tracked, request.ResolutionCode, request.RefundAmount, request.PaymentId, cancellationToken);
+            if (!preview.PaymentId.HasValue || preview.SuggestedRefundAmount is null or <= 0)
+                throw new InvalidOperationException("Refund cannot be issued for this complaint.");
+
+            var enrollmentId = tracked.EnrollmentId
+                ?? throw new InvalidOperationException("Enrollment is required to issue a refund.");
+
+            var refund = await _refundService.IssueRefundAsync(
+                preview.PaymentId.Value,
+                enrollmentId,
+                preview.SuggestedRefundAmount.Value,
+                preview.Currency,
+                request.ResolutionNotes ?? $"Complaint #{tracked.Id}",
+                adminUserId,
+                cancellationToken);
+            refundId = refund.Id;
+        }
+        else if (request.ResolutionCode is ComplaintResolution.ReplacementSession
+                 or ComplaintResolution.DeductTeacherEarning)
+        {
+            throw new InvalidOperationException(
+                "This resolution is only valid for session complaints.");
+        }
+
+        var toStatus = request.ResolutionCode == ComplaintResolution.RejectComplaint
+            ? ComplaintStatus.Rejected
+            : ComplaintStatus.Resolved;
+
+        ComplaintRules.EnsureTransition(
+            tracked.Status == ComplaintStatus.DecisionPending
+                ? ComplaintStatus.DecisionPending
+                : tracked.Status,
+            toStatus);
+
+        if (tracked.Status != ComplaintStatus.DecisionPending
+            && ComplaintRules.CanTransition(tracked.Status, ComplaintStatus.DecisionPending))
+            tracked.Status = ComplaintStatus.DecisionPending;
+
+        ComplaintRules.EnsureTransition(tracked.Status, toStatus);
+        tracked.Status = toStatus;
+        tracked.ResolutionCode = request.ResolutionCode;
+        tracked.ResolutionNotes = request.ResolutionNotes;
+        tracked.ResolvedAt = DateTime.UtcNow;
+        tracked.ResolvedByUserId = adminUserId;
+        tracked.LinkedRefundId = refundId;
+        tracked.RequiresComplainantResponse = false;
+        tracked.RequiresRespondentResponse = false;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.ComplaintTimelineEntries.Add(new ComplaintTimelineEntry
+        {
+            ComplaintId = tracked.Id,
+            EventType = toStatus == ComplaintStatus.Rejected
+                ? ComplaintTimelineEventType.Rejected
+                : ComplaintTimelineEventType.Resolved,
+            FromStatus = ComplaintStatus.DecisionPending,
+            ToStatus = toStatus,
+            ActorUserId = adminUserId,
+            ActorRole = "Admin",
+            Notes = request.ResolutionNotes,
+            OccurredAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task ApplyUnifiedClosureAsync(
+        Complaint complaint,
+        int adminUserId,
+        ResolveComplaintRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tracked = await _db.Complaints.FirstOrDefaultAsync(c => c.Id == complaint.Id, cancellationToken);
+        if (tracked == null)
+            return;
+
+        var legacy = tracked.LegacySessionComplaintId.HasValue
+            ? await _db.SessionComplaints.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == tracked.LegacySessionComplaintId.Value, cancellationToken)
+            : null;
+
+        tracked.Status = request.ResolutionCode == ComplaintResolution.RejectComplaint
+            ? ComplaintStatus.Rejected
+            : ComplaintStatus.Resolved;
+        tracked.ResolutionCode = request.ResolutionCode;
+        tracked.ResolutionNotes = request.ResolutionNotes ?? legacy?.ResolutionNotes;
+        tracked.ResolvedAt = legacy?.ResolvedAt ?? DateTime.UtcNow;
+        tracked.ResolvedByUserId = adminUserId;
+        tracked.LinkedRefundId = legacy?.RefundId;
+        tracked.ReplacementScheduleId = legacy?.ReplacementScheduleId;
+        tracked.RequiresComplainantResponse = false;
+        tracked.RequiresRespondentResponse = false;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        _db.ComplaintTimelineEntries.Add(new ComplaintTimelineEntry
+        {
+            ComplaintId = tracked.Id,
+            EventType = tracked.Status == ComplaintStatus.Rejected
+                ? ComplaintTimelineEventType.Rejected
+                : ComplaintTimelineEventType.Resolved,
+            FromStatus = ComplaintStatus.DecisionPending,
+            ToStatus = tracked.Status,
+            ActorUserId = adminUserId,
+            ActorRole = "Admin",
+            Notes = tracked.ResolutionNotes,
+            OccurredAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
 
