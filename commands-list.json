@@ -209,6 +209,30 @@
         "sortOrder": 13,
         "parentFolderId": "a1111111-1111-4111-8111-111111111102"
       },
+      {
+        "id": "b1111111-1111-4111-8111-111111111315",
+        "name": "Prod: pull + build student (web)",
+        "command": "cd /opt/qalam-backend/Qalam/apps/Qalam && git pull --ff-only origin main && cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.yml -p qalam-prod --env-file .env up -d --build qalam-student",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 14,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111316",
+        "name": "Prod logs: student (follow)",
+        "command": "docker logs -f --tail 120 qalam-student",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 15,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111317",
+        "name": "Prod: student health curl",
+        "command": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8095/ ; curl -sS -o /dev/null -w '%{http_code}\\n' https://student.qalam.net.sa/ || true",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 16,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111102"
+      },
 
       {
         "id": "b1111111-1111-4111-8111-111111111401",
@@ -320,6 +344,30 @@
         "command": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8081/ ; curl -sS -o /dev/null -w '%{http_code}\\n' https://api-staging.qalam.net.sa/ || true",
         "placeholderTypeId": "singleCurlyBraces",
         "sortOrder": 12,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111103"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111415",
+        "name": "Staging: pull + build student (web)",
+        "command": "cd /opt/qalam-backend/Qalam/apps/Qalam && git pull --ff-only origin main && cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build qalam-student",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 13,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111103"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111416",
+        "name": "Staging logs: student (follow)",
+        "command": "docker logs -f --tail 120 qalam-staging-student",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 14,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111103"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111417",
+        "name": "Staging: student health curl",
+        "command": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8094/ ; curl -sS -o /dev/null -w '%{http_code}\\n' https://student-staging.qalam.net.sa/ || true",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 15,
         "parentFolderId": "a1111111-1111-4111-8111-111111111103"
       }
     ]
