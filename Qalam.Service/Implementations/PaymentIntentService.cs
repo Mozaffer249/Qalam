@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Qalam.Data.DTOs.Payment;
@@ -20,6 +21,7 @@ public class PaymentIntentService : IPaymentIntentService
     private readonly IPaymentGatewaySettingsProvider _gatewaySettings;
     private readonly IPaymentTransactionEventService _events;
     private readonly PaymentSettings _settings;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentIntentService> _logger;
 
     public PaymentIntentService(
@@ -30,6 +32,7 @@ public class PaymentIntentService : IPaymentIntentService
         IPaymentGatewaySettingsProvider gatewaySettings,
         IPaymentTransactionEventService events,
         IOptions<PaymentSettings> settings,
+        IConfiguration configuration,
         ILogger<PaymentIntentService> logger)
     {
         _participantRepository = participantRepository;
@@ -39,12 +42,14 @@ public class PaymentIntentService : IPaymentIntentService
         _gatewaySettings = gatewaySettings;
         _events = events;
         _settings = settings.Value;
+        _configuration = configuration;
         _logger = logger;
     }
 
     public async Task<PaymentIntentServiceResult> CreateAsync(
         int participantId,
         int userId,
+        string? appReturnUrl = null,
         CancellationToken cancellationToken = default)
     {
         IPaymentGateway gateway;
@@ -215,6 +220,21 @@ public class PaymentIntentService : IPaymentIntentService
         GatewayCheckoutDto checkout;
         try
         {
+            var allowedOrigins = PaymentAppReturnUrlHelper.ReadAllowedOrigins(_configuration);
+            var sanitizedAppReturn = PaymentAppReturnUrlHelper.Resolve(
+                appReturnUrl,
+                _settings.Moyasar.AppReturnUrl,
+                allowedOrigins);
+
+            string? gatewayCallback = null;
+            if (!string.IsNullOrWhiteSpace(sanitizedAppReturn)
+                && !string.IsNullOrWhiteSpace(_settings.Moyasar.CallbackUrl))
+            {
+                gatewayCallback = PaymentAppReturnUrlHelper.AppendAppQuery(
+                    _settings.Moyasar.CallbackUrl,
+                    sanitizedAppReturn);
+            }
+
             checkout = await gateway.CreateCheckoutAsync(new GatewayCheckoutRequest
             {
                 GivenId = givenId,
@@ -222,7 +242,8 @@ public class PaymentIntentService : IPaymentIntentService
                 Currency = payment.Currency,
                 Description = description,
                 Metadata = metadata,
-                PreferredClientMode = effectiveMode
+                PreferredClientMode = effectiveMode,
+                CallbackUrl = gatewayCallback
             }, cancellationToken);
         }
         catch (Exception ex)

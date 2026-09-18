@@ -59,6 +59,13 @@ public class MoyasarPaymentSettings
     public string CallbackUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Student app deep-link for same-tab web checkout return
+    /// (e.g. https://student-staging.qalam.net.sa/payments/return).
+    /// Used when the client does not send <c>appReturnUrl</c>, or as fallback on the API return page.
+    /// </summary>
+    public string AppReturnUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// How the student app presents Moyasar checkout:
     /// <c>HostedRedirect</c> (default, WebView + invoices API) or <c>NativeSdk</c> (Flutter widgets).
     /// </summary>

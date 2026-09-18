@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -103,6 +104,7 @@ public class PaymentIntentReuseTests
             Settings("NativeSdk").Object,
             Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
+            Mock.Of<IConfiguration>(),
             NullLogger<PaymentIntentService>.Instance);
 
         var first = await sut.CreateAsync(1, 7);
@@ -170,6 +172,7 @@ public class PaymentIntentReuseTests
             Settings().Object,
             Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
+            Mock.Of<IConfiguration>(),
             NullLogger<PaymentIntentService>.Instance);
 
         var result = await sut.CreateAsync(2, 7);
@@ -240,6 +243,7 @@ public class PaymentIntentReuseTests
             Settings("HostedRedirect").Object,
             Mock.Of<IPaymentTransactionEventService>(),
             Options.Create(new PaymentSettings { DefaultCurrency = "SAR" }),
+            Mock.Of<IConfiguration>(),
             NullLogger<PaymentIntentService>.Instance);
 
         var result = await sut.CreateAsync(3, 7);

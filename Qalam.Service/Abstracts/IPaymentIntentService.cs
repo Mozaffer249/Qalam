@@ -11,6 +11,7 @@ public interface IPaymentIntentService
     Task<PaymentIntentServiceResult> CreateAsync(
         int participantId,
         int userId,
+        string? appReturnUrl = null,
         CancellationToken cancellationToken = default);
 }
 

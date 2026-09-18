@@ -37,6 +37,13 @@ public class PaymentResultDto
 public class CreatePaymentIntentRequestDto
 {
     public int ParticipantId { get; set; }
+
+    /// <summary>
+    /// Optional student-app return URL for same-tab web checkout
+    /// (e.g. https://student-staging.qalam.net.sa/payments/return).
+    /// Origin must be listed in Cors:AllowedOrigins.
+    /// </summary>
+    public string? AppReturnUrl { get; set; }
 }
 
 /// <summary>Client checkout payload — amount is fixed by the backend via givenId.</summary>

@@ -26,6 +26,7 @@ public class CreatePaymentIntentCommandHandler : ResponseHandler,
         var result = await _intentService.CreateAsync(
             request.Data.ParticipantId,
             request.UserId,
+            request.Data.AppReturnUrl,
             cancellationToken);
 
         if (!result.Succeeded)
