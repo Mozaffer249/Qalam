@@ -53,12 +53,16 @@ Rollback:
 ssh root@VPS "rm -rf /opt/qalam-student-web/prod && mv /opt/qalam-student-web/prod.prev /opt/qalam-student-web/prod && docker restart qalam-student"
 ```
 
-If the container was never created (first deploy), the script falls back to `docker compose up -d --no-deps qalam-student`. To do that by hand:
+The script recreates the container itself (`up -d --no-deps --force-recreate qalam-student`). By hand, after a bundle is already in place:
 
 ```sh
 cd /opt/qalam-backend/Qalam
+# staging
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging \
-  up -d --no-deps qalam-student
+  up -d --no-deps --force-recreate qalam-student
+# production (project name comes from `name: qalam-platform` in the compose file)
+docker compose -f docker-compose.yml --env-file .env \
+  up -d --no-deps --force-recreate qalam-student
 ```
 
 > Never run `up -d --build qalam-student` on the VPS — that is the Flutter compile that hangs the server.

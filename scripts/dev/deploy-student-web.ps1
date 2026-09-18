@@ -35,20 +35,18 @@ $appDir = Join-Path $root "apps/Qalam"
 $webDir = Join-Path $appDir "build/web"
 
 # Per-environment remote layout / container names.
+# No -p for production: docker-compose.yml declares `name: qalam-platform`,
+# which is the project every other prod command uses.
 if ($Flavor -eq "staging") {
     $remoteName = "staging"
     $container = "qalam-staging-student"
-    $composeFile = "docker-compose.staging.yml"
-    $project = "qalam-staging"
-    $envFile = ".env.staging"
+    $composeArgs = "-f docker-compose.staging.yml -p qalam-staging --env-file .env.staging"
     $healthUrl = "http://127.0.0.1:8094/"
 }
 else {
     $remoteName = "prod"
     $container = "qalam-student"
-    $composeFile = "docker-compose.yml"
-    $project = "qalam-prod"
-    $envFile = ".env"
+    $composeArgs = "-f docker-compose.yml --env-file .env"
     $healthUrl = "http://127.0.0.1:8095/"
 }
 
@@ -105,7 +103,8 @@ $remote = @(
     "rm -rf $prev",
     "if [ -d $target ]; then mv $target $prev; fi",
     "mv $stage $target",
-    "docker restart $container 2>/dev/null || (cd $repo && docker compose -f $composeFile -p $project --env-file $envFile up -d --no-deps qalam-student)",
+    "cd $repo",
+    "docker compose $composeArgs up -d --no-deps --force-recreate qalam-student",
     "sleep 2",
     "curl -sS -o /dev/null -w 'student HTTP %{http_code}\n' $healthUrl"
 ) -join "; "
