@@ -10,6 +10,7 @@ namespace Qalam.Api.Controllers.Payments;
 /// Browser return landing page for hosted payment gateways.
 /// Flutter WebViews intercept this URL prefix and call Confirm.
 /// On web (new tab), posts a message to the opener and tries to close itself.
+/// Only signals success when Moyasar appended a payment <c>id</c> query param.
 /// </summary>
 [ApiController]
 [AllowAnonymous]
@@ -21,7 +22,6 @@ public class PaymentReturnController : ControllerBase
     {
         var safeProvider = string.IsNullOrWhiteSpace(provider) ? "payment" : provider.Trim();
         var encoded = WebUtility.HtmlEncode(safeProvider);
-        // Moyasar appends ?id=<payment_id> on success_url.
         var html =
             "<!DOCTYPE html>"
             + "<html lang=\"en\"><head><meta charset=\"utf-8\"/>"
@@ -34,9 +34,10 @@ public class PaymentReturnController : ControllerBase
             + "<script>(function(){"
             + "var q=new URLSearchParams(location.search);"
             + "var id=(q.get('id')||q.get('payment_id')||'').trim();"
+            + "var ok=!!id;"
             + "var msg={type:'qalam-payment-return',provider:"
             + System.Text.Json.JsonSerializer.Serialize(safeProvider)
-            + ",id:id};"
+            + ",id:id,ok:ok};"
             + "try{if(window.opener&&!window.opener.closed){"
             + "window.opener.postMessage(msg,'*');"
             + "try{window.opener.focus();}catch(e){}"
