@@ -96,6 +96,22 @@
         "sortOrder": 8,
         "parentFolderId": "a1111111-1111-4111-8111-111111111101"
       },
+      {
+        "id": "b1111111-1111-4111-8111-111111111210",
+        "name": "Student web: build + deploy STAGING",
+        "command": ".\\scripts\\dev\\deploy-student-web.ps1 staging",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 9,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
+      {
+        "id": "b1111111-1111-4111-8111-111111111211",
+        "name": "Student web: build + deploy PROD",
+        "command": ".\\scripts\\dev\\deploy-student-web.ps1 production",
+        "placeholderTypeId": "singleCurlyBraces",
+        "sortOrder": 10,
+        "parentFolderId": "a1111111-1111-4111-8111-111111111101"
+      },
 
       {
         "id": "b1111111-1111-4111-8111-111111111301",
@@ -211,8 +227,8 @@
       },
       {
         "id": "b1111111-1111-4111-8111-111111111315",
-        "name": "Prod: pull + build student (web)",
-        "command": "cd /opt/qalam-backend/Qalam/apps/Qalam && git pull --ff-only origin main && cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.yml -p qalam-prod --env-file .env up -d --build qalam-student",
+        "name": "Prod: restart student (serve uploaded bundle)",
+        "command": "cd /opt/qalam-backend/Qalam && ls -l /opt/qalam-student-web/prod | head && docker compose -f docker-compose.yml -p qalam-prod --env-file .env up -d --no-deps --force-recreate qalam-student",
         "placeholderTypeId": "singleCurlyBraces",
         "sortOrder": 14,
         "parentFolderId": "a1111111-1111-4111-8111-111111111102"
@@ -348,8 +364,8 @@
       },
       {
         "id": "b1111111-1111-4111-8111-111111111415",
-        "name": "Staging: pull + build student (web)",
-        "command": "cd /opt/qalam-backend/Qalam/apps/Qalam && git pull --ff-only origin main && cd /opt/qalam-backend/Qalam && docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --build qalam-student",
+        "name": "Staging: restart student (serve uploaded bundle)",
+        "command": "cd /opt/qalam-backend/Qalam && ls -l /opt/qalam-student-web/staging | head && docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging up -d --no-deps --force-recreate qalam-student",
         "placeholderTypeId": "singleCurlyBraces",
         "sortOrder": 13,
         "parentFolderId": "a1111111-1111-4111-8111-111111111103"

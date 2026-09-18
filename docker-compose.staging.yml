@@ -257,17 +257,16 @@ services:
     restart: unless-stopped
 
   # ─────────────── Student Frontend (Flutter web, static) ───────────────
-  # Source lives in apps/Qalam. Built to a static bundle and served by nginx.
+  # The bundle is built OFF the VPS (scripts/dev/deploy-student-web.ps1) and
+  # uploaded to STUDENT_WEB_DIR; a Flutter web compile here starves the box.
   # API base URL is compiled in via the staging flavor (api-staging.qalam.net.sa).
   qalam-student:
-    build:
-      context: ${STUDENT_APP_PATH:-./apps/Qalam}
-      dockerfile: Dockerfile
-      args:
-        FLAVOR: staging
-    image: qalam-student:staging
+    image: nginx:alpine
     container_name: qalam-staging-student
     logging: *docker-logging
+    volumes:
+      - ${STUDENT_WEB_DIR:-/opt/qalam-student-web/staging}:/usr/share/nginx/html:ro
+      - ${STUDENT_NGINX_CONF:-./apps/Qalam/nginx.conf}:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "127.0.0.1:8094:80"
     networks:

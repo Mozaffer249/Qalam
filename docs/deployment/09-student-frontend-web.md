@@ -4,12 +4,22 @@
 > **Staging URL:** `https://student-staging.qalam.net.sa` → container `127.0.0.1:8094`
 > **API:** compiled into the bundle via the Flutter flavor (`main_production.dart` → `https://api.qalam.net.sa`, `main_staging.dart` → `https://api-staging.qalam.net.sa`).
 
-Unlike teacher/admin (Node/SSR containers), the student app is **Flutter web**: it builds to a static bundle (`build/web/`) that is served by `nginx:alpine` inside the container. The API URL is **baked in at build time** from [`lib/core/config/flavor_config.dart`](../../apps/Qalam/lib/core/config/flavor_config.dart) — there is no runtime env var.
+Unlike teacher/admin (Node/SSR containers), the student app is **Flutter web**: it builds to a static bundle (`build/web/`) served by `nginx:alpine`. The API URL is **baked in at build time** from [`lib/core/config/flavor_config.dart`](../../apps/Qalam/lib/core/config/flavor_config.dart) — there is no runtime env var.
 
-Source lives in-repo at [`apps/Qalam`](../../apps/Qalam). Build files:
+**The bundle is built off the VPS.** A release Flutter web compile wants several GB of RAM and every core; running it next to SQL Server, RabbitMQ, and the APIs starves the box and it appears hung. So `qalam-student` has **no build section** — it is plain `nginx:alpine` mounting a directory of uploaded files.
 
-- [`apps/Qalam/Dockerfile`](../../apps/Qalam/Dockerfile) — multi-stage (Flutter build → nginx serve), `FLAVOR` build arg
+Source lives in-repo at [`apps/Qalam`](../../apps/Qalam). Relevant files:
+
+- [`scripts/dev/deploy-student-web.ps1`](../../scripts/dev/deploy-student-web.ps1) — build locally, upload, swap, restart
 - [`apps/Qalam/nginx.conf`](../../apps/Qalam/nginx.conf) — SPA fallback for `go_router` deep links
+- [`apps/Qalam/Dockerfile`](../../apps/Qalam/Dockerfile) — kept for local/CI image builds; **not** used by compose
+
+| Environment | Served from (VPS) | Container |
+|-------------|-------------------|-----------|
+| Staging | `/opt/qalam-student-web/staging` | `qalam-staging-student` |
+| Production | `/opt/qalam-student-web/prod` | `qalam-student` |
+
+Override with `STUDENT_WEB_DIR` in the env file.
 
 ---
 
@@ -24,27 +34,34 @@ Both are set in [`flavor_config.dart`](../../apps/Qalam/lib/core/config/flavor_c
 
 ---
 
-## 2. Build & run container
+## 2. Deploy (build locally, ship static files)
 
-Both environments build from the same compose files as the rest of the stack.
+Run from your workstation, **not** the VPS:
 
-**Staging:**
+```powershell
+./scripts/dev/deploy-student-web.ps1 staging
+./scripts/dev/deploy-student-web.ps1 production
+```
+
+The script runs `flutter build web --release -t lib/main_<flavor>.dart`, tars `build/web`, uploads it, unpacks beside the live directory, swaps atomically, restarts the container, and curls the health URL. The previous bundle is kept at `<dir>.prev`.
+
+Useful flags: `-SkipBuild` (reuse the existing `build/web`), `-VpsHost root@1.2.3.4` (or set `QALAM_VPS_HOST`).
+
+Rollback:
+
+```sh
+ssh root@VPS "rm -rf /opt/qalam-student-web/prod && mv /opt/qalam-student-web/prod.prev /opt/qalam-student-web/prod && docker restart qalam-student"
+```
+
+If the container was never created (first deploy), the script falls back to `docker compose up -d --no-deps qalam-student`. To do that by hand:
 
 ```sh
 cd /opt/qalam-backend/Qalam
 docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging \
-  up -d --build qalam-student
+  up -d --no-deps qalam-student
 ```
 
-**Production:**
-
-```sh
-cd /opt/qalam-backend/Qalam
-docker compose -f docker-compose.yml -p qalam-prod --env-file .env \
-  up -d --build qalam-student
-```
-
-> First build pulls the Flutter SDK image and compiles the web bundle — expect ~5-10 min on a small VPS. Subsequent builds are faster if `pubspec.*` is unchanged (pub deps are cached in an early layer).
+> Never run `up -d --build qalam-student` on the VPS — that is the Flutter compile that hangs the server.
 
 ---
 
@@ -192,15 +209,10 @@ Browser:
 | Symptom | Fix |
 |---------|-----|
 | 502 on the subdomain | `docker ps` — start `qalam-student`; confirm port `8094`/`8095` |
-| 404 on refresh of a route | Ensure `nginx.conf` `try_files … /index.html` is in the image |
-| API calls to wrong host | Rebuild image — API URL is compiled from `flavor_config.dart` |
+| 403 / nginx index page | `STUDENT_WEB_DIR` is empty — deploy a bundle with the script |
+| 404 on refresh of a route | `nginx.conf` must be mounted (`try_files … /index.html`) |
+| API calls to wrong host | Redeploy with the right flavor — the URL is compiled from `flavor_config.dart` |
 | CORS error in browser | Add the student origin to `CORS_ALLOWED_ORIGINS`, recreate API |
-| Slow/stuck first build | Normal — Flutter SDK image + web compile; watch `docker logs` |
+| VPS hangs during deploy | You ran `--build` on the server; use `deploy-student-web.ps1` instead |
 
-**Rebuild after code change:**
-
-```sh
-cd /opt/qalam-backend/Qalam
-docker compose -f docker-compose.staging.yml -p qalam-staging --env-file .env.staging \
-  up -d --build qalam-student        # or the prod compose/env
-```
+**After a code change:** re-run `./scripts/dev/deploy-student-web.ps1 <staging|production>`.

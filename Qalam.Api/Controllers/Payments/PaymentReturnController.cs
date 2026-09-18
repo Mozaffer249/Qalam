@@ -81,12 +81,13 @@ public class PaymentReturnController : ControllerBase
             + "var msg={type:'qalam-payment-return',provider:"
             + System.Text.Json.JsonSerializer.Serialize(safeProvider)
             + ",id:id,ok:ok};"
+            // Prefer same-tab app redirect when an app target is known.
+            + (redirectJs ?? string.Empty)
             + "try{if(window.opener&&!window.opener.closed){"
             + "window.opener.postMessage(msg,'*');"
             + "try{window.opener.focus();}catch(e){}"
             + "setTimeout(function(){try{window.close();}catch(e){}},250);"
             + "return;}}catch(e){}"
-            + (redirectJs ?? string.Empty)
             + "})();</script>"
             + "</head><body><main>"
             + "<h1>Payment processed</h1>"
