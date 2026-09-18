@@ -93,7 +93,7 @@ Ok "uploaded"
 
 # Unpack beside the live directory, then swap, so the site is never half-written.
 # Keeps the previous bundle at $prev for a quick manual rollback.
-$remote = @(
+$remoteLines = @(
     "set -e",
     "mkdir -p $remoteBase",
     "rm -rf $stage",
@@ -106,11 +106,17 @@ $remote = @(
     "cd $repo",
     "docker compose $composeArgs up -d --no-deps --force-recreate qalam-student",
     "sleep 2",
-    "curl -sS -o /dev/null -w 'student HTTP %{http_code}\n' $healthUrl"
-) -join "; "
+    "printf 'student HTTP %s\n' `"`$(curl -sS -o /dev/null -w '%{http_code}' $healthUrl)`""
+)
+
+# Shipped base64-encoded: ssh hands its command to a remote login shell, so raw
+# quotes get re-parsed, and a literal CRLF script makes bash read `set -e\r`.
+# Base64 is quote-free ASCII, so both problems disappear.
+$remoteScript = ($remoteLines -join "`n") + "`n"
+$encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoteScript))
 
 Info "swapping bundle + restarting $container"
-Invoke-Native "ssh" { ssh $VpsHost "bash -lc '$remote'" }
+Invoke-Native "ssh" { ssh $VpsHost "echo $encoded | base64 -d | bash" }
 
 Remove-Item $archive -Force
 Ok "deployed $Flavor student web to $target"

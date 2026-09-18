@@ -9,7 +9,7 @@
 ## Frontend checklist
 
 1. Login → send `Authorization: Bearer {token}` on every call below.
-2. `GET /Education/Domains` → pick by **`code`**, store `domainId` + `code` (never hardcode ids).
+2. `GET /Student/Domains` → active-only list with descriptions; pick by **`code`**, store `domainId` + `code` (never hardcode ids). (`GET /Education/Domains` remains for admin/teacher.)
 3. One shared wizard state object; every `filter-options` call resends **all** selected ids.
 4. Follow `nextStep` + `rule.*` — do not hardcode step order alone.
 5. **Discover catalog:** multi-select per step (OR via `SubjectIds` / `QuranContentTypeIds` / `QuranLevelIds`); **OSR broadcast:** single-select per step. Step order and Arabic labels match teacher `educationTreeSteps.ts` (Excel Sheet1).
@@ -23,7 +23,8 @@
 
 | Call | Endpoint |
 |------|----------|
-| Domains | `GET /Api/V1/Education/Domains` |
+| Domains (student) | `GET /Api/V1/Student/Domains` |
+| Domains (admin/teacher) | `GET /Api/V1/Education/Domains` |
 | Wizard | `GET /Api/V1/Education/filter-options?...` |
 
 ```http
@@ -38,7 +39,7 @@ Any logged-in role. Wizard is **stateless** (all ids in query string).
 
 ```mermaid
 flowchart TD
-  domains[GET Domains] --> pickDomain[Pick domain by code]
+  domains[GET Student/Domains] --> pickDomain[Pick domain by code]
   pickDomain --> callFO["GET filter-options with all IDs"]
   callFO --> next{nextStep}
   next -->|step options| pick[Show options pick ID]

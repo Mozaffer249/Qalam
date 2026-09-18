@@ -402,6 +402,8 @@ namespace Qalam.Data.AppMetaData
         #endregion
 
         #region Student
+        /// <summary>Student active education domains: Api/V1/Student/Domains</summary>
+        public const string StudentDomains = Rule + "Student/Domains";
         /// <summary>Student course catalog: Api/V1/Student/Courses</summary>
         public const string StudentCourses = Rule + "Student/Courses";
         /// <summary>Student course by id: Api/V1/Student/Courses/{id}</summary>
