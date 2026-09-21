@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Qalam.Core.Bases;
 using Qalam.Core.Contracts;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 
@@ -16,6 +17,12 @@ public class GetMyEnrollmentsQuery : IRequest<Response<List<EnrollmentListItemDt
     /// When null, returns enrollments for all owned students (self + guardian children).
     /// </summary>
     public int? StudentId { get; set; }
+
+    /// <summary>
+    /// Optional enrollment status filter (e.g. Active for My Sessions).
+    /// When null, returns all statuses.
+    /// </summary>
+    public EnrollmentStatus? Status { get; set; }
 
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;

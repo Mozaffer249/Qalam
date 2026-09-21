@@ -707,7 +707,7 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
             .Equals("ar", StringComparison.OrdinalIgnoreCase);
 
-        return await ActiveTeachersBaseQuery()
+        var profile = await ActiveTeachersBaseQuery()
             .Where(t => t.Id == teacherId)
             .Select(t => new StudentTeacherProfileDto
             {
@@ -766,20 +766,6 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                             ? (r.Student.User.FirstName ?? "Student")
                             : "Student",
                         CreatedAt = r.CreatedAt
-                    })
-                    .ToList(),
-                Certificates = t.TeacherDocuments
-                    .Where(d => d.DocumentType == TeacherDocumentType.Certificate
-                                && d.VerificationStatus == DocumentVerificationStatus.Approved)
-                    .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue)
-                    .Take(previewLimit)
-                    .Select(d => new StudentTeacherCertificateDto
-                    {
-                        Id = d.Id,
-                        Title = d.CertificateTitle,
-                        Issuer = d.Issuer,
-                        IssueDate = d.IssueDate,
-                        FileUrl = d.FilePath
                     })
                     .ToList(),
                 Courses = _context.Set<Qalam.Data.Entity.Course.Course>()
@@ -851,6 +837,15 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                     .ToList()
             })
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (profile is null) return null;
+
+        profile.Certificates = await ListStudentCertificateDtosAsync(
+            teacherId, isAr, cancellationToken);
+        if (profile.Certificates.Count > previewLimit)
+            profile.Certificates = profile.Certificates.Take(previewLimit).ToList();
+
+        return profile;
     }
 
     public async Task<PaginatedResult<StudentTeacherReviewDto>> GetStudentReviewsAsync(
@@ -899,17 +894,30 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
         if (!isActive)
             return new PaginatedResult<StudentTeacherCertificateDto>([], 0, pageNumber, pageSize);
 
-        var query = _context.Set<TeacherDocument>()
+        var isAr = CultureInfo.CurrentCulture.TwoLetterISOLanguageName
+            .Equals("ar", StringComparison.OrdinalIgnoreCase);
+
+        var all = await ListStudentCertificateDtosAsync(teacherId, isAr, cancellationToken);
+        var total = all.Count;
+        var items = all
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new PaginatedResult<StudentTeacherCertificateDto>(items, total, pageNumber, pageSize);
+    }
+
+    /// Approved Certificate documents plus approved domain-question certificate files.
+    private async Task<List<StudentTeacherCertificateDto>> ListStudentCertificateDtosAsync(
+        int teacherId,
+        bool isAr,
+        CancellationToken cancellationToken)
+    {
+        var fromDocs = await _context.Set<TeacherDocument>()
             .AsNoTracking()
             .Where(d => d.TeacherId == teacherId
                         && d.DocumentType == TeacherDocumentType.Certificate
                         && d.VerificationStatus == DocumentVerificationStatus.Approved)
-            .OrderByDescending(d => d.IssueDate ?? DateOnly.MinValue);
-
-        var total = await query.CountAsync(cancellationToken);
-        var items = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
             .Select(d => new StudentTeacherCertificateDto
             {
                 Id = d.Id,
@@ -920,7 +928,53 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
             })
             .ToListAsync(cancellationToken);
 
-        return new PaginatedResult<StudentTeacherCertificateDto>(items, total, pageNumber, pageSize);
+        var fromDomainPrimary = await _context.Set<TeacherDomainQuestionSubmission>()
+            .AsNoTracking()
+            .Where(s => s.TeacherId == teacherId
+                        && s.VerificationStatus == DocumentVerificationStatus.Approved
+                        && s.Question.MapsToDocumentType == TeacherDocumentType.Certificate
+                        && s.TeacherDocumentId != null
+                        && s.TeacherDocument != null
+                        && s.TeacherDocument.VerificationStatus == DocumentVerificationStatus.Approved)
+            .Select(s => new StudentTeacherCertificateDto
+            {
+                Id = s.TeacherDocument!.Id,
+                Title = s.TeacherDocument.CertificateTitle == null
+                        || s.TeacherDocument.CertificateTitle == ""
+                    ? (isAr ? s.Question.NameAr : s.Question.NameEn)
+                    : s.TeacherDocument.CertificateTitle,
+                Issuer = s.TeacherDocument.Issuer,
+                IssueDate = s.TeacherDocument.IssueDate,
+                FileUrl = s.TeacherDocument.FilePath
+            })
+            .ToListAsync(cancellationToken);
+
+        var fromDomainLinks = await _context.Set<TeacherDomainQuestionSubmissionDocument>()
+            .AsNoTracking()
+            .Where(sd => sd.Submission.TeacherId == teacherId
+                         && sd.Submission.VerificationStatus == DocumentVerificationStatus.Approved
+                         && sd.Submission.Question.MapsToDocumentType == TeacherDocumentType.Certificate
+                         && sd.TeacherDocument.VerificationStatus == DocumentVerificationStatus.Approved)
+            .Select(sd => new StudentTeacherCertificateDto
+            {
+                Id = sd.TeacherDocument.Id,
+                Title = sd.TeacherDocument.CertificateTitle == null
+                        || sd.TeacherDocument.CertificateTitle == ""
+                    ? (isAr ? sd.Submission.Question.NameAr : sd.Submission.Question.NameEn)
+                    : sd.TeacherDocument.CertificateTitle,
+                Issuer = sd.TeacherDocument.Issuer,
+                IssueDate = sd.TeacherDocument.IssueDate,
+                FileUrl = sd.TeacherDocument.FilePath
+            })
+            .ToListAsync(cancellationToken);
+
+        return fromDocs
+            .Concat(fromDomainPrimary)
+            .Concat(fromDomainLinks)
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .OrderByDescending(c => c.IssueDate ?? DateOnly.MinValue)
+            .ToList();
     }
 
     public async Task<(int StudentsCount, int SessionsCount)> GetMyProfileStatsAsync(

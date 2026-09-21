@@ -55,7 +55,8 @@ public class GetMyEnrollmentsQueryHandler : ResponseHandler,
             owned,
             request.PageNumber,
             request.PageSize,
-            cancellationToken);
+            cancellationToken,
+            request.Status);
 
         return Success(
             entity: items,

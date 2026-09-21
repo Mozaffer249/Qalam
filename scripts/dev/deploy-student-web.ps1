@@ -17,6 +17,8 @@
 # the flavor entry point, so the flavor must match the target environment.
 #
 # Requires locally: flutter, ssh, scp, tar (all ship with Win10+ / Flutter SDK).
+# Upload: Windows OpenSSH scp often resets mid-file (~few MB) to this VPS.
+# We use classic scp (-O), SSH keepalives, and retries.
 # =============================================================================
 param(
     [Parameter(Mandatory = $true, Position = 0)]
@@ -66,12 +68,41 @@ function Invoke-Native($what, [scriptblock]$block) {
     if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE)" }
 }
 
+$script:SshOpts = @(
+    "-o", "ServerAliveInterval=15",
+    "-o", "ServerAliveCountMax=12",
+    "-o", "TCPKeepAlive=yes",
+    "-o", "IPQoS=none"
+)
+
+function Invoke-UploadArchive {
+    $dest = "${VpsHost}:$remoteArchive"
+    $tries = 4
+    for ($i = 1; $i -le $tries; $i++) {
+        Info "uploading to $VpsHost (try $i/$tries)"
+        # -O = original scp protocol. Default SFTP mode on Win OpenSSH dies with
+        # "Couldn't send packet: Broken pipe" / "Connection reset" on this host.
+        & scp -O @script:SshOpts $archive $dest
+        if ($LASTEXITCODE -eq 0) { return }
+        Write-Host "   scp exited $LASTEXITCODE, waiting then retry..." -ForegroundColor Yellow
+        Start-Sleep -Seconds ([Math]::Min(20, 4 * $i))
+    }
+    throw @"
+scp failed after $tries tries (Broken pipe / connection reset).
+The Flutter build is already done — retry without rebuilding:
+  ./scripts/dev/deploy-student-web.ps1 $Flavor -SkipBuild
+If it keeps dying at a few MB, copy an SSH key to the VPS (password + Win scp is flaky on this link).
+"@
+}
+
 if (-not $SkipBuild) {
-    Info "flutter build web --release -t lib/main_$Flavor.dart"
+    Info "flutter build web --release --pwa-strategy=none -t lib/main_$Flavor.dart"
     Push-Location $appDir
     try {
         Invoke-Native "flutter pub get" { flutter pub get }
-        Invoke-Native "flutter build web" { flutter build web --release -t "lib/main_$Flavor.dart" }
+        Invoke-Native "flutter build web" {
+            flutter build web --release --pwa-strategy=none -t "lib/main_$Flavor.dart"
+        }
     }
     finally { Pop-Location }
     Ok "bundle built"
@@ -88,14 +119,18 @@ $sizeMb = [math]::Round((Get-Item $archive).Length / 1MB, 1)
 Ok "$archive ($sizeMb MB)"
 
 Info "uploading to $VpsHost"
-Invoke-Native "scp" { scp $archive "${VpsHost}:$remoteArchive" }
+Invoke-UploadArchive
 Ok "uploaded"
 
 # Unpack beside the live directory, then swap, so the site is never half-written.
 # Keeps the previous bundle at $prev for a quick manual rollback.
+$nginxConf = Join-Path $appDir "nginx.conf"
+$nginxB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($nginxConf))
+
 $remoteLines = @(
     "set -e",
-    "mkdir -p $remoteBase",
+    "mkdir -p $remoteBase $repo/apps/Qalam",
+    "echo $nginxB64 | base64 -d > $repo/apps/Qalam/nginx.conf",
     "rm -rf $stage",
     "mkdir -p $stage",
     "tar -xzf $remoteArchive -C $stage",
@@ -116,8 +151,9 @@ $remoteScript = ($remoteLines -join "`n") + "`n"
 $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoteScript))
 
 Info "swapping bundle + restarting $container"
-Invoke-Native "ssh" { ssh $VpsHost "echo $encoded | base64 -d | bash" }
+Invoke-Native "ssh" { ssh @script:SshOpts $VpsHost "echo $encoded | base64 -d | bash" }
 
 Remove-Item $archive -Force
 Ok "deployed $Flavor student web to $target"
+Write-Host "   Hard-refresh the student site (or DevTools → Application → Clear site data) so old translation JSON / service worker are dropped." -ForegroundColor Yellow
 Write-Host "   rollback: ssh $VpsHost `"rm -rf $target && mv $prev $target && docker restart $container`"" -ForegroundColor Yellow

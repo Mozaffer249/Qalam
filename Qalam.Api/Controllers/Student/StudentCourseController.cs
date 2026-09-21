@@ -320,6 +320,7 @@ public class StudentCourseController : AppControllerBase
     /// </summary>
     /// <remarks>
     /// GET Api/V1/Student/Enrollments?PageNumber=1&amp;PageSize=10
+    /// Optional: Status=Active|PendingPayment|Completed|Cancelled
     ///
     /// Each row carries:
     /// - `id` — the <c>Enrollment</c> primary key (use for the detail endpoint and payment summary).

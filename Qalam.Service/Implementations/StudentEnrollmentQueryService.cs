@@ -27,22 +27,28 @@ public class StudentEnrollmentQueryService : IStudentEnrollmentQueryService
         int studentId,
         int pageNumber,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        EnrollmentStatus? status = null)
         => ListForStudentsAsync(
             [studentId],
             [studentId],
             pageNumber,
             pageSize,
-            cancellationToken);
+            cancellationToken,
+            status);
 
     public async Task<(List<EnrollmentListItemDto> Items, int TotalCount)> ListForStudentsAsync(
         IReadOnlyCollection<int> studentIds,
         IReadOnlyCollection<int> ownedStudentIdsForProjection,
         int pageNumber,
         int pageSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        EnrollmentStatus? status = null)
     {
         var query = _enrollmentRepository.GetByStudentIdsQueryable(studentIds);
+        if (status is EnrollmentStatus filterStatus)
+            query = query.Where(e => e.EnrollmentStatus == filterStatus);
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var enrollments = await query
