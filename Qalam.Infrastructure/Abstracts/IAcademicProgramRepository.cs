@@ -10,4 +10,5 @@ public interface IAcademicProgramRepository : IGenericRepositoryAsync<AcademicPr
     Task<AcademicProgramDto?> GetProgramDtoByIdAsync(int id, CancellationToken ct = default);
     Task<bool> ExistsAsync(int id, CancellationToken ct = default);
     Task<List<FilterOptionDto>> GetProgramsAsOptionsAsync(int departmentId, CancellationToken ct = default);
+    Task<List<FilterOptionDto>> GetProgramsAsOptionsByCollegeAsync(int collegeId, CancellationToken ct = default);
 }

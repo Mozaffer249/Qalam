@@ -308,8 +308,8 @@ public static class UniversityCatalogSeeder
             {
                 DomainId = universityDomain.Id,
                 Code = WritableFilterSlotCodes.UniversitySubjectWriteIn,
-                NameAr = "مادة غير موجودة (كتابة)",
-                NameEn = "Missing subject (write-in)",
+                NameAr = "مقرر آخر (كتابة)",
+                NameEn = "Other course (write-in)",
                 AfterStep = WritableFilterAfterSteps.Subject,
                 OrderIndex = 1,
                 IsRequired = false,
@@ -318,14 +318,80 @@ public static class UniversityCatalogSeeder
                 CreatedAt = DateTime.UtcNow
             });
             await context.SaveChangesAsync();
-            return;
+        }
+        else
+        {
+            var dirty = false;
+            if (slot.RequiredWhenSubjectCodeContains != ".other")
+            {
+                slot.RequiredWhenSubjectCodeContains = ".other";
+                dirty = true;
+            }
+            if (slot.NameAr == "مادة غير موجودة (كتابة)")
+            {
+                slot.NameAr = "مقرر آخر (كتابة)";
+                slot.NameEn = "Other course (write-in)";
+                dirty = true;
+            }
+            if (dirty)
+            {
+                slot.UpdatedAt = DateTime.UtcNow;
+                await context.SaveChangesAsync();
+            }
         }
 
-        if (slot.RequiredWhenSubjectCodeContains != ".other")
+        await EnsureUniversityStepWriteInSlotAsync(
+            context,
+            universityDomain.Id,
+            WritableFilterSlotCodes.UniversityOtherUniversity,
+            "جامعة أخرى",
+            "Other university",
+            "University",
+            orderIndex: 10);
+        await EnsureUniversityStepWriteInSlotAsync(
+            context,
+            universityDomain.Id,
+            WritableFilterSlotCodes.UniversityOtherCollege,
+            "كلية أخرى",
+            "Other college",
+            "College",
+            orderIndex: 11);
+        await EnsureUniversityStepWriteInSlotAsync(
+            context,
+            universityDomain.Id,
+            WritableFilterSlotCodes.UniversityOtherMajor,
+            "تخصص آخر",
+            "Other major",
+            "AcademicProgram",
+            orderIndex: 12);
+    }
+
+    private static async Task EnsureUniversityStepWriteInSlotAsync(
+        ApplicationDBContext context,
+        int domainId,
+        string code,
+        string nameAr,
+        string nameEn,
+        string afterStep,
+        int orderIndex)
+    {
+        var exists = await context.WritableFilterSlots.AnyAsync(s =>
+            s.DomainId == domainId && s.Code == code);
+        if (exists) return;
+
+        context.WritableFilterSlots.Add(new WritableFilterSlot
         {
-            slot.RequiredWhenSubjectCodeContains = ".other";
-            slot.UpdatedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync();
-        }
+            DomainId = domainId,
+            Code = code,
+            NameAr = nameAr,
+            NameEn = nameEn,
+            AfterStep = afterStep,
+            OrderIndex = orderIndex,
+            IsRequired = false,
+            RequiredWhenSubjectCodeContains = null,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 }

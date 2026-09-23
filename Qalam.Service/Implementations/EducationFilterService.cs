@@ -338,7 +338,7 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "College", Options = colleges };
         }
 
-        if (rule.HasDepartment && !state.DepartmentId.HasValue)
+        if (rule.HasDepartment && !state.DepartmentId.HasValue && !state.SkipDepartment)
         {
             if (!state.CollegeId.HasValue)
                 throw new InvalidOperationException("CollegeId is required before selecting Department");
@@ -349,11 +349,20 @@ public class EducationFilterService : IEducationFilterService
 
         if (rule.HasAcademicProgram && !state.AcademicProgramId.HasValue)
         {
+            if (state.DepartmentId.HasValue)
+            {
+                var programs = await _academicProgramRepository.GetProgramsAsOptionsAsync(state.DepartmentId.Value);
+                return new FilterStepResult { NextStep = "AcademicProgram", Options = programs };
+            }
+
+            if (state.SkipDepartment && state.CollegeId.HasValue)
+            {
+                var programs = await _academicProgramRepository.GetProgramsAsOptionsByCollegeAsync(state.CollegeId.Value);
+                return new FilterStepResult { NextStep = "AcademicProgram", Options = programs };
+            }
+
             if (!state.DepartmentId.HasValue)
                 throw new InvalidOperationException("DepartmentId is required before selecting AcademicProgram");
-
-            var programs = await _academicProgramRepository.GetProgramsAsOptionsAsync(state.DepartmentId.Value);
-            return new FilterStepResult { NextStep = "AcademicProgram", Options = programs };
         }
 
         // Curriculum (school path)
@@ -368,7 +377,8 @@ public class EducationFilterService : IEducationFilterService
             return startWritable;
 
         // EducationLevel (before subject — school / university)
-        if (rule.HasEducationLevel && !rule.EducationLevelAfterSubject && !state.LevelId.HasValue)
+        if (rule.HasEducationLevel && !rule.EducationLevelAfterSubject && !state.LevelId.HasValue
+            && !state.SkipEducationLevel)
         {
             var levels = await _levelRepository.GetLevelsAsOptionsAsync(
                 domainId,

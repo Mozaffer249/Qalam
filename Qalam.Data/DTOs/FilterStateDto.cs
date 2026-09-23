@@ -64,6 +64,18 @@ public class FilterStateDto
     public bool SkipTerm { get; set; }
 
     /// <summary>
+    /// Teacher survey: skip Department and return AcademicPrograms unioned under College.
+    /// Student wizards leave this false and still walk Department.
+    /// </summary>
+    public bool SkipDepartment { get; set; }
+
+    /// <summary>
+    /// Teacher survey: skip EducationLevel and return Subjects under AcademicProgram.
+    /// Student wizards leave this false and still walk Level.
+    /// </summary>
+    public bool SkipEducationLevel { get; set; }
+
+    /// <summary>
     /// Selected content unit ID (wizard step 7 — after Unit). Prefer <see cref="ContentUnitIds"/> for multi-select.
     /// </summary>
     public int? ContentUnitId { get; set; }

@@ -63,4 +63,17 @@ public class AcademicProgramRepository : GenericRepositoryAsync<AcademicProgram>
                 Code = p.Code,
             })
             .ToListAsync(ct);
+
+    public async Task<List<FilterOptionDto>> GetProgramsAsOptionsByCollegeAsync(int collegeId, CancellationToken ct = default) =>
+        await _dbContext.AcademicPrograms.AsNoTracking()
+            .Where(p => p.IsActive && p.Department.CollegeId == collegeId)
+            .OrderBy(p => p.NameEn)
+            .Select(p => new FilterOptionDto
+            {
+                Id = p.Id,
+                NameAr = p.NameAr,
+                NameEn = p.NameEn,
+                Code = p.Code,
+            })
+            .ToListAsync(ct);
 }
