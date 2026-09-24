@@ -211,6 +211,30 @@ public class SubjectRepository : GenericRepositoryAsync<Subject>, ISubjectReposi
             .ToListAsync();
     }
 
+    public async Task<List<FilterOptionDto>> GetDomainOtherSubjectsAsOptionsAsync(int domainId)
+    {
+        var query = _dbContext.Subjects
+            .AsNoTracking()
+            .Where(s =>
+                s.DomainId == domainId &&
+                s.IsActive &&
+                s.ParentSubjectId == null &&
+                s.AcademicProgramId == null &&
+                s.Code != null &&
+                s.Code.Contains(".other"));
+
+        return await OrderSubjectsOtherLast(query)
+            .Select(s => new FilterOptionDto
+            {
+                Id = s.Id,
+                NameAr = s.NameAr,
+                NameEn = s.NameEn,
+                Code = s.Code,
+                CanDelete = !s.ContentUnits.Any()
+            })
+            .ToListAsync();
+    }
+
     /// <summary>
     /// Put «أخرى» / Other / *.other last, then alphabetical English name.
     /// Expression is inlined so EF can translate it to SQL.

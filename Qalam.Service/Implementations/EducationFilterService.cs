@@ -347,7 +347,7 @@ public class EducationFilterService : IEducationFilterService
             return new FilterStepResult { NextStep = "Department", Options = departments };
         }
 
-        if (rule.HasAcademicProgram && !state.AcademicProgramId.HasValue)
+        if (rule.HasAcademicProgram && !state.AcademicProgramId.HasValue && !state.SkipAcademicProgram)
         {
             if (state.DepartmentId.HasValue)
             {
@@ -448,6 +448,13 @@ public class EducationFilterService : IEducationFilterService
 
             if (!state.SubjectId.HasValue)
             {
+                // Write-in major path: no AcademicProgramId — surface domain «أخرى» carrier only.
+                if (state.SkipAcademicProgram && !state.AcademicProgramId.HasValue)
+                {
+                    var otherSubjects = await _subjectRepository.GetDomainOtherSubjectsAsOptionsAsync(domainId);
+                    return new FilterStepResult { NextStep = "Subject", Options = otherSubjects };
+                }
+
                 var subjects = await _subjectRepository.GetSubjectsAsOptionsAsync(
                     domainId,
                     state.CurriculumId,

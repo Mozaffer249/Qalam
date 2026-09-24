@@ -76,6 +76,12 @@ public class FilterStateDto
     public bool SkipEducationLevel { get; set; }
 
     /// <summary>
+    /// Teacher survey: skip AcademicProgram (write-in major) and return domain «أخرى» subjects.
+    /// Student wizards leave this false and still walk AcademicProgram.
+    /// </summary>
+    public bool SkipAcademicProgram { get; set; }
+
+    /// <summary>
     /// Selected content unit ID (wizard step 7 — after Unit). Prefer <see cref="ContentUnitIds"/> for multi-select.
     /// </summary>
     public int? ContentUnitId { get; set; }

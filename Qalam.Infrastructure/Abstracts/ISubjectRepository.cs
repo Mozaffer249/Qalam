@@ -31,4 +31,7 @@ public interface ISubjectRepository : IGenericRepositoryAsync<Subject>
         int? academicProgramId = null,
         int? parentSubjectId = null,
         bool parentsOnly = false);
+
+    /// <summary>Domain-level «أخرى» / *.other carrier subjects (AcademicProgramId null).</summary>
+    Task<List<FilterOptionDto>> GetDomainOtherSubjectsAsOptionsAsync(int domainId);
 }
