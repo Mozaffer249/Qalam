@@ -322,6 +322,14 @@ public class EducationFilterService : IEducationFilterService
         EducationDomain domain)
     {
         var domainId = domain.Id;
+        // Teacher write-in path (uni/college/major as writables): surface domain «أخرى» carrier
+        // without requiring UniversityId / CollegeId / AcademicProgramId.
+        if (state.SkipAcademicProgram && !state.AcademicProgramId.HasValue && !state.SubjectId.HasValue)
+        {
+            var otherSubjects = await _subjectRepository.GetDomainOtherSubjectsAsOptionsAsync(domainId);
+            return new FilterStepResult { NextStep = "Subject", Options = otherSubjects };
+        }
+
         // University institutional prefix
         if (rule.HasUniversity && !state.UniversityId.HasValue)
         {
