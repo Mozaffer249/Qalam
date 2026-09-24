@@ -322,6 +322,13 @@ public class EducationFilterService : IEducationFilterService
         EducationDomain domain)
     {
         var domainId = domain.Id;
+        // Direct «أخرى» lookup (teacher write-in carrier) — no institutional chain required.
+        if (state.OtherSubjectsOnly)
+        {
+            var onlyOther = await _subjectRepository.GetDomainOtherSubjectsAsOptionsAsync(domainId);
+            return new FilterStepResult { NextStep = "Subject", Options = onlyOther };
+        }
+
         // Teacher write-in path (uni/college/major as writables): surface domain «أخرى» carrier
         // without requiring UniversityId / CollegeId / AcademicProgramId.
         if (state.SkipAcademicProgram && !state.AcademicProgramId.HasValue && !state.SubjectId.HasValue)

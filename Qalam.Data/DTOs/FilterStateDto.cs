@@ -82,6 +82,12 @@ public class FilterStateDto
     public bool SkipAcademicProgram { get; set; }
 
     /// <summary>
+    /// Teacher survey: return only domain «أخرى» / *.other catalog subjects (no institutional chain).
+    /// Used to resolve the carrier SubjectId for write-in majors/courses.
+    /// </summary>
+    public bool OtherSubjectsOnly { get; set; }
+
+    /// <summary>
     /// Selected content unit ID (wizard step 7 — after Unit). Prefer <see cref="ContentUnitIds"/> for multi-select.
     /// </summary>
     public int? ContentUnitId { get; set; }

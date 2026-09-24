@@ -64,6 +64,18 @@ public class GetFilterOptionsQuery : IRequest<Response<FilterOptionsResponseDto>
     /// <summary>Skip optional term step when AcademicTermOptional is true.</summary>
     public bool SkipTerm { get; set; }
 
+    /// <summary>Teacher survey: skip Department and union programs under College.</summary>
+    public bool SkipDepartment { get; set; }
+
+    /// <summary>Teacher survey: skip EducationLevel and list subjects under AcademicProgram.</summary>
+    public bool SkipEducationLevel { get; set; }
+
+    /// <summary>Teacher survey: skip AcademicProgram (write-in major) and return domain «أخرى».</summary>
+    public bool SkipAcademicProgram { get; set; }
+
+    /// <summary>Teacher survey: return only domain *.other catalog subjects (carrier SubjectId).</summary>
+    public bool OtherSubjectsOnly { get; set; }
+
     /// <summary>
     /// Content unit ID (wizard step 7 — send after picking from unit[]).
     /// </summary>
