@@ -26,12 +26,16 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
 
     private async Task EnsureInitializedAsync()
     {
-        if (_initialized) return;
+        if (_initialized && _connection is { IsOpen: true } && _channel is { IsOpen: true })
+            return;
 
         await _initLock.WaitAsync();
         try
         {
-            if (_initialized) return;
+            if (_initialized && _connection is { IsOpen: true } && _channel is { IsOpen: true })
+                return;
+
+            await DisposeConnectionAsync();
 
             var factory = new ConnectionFactory
             {
@@ -39,7 +43,10 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
                 Port = _settings.Port,
                 UserName = _settings.UserName,
                 Password = _settings.Password,
-                VirtualHost = _settings.VirtualHost
+                VirtualHost = _settings.VirtualHost,
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(5),
+                TopologyRecoveryEnabled = true
             };
 
             _connection = await factory.CreateConnectionAsync();
@@ -74,12 +81,66 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
         }
         catch (Exception ex)
         {
+            _initialized = false;
             _logger.LogError(ex, "Failed to establish RabbitMQ connection");
             throw;
         }
         finally
         {
             _initLock.Release();
+        }
+    }
+
+    private async Task DisposeConnectionAsync()
+    {
+        _initialized = false;
+
+        if (_channel != null)
+        {
+            try
+            {
+                if (_channel.IsOpen)
+                    await _channel.CloseAsync();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            try
+            {
+                await _channel.DisposeAsync();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            _channel = null;
+        }
+
+        if (_connection != null)
+        {
+            try
+            {
+                if (_connection.IsOpen)
+                    await _connection.CloseAsync();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            try
+            {
+                await _connection.DisposeAsync();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            _connection = null;
         }
     }
 
@@ -96,12 +157,27 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
             Headers = headers
         };
 
-        await _channel!.BasicPublishAsync(
-            exchange: "",
-            routingKey: queueName,
-            mandatory: false,
-            basicProperties: properties,
-            body: body);
+        try
+        {
+            await _channel!.BasicPublishAsync(
+                exchange: "",
+                routingKey: queueName,
+                mandatory: false,
+                basicProperties: properties,
+                body: body);
+        }
+        catch (Exception)
+        {
+            // Connection may have dropped between EnsureInitialized and publish — force reconnect once.
+            _initialized = false;
+            await EnsureInitializedAsync();
+            await _channel!.BasicPublishAsync(
+                exchange: "",
+                routingKey: queueName,
+                mandatory: false,
+                basicProperties: properties,
+                body: body);
+        }
     }
 
     public async Task QueueEmailAsync(EmailMessage emailMessage)
@@ -189,16 +265,7 @@ public class RabbitMQService : IMessageQueueService, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_channel != null)
-        {
-            await _channel.CloseAsync();
-            await _channel.DisposeAsync();
-        }
-        if (_connection != null)
-        {
-            await _connection.CloseAsync();
-            await _connection.DisposeAsync();
-        }
+        await DisposeConnectionAsync();
         _initLock.Dispose();
     }
 }

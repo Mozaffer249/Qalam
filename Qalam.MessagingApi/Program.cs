@@ -37,6 +37,7 @@ builder.Services.Configure<WasabiSettings>(builder.Configuration.GetSection("Was
 builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("StorageSettings"));
 
 // Services
+builder.Services.AddSingleton<IConsumerLivenessTracker, ConsumerLivenessTracker>();
 builder.Services.AddSingleton<IMessageQueueService, RabbitMQService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();

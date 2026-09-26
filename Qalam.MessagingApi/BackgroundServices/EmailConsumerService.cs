@@ -13,198 +13,176 @@ using System.Text.Json;
 
 namespace Qalam.MessagingApi.BackgroundServices;
 
-public class EmailConsumerService : BackgroundService
+public class EmailConsumerService : RabbitMqConsumerBase
 {
+    public const string LivenessName = "Email";
+
     private const string RetryCountHeader = "x-retry-count";
     private const string ErrorHeader = "x-error";
     private const string FailedAtHeader = "x-failed-at";
 
     private readonly ILogger<EmailConsumerService> _logger;
-    private readonly RabbitMQSettings _rabbitSettings;
     private readonly EmailSettings _emailSettings;
     private readonly IServiceScopeFactory _scopeFactory;
-    private IConnection? _connection;
     private IChannel? _channel;
 
     public EmailConsumerService(
         ILogger<EmailConsumerService> logger,
         IOptions<RabbitMQSettings> rabbitSettings,
         IOptions<EmailSettings> emailSettings,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IConsumerLivenessTracker liveness)
+        : base(rabbitSettings, liveness, logger)
     {
         _logger = logger;
-        _rabbitSettings = rabbitSettings.Value;
         _emailSettings = emailSettings.Value;
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override string ConsumerName => LivenessName;
+
+    protected override async Task SetupAndConsumeAsync(IChannel channel, CancellationToken stoppingToken)
     {
-        _logger.LogInformation("EmailConsumerService starting...");
+        _channel = channel;
 
-        try
+        await channel.QueueDeclareAsync(
+            queue: Settings.EmailQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: stoppingToken);
+
+        await channel.QueueDeclareAsync(
+            queue: Settings.EmailDeadLetterQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: stoppingToken);
+
+        await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
+
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += async (_, ea) =>
         {
-            var factory = new ConnectionFactory
+            var retryCount = GetRetryCount(ea.BasicProperties);
+            EmailMessage? emailMessage = null;
+            string messageId = Guid.NewGuid().ToString();
+
+            try
             {
-                HostName = _rabbitSettings.HostName,
-                Port = _rabbitSettings.Port,
-                UserName = _rabbitSettings.UserName,
-                Password = _rabbitSettings.Password,
-                VirtualHost = _rabbitSettings.VirtualHost
-            };
+                var body = Encoding.UTF8.GetString(ea.Body.ToArray());
+                emailMessage = JsonSerializer.Deserialize<EmailMessage>(body);
 
-            _connection = await factory.CreateConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
+                if (emailMessage == null)
+                {
+                    _logger.LogWarning("Discarding null/invalid email payload to DLQ");
+                    await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties, "Invalid or null email payload");
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
+                    return;
+                }
 
-            await _channel.QueueDeclareAsync(
-                queue: _rabbitSettings.EmailQueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
+                messageId = string.IsNullOrWhiteSpace(emailMessage.MessageId)
+                    ? Guid.NewGuid().ToString()
+                    : emailMessage.MessageId;
+                emailMessage.MessageId = messageId;
 
-            await _channel.QueueDeclareAsync(
-                queue: _rabbitSettings.EmailDeadLetterQueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
 
-            await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
+                if (retryCount == 0)
+                {
+                    await trackingService.LogMessageAsync(messageId, MessageType.Email,
+                        emailMessage.To, emailMessage.Subject, emailMessage.Body, MessageStatus.Processing);
+                }
+                else
+                {
+                    await trackingService.UpdateStatusAsync(messageId, MessageStatus.Processing);
+                }
 
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-            consumer.ReceivedAsync += async (_, ea) =>
+                await SendEmailDirectAsync(emailMessage);
+                await trackingService.UpdateStatusAsync(messageId, MessageStatus.Sent);
+                _logger.LogInformation("Email consumed and sent to: {To}, MessageId: {MessageId}",
+                    emailMessage.To, messageId);
+
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            catch (Exception ex)
             {
-                var retryCount = GetRetryCount(ea.BasicProperties);
-                EmailMessage? emailMessage = null;
-                string messageId = Guid.NewGuid().ToString();
+                _logger.LogError(ex, "Failed to process email message (MessageId: {MessageId}, Retry: {Retry})",
+                    messageId, retryCount);
 
                 try
                 {
-                    var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    emailMessage = JsonSerializer.Deserialize<EmailMessage>(body);
-
-                    if (emailMessage == null)
-                    {
-                        _logger.LogWarning("Discarding null/invalid email payload to DLQ");
-                        await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties, "Invalid or null email payload");
-                        await _channel.BasicAckAsync(ea.DeliveryTag, false);
-                        return;
-                    }
-
-                    messageId = string.IsNullOrWhiteSpace(emailMessage.MessageId)
-                        ? Guid.NewGuid().ToString()
-                        : emailMessage.MessageId;
-                    emailMessage.MessageId = messageId;
-
                     using var scope = _scopeFactory.CreateScope();
                     var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
-
-                    if (retryCount == 0)
-                    {
-                        await trackingService.LogMessageAsync(messageId, MessageType.Email,
-                            emailMessage.To, emailMessage.Subject, emailMessage.Body, MessageStatus.Processing);
-                    }
-                    else
-                    {
-                        await trackingService.UpdateStatusAsync(messageId, MessageStatus.Processing);
-                    }
-
-                    await SendEmailDirectAsync(emailMessage);
-                    await trackingService.UpdateStatusAsync(messageId, MessageStatus.Sent);
-                    _logger.LogInformation("Email consumed and sent to: {To}, MessageId: {MessageId}",
-                        emailMessage.To, messageId);
-
-                    await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                    await trackingService.UpdateStatusAsync(messageId, MessageStatus.Failed, ex.Message);
                 }
-                catch (Exception ex)
+                catch (Exception trackEx)
                 {
-                    _logger.LogError(ex, "Failed to process email message (MessageId: {MessageId}, Retry: {Retry})",
-                        messageId, retryCount);
-
-                    try
-                    {
-                        using var scope = _scopeFactory.CreateScope();
-                        var trackingService = scope.ServiceProvider.GetRequiredService<IMessageTrackingService>();
-                        await trackingService.UpdateStatusAsync(messageId, MessageStatus.Failed, ex.Message);
-                    }
-                    catch (Exception trackEx)
-                    {
-                        _logger.LogWarning(trackEx,
-                            "Failed to record email failure (messageId: {MessageId})", messageId);
-                    }
-
-                    var permanent = IsPermanentEmailFailure(ex);
-                    var maxRetries = Math.Max(0, _rabbitSettings.EmailMaxRetries);
-                    var payload = emailMessage != null
-                        ? Encoding.UTF8.GetBytes(JsonSerializer.Serialize(emailMessage))
-                        : ea.Body.ToArray();
-
-                    if (permanent || retryCount >= maxRetries)
-                    {
-                        _logger.LogWarning(
-                            "Moving email to DLQ (permanent={Permanent}, retry={Retry}/{Max}, to={To}, messageId={MessageId})",
-                            permanent, retryCount, maxRetries, emailMessage?.To, messageId);
-
-                        if (!string.IsNullOrWhiteSpace(emailMessage?.To) && (permanent || retryCount >= maxRetries))
-                        {
-                            try
-                            {
-                                using var scope = _scopeFactory.CreateScope();
-                                var suppression = scope.ServiceProvider.GetRequiredService<IEmailSuppressionService>();
-                                await suppression.SuppressAsync(
-                                    emailMessage.To,
-                                    ClassifyPermanentReason(ex),
-                                    EmailSuppressionSource.SmtpSend,
-                                    Truncate(ex.Message, 2000));
-                            }
-                            catch (Exception suppressEx)
-                            {
-                                _logger.LogWarning(suppressEx,
-                                    "Failed to suppress address after permanent failure: {To}", emailMessage?.To);
-                            }
-                        }
-
-                        await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
-                        await _channel.BasicAckAsync(ea.DeliveryTag, false);
-                    }
-                    else
-                    {
-                        var nextRetry = retryCount + 1;
-                        _logger.LogWarning(
-                            "Republishing email for retry {Next}/{Max} (to={To}, messageId={MessageId})",
-                            nextRetry, maxRetries, emailMessage?.To, messageId);
-
-                        await RepublishForRetryAsync(payload, nextRetry);
-                        await _channel.BasicAckAsync(ea.DeliveryTag, false);
-                    }
+                    _logger.LogWarning(trackEx,
+                        "Failed to record email failure (messageId: {MessageId})", messageId);
                 }
-            };
 
-            await _channel.BasicConsumeAsync(
-                queue: _rabbitSettings.EmailQueueName,
-                autoAck: false,
-                consumer: consumer,
-                cancellationToken: stoppingToken);
+                var permanent = IsPermanentEmailFailure(ex);
+                var maxRetries = Math.Max(0, Settings.EmailMaxRetries);
+                var payload = emailMessage != null
+                    ? Encoding.UTF8.GetBytes(JsonSerializer.Serialize(emailMessage))
+                    : ea.Body.ToArray();
 
-            _logger.LogInformation(
-                "EmailConsumerService listening on queue: {Queue} (DLQ: {Dlq}, MaxRetries: {MaxRetries})",
-                _rabbitSettings.EmailQueueName,
-                _rabbitSettings.EmailDeadLetterQueueName,
-                _rabbitSettings.EmailMaxRetries);
+                if (permanent || retryCount >= maxRetries)
+                {
+                    _logger.LogWarning(
+                        "Moving email to DLQ (permanent={Permanent}, retry={Retry}/{Max}, to={To}, messageId={MessageId})",
+                        permanent, retryCount, maxRetries, emailMessage?.To, messageId);
 
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            _logger.LogInformation("EmailConsumerService stopping...");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "EmailConsumerService encountered an error");
-        }
+                    if (!string.IsNullOrWhiteSpace(emailMessage?.To) && (permanent || retryCount >= maxRetries))
+                    {
+                        try
+                        {
+                            using var scope = _scopeFactory.CreateScope();
+                            var suppression = scope.ServiceProvider.GetRequiredService<IEmailSuppressionService>();
+                            await suppression.SuppressAsync(
+                                emailMessage.To,
+                                ClassifyPermanentReason(ex),
+                                EmailSuppressionSource.SmtpSend,
+                                Truncate(ex.Message, 2000));
+                        }
+                        catch (Exception suppressEx)
+                        {
+                            _logger.LogWarning(suppressEx,
+                                "Failed to suppress address after permanent failure: {To}", emailMessage?.To);
+                        }
+                    }
+
+                    await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
+                }
+                else
+                {
+                    var nextRetry = retryCount + 1;
+                    _logger.LogWarning(
+                        "Republishing email for retry {Next}/{Max} (to={To}, messageId={MessageId})",
+                        nextRetry, maxRetries, emailMessage?.To, messageId);
+
+                    await RepublishForRetryAsync(payload, nextRetry);
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
+                }
+            }
+        };
+
+        await channel.BasicConsumeAsync(
+            queue: Settings.EmailQueueName,
+            autoAck: false,
+            consumer: consumer,
+            cancellationToken: stoppingToken);
+
+        _logger.LogInformation(
+            "EmailConsumerService listening on queue: {Queue} (DLQ: {Dlq}, MaxRetries: {MaxRetries})",
+            Settings.EmailQueueName,
+            Settings.EmailDeadLetterQueueName,
+            Settings.EmailMaxRetries);
     }
 
     private async Task SendEmailDirectAsync(EmailMessage emailMessage)
@@ -245,7 +223,7 @@ public class EmailConsumerService : BackgroundService
 
         await _channel!.BasicPublishAsync(
             exchange: "",
-            routingKey: _rabbitSettings.EmailQueueName,
+            routingKey: Settings.EmailQueueName,
             mandatory: false,
             basicProperties: properties,
             body: body);
@@ -272,7 +250,7 @@ public class EmailConsumerService : BackgroundService
 
         await _channel!.BasicPublishAsync(
             exchange: "",
-            routingKey: _rabbitSettings.EmailDeadLetterQueueName,
+            routingKey: Settings.EmailDeadLetterQueueName,
             mandatory: false,
             basicProperties: properties,
             body: body);
@@ -305,7 +283,6 @@ public class EmailConsumerService : BackgroundService
         {
             if (current is SmtpCommandException smtpEx)
             {
-                // 5xx = permanent failure (invalid mailbox/domain, rejected, etc.)
                 var code = (int)smtpEx.StatusCode;
                 if (code >= 500 && code < 600)
                     return true;
@@ -339,19 +316,4 @@ public class EmailConsumerService : BackgroundService
 
     private static string Truncate(string value, int max)
         => value.Length <= max ? value : value[..max];
-
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            await _channel.DisposeAsync();
-        }
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
-            await _connection.DisposeAsync();
-        }
-        await base.StopAsync(cancellationToken);
-    }
 }

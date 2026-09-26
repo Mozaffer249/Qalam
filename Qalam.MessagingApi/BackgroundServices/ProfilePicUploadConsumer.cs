@@ -11,158 +11,118 @@ using System.Text.Json;
 
 namespace Qalam.MessagingApi.BackgroundServices;
 
-public class ProfilePicUploadConsumer : BackgroundService
+public class ProfilePicUploadConsumer : RabbitMqConsumerBase
 {
+    public const string LivenessName = "ProfilePicUpload";
+
     private readonly ILogger<ProfilePicUploadConsumer> _logger;
-    private readonly RabbitMQSettings _rabbitSettings;
     private readonly IServiceScopeFactory _scopeFactory;
-    private IConnection? _connection;
-    private IChannel? _channel;
 
     public ProfilePicUploadConsumer(
         ILogger<ProfilePicUploadConsumer> logger,
         IOptions<RabbitMQSettings> rabbitSettings,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IConsumerLivenessTracker liveness)
+        : base(rabbitSettings, liveness, logger)
     {
         _logger = logger;
-        _rabbitSettings = rabbitSettings.Value;
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override string ConsumerName => LivenessName;
+
+    protected override async Task SetupAndConsumeAsync(IChannel channel, CancellationToken stoppingToken)
     {
-        _logger.LogInformation("ProfilePicUploadConsumer starting...");
+        await channel.QueueDeclareAsync(
+            queue: Settings.ProfilePicUploadQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: null,
+            cancellationToken: stoppingToken);
 
-        try
+        await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
+
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += async (_, ea) =>
         {
-            var factory = new ConnectionFactory
+            try
             {
-                HostName = _rabbitSettings.HostName,
-                Port = _rabbitSettings.Port,
-                UserName = _rabbitSettings.UserName,
-                Password = _rabbitSettings.Password,
-                VirtualHost = _rabbitSettings.VirtualHost
-            };
+                var body = Encoding.UTF8.GetString(ea.Body.ToArray());
+                var message = JsonSerializer.Deserialize<ProfilePicUploadMessage>(body);
 
-            _connection = await factory.CreateConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-
-            await _channel.QueueDeclareAsync(
-                queue: _rabbitSettings.ProfilePicUploadQueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null,
-                cancellationToken: stoppingToken);
-
-            await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
-
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-            consumer.ReceivedAsync += async (_, ea) =>
-            {
-                try
+                if (message != null)
                 {
-                    var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    var message = JsonSerializer.Deserialize<ProfilePicUploadMessage>(body);
+                    _logger.LogInformation("========== PROFILE PIC UPLOAD ==========");
+                    _logger.LogInformation("Received: UserId={UserId}, File={FileName}, Size={Size}bytes",
+                        message.UserId, message.FileName, message.FileData.Length);
 
-                    if (message != null)
+                    using var scope = _scopeFactory.CreateScope();
+                    var storageService = scope.ServiceProvider.GetRequiredService<IObjectStorageService>();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+
+                    var fileBytes = Convert.FromBase64String(message.FileData);
+                    using var stream = new MemoryStream(fileBytes);
+                    _logger.LogInformation("Decoded base64 → {ByteCount} bytes", fileBytes.Length);
+
+                    var extension = Path.GetExtension(message.FileName);
+                    var key = $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
+                    _logger.LogInformation("Uploading to OSS key: {Key}", key);
+
+                    var fileUrl = await storageService.UploadFileAsync(key, stream, message.ContentType);
+                    _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
+
+                    if (message.UserId > 0)
                     {
-                        _logger.LogInformation("========== PROFILE PIC UPLOAD ==========");
-                        _logger.LogInformation("Received: UserId={UserId}, File={FileName}, Size={Size}bytes",
-                            message.UserId, message.FileName, message.FileData.Length);
-
-                        using var scope = _scopeFactory.CreateScope();
-                        var storageService = scope.ServiceProvider.GetRequiredService<IObjectStorageService>();
-                        var dbContext = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
-
-                        var fileBytes = Convert.FromBase64String(message.FileData);
-                        using var stream = new MemoryStream(fileBytes);
-                        _logger.LogInformation("Decoded base64 → {ByteCount} bytes", fileBytes.Length);
-
-                        var extension = Path.GetExtension(message.FileName);
-                        var key = $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
-                        _logger.LogInformation("Uploading to OSS key: {Key}", key);
-
-                        var fileUrl = await storageService.UploadFileAsync(key, stream, message.ContentType);
-                        _logger.LogInformation("OSS upload SUCCESS: {Url}", fileUrl);
-
-                        if (message.UserId > 0)
-                        {
-                            await dbContext.Database.ExecuteSqlRawAsync(
-                                "UPDATE AspNetUsers SET ProfilePictureUrl = {0} WHERE Id = {1}",
-                                fileUrl, message.UserId);
-                            _logger.LogInformation("DB updated: AspNetUsers.Id={UserId} → ProfilePictureUrl={Url}",
-                                message.UserId, fileUrl);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("UserId=0 (test mode) — skipped DB update");
-                        }
-
-                        var previous = message.PreviousFileUrl?.Trim();
-                        if (!string.IsNullOrEmpty(previous)
-                            && !string.Equals(previous, fileUrl, StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
-                            {
-                                await storageService.DeleteFileAsync(previous);
-                                _logger.LogInformation(
-                                    "Previous profile pic deleted from OSS: {Url}",
-                                    previous);
-                            }
-                            catch (Exception deleteEx)
-                            {
-                                _logger.LogWarning(
-                                    deleteEx,
-                                    "Failed to delete previous profile pic (upload succeeded): {Url}",
-                                    previous);
-                            }
-                        }
-
-                        _logger.LogInformation("========== PROFILE PIC COMPLETE ==========");
+                        await dbContext.Database.ExecuteSqlRawAsync(
+                            "UPDATE AspNetUsers SET ProfilePictureUrl = {0} WHERE Id = {1}",
+                            fileUrl, message.UserId);
+                        _logger.LogInformation("DB updated: AspNetUsers.Id={UserId} → ProfilePictureUrl={Url}",
+                            message.UserId, fileUrl);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("UserId=0 (test mode) — skipped DB update");
                     }
 
-                    await _channel.BasicAckAsync(ea.DeliveryTag, false);
+                    var previous = message.PreviousFileUrl?.Trim();
+                    if (!string.IsNullOrEmpty(previous)
+                        && !string.Equals(previous, fileUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            await storageService.DeleteFileAsync(previous);
+                            _logger.LogInformation(
+                                "Previous profile pic deleted from OSS: {Url}",
+                                previous);
+                        }
+                        catch (Exception deleteEx)
+                        {
+                            _logger.LogWarning(
+                                deleteEx,
+                                "Failed to delete previous profile pic (upload succeeded): {Url}",
+                                previous);
+                        }
+                    }
+
+                    _logger.LogInformation("========== PROFILE PIC COMPLETE ==========");
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to process profile pic upload");
-                    await _channel.BasicNackAsync(ea.DeliveryTag, false, true);
-                }
-            };
 
-            await _channel.BasicConsumeAsync(
-                queue: _rabbitSettings.ProfilePicUploadQueueName,
-                autoAck: false,
-                consumer: consumer,
-                cancellationToken: stoppingToken);
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process profile pic upload");
+                await channel.BasicNackAsync(ea.DeliveryTag, false, true);
+            }
+        };
 
-            _logger.LogInformation("ProfilePicUploadConsumer listening on queue: {Queue}", _rabbitSettings.ProfilePicUploadQueueName);
+        await channel.BasicConsumeAsync(
+            queue: Settings.ProfilePicUploadQueueName,
+            autoAck: false,
+            consumer: consumer,
+            cancellationToken: stoppingToken);
 
-            await Task.Delay(Timeout.Infinite, stoppingToken);
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            _logger.LogInformation("ProfilePicUploadConsumer stopping...");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ProfilePicUploadConsumer encountered an error");
-        }
-    }
-
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            await _channel.DisposeAsync();
-        }
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
-            await _connection.DisposeAsync();
-        }
-        await base.StopAsync(cancellationToken);
+        _logger.LogInformation("ProfilePicUploadConsumer listening on queue: {Queue}", Settings.ProfilePicUploadQueueName);
     }
 }

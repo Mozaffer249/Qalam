@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Qalam.MessagingApi.BackgroundServices;
 using Qalam.MessagingApi.Models.Enums;
 using Qalam.MessagingApi.Models.Requests;
 using Qalam.MessagingApi.Models.Responses;
@@ -14,6 +15,7 @@ public class MessagingController : ControllerBase
     private readonly ISmsService _smsService;
     private readonly IPushNotificationService _pushService;
     private readonly IMessageTrackingService _trackingService;
+    private readonly IConsumerLivenessTracker _liveness;
     private readonly ILogger<MessagingController> _logger;
 
     public MessagingController(
@@ -21,12 +23,14 @@ public class MessagingController : ControllerBase
         ISmsService smsService,
         IPushNotificationService pushService,
         IMessageTrackingService trackingService,
+        IConsumerLivenessTracker liveness,
         ILogger<MessagingController> logger)
     {
         _emailService = emailService;
         _smsService = smsService;
         _pushService = pushService;
         _trackingService = trackingService;
+        _liveness = liveness;
         _logger = logger;
     }
 
@@ -315,12 +319,21 @@ public class MessagingController : ControllerBase
     [HttpGet("health")]
     public IActionResult Health()
     {
-        return Ok(new
+        var consumers = _liveness.Snapshot();
+        var emailConnected = _liveness.IsConnected(EmailConsumerService.LivenessName);
+        var payload = new
         {
-            Status = "Healthy",
+            Status = emailConnected ? "Healthy" : "Unhealthy",
             Service = "Qalam.MessagingApi",
-            Timestamp = DateTime.UtcNow
-        });
+            Timestamp = DateTime.UtcNow,
+            Consumers = consumers,
+            EmailConsumerConnected = emailConnected
+        };
+
+        if (!emailConnected)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, payload);
+
+        return Ok(payload);
     }
 
     #endregion
