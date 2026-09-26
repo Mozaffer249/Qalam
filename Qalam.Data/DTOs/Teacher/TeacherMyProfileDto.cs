@@ -15,6 +15,9 @@ public class TeacherMyProfileDto
     public string? Nationality { get; set; }
     public string? Address { get; set; }
     public string? Bio { get; set; }
+    public string? SampleLessonMediaUrl { get; set; }
+    /// <summary>"image" or "video" when media is present.</summary>
+    public string? SampleLessonMediaKind { get; set; }
     public string? JobTitle { get; set; }
     public int YearsOfExperience { get; set; }
     public bool OffersOnline { get; set; }
