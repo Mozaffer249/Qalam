@@ -99,6 +99,43 @@ public class FileStorageService : IFileStorageService
         return publicUrl;
     }
 
+    public async Task<string> SaveSampleLessonMediaAsync(IFormFile file, int teacherId)
+    {
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".bin";
+
+        var storageKey = $"teachers/{teacherId}/sample-lesson/{Guid.NewGuid()}{extension}";
+        var ossPublicBase = _storagePublicUrls.GetLearningPublicBaseUrl();
+
+        if (string.IsNullOrWhiteSpace(ossPublicBase))
+            throw new InvalidOperationException(
+                "Learning public base URL is not configured; cannot upload sample lesson media.");
+
+        var publicUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
+
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var base64Data = Convert.ToBase64String(memoryStream.ToArray());
+
+        await _rabbitMQService.QueueCourseImageUploadAsync(new CourseImageUploadMessage
+        {
+            TeacherId = teacherId,
+            FileName = file.FileName,
+            ContentType = file.ContentType ?? "application/octet-stream",
+            StorageKey = storageKey,
+            FileData = base64Data,
+        });
+
+        _logger.LogInformation(
+            "Sample lesson media queued for OSS: TeacherId={TeacherId}, Key={Key}, Url={Url}",
+            teacherId,
+            storageKey,
+            publicUrl);
+
+        return publicUrl;
+    }
+
     public Task<bool> ValidateFileAsync(
         IFormFile file,
         string[] allowedExtensions,

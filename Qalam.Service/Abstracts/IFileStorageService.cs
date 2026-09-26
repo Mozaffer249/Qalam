@@ -17,6 +17,11 @@ public interface IFileStorageService
         IFormFile file,
         int teacherId);
 
+    /// <summary>
+    /// Queues sample lesson image/video to the learning OSS bucket and returns the public URL.
+    /// </summary>
+    Task<string> SaveSampleLessonMediaAsync(IFormFile file, int teacherId);
+
     Task<bool> ValidateFileAsync(
         IFormFile file,
         string[] allowedExtensions,

@@ -299,6 +299,11 @@ namespace Qalam.Data.AppMetaData
 
         /// <summary>Teacher profile: Api/V1/Teacher/Profile/me</summary>
         public const string TeacherProfileMe = Rule + "Teacher/Profile/me";
+        /// <summary>Update bio: Api/V1/Teacher/Profile/bio</summary>
+        public const string TeacherProfileBio = Rule + "Teacher/Profile/bio";
+        /// <summary>Sample lesson media: Api/V1/Teacher/Profile/sample-lesson-media</summary>
+        public const string TeacherProfileSampleLessonMedia =
+            Rule + "Teacher/Profile/sample-lesson-media";
 
         /// <summary>Teacher teaching preferences: Api/V1/Teacher/TeachingPreferences</summary>
         public const string TeacherTeachingPreferences = Rule + "Teacher/TeachingPreferences";

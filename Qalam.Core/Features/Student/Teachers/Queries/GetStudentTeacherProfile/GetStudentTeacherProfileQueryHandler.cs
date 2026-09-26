@@ -37,6 +37,10 @@ public class GetStudentTeacherProfileQueryHandler : ResponseHandler,
         if (!string.IsNullOrWhiteSpace(profile.ProfilePictureUrl))
             profile.ProfilePictureUrl = _mediaUrlResolver.ToPublicUrl(profile.ProfilePictureUrl);
 
+        if (!string.IsNullOrWhiteSpace(profile.SampleLessonMediaUrl))
+            profile.SampleLessonMediaUrl =
+                _mediaUrlResolver.ToPublicUrl(profile.SampleLessonMediaUrl);
+
         foreach (var course in profile.Courses)
             course.ImageUrl = _mediaUrlResolver.ToPublicUrl(course.ImageUrl);
 

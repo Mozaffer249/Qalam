@@ -718,6 +718,12 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                     : string.Empty,
                 ProfilePictureUrl = t.User != null ? t.User.ProfilePictureUrl : null,
                 Bio = t.Bio,
+                SampleLessonMediaUrl = t.SampleLessonMediaPath,
+                SampleLessonMediaKind = t.SampleLessonMediaKind == 1
+                    ? "image"
+                    : t.SampleLessonMediaKind == 2
+                        ? "video"
+                        : null,
                 RatingAverage = t.RatingAverage,
                 ReviewsCount = t.TeacherReviews.Count(r => r.IsApproved),
                 Location = t.Location,

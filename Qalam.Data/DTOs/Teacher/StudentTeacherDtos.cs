@@ -10,6 +10,9 @@ public class StudentTeacherProfileDto
     public string FullName { get; set; } = default!;
     public string? ProfilePictureUrl { get; set; }
     public string? Bio { get; set; }
+    public string? SampleLessonMediaUrl { get; set; }
+    /// <summary>"image" or "video" when media is present.</summary>
+    public string? SampleLessonMediaKind { get; set; }
     public decimal RatingAverage { get; set; }
     public int ReviewsCount { get; set; }
     public TeacherLocation? Location { get; set; }

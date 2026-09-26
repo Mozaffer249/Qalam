@@ -20,6 +20,13 @@ public class Teacher : AuditableEntity
     [MaxLength(500)]
     public string? Bio { get; set; }
 
+    /// <summary>Public or storage path for one sample lesson image/video.</summary>
+    [MaxLength(1000)]
+    public string? SampleLessonMediaPath { get; set; }
+
+    /// <summary>1 = image, 2 = video. Null when no media.</summary>
+    public byte? SampleLessonMediaKind { get; set; }
+
     public TeacherStatus Status { get; set; } = TeacherStatus.AwaitingDocuments;
 
     /// <summary>

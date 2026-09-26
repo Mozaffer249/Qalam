@@ -6,6 +6,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Identity;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Profile.Queries.GetMyTeacherProfile;
 
@@ -14,14 +15,17 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly UserManager<User> _userManager;
+    private readonly IMediaUrlResolver _mediaUrlResolver;
 
     public GetMyTeacherProfileQueryHandler(
         IStringLocalizer<SharedResources> localizer,
         ITeacherRepository teacherRepository,
-        UserManager<User> userManager) : base(localizer)
+        UserManager<User> userManager,
+        IMediaUrlResolver mediaUrlResolver) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _userManager = userManager;
+        _mediaUrlResolver = mediaUrlResolver;
     }
 
     public async Task<Response<TeacherMyProfileDto>> Handle(
@@ -57,10 +61,16 @@ public class GetMyTeacherProfileQueryHandler : ResponseHandler,
             LastName = user?.LastName,
             Email = user?.Email,
             PhoneNumber = user?.PhoneNumber,
-            ProfilePictureUrl = user?.ProfilePictureUrl,
+            ProfilePictureUrl = _mediaUrlResolver.ToPublicUrl(user?.ProfilePictureUrl),
             Nationality = user?.Nationality,
             Address = user?.Address,
             Bio = teacher.Bio,
+            SampleLessonMediaUrl = _mediaUrlResolver.ToPublicUrl(teacher.SampleLessonMediaPath),
+            SampleLessonMediaKind = teacher.SampleLessonMediaKind == 1
+                ? "image"
+                : teacher.SampleLessonMediaKind == 2
+                    ? "video"
+                    : null,
             JobTitle = teacher.JobTitle,
             YearsOfExperience = teacher.YearsOfExperience,
             OffersOnline = teacher.OffersOnline,
