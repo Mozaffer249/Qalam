@@ -28,10 +28,29 @@ public class TeacherCardSubjectDto
     public int SubjectId { get; set; }
     public string? SubjectNameAr { get; set; }
     public string? SubjectNameEn { get; set; }
+    public string? SubjectCode { get; set; }
     public int? DomainId { get; set; }
     public string? DomainCode { get; set; }
+    public string? DomainNameAr { get; set; }
+    public string? DomainNameEn { get; set; }
     public string? GradeNameAr { get; set; }
     public string? GradeNameEn { get; set; }
+    public string? LevelNameAr { get; set; }
+    public string? LevelNameEn { get; set; }
     public bool CanTeachFullSubject { get; set; }
     public int UnitsCount { get; set; }
+
+    /// <summary>
+    /// Teacher write-in / writable-filter values (especially meaningful when
+    /// <see cref="SubjectCode"/> contains <c>.other</c>).
+    /// </summary>
+    public List<TeacherSubjectWritableFilterItemDto> WritableFilters { get; set; } = new();
+}
+
+/// <summary>One writable-filter value attached to a teacher subject.</summary>
+public class TeacherSubjectWritableFilterItemDto
+{
+    public string? SlotCode { get; set; }
+    public string NameAr { get; set; } = string.Empty;
+    public string NameEn { get; set; } = string.Empty;
 }

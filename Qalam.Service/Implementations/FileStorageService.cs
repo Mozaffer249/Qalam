@@ -219,11 +219,24 @@ public class FileStorageService : IFileStorageService
             teacherId, documentId, documentType);
     }
 
-    public async Task QueueProfilePicUploadAsync(
+    public async Task<string> QueueProfilePicUploadAsync(
         IFormFile file,
         int userId,
         string? previousFileUrl = null)
     {
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".jpg";
+
+        var storageKey = $"profiles/{userId}/{Guid.NewGuid()}{extension}";
+        var ossPublicBase = _storagePublicUrls.GetIdentitiesPublicBaseUrl();
+
+        if (string.IsNullOrWhiteSpace(ossPublicBase))
+            throw new InvalidOperationException(
+                "Identities public base URL is not configured; cannot upload profile pictures.");
+
+        var publicUrl = $"{ossPublicBase.TrimEnd('/')}/{storageKey}";
+
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
         var base64Data = Convert.ToBase64String(memoryStream.ToArray());
@@ -232,8 +245,9 @@ public class FileStorageService : IFileStorageService
         {
             UserId = userId,
             FileName = file.FileName,
-            ContentType = file.ContentType,
+            ContentType = file.ContentType ?? "application/octet-stream",
             FileData = base64Data,
+            StorageKey = storageKey,
             PreviousFileUrl = previousFileUrl,
             QueuedAt = DateTime.UtcNow,
         };
@@ -241,9 +255,13 @@ public class FileStorageService : IFileStorageService
         await _rabbitMQService.QueueProfilePicUploadAsync(message);
 
         _logger.LogInformation(
-            "Profile pic upload queued: UserId={UserId}, HasPrevious={HasPrevious}",
+            "Profile pic queued for OSS: UserId={UserId}, Key={Key}, Url={Url}, HasPrevious={HasPrevious}",
             userId,
+            storageKey,
+            publicUrl,
             !string.IsNullOrWhiteSpace(previousFileUrl));
+
+        return publicUrl;
     }
 
     public async Task QueueOpenSessionRequestAttachmentUploadAsync(

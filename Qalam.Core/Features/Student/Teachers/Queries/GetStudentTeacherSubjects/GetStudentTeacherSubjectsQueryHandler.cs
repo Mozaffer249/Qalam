@@ -60,6 +60,7 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
             SubjectId = ts.SubjectId,
             SubjectNameAr = ts.Subject?.NameAr ?? string.Empty,
             SubjectNameEn = ts.Subject?.NameEn ?? string.Empty,
+            SubjectCode = ts.Subject?.Code,
             DomainId = ts.Subject?.DomainId,
             DomainCode = ts.Subject?.Domain?.Code,
             DomainNameAr = ts.Subject?.Domain?.NameAr,
@@ -72,6 +73,15 @@ public class GetStudentTeacherSubjectsQueryHandler : ResponseHandler,
             CurriculumNameEn = ts.Subject?.Curriculum?.NameEn,
             CanTeachFullSubject = ts.CanTeachFullSubject,
             UnitsCount = ts.TeacherSubjectUnits.Count,
+            WritableFilters = ts.WritableFilters
+                .Where(wf => wf.WritableFilterValue != null)
+                .Select(wf => new TeacherSubjectWritableFilterItemDto
+                {
+                    SlotCode = wf.WritableFilterValue!.Slot?.Code,
+                    NameAr = wf.WritableFilterValue.NameAr,
+                    NameEn = wf.WritableFilterValue.NameEn,
+                })
+                .ToList(),
             Units = ts.TeacherSubjectUnits.Select(u => new StudentTeacherSubjectUnitDto
             {
                 UnitId = u.UnitId,

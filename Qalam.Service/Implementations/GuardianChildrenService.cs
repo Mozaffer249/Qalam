@@ -202,9 +202,23 @@ public class GuardianChildrenService : IGuardianChildrenService
                 "Invalid image. Use jpg, jpeg, png, or webp up to 5 MB.");
 
         var previousUrl = student.User?.ProfilePictureUrl;
-        await _fileStorage.QueueProfilePicUploadAsync(file, student.UserId, previousUrl);
+        var publicUrl = await _fileStorage.QueueProfilePicUploadAsync(file, student.UserId, previousUrl);
 
-        // Consumer will overwrite ProfilePictureUrl after OSS upload; return current mapped child.
+        var user = await _userManager.FindByIdAsync(student.UserId.ToString());
+        if (user == null)
+            return GuardianChildUpdateResult.FailNotFound("Child user not found.");
+
+        user.ProfilePictureUrl = publicUrl;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return GuardianChildUpdateResult.Fail(
+                string.Join("; ", updateResult.Errors.Select(e => e.Description)));
+        }
+
+        if (student.User != null)
+            student.User.ProfilePictureUrl = publicUrl;
+
         return GuardianChildUpdateResult.Ok(MapChild(student));
     }
 

@@ -66,7 +66,12 @@ public class ProfilePicUploadConsumer : RabbitMqConsumerBase
                     _logger.LogInformation("Decoded base64 → {ByteCount} bytes", fileBytes.Length);
 
                     var extension = Path.GetExtension(message.FileName);
-                    var key = $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
+                    if (string.IsNullOrWhiteSpace(extension))
+                        extension = ".jpg";
+
+                    var key = !string.IsNullOrWhiteSpace(message.StorageKey)
+                        ? message.StorageKey.Trim()
+                        : $"profiles/{message.UserId}/{Guid.NewGuid()}{extension}";
                     _logger.LogInformation("Uploading to OSS key: {Key}", key);
 
                     var fileUrl = await storageService.UploadFileAsync(key, stream, message.ContentType);

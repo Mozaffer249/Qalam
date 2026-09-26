@@ -51,10 +51,18 @@ public class UserProfileService : IUserProfileService
                 "Invalid image. Use jpg, jpeg, png, or webp up to 5 MB.");
 
         var previousUrl = user.ProfilePictureUrl;
-        await _fileStorage.QueueProfilePicUploadAsync(file, userId, previousUrl);
+        var publicUrl = await _fileStorage.QueueProfilePicUploadAsync(file, userId, previousUrl);
+
+        user.ProfilePictureUrl = publicUrl;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return UserProfilePictureUpdateResult.Fail(
+                string.Join("; ", updateResult.Errors.Select(e => e.Description)));
+        }
 
         return UserProfilePictureUpdateResult.Ok(
-            _mediaUrlResolver.ToPublicUrl(user.ProfilePictureUrl));
+            _mediaUrlResolver.ToPublicUrl(publicUrl));
     }
 
     public async Task<RelatedAccountsDto> GetRelatedAccountsAsync(

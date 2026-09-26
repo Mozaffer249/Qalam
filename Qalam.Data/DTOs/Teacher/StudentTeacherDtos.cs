@@ -33,6 +33,7 @@ public class StudentTeacherSubjectDto
     public int SubjectId { get; set; }
     public string SubjectNameAr { get; set; } = default!;
     public string SubjectNameEn { get; set; } = default!;
+    public string? SubjectCode { get; set; }
     public int? DomainId { get; set; }
     public string? DomainCode { get; set; }
     public string? DomainNameAr { get; set; }
@@ -45,6 +46,7 @@ public class StudentTeacherSubjectDto
     public string? CurriculumNameEn { get; set; }
     public bool CanTeachFullSubject { get; set; }
     public int UnitsCount { get; set; }
+    public List<TeacherSubjectWritableFilterItemDto> WritableFilters { get; set; } = new();
     public List<StudentTeacherSubjectUnitDto> Units { get; set; } = new();
 }
 

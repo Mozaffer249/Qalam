@@ -751,12 +751,28 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                         SubjectId = ts.SubjectId,
                         SubjectNameAr = ts.Subject!.NameAr,
                         SubjectNameEn = ts.Subject.NameEn,
+                        SubjectCode = ts.Subject.Code,
                         DomainId = ts.Subject.DomainId,
                         DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                        DomainNameAr = ts.Subject.Domain != null ? ts.Subject.Domain.NameAr : null,
+                        DomainNameEn = ts.Subject.Domain != null ? ts.Subject.Domain.NameEn : null,
                         GradeNameAr = ts.Subject.Grade != null ? ts.Subject.Grade.NameAr : null,
                         GradeNameEn = ts.Subject.Grade != null ? ts.Subject.Grade.NameEn : null,
+                        LevelNameAr = ts.Subject.Level != null ? ts.Subject.Level.NameAr : null,
+                        LevelNameEn = ts.Subject.Level != null ? ts.Subject.Level.NameEn : null,
                         CanTeachFullSubject = ts.CanTeachFullSubject,
-                        UnitsCount = ts.TeacherSubjectUnits.Count
+                        UnitsCount = ts.TeacherSubjectUnits.Count,
+                        WritableFilters = ts.WritableFilters
+                            .Where(wf => wf.WritableFilterValue != null)
+                            .Select(wf => new TeacherSubjectWritableFilterItemDto
+                            {
+                                SlotCode = wf.WritableFilterValue!.Slot != null
+                                    ? wf.WritableFilterValue.Slot.Code
+                                    : null,
+                                NameAr = wf.WritableFilterValue.NameAr,
+                                NameEn = wf.WritableFilterValue.NameEn,
+                            })
+                            .ToList(),
                     })
                     .ToList(),
                 Reviews = t.TeacherReviews
@@ -1100,12 +1116,28 @@ public class TeacherRepository : GenericRepositoryAsync<Teacher>, ITeacherReposi
                     SubjectId = ts.SubjectId,
                     SubjectNameAr = ts.Subject!.NameAr,
                     SubjectNameEn = ts.Subject.NameEn,
+                    SubjectCode = ts.Subject.Code,
                     DomainId = ts.Subject.DomainId,
                     DomainCode = ts.Subject.Domain != null ? ts.Subject.Domain.Code : null,
+                    DomainNameAr = ts.Subject.Domain != null ? ts.Subject.Domain.NameAr : null,
+                    DomainNameEn = ts.Subject.Domain != null ? ts.Subject.Domain.NameEn : null,
                     GradeNameAr = ts.Subject.Grade != null ? ts.Subject.Grade.NameAr : null,
                     GradeNameEn = ts.Subject.Grade != null ? ts.Subject.Grade.NameEn : null,
+                    LevelNameAr = ts.Subject.Level != null ? ts.Subject.Level.NameAr : null,
+                    LevelNameEn = ts.Subject.Level != null ? ts.Subject.Level.NameEn : null,
                     CanTeachFullSubject = ts.CanTeachFullSubject,
-                    UnitsCount = ts.TeacherSubjectUnits.Count
+                    UnitsCount = ts.TeacherSubjectUnits.Count,
+                    WritableFilters = ts.WritableFilters
+                        .Where(wf => wf.WritableFilterValue != null)
+                        .Select(wf => new TeacherSubjectWritableFilterItemDto
+                        {
+                            SlotCode = wf.WritableFilterValue!.Slot != null
+                                ? wf.WritableFilterValue.Slot.Code
+                                : null,
+                            NameAr = wf.WritableFilterValue.NameAr,
+                            NameEn = wf.WritableFilterValue.NameEn,
+                        })
+                        .ToList(),
                 })
                 .ToList()
         };

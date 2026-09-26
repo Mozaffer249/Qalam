@@ -35,7 +35,11 @@ public interface IFileStorageService
         string documentType,
         int documentId);
 
-    Task QueueProfilePicUploadAsync(
+    /// <summary>
+    /// Queues a profile picture to the identities OSS bucket and returns the final public URL
+    /// immediately (ready to store on <c>AspNetUsers.ProfilePictureUrl</c>).
+    /// </summary>
+    Task<string> QueueProfilePicUploadAsync(
         IFormFile file,
         int userId,
         string? previousFileUrl = null);

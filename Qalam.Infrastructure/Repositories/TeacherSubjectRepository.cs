@@ -54,6 +54,7 @@ public class TeacherSubjectRepository : GenericRepositoryAsync<TeacherSubject>, 
                     .ThenInclude(gr => gr.Level)
             .Include(ts => ts.WritableFilters)
                 .ThenInclude(wf => wf.WritableFilterValue)
+                    .ThenInclude(v => v.Slot)
             .Include(ts => ts.FieldLevels)
                 .ThenInclude(fl => fl.WritableFilterValue)
             .Include(ts => ts.FieldLevels)
