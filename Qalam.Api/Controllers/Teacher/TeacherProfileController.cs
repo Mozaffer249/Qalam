@@ -30,10 +30,12 @@ public class TeacherProfileController : AppControllerBase
 
     [HttpPost("sample-lesson-media")]
     [Consumes("multipart/form-data")]
+    [RequestSizeLimit(30 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 30 * 1024 * 1024)]
     [ProducesResponseType(typeof(SampleLessonMediaUploadResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UploadSampleLessonMedia(IFormFile file)
+    public async Task<IActionResult> UploadSampleLessonMedia([FromForm] IFormFile file)
         => NewResult(await Mediator.Send(new UploadSampleLessonMediaCommand { File = file }));
 
     [HttpDelete("sample-lesson-media")]
