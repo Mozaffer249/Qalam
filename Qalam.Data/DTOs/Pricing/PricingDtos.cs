@@ -230,8 +230,10 @@ public class CourseHourlyRatePreviewDto
     public decimal? LevelSharePct { get; set; }
     /// <summary>Custom override, else level share, else effective share — for create-course UI.</summary>
     public decimal? ProjectedSharePct { get; set; }
-    /// <summary>Earnings using <see cref="ProjectedSharePct"/> (always computed from estimate minutes).</summary>
+    /// <summary>Earnings using <see cref="ProjectedSharePct"/> after the student's free first session.</summary>
     public decimal? ProjectedTeacherEarnings { get; set; }
+    /// <summary>Teacher share of the free first session (from <c>FirstSessionMinutes</c>), already subtracted.</summary>
+    public decimal? FreeSessionTeacherDeduction { get; set; }
     /// <summary>Teacher's own earnings per hour at <see cref="ProjectedSharePct"/>.</summary>
     public decimal? TeacherEarningsPerHour { get; set; }
     public bool ReflectCustomPriceToStudent { get; set; }

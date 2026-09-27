@@ -176,6 +176,24 @@ public class PricingEngine : IPricingEngine
             minutes);
 
     /// <summary>
+    /// Teacher share of the student's lifetime free first session (unpaid for the teacher):
+    /// <c>EarningsTotal × firstSessionMinutes / totalMinutes</c>.
+    /// </summary>
+    public static decimal FreeFirstSessionTeacherDeduction(
+        TeacherEarningsProjection projection,
+        int firstSessionMinutes,
+        int totalMinutes)
+    {
+        if (firstSessionMinutes <= 0 || totalMinutes <= 0 || projection.EarningsTotal <= 0m)
+            return 0m;
+        var freeMinutes = Math.Min(firstSessionMinutes, totalMinutes);
+        return Math.Round(
+            projection.EarningsTotal * freeMinutes / totalMinutes,
+            2,
+            MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
     /// Teacher earnings frozen on a snapshot; when the snapshot was taken at 0% (interview pending)
     /// the projected share is applied to the snapshot's earnings base instead.
     /// </summary>

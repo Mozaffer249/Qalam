@@ -14,4 +14,6 @@ public class GetCourseHourlyRatePreviewQuery : IRequest<Response<CourseHourlyRat
     public int TeacherSubjectId { get; set; }
     public int SessionTypeId { get; set; }
     public int? TotalMinutes { get; set; }
+    /// <summary>Duration of session 1 — the student's free first session is unpaid for the teacher.</summary>
+    public int? FirstSessionMinutes { get; set; }
 }

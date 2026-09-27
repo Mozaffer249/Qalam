@@ -483,6 +483,25 @@ public class PricingEngineTests
         Assert.Equal(75m, projection.EarningsTotal);
     }
 
+    [Theory]
+    [InlineData(60, 300, 60)]   // 5 × 60 min at 60/hr → 300 gross, 240 net
+    [InlineData(300, 300, 300)] // one-session package → fully free
+    [InlineData(0, 300, 0)]
+    public void FreeFirstSessionTeacherDeduction_UsesFirstSessionShare(
+        int firstMinutes, int totalMinutes, decimal expected)
+    {
+        var projection = PricingEngine.ProjectTeacherEarnings(
+            CreateEstimate(pricePerHour: 100m),
+            customSharePct: null,
+            levelSharePct: 60m,
+            minutes: totalMinutes);
+
+        Assert.Equal(300m, projection.EarningsTotal);
+        Assert.Equal(
+            expected,
+            PricingEngine.FreeFirstSessionTeacherDeduction(projection, firstMinutes, totalMinutes));
+    }
+
     [Fact]
     public void ProjectTeacherEarnings_FallsBackToEffectiveShare()
     {

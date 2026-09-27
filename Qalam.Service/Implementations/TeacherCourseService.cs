@@ -118,7 +118,13 @@ public class TeacherCourseService : ITeacherCourseService
                 }
                 var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, item.TotalMinutes);
                 item.TeacherEarningsPerHour = projection.EarningsPerHour;
-                item.ProjectedTeacherEarnings = item.TotalMinutes > 0 ? projection.EarningsTotal : null;
+                if (item.TotalMinutes > 0)
+                {
+                    var deduction = PricingEngine.FreeFirstSessionTeacherDeduction(
+                        projection, ResolveFirstSessionMinutes(course, item.TotalMinutes), item.TotalMinutes);
+                    item.FreeSessionTeacherDeduction = deduction;
+                    item.ProjectedTeacherEarnings = projection.EarningsTotal - deduction;
+                }
             }
             items.Add(item);
         }
@@ -770,7 +776,12 @@ public class TeacherCourseService : ITeacherCourseService
 
             var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
             dto.ProjectedSharePct = projection.SharePct;
-            dto.ProjectedTeacherEarnings = projection.EarningsTotal;
+            var deduction = totalMinutes > 0
+                ? PricingEngine.FreeFirstSessionTeacherDeduction(
+                    projection, ResolveFirstSessionMinutes(course, totalMinutes), totalMinutes)
+                : 0m;
+            dto.FreeSessionTeacherDeduction = deduction;
+            dto.ProjectedTeacherEarnings = projection.EarningsTotal - deduction;
             dto.TeacherEarningsPerHour = projection.EarningsPerHour;
 
             if (totalMinutes > 0)
@@ -787,6 +798,13 @@ public class TeacherCourseService : ITeacherCourseService
     /// <summary>
     /// One-hour estimate for the teacher's market; null when no rate is configured.
     /// </summary>
+    private static int ResolveFirstSessionMinutes(Course course, int totalMinutes) =>
+        FreeSessionPolicyService.ResolveFirstSessionMinutes(
+            course.Sessions?.OrderBy(s => s.SessionNumber).Select(s => (int?)s.DurationMinutes).FirstOrDefault(),
+            course.SessionDurationMinutes,
+            totalMinutes,
+            course.Sessions?.Count > 0 ? course.Sessions.Count : course.SessionsCount);
+
     private async Task<PriceEstimate?> TryEstimateHourlyAsync(
         int domainId,
         string sessionTypeCode,

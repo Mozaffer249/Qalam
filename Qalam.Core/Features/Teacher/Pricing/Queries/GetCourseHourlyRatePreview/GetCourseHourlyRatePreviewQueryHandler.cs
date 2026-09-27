@@ -94,6 +94,10 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
         var hasCompletedInterview = domainPricing?.HasCompletedInterviewSession == true;
         var levelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
         var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
+        var freeSessionDeduction = request.TotalMinutes is > 0
+            ? PricingEngine.FreeFirstSessionTeacherDeduction(
+                projection, request.FirstSessionMinutes ?? 0, request.TotalMinutes.Value)
+            : 0m;
         var earningsBase = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
         decimal? estimatedPackageTotal = request.TotalMinutes is > 0 ? estimate.TotalPrice : null;
 
@@ -110,7 +114,8 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             HasCompletedInterviewSession = hasCompletedInterview,
             LevelSharePct = levelSharePct,
             ProjectedSharePct = projection.SharePct,
-            ProjectedTeacherEarnings = projection.EarningsTotal,
+            ProjectedTeacherEarnings = projection.EarningsTotal - freeSessionDeduction,
+            FreeSessionTeacherDeduction = freeSessionDeduction,
             TeacherEarningsPerHour = projection.EarningsPerHour,
             ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent,
             IsCustomStudentRate = estimate.PricePerHour != platformPricePerHour,
