@@ -8,6 +8,7 @@ using Qalam.Data.DTOs.Teacher;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Teacher.EnrollmentRequests.Queries.GetTeacherEnrollmentRequestById;
 
@@ -19,6 +20,7 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
     private readonly ITeacherAvailabilityRepository _teacherAvailabilityRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly IScheduleGenerationService _scheduleGenerator;
+    private readonly ITeacherDomainPricingRepository _domainPricingRepository;
 
     public GetTeacherEnrollmentRequestByIdQueryHandler(
         ITeacherRepository teacherRepository,
@@ -26,8 +28,10 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
         ITeacherAvailabilityRepository teacherAvailabilityRepository,
         ICourseScheduleRepository scheduleRepository,
         IScheduleGenerationService scheduleGenerator,
+        ITeacherDomainPricingRepository domainPricingRepository,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
+        _domainPricingRepository = domainPricingRepository;
         _teacherRepository = teacherRepository;
         _requestRepository = requestRepository;
         _teacherAvailabilityRepository = teacherAvailabilityRepository;
@@ -62,10 +66,22 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
                 .ThenInclude(ss => ss.TeacherAvailability)
                     .ThenInclude(ta => ta.DayOfWeek)
             .Include(r => r.ProposedSessions)
+            .Include(r => r.PricingSnapshot)
+            .Include(r => r.Course).ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject)
             .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (enrollmentRequest == null || enrollmentRequest.Course.TeacherId != teacher.Id)
             return NotFound<TeacherEnrollmentRequestDetailDto>("Enrollment request not found.");
+
+        decimal? estimatedTeacherEarnings = null;
+        if (enrollmentRequest.PricingSnapshot != null)
+        {
+            var domainId = enrollmentRequest.Course.DomainId;
+            var domainPricing = domainId > 0
+                ? await _domainPricingRepository.GetByTeacherAndDomainAsync(teacher.Id, domainId, cancellationToken)
+                : null;
+            estimatedTeacherEarnings = PricingEngine.ProjectTeacherEarnings(enrollmentRequest.PricingSnapshot, domainPricing);
+        }
 
         var dto = new TeacherEnrollmentRequestDetailDto
         {
@@ -79,6 +95,7 @@ public class GetTeacherEnrollmentRequestByIdQueryHandler : ResponseHandler,
             CreatedAt = enrollmentRequest.CreatedAt,
             TotalMinutes = enrollmentRequest.TotalMinutes,
             EstimatedTotalPrice = enrollmentRequest.EstimatedTotalPrice,
+            EstimatedTeacherEarnings = estimatedTeacherEarnings,
             TeachingModeNameEn = enrollmentRequest.Course.TeachingMode?.NameEn,
             SessionTypeNameEn = enrollmentRequest.Course.SessionType?.NameEn,
             Notes = enrollmentRequest.Notes,

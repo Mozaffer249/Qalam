@@ -416,6 +416,24 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                         && r.Enrollment.ApprovedByTeacherId == teacherId)
             .SumAsync(r => (decimal?)r.Amount, cancellationToken) ?? 0m;
 
+        var refundedEnrollmentIdsThisMonth = _context.Refunds
+            .Where(r => r.Status == RefundStatus.Succeeded && r.CreatedAt >= thisMonthStart)
+            .Select(r => r.EnrollmentId);
+        var refundVoidedThisMonth = await _context.TeacherEarningLines
+            .AsNoTracking()
+            .Where(l => l.TeacherId == teacherId
+                        && l.Status == TeacherEarningLineStatus.Voided
+                        && refundedEnrollmentIdsThisMonth.Contains(l.EnrollmentId))
+            .SumAsync(l => (decimal?)l.Amount, cancellationToken) ?? 0m;
+        var refundSettlementsThisMonth = await _context.TeacherBalanceAdjustments
+            .AsNoTracking()
+            .Where(a => a.TeacherId == teacherId
+                        && a.Kind == TeacherBalanceAdjustmentKind.Settlement
+                        && a.Status == TeacherBalanceAdjustmentStatus.Applied
+                        && a.RelatedRefundId != null
+                        && a.CreatedAt >= thisMonthStart)
+            .SumAsync(a => (decimal?)a.Amount, cancellationToken) ?? 0m;
+
         var paidOrIncluded = earnings
             .Where(e => e.Status != TeacherEarningLineStatus.Voided)
             .ToList();
@@ -438,6 +456,7 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
             Available = pendingPayout,
             PaidOut = paidOut,
             RefundsImpact = refundsImpact,
+            RefundDeductionsThisMonth = refundVoidedThisMonth + refundSettlementsThisMonth,
             Deductions = deductions + adjDeductions,
             Penalties = penalties,
             Settlements = settlements,

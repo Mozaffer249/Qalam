@@ -45,6 +45,7 @@ public class CreateCourseCommandValidator : AbstractValidator<CreateCourseComman
             {
                 s.RuleFor(i => i.DurationMinutes).GreaterThan(0);
                 s.RuleFor(i => i.Title).MaximumLength(150);
+                s.RuleFor(i => i.Description).MaximumLength(1000);
                 s.RuleFor(i => i.Notes).MaximumLength(500);
 
                 s.RuleFor(i => i.Units)

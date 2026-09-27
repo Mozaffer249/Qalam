@@ -39,5 +39,17 @@ public interface ITeacherCourseService
         List<CreateCourseSessionUnitDto> units,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Edits one session's title, description, notes and Quran type/level.
+    /// Returns null when the course or session is missing or not owned by the user.
+    /// Throws InvalidOperationException on edit lock or Quran validation failures.
+    /// </summary>
+    Task<CourseSessionDto?> UpdateSessionAsync(
+        int userId,
+        int courseId,
+        int sessionId,
+        UpdateCourseSessionDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<(bool Success, string Message)> DeleteCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default);
 }

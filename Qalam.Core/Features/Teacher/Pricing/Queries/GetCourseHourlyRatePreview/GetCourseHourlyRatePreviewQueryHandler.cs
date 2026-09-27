@@ -5,6 +5,7 @@ using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Pricing;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations;
 using Qalam.Service.Models.Pricing;
 
 namespace Qalam.Core.Features.Teacher.Pricing.Queries.GetCourseHourlyRatePreview;
@@ -92,28 +93,9 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
 
         var hasCompletedInterview = domainPricing?.HasCompletedInterviewSession == true;
         var levelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
-        var projectedSharePct = domainPricing?.CustomTeacherSharePct
-            ?? levelSharePct
-            ?? estimate.TeacherSharePct;
-
+        var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
         var earningsBase = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
-        var projectedTeacherEarnings = Math.Round(
-            earningsBase * (projectedSharePct / 100m) * (estimateMinutes / 60m),
-            2,
-            MidpointRounding.AwayFromZero);
-
-        decimal? estimatedPackageTotal = null;
-        decimal? teacherEarnings = null;
-        if (request.TotalMinutes is > 0)
-        {
-            estimatedPackageTotal = estimate.TotalPrice;
-            teacherEarnings = estimate.TeacherEarnings;
-        }
-        else
-        {
-            // Hourly-only preview: still expose earnings from the 60‑min internal estimate.
-            teacherEarnings = estimate.TeacherEarnings;
-        }
+        decimal? estimatedPackageTotal = request.TotalMinutes is > 0 ? estimate.TotalPrice : null;
 
         return Success(entity: new CourseHourlyRatePreviewDto
         {
@@ -124,11 +106,12 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             EstimatedPackageTotal = estimatedPackageTotal,
             EarningsPricePerHour = earningsBase,
             TeacherSharePct = estimate.TeacherSharePct,
-            TeacherEarnings = teacherEarnings,
+            TeacherEarnings = estimate.TeacherEarnings,
             HasCompletedInterviewSession = hasCompletedInterview,
             LevelSharePct = levelSharePct,
-            ProjectedSharePct = projectedSharePct,
-            ProjectedTeacherEarnings = projectedTeacherEarnings,
+            ProjectedSharePct = projection.SharePct,
+            ProjectedTeacherEarnings = projection.EarningsTotal,
+            TeacherEarningsPerHour = projection.EarningsPerHour,
             ReflectCustomPriceToStudent = estimate.ReflectCustomPriceToStudent,
             IsCustomStudentRate = estimate.PricePerHour != platformPricePerHour,
         });

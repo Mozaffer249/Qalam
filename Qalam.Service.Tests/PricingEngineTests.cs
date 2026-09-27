@@ -437,4 +437,86 @@ public class PricingEngineTests
         Assert.Equal(0m, result.TeacherSharePct);
         Assert.Equal(100m, result.TotalPrice);
     }
+
+    private static PriceEstimate CreateEstimate(
+        decimal pricePerHour = 80m,
+        decimal? earningsPricePerHour = null,
+        decimal effectiveSharePct = 0m) =>
+        new(
+            pricePerHour,
+            60,
+            pricePerHour,
+            effectiveSharePct,
+            0m,
+            pricePerHour,
+            DomainSessionPriceId: 1,
+            TeacherLevelId: null,
+            MarketCode,
+            Currency,
+            EarningsPricePerHour: earningsPricePerHour);
+
+    [Fact]
+    public void ProjectTeacherEarnings_UsesLevelShare_WhenInterviewPending()
+    {
+        var projection = PricingEngine.ProjectTeacherEarnings(
+            CreateEstimate(pricePerHour: 80m),
+            customSharePct: null,
+            levelSharePct: 25m,
+            minutes: 120);
+
+        Assert.Equal(25m, projection.SharePct);
+        Assert.Equal(20m, projection.EarningsPerHour);
+        Assert.Equal(40m, projection.EarningsTotal);
+    }
+
+    [Fact]
+    public void ProjectTeacherEarnings_PrefersCustomShare_AndEarningsBase()
+    {
+        var projection = PricingEngine.ProjectTeacherEarnings(
+            CreateEstimate(pricePerHour: 80m, earningsPricePerHour: 100m, effectiveSharePct: 25m),
+            customSharePct: 50m,
+            levelSharePct: 25m,
+            minutes: 90);
+
+        Assert.Equal(50m, projection.SharePct);
+        Assert.Equal(50m, projection.EarningsPerHour);
+        Assert.Equal(75m, projection.EarningsTotal);
+    }
+
+    [Fact]
+    public void ProjectTeacherEarnings_FallsBackToEffectiveShare()
+    {
+        var projection = PricingEngine.ProjectTeacherEarnings(
+            CreateEstimate(pricePerHour: 80m, effectiveSharePct: 30m),
+            customSharePct: null,
+            levelSharePct: null,
+            minutes: 0);
+
+        Assert.Equal(30m, projection.SharePct);
+        Assert.Equal(24m, projection.EarningsPerHour);
+        Assert.Equal(0m, projection.EarningsTotal);
+    }
+
+    [Fact]
+    public void ProjectTeacherEarnings_FromSnapshot_ProjectsWhenFrozenAtZeroShare()
+    {
+        var snapshot = new PricingSnapshot
+        {
+            PricePerHour = 80m,
+            TotalMinutes = 60,
+            TotalPrice = 80m,
+            TeacherSharePct = 0m,
+            TeacherEarnings = 0m,
+        };
+        var domainPricing = new TeacherDomainPricing
+        {
+            TeacherLevel = new TeacherLevel { TeacherSharePct = 25m },
+        };
+
+        Assert.Equal(20m, PricingEngine.ProjectTeacherEarnings(snapshot, domainPricing));
+
+        snapshot.TeacherSharePct = 40m;
+        snapshot.TeacherEarnings = 32m;
+        Assert.Equal(32m, PricingEngine.ProjectTeacherEarnings(snapshot, domainPricing));
+    }
 }

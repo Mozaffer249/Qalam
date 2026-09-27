@@ -10,7 +10,8 @@ public interface ITeacherLedgerReadRepository
         string? typeFilter,
         DateTime? fromUtc,
         DateTime? toUtc,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool teacherSideRefundAmounts = false);
 
     Task<(decimal Deductions, decimal Penalties, decimal Settlements, int WarningsCount)> GetImpactBucketsAsync(
         int teacherId,

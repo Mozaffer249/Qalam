@@ -26,6 +26,15 @@ public sealed record PriceEstimate(
     bool ReflectCustomPriceToStudent = false,
     decimal? EarningsPricePerHour = null);
 
+/// <summary>
+/// What the teacher will earn, using the projected share (custom → level → effective).
+/// This is the only money figure teacher-facing screens should show.
+/// </summary>
+public sealed record TeacherEarningsProjection(
+    decimal SharePct,
+    decimal EarningsPerHour,
+    decimal EarningsTotal);
+
 public sealed class CreatePricingSnapshotRequest
 {
     public PricingSnapshotContext Context { get; init; }

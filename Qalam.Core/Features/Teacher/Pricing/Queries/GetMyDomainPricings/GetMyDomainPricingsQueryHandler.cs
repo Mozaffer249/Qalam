@@ -73,6 +73,15 @@ public class GetMyDomainPricingsQueryHandler : ResponseHandler,
                 ?? (p.HasCompletedInterviewSession && p.TeacherLevel != null
                     ? p.TeacherLevel.TeacherSharePct
                     : 0m);
+            var projectedShare = p.CustomTeacherSharePct ?? p.TeacherLevel?.TeacherSharePct ?? effectiveShare;
+
+            decimal? EarningsPerHour(decimal? custom, decimal? platform)
+            {
+                var basis = custom ?? platform;
+                return basis.HasValue
+                    ? Math.Round(basis.Value * projectedShare / 100m, 2, MidpointRounding.AwayFromZero)
+                    : null;
+            }
 
             return new TeacherMyDomainPricingDto
             {
@@ -95,6 +104,9 @@ public class GetMyDomainPricingsQueryHandler : ResponseHandler,
                     customIndividual.HasValue && p.ReflectCustomIndividualPriceToStudent,
                 ReflectCustomGroupPriceToStudent =
                     customGroup.HasValue && p.ReflectCustomGroupPriceToStudent,
+                IndividualTeacherEarningsPerHour = EarningsPerHour(customIndividual, individualPlatform),
+                GroupTeacherEarningsPerHour = EarningsPerHour(customGroup, groupPlatform),
+                ProjectedSharePct = projectedShare,
                 HasCompletedInterviewSession = p.HasCompletedInterviewSession,
                 Currency = resolved.Currency,
                 MarketCode = resolved.MarketCode,

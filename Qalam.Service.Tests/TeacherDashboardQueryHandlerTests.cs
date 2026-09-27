@@ -34,6 +34,13 @@ public class TeacherDashboardQueryHandlerTests
         return localizer;
     }
 
+    private static IMediaUrlResolver PassThroughMediaUrlResolver()
+    {
+        var resolver = new Mock<IMediaUrlResolver>();
+        resolver.Setup(r => r.ToPublicUrl(It.IsAny<string?>())).Returns((string? path) => path);
+        return resolver.Object;
+    }
+
     [Fact]
     public async Task GetMyTeacherProfile_ReturnsNotFound_WhenTeacherMissing()
     {
@@ -46,7 +53,8 @@ public class TeacherDashboardQueryHandlerTests
         var handler = new GetMyTeacherProfileQueryHandler(
             CreateSharedLocalizer().Object,
             teacherRepo.Object,
-            userManager.Object);
+            userManager.Object,
+            PassThroughMediaUrlResolver());
 
         var response = await handler.Handle(
             new GetMyTeacherProfileQuery { UserId = 42 },
@@ -88,7 +96,8 @@ public class TeacherDashboardQueryHandlerTests
         var handler = new GetMyTeacherProfileQueryHandler(
             CreateSharedLocalizer().Object,
             teacherRepo.Object,
-            userManager.Object);
+            userManager.Object,
+            PassThroughMediaUrlResolver());
 
         var response = await handler.Handle(
             new GetMyTeacherProfileQuery { UserId = 42 },

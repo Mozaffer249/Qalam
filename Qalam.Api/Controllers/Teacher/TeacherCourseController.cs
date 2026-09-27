@@ -7,6 +7,7 @@ using Qalam.Core.Features.Teacher.CourseManagement.Commands.PauseCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.PublishCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.ReactivateCourse;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourse;
+using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourseSession;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UpdateCourseSessionUnits;
 using Qalam.Core.Features.Teacher.CourseManagement.Commands.UploadCourseImage;
 using Qalam.Core.Features.Teacher.CourseManagement.Queries.GetCourseById;
@@ -266,6 +267,44 @@ public class TeacherCourseController : AppControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReactivateCourse(int id)
         => NewResult(await Mediator.Send(new ReactivateCourseCommand { Id = id }));
+
+    /// <summary>
+    /// Edit a single course session's outline (title, description, notes, Quran type/level).
+    /// </summary>
+    /// <remarks>
+    /// PUT Api/V1/Teacher/TeacherCourse/{courseId}/Sessions/{sessionId}
+    ///
+    /// Sample request body:
+    /// <code>
+    /// {
+    ///   "title": "Introduction",
+    ///   "description": "What the session covers",
+    ///   "notes": "Bring a notebook",
+    ///   "quranContentTypeId": null,
+    ///   "quranLevelId": null
+    /// }
+    /// </code>
+    ///
+    /// Locked when the course is paused or has enrollments (COURSE_EDIT_LOCKED_*).
+    /// Quran-domain courses require both Quran ids; other domains must send null.
+    /// </remarks>
+    [HttpPut("{courseId:int}/Sessions/{sessionId:int}")]
+    [ProducesResponseType(typeof(CourseSessionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateSession(
+        int courseId,
+        int sessionId,
+        [FromBody] UpdateCourseSessionDto dto)
+    {
+        var command = new UpdateCourseSessionCommand
+        {
+            CourseId = courseId,
+            SessionId = sessionId,
+            Data = dto
+        };
+        return NewResult(await Mediator.Send(command));
+    }
 
     /// <summary>
     /// Replace the unit/lesson coverage for a single course session.

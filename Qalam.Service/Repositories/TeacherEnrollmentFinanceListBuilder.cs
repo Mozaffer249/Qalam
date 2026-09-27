@@ -264,7 +264,8 @@ public class TeacherEnrollmentFinanceListBuilder : ITeacherEnrollmentFinanceList
             typeFilter: null,
             fromUtc: null,
             toUtc: null,
-            cancellationToken);
+            cancellationToken,
+            teacherSideRefundAmounts: true);
 
         var enrollmentLinkedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in ledger)

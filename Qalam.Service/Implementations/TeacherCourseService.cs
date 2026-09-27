@@ -95,18 +95,31 @@ public class TeacherCourseService : ITeacherCourseService
 
         var items = new List<CourseListItemDto>();
         var market = await _marketResolver.ResolveForUserAsync(userId, cancellationToken);
+        var domainPricingCache = new Dictionary<int, TeacherDomainPricing?>();
         foreach (var course in courses)
         {
             var item = CourseDtoMapper.MapToListItemDto(course);
             item.Currency = market.Currency;
             item.MarketCode = market.MarketCode;
-            item.Price = await ResolveStudentHourlyAsync(
+            var estimate = await TryEstimateHourlyAsync(
                 course.DomainId,
                 course.SessionType?.Code ?? "individual",
                 market.MarketCode,
                 teacher.Id,
-                course.Price,
                 cancellationToken);
+            item.Price = estimate?.PricePerHour ?? course.Price;
+            if (estimate != null)
+            {
+                if (!domainPricingCache.TryGetValue(course.DomainId, out var domainPricing))
+                {
+                    domainPricing = await _domainPricingRepository.GetByTeacherAndDomainAsync(
+                        teacher.Id, course.DomainId, cancellationToken);
+                    domainPricingCache[course.DomainId] = domainPricing;
+                }
+                var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, item.TotalMinutes);
+                item.TeacherEarningsPerHour = projection.EarningsPerHour;
+                item.ProjectedTeacherEarnings = item.TotalMinutes > 0 ? projection.EarningsTotal : null;
+            }
             items.Add(item);
         }
         return new PaginatedResult<CourseListItemDto>(items, totalCount, pageNumber, pageSize);
@@ -210,6 +223,7 @@ public class TeacherCourseService : ITeacherCourseService
                         SessionNumber = i + 1,
                         DurationMinutes = s.DurationMinutes,
                         Title = s.Title,
+                        Description = string.IsNullOrWhiteSpace(s.Description) ? null : s.Description.Trim(),
                         Notes = s.Notes,
                         QuranContentTypeId = s.QuranContentTypeId,
                         QuranLevelId = s.QuranLevelId,
@@ -503,6 +517,59 @@ public class TeacherCourseService : ITeacherCourseService
         return await _courseSessionUnitRepository.GetHydratedDtosBySessionAsync(sessionId, cancellationToken);
     }
 
+    public async Task<CourseSessionDto?> UpdateSessionAsync(
+        int userId,
+        int courseId,
+        int sessionId,
+        UpdateCourseSessionDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var teacher = await RequireActiveTeacherAsync(userId);
+
+        var course = await _courseRepository.GetByIdWithDetailsAsync(courseId);
+        if (course == null || course.TeacherId != teacher.Id)
+            return null;
+
+        var session = course.Sessions.FirstOrDefault(s => s.Id == sessionId);
+        if (session == null)
+            return null;
+
+        if (course.Status == CourseStatus.Paused)
+            throw new InvalidOperationException("COURSE_EDIT_LOCKED_PAUSED");
+        if (await _courseRepository.HasEnrollmentsAsync(course.Id))
+            throw new InvalidOperationException("COURSE_EDIT_LOCKED_ENROLLMENTS");
+
+        var teacherSubject = course.TeacherSubject;
+        if (teacherSubject == null || !teacherSubject.IsActive)
+            throw new InvalidOperationException("Invalid subject selection. Please select a subject from your active teaching subjects.");
+
+        var asCreate = new List<CreateCourseSessionDto>
+        {
+            new()
+            {
+                DurationMinutes = session.DurationMinutes,
+                QuranContentTypeId = dto.QuranContentTypeId,
+                QuranLevelId = dto.QuranLevelId
+            }
+        };
+        var quranError = ValidateSessionsQuranRequired(teacherSubject, asCreate, session.SessionNumber)
+            ?? ValidateSessionsQuranCoverage(teacherSubject, asCreate, session.SessionNumber);
+        if (quranError != null)
+            throw new InvalidOperationException(quranError);
+
+        session.Title = string.IsNullOrWhiteSpace(dto.Title) ? null : dto.Title.Trim();
+        session.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
+        session.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim();
+        session.QuranContentTypeId = dto.QuranContentTypeId;
+        session.QuranLevelId = dto.QuranLevelId;
+        session.UpdatedAt = DateTime.UtcNow;
+        course.UpdatedAt = DateTime.UtcNow;
+
+        await _courseRepository.SaveChangesAsync();
+
+        return CourseDtoMapper.MapToDetailDto(course).Sessions?.FirstOrDefault(s => s.Id == sessionId);
+    }
+
     public async Task<(bool Success, string Message)> DeleteCourseAsync(int userId, int courseId, CancellationToken cancellationToken = default)
     {
         var teacher = await _teacherRepository.GetByUserIdAsync(userId);
@@ -570,7 +637,8 @@ public class TeacherCourseService : ITeacherCourseService
     /// </summary>
     private static string? ValidateSessionsQuranRequired(
         Data.Entity.Teacher.TeacherSubject teacherSubject,
-        List<CreateCourseSessionDto>? sessions)
+        List<CreateCourseSessionDto>? sessions,
+        int firstSessionNumber = 1)
     {
         if (sessions == null || sessions.Count == 0) return null;
 
@@ -590,7 +658,7 @@ public class TeacherCourseService : ITeacherCourseService
             }
             else if (hasType || hasLevel)
             {
-                return $"Session {i + 1}: QuranContentTypeId and QuranLevelId are only allowed for Quran domain subjects.";
+                return $"Session {i + firstSessionNumber}: QuranContentTypeId and QuranLevelId are only allowed for Quran domain subjects.";
             }
         }
 
@@ -602,7 +670,8 @@ public class TeacherCourseService : ITeacherCourseService
     /// </summary>
     private static string? ValidateSessionsQuranCoverage(
         Data.Entity.Teacher.TeacherSubject teacherSubject,
-        List<CreateCourseSessionDto>? sessions)
+        List<CreateCourseSessionDto>? sessions,
+        int firstSessionNumber = 1)
     {
         if (sessions == null) return null;
 
@@ -616,7 +685,7 @@ public class TeacherCourseService : ITeacherCourseService
         for (var i = 0; i < sessions.Count; i++)
         {
             var session = sessions[i];
-            var label = $"Session {i + 1}";
+            var label = $"Session {i + firstSessionNumber}";
 
             if (session.QuranContentTypeId is int typeId
                 && coveredTypes.Count > 0
@@ -699,16 +768,10 @@ public class TeacherCourseService : ITeacherCourseService
             dto.EarningsPricePerHour = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
             dto.TeacherSharePct = estimate.TeacherSharePct;
 
-            var projectedShare = domainPricing?.CustomTeacherSharePct
-                ?? domainPricing?.TeacherLevel?.TeacherSharePct
-                ?? estimate.TeacherSharePct;
-            dto.ProjectedSharePct = projectedShare;
-
-            var earningsBase = dto.EarningsPricePerHour ?? estimate.PricePerHour;
-            dto.ProjectedTeacherEarnings = Math.Round(
-                earningsBase * (projectedShare / 100m) * (estimateMinutes / 60m),
-                2,
-                MidpointRounding.AwayFromZero);
+            var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
+            dto.ProjectedSharePct = projection.SharePct;
+            dto.ProjectedTeacherEarnings = projection.EarningsTotal;
+            dto.TeacherEarningsPerHour = projection.EarningsPerHour;
 
             if (totalMinutes > 0)
                 dto.EstimatedPackageTotal = estimate.TotalPrice;
@@ -722,23 +785,21 @@ public class TeacherCourseService : ITeacherCourseService
     }
 
     /// <summary>
-    /// Student-facing hourly rate (platform catalog or reflected custom). Falls back to
-    /// <paramref name="fallbackPrice"/> when no rate is configured.
+    /// One-hour estimate for the teacher's market; null when no rate is configured.
     /// </summary>
-    private async Task<decimal> ResolveStudentHourlyAsync(
+    private async Task<PriceEstimate?> TryEstimateHourlyAsync(
         int domainId,
         string sessionTypeCode,
         string marketCode,
         int teacherId,
-        decimal fallbackPrice,
         CancellationToken cancellationToken)
     {
         if (domainId <= 0 || teacherId <= 0)
-            return fallbackPrice;
+            return null;
 
         try
         {
-            var estimate = await _pricingEngine.EstimateAsync(new PricingEstimateRequest
+            return await _pricingEngine.EstimateAsync(new PricingEstimateRequest
             {
                 DomainId = domainId,
                 SessionTypeCode = sessionTypeCode,
@@ -746,11 +807,10 @@ public class TeacherCourseService : ITeacherCourseService
                 TotalMinutes = 60,
                 TeacherId = teacherId
             }, cancellationToken);
-            return estimate.PricePerHour;
         }
         catch (InvalidOperationException)
         {
-            return fallbackPrice;
+            return null;
         }
     }
 }

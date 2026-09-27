@@ -21,7 +21,8 @@ public class TeacherLedgerReadRepository : ITeacherLedgerReadRepository
         string? typeFilter,
         DateTime? fromUtc,
         DateTime? toUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool teacherSideRefundAmounts = false)
     {
         var entries = new List<TeacherLedgerEntryDto>();
 
@@ -127,17 +128,22 @@ public class TeacherLedgerReadRepository : ITeacherLedgerReadRepository
             r.EnrollmentId,
             TeacherId = r.Enrollment.ApprovedByTeacherId,
             CourseTitle = r.Enrollment.Course != null ? r.Enrollment.Course.Title : null,
+            SnapshotTotal = r.Enrollment.PricingSnapshot != null ? (decimal?)r.Enrollment.PricingSnapshot.TotalPrice : null,
+            SnapshotTeacherEarnings = r.Enrollment.PricingSnapshot != null ? (decimal?)r.Enrollment.PricingSnapshot.TeacherEarnings : null,
         }).ToListAsync(cancellationToken);
 
         foreach (var r in refunds)
         {
+            var amount = teacherSideRefundAmounts
+                ? TeacherShareOfRefund(r.Amount, r.SnapshotTotal, r.SnapshotTeacherEarnings)
+                : r.Amount;
             entries.Add(new TeacherLedgerEntryDto
             {
                 TransactionKey = $"ref-{r.Id}",
                 Type = "Refund",
                 Category = "Financial",
                 Direction = "Debit",
-                Amount = r.Amount,
+                Amount = amount,
                 Currency = r.Currency,
                 ReasonCode = "Refund",
                 Reason = string.IsNullOrWhiteSpace(r.Reason) ? "Refund" : r.Reason,
@@ -298,6 +304,15 @@ public class TeacherLedgerReadRepository : ITeacherLedgerReadRepository
         }
 
         return entries.OrderByDescending(e => e.OccurredAt).ToList();
+    }
+
+    /// <summary>Portion of a student refund that comes out of the teacher's earnings (pro rata to the snapshot).</summary>
+    private static decimal TeacherShareOfRefund(decimal refundAmount, decimal? snapshotTotal, decimal? snapshotTeacherEarnings)
+    {
+        if (snapshotTotal is not > 0m || snapshotTeacherEarnings is null)
+            return 0m;
+        var share = refundAmount * snapshotTeacherEarnings.Value / snapshotTotal.Value;
+        return Math.Round(Math.Min(share, snapshotTeacherEarnings.Value), 2, MidpointRounding.AwayFromZero);
     }
 
     public async Task<(decimal Deductions, decimal Penalties, decimal Settlements, int WarningsCount)> GetImpactBucketsAsync(

@@ -13,6 +13,8 @@ public class TeacherEnrollmentRequestListItemDto
     public DateTime CreatedAt { get; set; }
     public int TotalMinutes { get; set; }
     public decimal EstimatedTotalPrice { get; set; }
+    /// <summary>Teacher's own earnings for this request (projected share while interview pending).</summary>
+    public decimal? EstimatedTeacherEarnings { get; set; }
     public int GroupMemberCount { get; set; }
     public string? TeachingModeNameEn { get; set; }
     public string? SessionTypeNameEn { get; set; }
@@ -30,6 +32,8 @@ public class TeacherEnrollmentRequestDetailDto
     public DateTime CreatedAt { get; set; }
     public int TotalMinutes { get; set; }
     public decimal EstimatedTotalPrice { get; set; }
+    /// <summary>Teacher's own earnings for this request (projected share while interview pending).</summary>
+    public decimal? EstimatedTeacherEarnings { get; set; }
     public string? TeachingModeNameEn { get; set; }
     public string? SessionTypeNameEn { get; set; }
     public string? Notes { get; set; }

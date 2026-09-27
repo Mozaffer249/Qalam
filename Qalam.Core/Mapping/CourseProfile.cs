@@ -149,6 +149,7 @@ public class CourseProfile : Profile
                         SessionNumber = s.SessionNumber,
                         DurationMinutes = s.DurationMinutes,
                         Title = s.Title,
+                        Description = s.Description,
                         Notes = s.Notes,
                         Units = s.Units.Select(u => new CourseSessionUnitDto
                         {

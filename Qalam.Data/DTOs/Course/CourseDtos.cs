@@ -34,6 +34,7 @@ public class CourseSessionDto
     public int SessionNumber { get; set; }
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
+    public string? Description { get; set; }
     public string? Notes { get; set; }
     public int? QuranContentTypeId { get; set; }
     public int? QuranLevelId { get; set; }
@@ -62,6 +63,7 @@ public class CreateCourseSessionDto
 {
     public int DurationMinutes { get; set; }
     public string? Title { get; set; }
+    public string? Description { get; set; }
     public string? Notes { get; set; }
     /// <summary>Required when the course subject is in the Quran domain; must be null otherwise.</summary>
     public int? QuranContentTypeId { get; set; }
@@ -87,6 +89,21 @@ public class CreateCourseSessionUnitDto
 public class UpdateCourseSessionUnitsDto
 {
     public List<CreateCourseSessionUnitDto> Units { get; set; } = new();
+}
+
+/// <summary>
+/// Body for PUT /Teacher/TeacherCourse/{courseId}/Sessions/{sessionId} — edits a session's outline.
+/// Duration and order are fixed after create (they drive pricing and schedules).
+/// </summary>
+public class UpdateCourseSessionDto
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? Notes { get; set; }
+    /// <summary>Required when the course subject is in the Quran domain; must be null otherwise.</summary>
+    public int? QuranContentTypeId { get; set; }
+    /// <summary>Required when the course subject is in the Quran domain; must be null otherwise.</summary>
+    public int? QuranLevelId { get; set; }
 }
 
 /// <summary>
@@ -143,6 +160,10 @@ public class CourseListItemDto
     public decimal Price { get; set; }
     public string? Currency { get; set; }
     public string? MarketCode { get; set; }
+    /// <summary>Teacher's own earnings per hour (projected share).</summary>
+    public decimal? TeacherEarningsPerHour { get; set; }
+    /// <summary>Teacher's own earnings for the whole package (projected share); null when duration is unknown.</summary>
+    public decimal? ProjectedTeacherEarnings { get; set; }
     public int? SessionsCount { get; set; }
     public int TotalMinutes { get; set; }
     public int RegisteredCount { get; set; }
@@ -214,6 +235,8 @@ public class CourseDetailDto
     /// <summary>Custom override, else level share, else effective — for teacher UI.</summary>
     public decimal? ProjectedSharePct { get; set; }
     public decimal? ProjectedTeacherEarnings { get; set; }
+    /// <summary>Teacher's own earnings per hour at <see cref="ProjectedSharePct"/>.</summary>
+    public decimal? TeacherEarningsPerHour { get; set; }
     public decimal? EstimatedPackageTotal { get; set; }
     public int? TotalMinutes { get; set; }
     /// <summary>

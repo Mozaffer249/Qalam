@@ -145,6 +145,53 @@ public class PricingEngine : IPricingEngine
         return rate.PricePerHour;
     }
 
+    /// <summary>
+    /// Teacher earnings for <paramref name="minutes"/> using the projected share
+    /// (<paramref name="customSharePct"/> → <paramref name="levelSharePct"/> → the estimate's effective share),
+    /// so teachers still see their future earnings while the domain interview is pending.
+    /// </summary>
+    public static TeacherEarningsProjection ProjectTeacherEarnings(
+        PriceEstimate estimate,
+        decimal? customSharePct,
+        decimal? levelSharePct,
+        int minutes)
+    {
+        var sharePct = customSharePct ?? levelSharePct ?? estimate.TeacherSharePct;
+        var earningsHourly = estimate.EarningsPricePerHour ?? estimate.PricePerHour;
+        var perHour = Math.Round(earningsHourly * sharePct / 100m, 2, MidpointRounding.AwayFromZero);
+        var total = minutes > 0
+            ? Math.Round(earningsHourly * (sharePct / 100m) * (minutes / 60m), 2, MidpointRounding.AwayFromZero)
+            : 0m;
+        return new TeacherEarningsProjection(sharePct, perHour, total);
+    }
+
+    public static TeacherEarningsProjection ProjectTeacherEarnings(
+        PriceEstimate estimate,
+        TeacherDomainPricing? domainPricing,
+        int minutes)
+        => ProjectTeacherEarnings(
+            estimate,
+            domainPricing?.CustomTeacherSharePct,
+            domainPricing?.TeacherLevel?.TeacherSharePct,
+            minutes);
+
+    /// <summary>
+    /// Teacher earnings frozen on a snapshot; when the snapshot was taken at 0% (interview pending)
+    /// the projected share is applied to the snapshot's earnings base instead.
+    /// </summary>
+    public static decimal ProjectTeacherEarnings(PricingSnapshot snapshot, TeacherDomainPricing? domainPricing)
+    {
+        if (snapshot.TeacherSharePct > 0m)
+            return snapshot.TeacherEarnings;
+
+        var sharePct = domainPricing?.CustomTeacherSharePct ?? domainPricing?.TeacherLevel?.TeacherSharePct ?? 0m;
+        var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
+        return Math.Round(
+            earningsHourly * (sharePct / 100m) * (snapshot.TotalMinutes / 60m),
+            2,
+            MidpointRounding.AwayFromZero);
+    }
+
     private static (decimal SharePct, int? LevelId) ResolveTeacherShare(TeacherDomainPricing? pricing)
     {
         if (pricing?.CustomTeacherSharePct.HasValue == true)

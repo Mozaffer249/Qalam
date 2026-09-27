@@ -219,6 +219,8 @@ public class TeacherOfferListItemDto
     public int StudentId { get; set; }
     public string? StudentDisplayName { get; set; }
     public decimal Price { get; set; }
+    /// <summary>Teacher's own earnings from the offer's pricing snapshot.</summary>
+    public decimal? TeacherEarnings { get; set; }
     public int SessionsCount { get; set; }
     public OpenSessionOfferStatus Status { get; set; }
     public int Version { get; set; }

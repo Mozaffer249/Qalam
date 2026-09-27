@@ -16,6 +16,7 @@ public class CourseSessionConfiguration : IEntityTypeConfiguration<CourseSession
         builder.HasIndex(e => new { e.CourseId, e.SessionNumber }).IsUnique();
 
         builder.Property(e => e.Title).HasMaxLength(150);
+        builder.Property(e => e.Description).HasMaxLength(1000);
         builder.Property(e => e.Notes).HasMaxLength(500);
 
         builder.HasOne(e => e.Course)

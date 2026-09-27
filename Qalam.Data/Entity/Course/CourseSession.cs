@@ -14,6 +14,9 @@ public class CourseSession : AuditableEntity
     [MaxLength(150)]
     public string? Title { get; set; }
 
+    [MaxLength(1000)]
+    public string? Description { get; set; }
+
     [MaxLength(500)]
     public string? Notes { get; set; }
 

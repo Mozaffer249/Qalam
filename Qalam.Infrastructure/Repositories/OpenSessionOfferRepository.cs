@@ -113,6 +113,7 @@ public class OpenSessionOfferRepository : GenericRepositoryAsync<OpenSessionOffe
                 StudentId = x.Student != null ? x.Student.Id : 0,
                 StudentDisplayName = ((x.User.FirstName ?? "") + " " + (x.User.LastName ?? "")).Trim(),
                 Price = x.Offer.Price,
+                TeacherEarnings = x.Offer.PricingSnapshot != null ? x.Offer.PricingSnapshot.TeacherEarnings : (decimal?)null,
                 SessionsCount = x.Request.TotalSessionsCount,
                 Status = x.Offer.Status,
                 Version = x.Offer.Version,

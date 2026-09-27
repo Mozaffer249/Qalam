@@ -232,6 +232,8 @@ public class CourseHourlyRatePreviewDto
     public decimal? ProjectedSharePct { get; set; }
     /// <summary>Earnings using <see cref="ProjectedSharePct"/> (always computed from estimate minutes).</summary>
     public decimal? ProjectedTeacherEarnings { get; set; }
+    /// <summary>Teacher's own earnings per hour at <see cref="ProjectedSharePct"/>.</summary>
+    public decimal? TeacherEarningsPerHour { get; set; }
     public bool ReflectCustomPriceToStudent { get; set; }
     public bool IsCustomStudentRate { get; set; }
 }
@@ -282,6 +284,12 @@ public class TeacherMyDomainPricingDto
     public decimal? CustomGroupPricePerHour { get; set; }
     public bool ReflectCustomIndividualPriceToStudent { get; set; }
     public bool ReflectCustomGroupPriceToStudent { get; set; }
+    /// <summary>Custom override, else level share, else effective share.</summary>
+    public decimal ProjectedSharePct { get; set; }
+    /// <summary>Teacher's own earnings per individual hour at <see cref="ProjectedSharePct"/>.</summary>
+    public decimal? IndividualTeacherEarningsPerHour { get; set; }
+    /// <summary>Teacher's own earnings per group hour at <see cref="ProjectedSharePct"/>.</summary>
+    public decimal? GroupTeacherEarningsPerHour { get; set; }
     public bool HasCompletedInterviewSession { get; set; }
     public string Currency { get; set; } = default!;
     public string MarketCode { get; set; } = default!;

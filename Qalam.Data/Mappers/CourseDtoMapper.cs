@@ -71,6 +71,7 @@ public static class CourseDtoMapper
                     SessionNumber = s.SessionNumber,
                     DurationMinutes = s.DurationMinutes,
                     Title = s.Title,
+                    Description = s.Description,
                     Notes = s.Notes,
                     QuranContentTypeId = s.QuranContentTypeId,
                     QuranLevelId = s.QuranLevelId,

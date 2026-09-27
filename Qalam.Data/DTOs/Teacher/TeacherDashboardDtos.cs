@@ -89,6 +89,8 @@ public class TeacherFinanceSummaryDto
     public decimal Available { get; set; }
     public decimal PaidOut { get; set; }
     public decimal RefundsImpact { get; set; }
+    /// <summary>Teacher's own earnings lost to refunds this month (voided pending lines + clawback settlements).</summary>
+    public decimal RefundDeductionsThisMonth { get; set; }
     public decimal Deductions { get; set; }
     public decimal Penalties { get; set; }
     public decimal Settlements { get; set; }
