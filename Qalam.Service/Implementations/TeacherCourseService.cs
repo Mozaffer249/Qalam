@@ -123,7 +123,7 @@ public class TeacherCourseService : ITeacherCourseService
                     var deduction = PricingEngine.FreeFirstSessionTeacherDeduction(
                         projection, ResolveFirstSessionMinutes(course, item.TotalMinutes), item.TotalMinutes);
                     item.FreeSessionTeacherDeduction = deduction;
-                    item.ProjectedTeacherEarnings = projection.EarningsTotal - deduction;
+                    item.ProjectedTeacherEarnings = projection.EarningsTotal;
                 }
             }
             items.Add(item);
@@ -781,7 +781,7 @@ public class TeacherCourseService : ITeacherCourseService
                     projection, ResolveFirstSessionMinutes(course, totalMinutes), totalMinutes)
                 : 0m;
             dto.FreeSessionTeacherDeduction = deduction;
-            dto.ProjectedTeacherEarnings = projection.EarningsTotal - deduction;
+            dto.ProjectedTeacherEarnings = projection.EarningsTotal;
             dto.TeacherEarningsPerHour = projection.EarningsPerHour;
 
             if (totalMinutes > 0)

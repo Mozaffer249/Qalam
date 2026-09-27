@@ -162,9 +162,9 @@ public class CourseListItemDto
     public string? MarketCode { get; set; }
     /// <summary>Teacher's own earnings per hour (projected share).</summary>
     public decimal? TeacherEarningsPerHour { get; set; }
-    /// <summary>Teacher's own earnings for the package after the student's free first session; null when duration is unknown.</summary>
+    /// <summary>Teacher's own earnings for the whole package (projected share); null when duration is unknown.</summary>
     public decimal? ProjectedTeacherEarnings { get; set; }
-    /// <summary>Teacher share of the free first session, already subtracted from <see cref="ProjectedTeacherEarnings"/>.</summary>
+    /// <summary>Teacher share of session 1, lost when the student uses their free first session (not subtracted above).</summary>
     public decimal? FreeSessionTeacherDeduction { get; set; }
     public int? SessionsCount { get; set; }
     public int TotalMinutes { get; set; }
@@ -236,9 +236,9 @@ public class CourseDetailDto
     public decimal? LevelSharePct { get; set; }
     /// <summary>Custom override, else level share, else effective — for teacher UI.</summary>
     public decimal? ProjectedSharePct { get; set; }
-    /// <summary>Package earnings at <see cref="ProjectedSharePct"/> after the student's free first session.</summary>
+    /// <summary>Package earnings at <see cref="ProjectedSharePct"/>.</summary>
     public decimal? ProjectedTeacherEarnings { get; set; }
-    /// <summary>Teacher share of the free first session, already subtracted from <see cref="ProjectedTeacherEarnings"/>.</summary>
+    /// <summary>Teacher share of session 1, lost when the student uses their free first session (not subtracted above).</summary>
     public decimal? FreeSessionTeacherDeduction { get; set; }
     /// <summary>Teacher's own earnings per hour at <see cref="ProjectedSharePct"/>.</summary>
     public decimal? TeacherEarningsPerHour { get; set; }
