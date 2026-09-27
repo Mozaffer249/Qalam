@@ -91,10 +91,10 @@ public class GetCourseHourlyRatePreviewQueryHandler : ResponseHandler,
             domainId.Value,
             cancellationToken);
 
-        var hasCompletedInterview = domainPricing?.HasCompletedInterviewSession == true;
+        var hasCompletedInterview = teacher.HasCompletedInterviewSession;
         var levelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
         var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
-        var freeSessionDeduction = request.TotalMinutes is > 0
+        var freeSessionDeduction = request.TotalMinutes is > 0 && !hasCompletedInterview
             ? PricingEngine.FreeFirstSessionTeacherDeduction(
                 projection, request.FirstSessionMinutes ?? 0, request.TotalMinutes.Value)
             : 0m;

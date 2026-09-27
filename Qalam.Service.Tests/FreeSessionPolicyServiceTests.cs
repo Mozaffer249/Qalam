@@ -233,7 +233,7 @@ public class FreeSessionPolicyServiceTests
     }
 
     [Fact]
-    public void ApplyFreeTrialToSnapshot_Unlocked_CutsFirstSessionTeacherShare()
+    public void ApplyFreeTrialToSnapshot_KeepsFullTeacherEarnings_PlatformCoversCredit()
     {
         var snapshot = new PricingSnapshot
         {
@@ -252,9 +252,8 @@ public class FreeSessionPolicyServiceTests
         Assert.Equal(100m, credit);
         Assert.Equal(100m, due);
         Assert.Equal(100m, snapshot.TotalPrice);
-        // First 60 of 120 minutes → half of 140 = 70 removed from teacher.
-        Assert.Equal(70m, snapshot.TeacherEarnings);
-        Assert.Equal(30m, snapshot.PlatformShare);
+        Assert.Equal(140m, snapshot.TeacherEarnings);
+        Assert.Equal(-40m, snapshot.PlatformShare);
     }
 
     [Fact]
@@ -372,6 +371,48 @@ public class FreeSessionPolicyServiceTests
         Assert.Equal(10, pricing.InterviewUnlockEnrollmentId);
         Assert.Equal(77, pricing.InterviewUnlockCourseScheduleId);
         Assert.NotNull(pricing.InterviewUnlockedAt);
+
+        var teacher = await db.Teachers.FindAsync(5);
+        Assert.True(teacher!.HasCompletedInterviewSession);
+        Assert.Equal(InterviewUnlockSource.AutoFromSession, teacher.InterviewUnlockSource);
+        Assert.Equal(77, teacher.InterviewUnlockCourseScheduleId);
+    }
+
+    [Fact]
+    public async Task TryCompleteTeacherInterviewAsync_SecondDomainAfterAccountInterview_GetsStarterWithoutNewInterview()
+    {
+        await using var db = CreateDb();
+        var now = DateTime.UtcNow;
+        db.Teachers.Add(new Teacher
+        {
+            Id = 5,
+            HasCompletedInterviewSession = true,
+            InterviewUnlockSource = InterviewUnlockSource.AutoFromSession,
+            InterviewUnlockCourseScheduleId = 77,
+            CreatedAt = now
+        });
+        db.TeacherLevels.Add(new TeacherLevel
+        {
+            Id = 11,
+            Code = "starter",
+            NameEn = "Starter",
+            NameAr = "Starter",
+            OrderIndex = 1,
+            IsActive = true,
+            TeacherSharePct = 70,
+            CreatedAt = now
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        await sut.TryCompleteTeacherInterviewAsync(5, 4, enrollmentId: 20, courseScheduleId: 88, default);
+
+        var pricing = await db.TeacherDomainPricings.SingleAsync(p => p.TeacherId == 5 && p.DomainId == 4);
+        Assert.Equal(11, pricing.TeacherLevelId);
+        Assert.Null(pricing.InterviewUnlockCourseScheduleId);
+
+        var teacher = await db.Teachers.FindAsync(5);
+        Assert.Equal(77, teacher!.InterviewUnlockCourseScheduleId);
     }
 
     [Fact]
@@ -384,6 +425,10 @@ public class FreeSessionPolicyServiceTests
             Id = 5,
             HasCompletedInterviewSession = true,
             TeacherLevelId = 11,
+            InterviewUnlockSource = InterviewUnlockSource.AutoFromSession,
+            InterviewUnlockEnrollmentId = 10,
+            InterviewUnlockCourseScheduleId = 77,
+            InterviewUnlockedAt = now,
             CreatedAt = now
         });
         db.TeacherLevels.Add(new TeacherLevel
@@ -443,6 +488,8 @@ public class FreeSessionPolicyServiceTests
         var teacher = await db.Teachers.FindAsync(5);
         Assert.False(teacher!.HasCompletedInterviewSession);
         Assert.Null(teacher.TeacherLevelId);
+        Assert.Equal(InterviewUnlockSource.None, teacher.InterviewUnlockSource);
+        Assert.Null(teacher.InterviewUnlockCourseScheduleId);
     }
 
     [Fact]

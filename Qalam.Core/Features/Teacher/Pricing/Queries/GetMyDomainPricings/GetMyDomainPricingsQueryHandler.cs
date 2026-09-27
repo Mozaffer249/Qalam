@@ -69,11 +69,8 @@ public class GetMyDomainPricingsQueryHandler : ResponseHandler,
                 ? PricingExchangeRateHelper.DeriveLocalPrice(p.CustomGroupPricePerHour.Value, fx)
                 : null;
 
-            var effectiveShare = p.CustomTeacherSharePct
-                ?? (p.HasCompletedInterviewSession && p.TeacherLevel != null
-                    ? p.TeacherLevel.TeacherSharePct
-                    : 0m);
-            var projectedShare = p.CustomTeacherSharePct ?? p.TeacherLevel?.TeacherSharePct ?? effectiveShare;
+            var effectiveShare = p.CustomTeacherSharePct ?? p.TeacherLevel?.TeacherSharePct ?? 0m;
+            var projectedShare = effectiveShare;
 
             decimal? EarningsPerHour(decimal? custom, decimal? platform)
             {
@@ -107,7 +104,7 @@ public class GetMyDomainPricingsQueryHandler : ResponseHandler,
                 IndividualTeacherEarningsPerHour = EarningsPerHour(customIndividual, individualPlatform),
                 GroupTeacherEarningsPerHour = EarningsPerHour(customGroup, groupPlatform),
                 ProjectedSharePct = projectedShare,
-                HasCompletedInterviewSession = p.HasCompletedInterviewSession,
+                HasCompletedInterviewSession = teacher.HasCompletedInterviewSession,
                 Currency = resolved.Currency,
                 MarketCode = resolved.MarketCode,
             };

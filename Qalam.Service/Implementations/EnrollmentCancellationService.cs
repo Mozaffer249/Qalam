@@ -90,10 +90,11 @@ public class EnrollmentCancellationService : IEnrollmentCancellationService
                 cancelledByUserId,
                 reason,
                 cancellationToken);
-            await _freeSessionPolicy.TryRevertTeacherInterviewFromEnrollmentAsync(
-                enrollmentId,
-                cancellationToken);
         }
+
+        await _freeSessionPolicy.TryRevertTeacherInterviewFromEnrollmentAsync(
+            enrollmentId,
+            cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
     }

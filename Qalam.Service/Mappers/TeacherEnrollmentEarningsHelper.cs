@@ -1,6 +1,7 @@
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Payment;
+using Qalam.Service.Implementations;
 
 namespace Qalam.Service.Mappers;
 
@@ -30,10 +31,16 @@ public static class TeacherEnrollmentEarningsHelper
         decimal ProjectedFreeSessionTeacherDeduction,
         decimal ProjectedPerSessionTeacherValue);
 
+    /// <param name="teacherInterviewScheduleId">
+    /// The teacher's account-level unpaid interview schedule (<c>Teacher.InterviewUnlockCourseScheduleId</c>).
+    /// It is the only session in any enrollment the teacher is not paid for; the student's free trial never
+    /// reduces teacher earnings.
+    /// </param>
     public static EarningsBreakdown Compute(
         Enrollment enrollment,
         IReadOnlyList<EarningLineInfo> lines,
-        decimal starterSharePct = 0m)
+        decimal starterSharePct = 0m,
+        int? teacherInterviewScheduleId = null)
     {
         var snap = enrollment.PricingSnapshot;
         var schedules = (enrollment.CourseSchedules ?? [])
@@ -42,53 +49,36 @@ public static class TeacherEnrollmentEarningsHelper
             .ThenBy(s => s.Id)
             .ToList();
 
-        var freeSessions = enrollment.IsFreeTrial && schedules.Count > 0 ? 1 : 0;
+        var interviewSchedule = teacherInterviewScheduleId.HasValue
+            ? schedules.FirstOrDefault(s => s.Id == teacherInterviewScheduleId.Value)
+            : null;
+        var freeSessions = interviewSchedule != null ? 1 : 0;
         var paidSessions = Math.Max(0, schedules.Count - freeSessions);
 
         var teacherDue = snap?.TeacherEarnings ?? 0m;
         var platformCommission = snap?.PlatformShare ?? 0m;
         var sharePct = snap?.TeacherSharePct ?? 0m;
 
+        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterSharePct);
+        var packageBasis = teacherDue > 0 ? teacherDue : projection?.ProjectedTeacherEarningsDue ?? 0m;
+
         var deduction = 0m;
-        if (enrollment.IsFreeTrial && sharePct > 0)
+        if (interviewSchedule != null && packageBasis > 0)
         {
             var totalMinutes = snap?.TotalMinutes > 0
                 ? snap.TotalMinutes
                 : schedules.Sum(s => s.DurationMinutes);
-            var firstMinutes = schedules.FirstOrDefault()?.DurationMinutes ?? 0;
-            if (firstMinutes <= 0)
-                firstMinutes = 60;
-            var earnable = totalMinutes > firstMinutes ? totalMinutes - firstMinutes : 0;
-            if (teacherDue > 0 && earnable > 0)
-            {
-                deduction = Math.Round(
-                    teacherDue * firstMinutes / (decimal)earnable,
-                    2,
-                    MidpointRounding.AwayFromZero);
-            }
-            else
-            {
-                var hourly = snap?.EarningsPricePerHour ?? snap?.PricePerHour ?? 0m;
-                deduction = Math.Round(
-                    hourly * firstMinutes / 60m * (sharePct / 100m),
-                    2,
-                    MidpointRounding.AwayFromZero);
-            }
+            deduction = TeacherEarningService.ComputeScheduleEarning(
+                packageBasis, totalMinutes, interviewSchedule.DurationMinutes);
         }
 
-        var perSession = paidSessions > 0
-            ? Math.Round(teacherDue / paidSessions, 2, MidpointRounding.AwayFromZero)
+        var perSession = schedules.Count > 0
+            ? Math.Round(teacherDue / schedules.Count, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
         var accrued = lines
             .Where(l => l.Status != TeacherEarningLineStatus.Voided)
             .Sum(l => l.Amount);
-
-        var projection = EnrollmentEarningsProjectionHelper.Compute(
-            enrollment,
-            starterSharePct,
-            freeSessions,
-            paidSessions);
 
         return new EarningsBreakdown(
             TeacherEarningsDue: teacherDue,
@@ -103,7 +93,7 @@ public static class TeacherEnrollmentEarningsHelper
             IsInterviewPendingAtQuote: projection?.IsInterviewPendingAtQuote ?? false,
             ProjectedTeacherSharePct: projection?.ProjectedTeacherSharePct ?? 0m,
             ProjectedTeacherEarningsDue: projection?.ProjectedTeacherEarningsDue ?? 0m,
-            ProjectedFreeSessionTeacherDeduction: projection?.ProjectedFreeSessionTeacherDeduction ?? 0m,
+            ProjectedFreeSessionTeacherDeduction: projection != null ? deduction : 0m,
             ProjectedPerSessionTeacherValue: projection?.ProjectedPerSessionTeacherValue ?? 0m);
     }
 

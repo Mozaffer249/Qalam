@@ -216,8 +216,9 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
     }
 
     /// <summary>
-    /// Model B: reduce student payable by first-session credit; unlocked teachers lose
-    /// first-session earnings (platform bears); interview-pending stays at 0 earnings.
+    /// Student free trial: reduce only the student payable by the first-session credit.
+    /// Teacher earnings stay the full package — the platform covers the credit
+    /// (<c>PlatformShare = AmountDue − TeacherEarnings</c>, may be negative).
     /// Returns net amount due and the credit applied.
     /// </summary>
     public static (decimal AmountDue, decimal FreeSessionCredit) ApplyFreeTrialToSnapshot(
@@ -230,44 +231,10 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
         var amountDue = Math.Max(0m, Math.Round(grossPackageTotal - credit, 2, MidpointRounding.AwayFromZero));
 
         snapshot.TotalPrice = amountDue;
-
-        var interviewPending = snapshot.TeacherSharePct <= 0m;
-        if (interviewPending)
-        {
-            // Whole package still unpaid for teacher until interview unlocks (existing engine rule).
-            snapshot.TeacherEarnings = 0m;
-            snapshot.PlatformShare = amountDue;
-        }
-        else
-        {
-            // Unlocked: teacher does not earn the lifetime free first session.
-            var notionalTeacher = snapshot.TeacherEarnings;
-            decimal firstTeacherShare;
-            if (snapshot.TotalMinutes > 0 && firstSessionMinutes > 0 && notionalTeacher > 0)
-            {
-                firstTeacherShare = Math.Round(
-                    notionalTeacher * firstSessionMinutes / (decimal)snapshot.TotalMinutes,
-                    2,
-                    MidpointRounding.AwayFromZero);
-            }
-            else
-            {
-                firstTeacherShare = Math.Round(
-                    credit * snapshot.TeacherSharePct / 100m,
-                    2,
-                    MidpointRounding.AwayFromZero);
-            }
-
-            snapshot.TeacherEarnings = Math.Max(0m, Math.Round(
-                notionalTeacher - firstTeacherShare,
-                2,
-                MidpointRounding.AwayFromZero));
-            snapshot.PlatformShare = Math.Round(
-                amountDue - snapshot.TeacherEarnings,
-                2,
-                MidpointRounding.AwayFromZero);
-        }
-
+        snapshot.PlatformShare = Math.Round(
+            amountDue - snapshot.TeacherEarnings,
+            2,
+            MidpointRounding.AwayFromZero);
         snapshot.UpdatedAt = DateTime.UtcNow;
         return (amountDue, credit);
     }
@@ -413,49 +380,50 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
             return;
 
         var teacherId = enrollment.ApprovedByTeacherId;
-        var domainId = ResolveDomainId(enrollment);
-        if (teacherId <= 0 || domainId <= 0)
+        if (teacherId <= 0)
             return;
 
-        var pricing = await _domainPricingRepository.GetOrCreateAsync(teacherId, domainId, cancellationToken);
-        if (pricing.InterviewUnlockSource != InterviewUnlockSource.AutoFromSession
-            || pricing.InterviewUnlockEnrollmentId != enrollmentId)
+        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
+        if (teacher == null
+            || teacher.InterviewUnlockSource != InterviewUnlockSource.AutoFromSession
+            || teacher.InterviewUnlockEnrollmentId != enrollmentId)
             return;
 
-        var hasOtherCompleted = await HasOtherCompletedSessionsInDomainAsync(
-            teacherId, domainId, enrollmentId, cancellationToken);
+        var hasOtherCompleted = await HasOtherCompletedSessionsForTeacherAsync(
+            teacherId, enrollmentId, cancellationToken);
         if (hasOtherCompleted)
             return;
 
         var starterLevel = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
-        var wasAutoStarter = starterLevel != null
-                             && pricing.TeacherLevelId == starterLevel.Id;
+        var now = DateTime.UtcNow;
 
-        pricing.HasCompletedInterviewSession = false;
-        if (wasAutoStarter)
-            pricing.TeacherLevelId = null;
-        pricing.InterviewUnlockSource = InterviewUnlockSource.None;
-        pricing.InterviewUnlockEnrollmentId = null;
-        pricing.InterviewUnlockCourseScheduleId = null;
-        pricing.InterviewRevertedAt = DateTime.UtcNow;
-        pricing.UpdatedAt = DateTime.UtcNow;
-        await _domainPricingRepository.UpdateAsync(pricing);
+        teacher.HasCompletedInterviewSession = false;
+        teacher.InterviewUnlockSource = InterviewUnlockSource.None;
+        teacher.InterviewUnlockEnrollmentId = null;
+        teacher.InterviewUnlockCourseScheduleId = null;
+        teacher.InterviewUnlockedAt = null;
+        if (starterLevel != null && teacher.TeacherLevelId == starterLevel.Id)
+            teacher.TeacherLevelId = null;
+        teacher.UpdatedAt = now;
+        await _teacherRepository.UpdateAsync(teacher);
 
-        var teacher = await _teacherRepository.GetByIdAsync(teacherId);
-        if (teacher != null)
+        var domainId = ResolveDomainId(enrollment);
+        if (domainId > 0)
         {
-            var anyDomainUnlocked = await _db.TeacherDomainPricings
-                .AnyAsync(
-                    p => p.TeacherId == teacherId && p.HasCompletedInterviewSession,
-                    cancellationToken);
-            if (!anyDomainUnlocked)
+            var pricing = await _domainPricingRepository.GetOrCreateAsync(teacherId, domainId, cancellationToken);
+            if (pricing.InterviewUnlockSource == InterviewUnlockSource.AutoFromSession
+                && pricing.InterviewUnlockEnrollmentId == enrollmentId)
             {
-                teacher.HasCompletedInterviewSession = false;
-                if (wasAutoStarter)
-                    teacher.TeacherLevelId = null;
+                pricing.HasCompletedInterviewSession = false;
+                if (starterLevel != null && pricing.TeacherLevelId == starterLevel.Id)
+                    pricing.TeacherLevelId = null;
+                pricing.InterviewUnlockSource = InterviewUnlockSource.None;
+                pricing.InterviewUnlockEnrollmentId = null;
+                pricing.InterviewUnlockCourseScheduleId = null;
+                pricing.InterviewRevertedAt = now;
+                pricing.UpdatedAt = now;
+                await _domainPricingRepository.UpdateAsync(pricing);
             }
-            teacher.UpdatedAt = DateTime.UtcNow;
-            await _teacherRepository.UpdateAsync(teacher);
         }
 
         await _domainPricingRepository.SaveChangesAsync();
@@ -476,38 +444,43 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
             return;
 
         var pricing = await _domainPricingRepository.GetOrCreateAsync(teacherId, domainId, cancellationToken);
-        if (pricing.HasCompletedInterviewSession && pricing.TeacherLevelId.HasValue)
-        {
-            if (!teacher.HasCompletedInterviewSession)
-            {
-                teacher.HasCompletedInterviewSession = true;
-                teacher.TeacherLevelId ??= pricing.TeacherLevelId;
-                teacher.UpdatedAt = DateTime.UtcNow;
-                await _teacherRepository.UpdateAsync(teacher);
-                await _teacherRepository.SaveChangesAsync();
-            }
+        var isAccountInterview = !teacher.HasCompletedInterviewSession;
+        if (!isAccountInterview && pricing.HasCompletedInterviewSession && pricing.TeacherLevelId.HasValue)
             return;
-        }
 
         var minLevel = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
         if (minLevel == null)
             throw new InvalidOperationException("No active teacher level configured.");
 
         var now = DateTime.UtcNow;
-        pricing.HasCompletedInterviewSession = true;
-        pricing.TeacherLevelId ??= minLevel.Id;
-        pricing.InterviewUnlockSource = InterviewUnlockSource.AutoFromSession;
-        pricing.InterviewUnlockEnrollmentId = enrollmentId;
-        pricing.InterviewUnlockCourseScheduleId = courseScheduleId;
-        pricing.InterviewUnlockedAt = now;
-        pricing.InterviewRevertedAt = null;
-        pricing.UpdatedAt = now;
-        await _domainPricingRepository.UpdateAsync(pricing);
+        if (!pricing.HasCompletedInterviewSession || !pricing.TeacherLevelId.HasValue)
+        {
+            pricing.HasCompletedInterviewSession = true;
+            pricing.TeacherLevelId ??= minLevel.Id;
+            if (pricing.InterviewUnlockSource == InterviewUnlockSource.None)
+            {
+                pricing.InterviewUnlockSource = InterviewUnlockSource.AutoFromSession;
+                pricing.InterviewUnlockEnrollmentId = enrollmentId;
+                pricing.InterviewUnlockCourseScheduleId = isAccountInterview ? courseScheduleId : null;
+                pricing.InterviewUnlockedAt = now;
+            }
+            pricing.InterviewRevertedAt = null;
+            pricing.UpdatedAt = now;
+            await _domainPricingRepository.UpdateAsync(pricing);
+        }
 
-        teacher.HasCompletedInterviewSession = true;
-        teacher.TeacherLevelId ??= pricing.TeacherLevelId;
-        teacher.UpdatedAt = now;
-        await _teacherRepository.UpdateAsync(teacher);
+        if (isAccountInterview)
+        {
+            teacher.HasCompletedInterviewSession = true;
+            teacher.InterviewUnlockSource = InterviewUnlockSource.AutoFromSession;
+            teacher.InterviewUnlockEnrollmentId = enrollmentId;
+            teacher.InterviewUnlockCourseScheduleId = courseScheduleId;
+            teacher.InterviewUnlockedAt = now;
+            teacher.TeacherLevelId ??= pricing.TeacherLevelId;
+            teacher.UpdatedAt = now;
+            await _teacherRepository.UpdateAsync(teacher);
+        }
+
         await _teacherRepository.SaveChangesAsync();
     }
 
@@ -522,9 +495,8 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
         return 0;
     }
 
-    private async Task<bool> HasOtherCompletedSessionsInDomainAsync(
+    private async Task<bool> HasOtherCompletedSessionsForTeacherAsync(
         int teacherId,
-        int domainId,
         int excludeEnrollmentId,
         CancellationToken cancellationToken)
     {
@@ -533,16 +505,7 @@ public class FreeSessionPolicyService : IFreeSessionPolicyService
             .AnyAsync(
                 cs => cs.Status == ScheduleStatus.Completed
                       && cs.EnrollmentId != excludeEnrollmentId
-                      && cs.Enrollment.ApprovedByTeacherId == teacherId
-                      && (
-                          (cs.Enrollment.PricingSnapshot != null
-                           && cs.Enrollment.PricingSnapshot.DomainId == domainId)
-                          || (cs.Enrollment.OpenSessionRequest != null
-                              && cs.Enrollment.OpenSessionRequest.DomainId == domainId)
-                          || (cs.Enrollment.Course != null
-                              && cs.Enrollment.Course.TeacherSubject != null
-                              && cs.Enrollment.Course.TeacherSubject.Subject != null
-                              && cs.Enrollment.Course.TeacherSubject.Subject.DomainId == domainId)),
+                      && cs.Enrollment.ApprovedByTeacherId == teacherId,
                 cancellationToken);
     }
 }

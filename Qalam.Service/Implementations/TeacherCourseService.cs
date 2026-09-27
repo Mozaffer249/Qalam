@@ -120,9 +120,10 @@ public class TeacherCourseService : ITeacherCourseService
                 item.TeacherEarningsPerHour = projection.EarningsPerHour;
                 if (item.TotalMinutes > 0)
                 {
-                    var deduction = PricingEngine.FreeFirstSessionTeacherDeduction(
-                        projection, ResolveFirstSessionMinutes(course, item.TotalMinutes), item.TotalMinutes);
-                    item.FreeSessionTeacherDeduction = deduction;
+                    item.FreeSessionTeacherDeduction = teacher.HasCompletedInterviewSession
+                        ? 0m
+                        : PricingEngine.FreeFirstSessionTeacherDeduction(
+                            projection, ResolveFirstSessionMinutes(course, item.TotalMinutes), item.TotalMinutes);
                     item.ProjectedTeacherEarnings = projection.EarningsTotal;
                 }
             }
@@ -748,8 +749,9 @@ public class TeacherCourseService : ITeacherCourseService
                 course.TeacherId,
                 course.DomainId,
                 cancellationToken);
-            dto.InterviewPending = domainPricing == null || !domainPricing.HasCompletedInterviewSession;
-            dto.HasCompletedInterviewSession = domainPricing?.HasCompletedInterviewSession == true;
+            var owner = await _teacherRepository.GetByIdAsync(course.TeacherId);
+            dto.HasCompletedInterviewSession = owner?.HasCompletedInterviewSession == true;
+            dto.InterviewPending = !dto.HasCompletedInterviewSession;
             dto.LevelSharePct = domainPricing?.TeacherLevel?.TeacherSharePct;
         }
 
@@ -776,7 +778,7 @@ public class TeacherCourseService : ITeacherCourseService
 
             var projection = PricingEngine.ProjectTeacherEarnings(estimate, domainPricing, estimateMinutes);
             dto.ProjectedSharePct = projection.SharePct;
-            var deduction = totalMinutes > 0
+            var deduction = totalMinutes > 0 && dto.InterviewPending
                 ? PricingEngine.FreeFirstSessionTeacherDeduction(
                     projection, ResolveFirstSessionMinutes(course, totalMinutes), totalMinutes)
                 : 0m;

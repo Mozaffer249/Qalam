@@ -7,93 +7,74 @@ namespace Qalam.Service.Tests;
 
 public class EnrollmentEarningsProjectionHelperTests
 {
-    [Fact]
-    public void Compute_InterviewPendingFreeTrial_MatchesEnrollment3022Shape()
+    private static Enrollment LegacyZeroShareEnrollment(bool isFreeTrial, decimal amountDue) => new()
     {
-        var enrollment = new Enrollment
+        IsFreeTrial = isFreeTrial,
+        AmountDue = amountDue,
+        PricingSnapshot = new PricingSnapshot
         {
-            IsFreeTrial = true,
-            AmountDue = 85m,
-            PricingSnapshot = new PricingSnapshot
+            TeacherEarnings = 0m,
+            PlatformShare = amountDue,
+            TeacherSharePct = 0m,
+            TotalMinutes = 120,
+            TotalPrice = amountDue,
+            PricePerHour = 85m,
+            Currency = "SAR",
+            MarketCode = "SA",
+            SessionTypeCode = "individual",
+        },
+        CourseSchedules =
+        [
+            new CourseSchedule
             {
-                TeacherEarnings = 0m,
-                PlatformShare = 85m,
-                TeacherSharePct = 0m,
-                TotalMinutes = 120,
-                TotalPrice = 85m,
-                PricePerHour = 85m,
-                Currency = "SAR",
-                MarketCode = "SA",
-                SessionTypeCode = "individual",
+                Date = DateOnly.FromDateTime(DateTime.UtcNow),
+                DurationMinutes = 60,
+                Status = ScheduleStatus.Scheduled,
+                TeacherAvailabilityId = 1,
+                TeachingModeId = 1,
             },
-            CourseSchedules =
-            [
-                new CourseSchedule
-                {
-                    Date = DateOnly.FromDateTime(DateTime.UtcNow),
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Scheduled,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-                new CourseSchedule
-                {
-                    Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Scheduled,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-            ],
-        };
+            new CourseSchedule
+            {
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                DurationMinutes = 60,
+                Status = ScheduleStatus.Scheduled,
+                TeacherAvailabilityId = 1,
+                TeachingModeId = 1,
+            },
+        ],
+    };
+
+    [Fact]
+    public void Compute_LegacyZeroShareFreeTrial_ProjectsFullPackage_PlatformCoversCredit()
+    {
+        var enrollment = LegacyZeroShareEnrollment(isFreeTrial: true, amountDue: 85m);
 
         var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterSharePct: 70m);
         Assert.NotNull(projection);
         Assert.True(projection!.IsInterviewPendingAtQuote);
-        Assert.Equal(59.5m, projection.ProjectedTeacherEarningsDue);
-        Assert.Equal(59.5m, projection.ProjectedFreeSessionTeacherDeduction);
-        Assert.Equal(25.5m, projection.ProjectedPlatformShare);
-        Assert.Equal(85m, enrollment.PricingSnapshot.TotalPrice);
+        Assert.Equal(119m, projection.ProjectedTeacherEarningsDue);
+        Assert.Equal(0m, projection.ProjectedFreeSessionTeacherDeduction);
+        Assert.Equal(59.5m, projection.ProjectedPerSessionTeacherValue);
+        Assert.Equal(-34m, projection.ProjectedPlatformShare);
     }
 
     [Fact]
-    public void ResolvePackageEarningsForAccrual_UsesProjectionWhenSnapshotZero()
+    public void Compute_LegacyZeroSharePaidEnrollment_ProjectsFullPackage()
     {
-        var enrollment = new Enrollment
-        {
-            IsFreeTrial = true,
-            AmountDue = 85m,
-            PricingSnapshot = new PricingSnapshot
-            {
-                TeacherEarnings = 0m,
-                TeacherSharePct = 0m,
-                TotalMinutes = 120,
-                PricePerHour = 85m,
-                Currency = "SAR",
-                MarketCode = "SA",
-                SessionTypeCode = "individual",
-            },
-            CourseSchedules =
-            [
-                new CourseSchedule
-                {
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Scheduled,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-                new CourseSchedule
-                {
-                    DurationMinutes = 60,
-                    Status = ScheduleStatus.Scheduled,
-                    TeacherAvailabilityId = 1,
-                    TeachingModeId = 1,
-                },
-            ],
-        };
+        var enrollment = LegacyZeroShareEnrollment(isFreeTrial: false, amountDue: 170m);
 
-        var package = EnrollmentEarningsProjectionHelper.ResolvePackageEarningsForAccrual(
-            enrollment, enrollment.PricingSnapshot, starterSharePct: 70m);
-        Assert.Equal(59.5m, package);
+        var projection = EnrollmentEarningsProjectionHelper.Compute(enrollment, starterSharePct: 70m);
+        Assert.NotNull(projection);
+        Assert.Equal(119m, projection!.ProjectedTeacherEarningsDue);
+        Assert.Equal(51m, projection.ProjectedPlatformShare);
+    }
+
+    [Fact]
+    public void Compute_SnapshotWithShare_ReturnsNull()
+    {
+        var enrollment = LegacyZeroShareEnrollment(isFreeTrial: true, amountDue: 85m);
+        enrollment.PricingSnapshot!.TeacherSharePct = 70m;
+
+        Assert.Null(EnrollmentEarningsProjectionHelper.Compute(enrollment, starterSharePct: 70m));
     }
 }

@@ -404,7 +404,7 @@ public class PricingAdminService : IPricingAdminService
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
         teacher.TeacherLevelId = level.Id;
-        teacher.HasCompletedInterviewSession = true;
+        MarkAccountInterviewByAdmin(teacher);
         teacher.UpdatedAt = DateTime.UtcNow;
         await _teacherRepository.UpdateAsync(teacher);
         await _teacherRepository.SaveChangesAsync();
@@ -574,7 +574,7 @@ public class PricingAdminService : IPricingAdminService
             pricing.InterviewUnlockedAt = DateTime.UtcNow;
             pricing.InterviewRevertedAt = null;
             teacher.TeacherLevelId = dto.TeacherLevelId;
-            teacher.HasCompletedInterviewSession = true;
+            MarkAccountInterviewByAdmin(teacher);
         }
 
         pricing.CustomTeacherSharePct = dto.CustomTeacherSharePct;
@@ -655,6 +655,7 @@ public class PricingAdminService : IPricingAdminService
         await _teacherDomainPricingRepository.UpdateAsync(pricing);
 
         teacher.TeacherLevelId = suggestion.SuggestedLevelId;
+        MarkAccountInterviewByAdmin(teacher);
         teacher.UpdatedAt = DateTime.UtcNow;
         suggestion.Status = TeacherLevelUpgradeSuggestionStatus.Approved;
         suggestion.ReviewedAt = DateTime.UtcNow;
@@ -878,6 +879,17 @@ public class PricingAdminService : IPricingAdminService
             Status = suggestion.Status.ToString(),
             CreatedAt = suggestion.CreatedAt
         };
+
+    private static void MarkAccountInterviewByAdmin(Data.Entity.Teacher.Teacher teacher)
+    {
+        if (teacher.HasCompletedInterviewSession)
+            return;
+        teacher.HasCompletedInterviewSession = true;
+        teacher.InterviewUnlockSource = InterviewUnlockSource.Admin;
+        teacher.InterviewUnlockEnrollmentId = null;
+        teacher.InterviewUnlockCourseScheduleId = null;
+        teacher.InterviewUnlockedAt = DateTime.UtcNow;
+    }
 
     private Task LogPricingChangeAsync(
         string action,

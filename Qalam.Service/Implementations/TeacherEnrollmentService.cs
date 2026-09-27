@@ -124,7 +124,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 TeacherEnrollmentEarningsHelper.Compute(
                     e,
                     earningsByEnrollment.GetValueOrDefault(e.Id) ?? [],
-                    starterSharePct),
+                    starterSharePct,
+                    teacher.InterviewUnlockCourseScheduleId),
                 starterSharePct))
             .ToList();
 
@@ -187,7 +188,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 TeacherEnrollmentEarningsHelper.Compute(
                     e,
                     earningsByEnrollment.GetValueOrDefault(e.Id) ?? [],
-                    starterSharePct),
+                    starterSharePct,
+                    teacher.InterviewUnlockCourseScheduleId),
                 starterSharePct))
             .ToList();
 
@@ -439,7 +441,7 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
                 EndTime = slot?.EndTime,
                 DurationMinutes = duration,
                 Status = cs.Status,
-                IsFreeSession = enrollment.IsFreeTrial && i == 0,
+                IsFreeSession = cs.Id == teacher.InterviewUnlockCourseScheduleId,
                 CanStart = CanStartSessionUtc(
                     enrollment.EnrollmentStatus, cs.Status, slot, cs.Date, utcNow, _sessionSettings.EnforceJoinWindow),
                 CanJoin = SessionJoinRules.CanJoinUtc(
@@ -471,7 +473,8 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         var earnings = TeacherEnrollmentEarningsHelper.Compute(
             enrollment,
             earningsLines.GetValueOrDefault(enrollment.Id) ?? [],
-            starterSharePct);
+            starterSharePct,
+            teacher.InterviewUnlockCourseScheduleId);
         dto.TeacherEarningsDue = earnings.TeacherEarningsDue;
         dto.PlatformCommission = earnings.PlatformCommission;
         dto.TeacherSharePct = earnings.TeacherSharePct;

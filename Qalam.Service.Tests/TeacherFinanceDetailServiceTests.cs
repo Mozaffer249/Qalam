@@ -115,6 +115,15 @@ public class TeacherFinanceDetailServiceTests
         };
         db.CourseSchedules.AddRange(firstSchedule, paidSchedule);
         await db.SaveChangesAsync();
+        db.Teachers.Add(new Teacher
+        {
+            Id = TeacherId,
+            HasCompletedInterviewSession = true,
+            InterviewUnlockSource = InterviewUnlockSource.AutoFromSession,
+            InterviewUnlockCourseScheduleId = firstSchedule.Id,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
 
         var line = new TeacherEarningLine
         {

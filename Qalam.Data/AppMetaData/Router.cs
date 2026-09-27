@@ -85,6 +85,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminFinanceSummary = AdminFinance + "/Summary";
         public const string AdminFinanceTransactions = AdminFinance + "/Transactions";
         public const string AdminFinanceTransactionByKey = AdminFinanceTransactions + "/{key}";
+        public const string AdminFinanceRecomputeTeacherEarnings = AdminFinance + "/recompute-teacher-earnings";
         public const string AdminTeacherFinance = Rule + "Admin/Teachers/{teacherId}/Finance";
         public const string AdminTeacherFinanceSummary = AdminTeacherFinance + "/Summary";
         public const string AdminTeacherFinanceTransactions = AdminTeacherFinance + "/Transactions";

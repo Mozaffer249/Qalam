@@ -13,17 +13,20 @@ public class PricingEngine : IPricingEngine
     private readonly ITeacherRepository _teacherRepository;
     private readonly ITeacherDomainPricingRepository _domainPricingRepository;
     private readonly IPricingMarketRepository _marketRepository;
+    private readonly ITeacherLevelRepository? _teacherLevelRepository;
 
     public PricingEngine(
         IDomainSessionPriceRepository priceRepository,
         ITeacherRepository teacherRepository,
         ITeacherDomainPricingRepository domainPricingRepository,
-        IPricingMarketRepository marketRepository)
+        IPricingMarketRepository marketRepository,
+        ITeacherLevelRepository? teacherLevelRepository = null)
     {
         _priceRepository = priceRepository;
         _teacherRepository = teacherRepository;
         _domainPricingRepository = domainPricingRepository;
         _marketRepository = marketRepository;
+        _teacherLevelRepository = teacherLevelRepository;
     }
 
     public async Task<PriceEstimate> EstimateAsync(
@@ -58,7 +61,11 @@ public class PricingEngine : IPricingEngine
             request.DomainId,
             cancellationToken);
 
-        var share = ResolveTeacherShare(domainPricing);
+        var starterLevel = domainPricing?.CustomTeacherSharePct == null && domainPricing?.TeacherLevel == null
+            && _teacherLevelRepository != null
+            ? await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken)
+            : null;
+        var share = ResolveTeacherShare(domainPricing, starterLevel);
         var platformPricePerHour = rate.PricePerHour;
         var isGroup = string.Equals(
             request.SessionTypeCode,
@@ -147,8 +154,7 @@ public class PricingEngine : IPricingEngine
 
     /// <summary>
     /// Teacher earnings for <paramref name="minutes"/> using the projected share
-    /// (<paramref name="customSharePct"/> → <paramref name="levelSharePct"/> → the estimate's effective share),
-    /// so teachers still see their future earnings while the domain interview is pending.
+    /// (<paramref name="customSharePct"/> → <paramref name="levelSharePct"/> → the estimate's effective share).
     /// </summary>
     public static TeacherEarningsProjection ProjectTeacherEarnings(
         PriceEstimate estimate,
@@ -176,8 +182,8 @@ public class PricingEngine : IPricingEngine
             minutes);
 
     /// <summary>
-    /// Teacher share of the student's lifetime free first session (unpaid for the teacher):
-    /// <c>EarningsTotal × firstSessionMinutes / totalMinutes</c>.
+    /// Teacher share of their single unpaid interview session (first completed session on the account):
+    /// <c>EarningsTotal × firstSessionMinutes / totalMinutes</c>. Only relevant while the account interview is pending.
     /// </summary>
     public static decimal FreeFirstSessionTeacherDeduction(
         TeacherEarningsProjection projection,
@@ -210,18 +216,24 @@ public class PricingEngine : IPricingEngine
             MidpointRounding.AwayFromZero);
     }
 
-    private static (decimal SharePct, int? LevelId) ResolveTeacherShare(TeacherDomainPricing? pricing)
+    /// <summary>
+    /// Custom share → domain level → starter level. The interview does not zero the share:
+    /// only the teacher's single interview session is unpaid, and that is enforced at accrual.
+    /// </summary>
+    private static (decimal SharePct, int? LevelId) ResolveTeacherShare(
+        TeacherDomainPricing? pricing,
+        TeacherLevel? starterLevel)
     {
         if (pricing?.CustomTeacherSharePct.HasValue == true)
             return (pricing.CustomTeacherSharePct.Value, pricing.TeacherLevelId);
 
-        // Interview / probation for this domain: unpaid until unlocked with a level.
-        if (pricing == null
-            || !pricing.HasCompletedInterviewSession
-            || pricing.TeacherLevel == null)
-            return (0m, pricing?.TeacherLevelId);
+        if (pricing?.TeacherLevel != null)
+            return (pricing.TeacherLevel.TeacherSharePct, pricing.TeacherLevelId);
 
-        return (pricing.TeacherLevel.TeacherSharePct, pricing.TeacherLevelId);
+        if (starterLevel != null)
+            return (starterLevel.TeacherSharePct, starterLevel.Id);
+
+        return (0m, pricing?.TeacherLevelId);
     }
 
     private static decimal? ResolveCustomPriceInMarket(

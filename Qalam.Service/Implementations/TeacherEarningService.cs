@@ -22,6 +22,19 @@ public class TeacherEarningService : ITeacherEarningService
         _logger = logger;
     }
 
+    /// <summary>Session share of the package earnings: <c>packageEarnings × scheduleMinutes / totalMinutes</c>.</summary>
+    public static decimal ComputeScheduleEarning(decimal packageEarnings, int totalMinutes, int scheduleMinutes)
+    {
+        if (packageEarnings <= 0m)
+            return 0m;
+        if (totalMinutes <= 0 || scheduleMinutes <= 0)
+            return Math.Round(packageEarnings, 2, MidpointRounding.AwayFromZero);
+        return Math.Round(
+            packageEarnings * Math.Min(scheduleMinutes, totalMinutes) / totalMinutes,
+            2,
+            MidpointRounding.AwayFromZero);
+    }
+
     public async Task AccrueForCompletedScheduleAsync(
         int courseScheduleId,
         TeacherEarningLineStatus initialStatus = TeacherEarningLineStatus.Pending,
@@ -52,74 +65,39 @@ public class TeacherEarningService : ITeacherEarningService
         if (teacherId <= 0)
             return;
 
+        var interviewScheduleId = await _db.Teachers
+            .AsNoTracking()
+            .Where(t => t.Id == teacherId)
+            .Select(t => t.InterviewUnlockCourseScheduleId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (interviewScheduleId == schedule.Id)
+        {
+            _logger.LogInformation(
+                "Skipping teacher earning for the teacher's unpaid interview CourseSchedule {ScheduleId}.",
+                courseScheduleId);
+            return;
+        }
+
         var snapshot = enrollment.PricingSnapshot;
         var currency = snapshot?.Currency ?? "SAR";
         var packageEarnings = snapshot?.TeacherEarnings ?? 0m;
-        if (packageEarnings <= 0m && snapshot != null)
-        {
-            var starterSharePct = await _db.Set<TeacherLevel>()
-                .AsNoTracking()
-                .Where(l => l.IsActive)
-                .OrderBy(l => l.OrderIndex)
-                .Select(l => l.TeacherSharePct)
-                .FirstOrDefaultAsync(cancellationToken);
-            packageEarnings = EnrollmentEarningsProjectionHelper.ResolvePackageEarningsForAccrual(
-                enrollment, snapshot, starterSharePct);
-        }
-
-        var siblingSchedules = await _db.CourseSchedules
-            .AsNoTracking()
-            .Where(s => s.EnrollmentId == enrollment.Id
-                        && s.Status != ScheduleStatus.Cancelled
-                        && s.Status != ScheduleStatus.Rescheduled)
-            .OrderBy(s => s.Date)
-            .ThenBy(s => s.Id)
-            .Select(s => new { s.Id, s.DurationMinutes, s.Date })
-            .ToListAsync(cancellationToken);
-
-        if (enrollment.IsFreeTrial && siblingSchedules.Count > 0)
-        {
-            var freeId = siblingSchedules[0].Id;
-            if (schedule.Id == freeId)
-            {
-                _logger.LogInformation(
-                    "Skipping teacher earning for free-trial first CourseSchedule {ScheduleId}.",
-                    courseScheduleId);
-                return;
-            }
-        }
 
         var totalMinutes = snapshot?.TotalMinutes ?? 0;
         if (totalMinutes <= 0)
-            totalMinutes = siblingSchedules.Sum(s => s.DurationMinutes);
-
-        var earnableMinutes = totalMinutes;
-        if (enrollment.IsFreeTrial && siblingSchedules.Count > 0)
         {
-            var freeMinutes = siblingSchedules[0].DurationMinutes;
-            if (freeMinutes <= 0 && snapshot != null)
-            {
-                freeMinutes = FreeSessionPolicyService.ResolveFirstSessionMinutes(
-                    siblingSchedules[0].DurationMinutes > 0 ? siblingSchedules[0].DurationMinutes : null,
-                    enrollment.Course?.SessionDurationMinutes,
-                    totalMinutes > 0 ? totalMinutes : null,
-                    siblingSchedules.Count);
-            }
-            if (freeMinutes <= 0)
-                freeMinutes = 60;
-            earnableMinutes = Math.Max(0, totalMinutes - freeMinutes);
+            totalMinutes = await _db.CourseSchedules
+                .AsNoTracking()
+                .Where(s => s.EnrollmentId == enrollment.Id
+                            && s.Status != ScheduleStatus.Cancelled
+                            && s.Status != ScheduleStatus.Rescheduled)
+                .SumAsync(s => s.DurationMinutes, cancellationToken);
         }
 
-        decimal amount = 0;
-        if (packageEarnings > 0 && earnableMinutes > 0 && schedule.DurationMinutes > 0)
-            amount = Math.Round(packageEarnings * schedule.DurationMinutes / (decimal)earnableMinutes, 2);
-        else if (packageEarnings > 0 && earnableMinutes <= 0)
-            amount = Math.Round(packageEarnings, 2);
-
+        var amount = ComputeScheduleEarning(packageEarnings, totalMinutes, schedule.DurationMinutes);
         if (amount <= 0)
         {
             _logger.LogInformation(
-                "No teacher earning accrued for CourseSchedule {ScheduleId} (amount 0 / free trial / interview).",
+                "No teacher earning accrued for CourseSchedule {ScheduleId} (amount 0).",
                 courseScheduleId);
             return;
         }

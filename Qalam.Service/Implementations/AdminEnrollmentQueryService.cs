@@ -125,7 +125,15 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             .ThenBy(s => s.Id)
             .ToListAsync(cancellationToken);
         var scheduleDetailById = scheduleDetails.ToDictionary(s => s.Id);
-        var freeSessions = e.IsFreeTrial && orderedSchedules.Count > 0 ? 1 : 0;
+        var interviewScheduleId = teacherId > 0
+            ? await _db.Teachers
+                .AsNoTracking()
+                .Where(t => t.Id == teacherId)
+                .Select(t => t.InterviewUnlockCourseScheduleId)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var hasInterviewSession = orderedSchedules.Any(s => s.Id == interviewScheduleId);
+        var freeSessions = hasInterviewSession ? 1 : 0;
         var paidSessions = Math.Max(0, orderedSchedules.Count - freeSessions);
         var participantCount = e.Participants.Count;
         var succeededCount = e.Participants.Count(p => p.PaymentStatus == PaymentStatus.Succeeded);
@@ -183,8 +191,7 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             SnapshotEarningsPricePerHour = e.PricingSnapshot?.EarningsPricePerHour,
             SnapshotMarketCode = e.PricingSnapshot?.MarketCode,
             SnapshotSessionTypeCode = e.PricingSnapshot?.SessionTypeCode,
-            IsInterviewProofSession = e.IsFreeTrial
-                && (e.PricingSnapshot?.TeacherSharePct ?? 0) <= 0,
+            IsInterviewProofSession = hasInterviewSession,
             IsInterviewPendingAtQuote = list.IsInterviewPendingAtQuote,
             ProjectedTeacherSharePct = list.ProjectedTeacherSharePct,
             ProjectedTeacherEarningsDue = list.ProjectedTeacherEarningsDue,
@@ -226,7 +233,7 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                         Date = s.Date,
                         DurationMinutes = s.DurationMinutes,
                         Status = s.Status.ToString(),
-                        IsFreeSession = e.IsFreeTrial && i == 0,
+                        IsFreeSession = s.Id == interviewScheduleId,
                         Title = detailSchedule?.TeacherAvailability?.TimeSlot?.LabelEn
                                 ?? detailSchedule?.TeacherAvailability?.TimeSlot?.LabelAr,
                         StartTime = detailSchedule?.TeacherAvailability?.TimeSlot?.StartTime,
@@ -303,11 +310,12 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
                 l.PayoutItem?.PayoutBatch?.Status,
                 l.Amount))
             .ToList();
-        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(e, lineInfos, starterSharePct);
+        var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(
+            e, lineInfos, starterSharePct, interviewScheduleId);
 
-        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
+        var packageTeacherDue = (earningsBreakdown.IsInterviewPendingAtQuote
             ? earningsBreakdown.ProjectedTeacherEarningsDue
-            : earningsBreakdown.TeacherEarningsDue;
+            : earningsBreakdown.TeacherEarningsDue) - earningsBreakdown.FreeSessionTeacherDeduction;
         var accruedNet = earningsBreakdown.AccruedNet;
 
         detail.AccruedNet = accruedNet;
@@ -334,7 +342,7 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
         detail.Sessions = orderedSchedules
             .Select((s, i) =>
             {
-                var isFree = e.IsFreeTrial && i == 0;
+                var isFree = s.Id == interviewScheduleId;
                 lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
                 scheduleDetailById.TryGetValue(s.Id, out var detailSchedule);
                 complaintsBySchedule.TryGetValue(s.Id, out var sessionComplaints);
@@ -443,37 +451,8 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             }
         }
 
-        var platformCost = 0m;
-        if (e.IsFreeTrial && snapshot != null && credit > 0)
-        {
-            if (EnrollmentEarningsProjectionHelper.IsInterviewPendingAtQuote(e) && starterSharePct > 0)
-            {
-                platformCost = EnrollmentEarningsProjectionHelper.Compute(e, starterSharePct)
-                    ?.ProjectedFreeSessionTeacherDeduction ?? 0m;
-            }
-            else if (snapshot.TeacherSharePct > 0)
-            {
-                // Snapshot.TeacherEarnings already excludes the free first session; reconstruct forgone share.
-                var earnableMinutes = totalMinutes > firstMinutes
-                    ? totalMinutes - firstMinutes
-                    : 0;
-                if (snapshot.TeacherEarnings > 0 && earnableMinutes > 0 && firstMinutes > 0)
-                {
-                    platformCost = Math.Round(
-                        snapshot.TeacherEarnings * firstMinutes / (decimal)earnableMinutes,
-                        2,
-                        MidpointRounding.AwayFromZero);
-                }
-                else
-                {
-                    var earningsHourly = snapshot.EarningsPricePerHour ?? snapshot.PricePerHour;
-                    platformCost = Math.Round(
-                        earningsHourly * firstMinutes / 60m * (snapshot.TeacherSharePct / 100m),
-                        2,
-                        MidpointRounding.AwayFromZero);
-                }
-            }
-        }
+        // Platform covers the student's free-session credit; teacher is still paid the full package.
+        var platformCost = e.IsFreeTrial ? credit : 0m;
 
         var projection = EnrollmentEarningsProjectionHelper.Compute(e, starterSharePct);
 

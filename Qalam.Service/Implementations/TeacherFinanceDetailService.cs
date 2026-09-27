@@ -85,12 +85,14 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
 
         var enrollment = line.Enrollment;
         var starterShare = await ResolveStarterSharePctAsync(cancellationToken);
+        var interviewScheduleId = await ResolveInterviewScheduleIdAsync(teacherId, cancellationToken);
         var (enrollmentEarnings, pricing, projection, primaryStudent) =
             await BuildEnrollmentEarningsAsync(
                 teacherId,
                 enrollment,
                 highlightScheduleId: line.CourseScheduleId,
                 starterShare,
+                interviewScheduleId,
                 cancellationToken);
 
         var schedule = line.CourseSchedule
@@ -100,25 +102,16 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
             ? scheduleList.FindIndex(s => s.Id == schedule.Id)
             : -1;
         var sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : (int?)null;
-        var isFreeSession = enrollment.IsFreeTrial && sessionIndex == 0;
+        var isFreeSession = schedule != null && schedule.Id == interviewScheduleId;
 
         var snap = enrollment.PricingSnapshot;
-        var (gross, credit, netDue) = FreeSessionPolicyService.ResolveFreeTrialBreakdown(enrollment);
-        var totalMinutes = snap?.TotalMinutes > 0
+        var earnableMinutes = snap?.TotalMinutes > 0
             ? snap.TotalMinutes
             : enrollment.CourseSchedules?.Sum(s => s.DurationMinutes) ?? 0;
-        var firstMinutes = enrollment.CourseSchedules?.FirstOrDefault()?.DurationMinutes ?? 0;
-        if (firstMinutes <= 0 && totalMinutes > 0)
-            firstMinutes = totalMinutes / Math.Max(1, enrollment.CourseSchedules?.Count ?? 1);
-        if (firstMinutes <= 0)
-            firstMinutes = 60;
 
         var packageEarnings = snap?.TeacherEarnings > 0
             ? snap.TeacherEarnings
             : projection?.ProjectedTeacherEarningsDue ?? 0m;
-        var earnableMinutes = enrollment.IsFreeTrial && (enrollment.CourseSchedules?.Count ?? 0) > 0
-            ? Math.Max(0, totalMinutes - firstMinutes)
-            : totalMinutes;
         var sessionMinutes = schedule?.DurationMinutes ?? 0;
 
         var uiStatus = ResolveEarningUiStatus(line.Status, line.PayoutItem?.PayoutBatch?.Status);
@@ -187,12 +180,14 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
             return null;
 
         var starterShare = await ResolveStarterSharePctAsync(cancellationToken);
+        var interviewScheduleId = await ResolveInterviewScheduleIdAsync(teacherId, cancellationToken);
         var (enrollmentEarnings, pricing, projection, primaryStudent) =
             await BuildEnrollmentEarningsAsync(
                 teacherId,
                 enrollment,
                 highlightScheduleId: null,
                 starterShare,
+                interviewScheduleId,
                 cancellationToken);
 
         var listRows = await _enrollmentFinanceList.BuildAsync(
@@ -218,7 +213,7 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
             })
             .ToListAsync(cancellationToken);
 
-        var relatedDebits = BuildRelatedDebits(enrollment, projection);
+        var relatedDebits = BuildRelatedDebits(enrollment, interviewScheduleId);
 
         return new TeacherFinanceTransactionDetailDto
         {
@@ -253,6 +248,7 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         Enrollment enrollment,
         int? highlightScheduleId,
         decimal starterShare,
+        int? interviewScheduleId,
         CancellationToken cancellationToken)
     {
         var enrollmentId = enrollment.Id;
@@ -289,11 +285,12 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         var earningsBreakdown = TeacherEnrollmentEarningsHelper.Compute(
             enrollment,
             lineInfos,
-            starterShare);
+            starterShare,
+            interviewScheduleId);
 
-        var packageTeacherDue = earningsBreakdown.IsInterviewPendingAtQuote
+        var packageTeacherDue = (earningsBreakdown.IsInterviewPendingAtQuote
             ? earningsBreakdown.ProjectedTeacherEarningsDue
-            : earningsBreakdown.TeacherEarningsDue;
+            : earningsBreakdown.TeacherEarningsDue) - earningsBreakdown.FreeSessionTeacherDeduction;
 
         var lineByScheduleId = allLines
             .Where(l => l.CourseScheduleId.HasValue && l.Status != TeacherEarningLineStatus.Voided)
@@ -302,7 +299,7 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         var enrollmentSessions = schedules
             .Select((s, i) =>
             {
-                var isFree = enrollment.IsFreeTrial && i == 0;
+                var isFree = s.Id == interviewScheduleId;
                 lineByScheduleId.TryGetValue(s.Id, out var accrualLine);
                 return new TeacherFinanceSessionAccrualDto
                 {
@@ -381,22 +378,21 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
 
     private static List<TeacherFinanceRelatedDebitDto> BuildRelatedDebits(
         Enrollment enrollment,
-        TeacherFinanceProjectionDto? projection)
+        int? interviewScheduleId)
     {
         var debits = new List<TeacherFinanceRelatedDebitDto>();
         var snap = enrollment.PricingSnapshot;
 
-        var freeSessionDeduction = projection?.ProjectedFreeSessionTeacherDeduction
-            ?? (enrollment.IsFreeTrial && snap != null
-                ? TeacherEnrollmentEarningsHelper.Compute(enrollment, [], 0m).FreeSessionTeacherDeduction
-                : 0m);
+        var freeSessionDeduction = snap != null
+            ? TeacherEnrollmentEarningsHelper.Compute(enrollment, [], 0m, interviewScheduleId).FreeSessionTeacherDeduction
+            : 0m;
 
         if (freeSessionDeduction > 0)
         {
             debits.Add(new TeacherFinanceRelatedDebitDto
             {
                 Code = "FreeSessionDeduction",
-                Label = "Free session teacher deduction",
+                Label = "Interview session (unpaid)",
                 Amount = freeSessionDeduction,
                 InformationalOnly = true,
             });
@@ -563,6 +559,13 @@ public class TeacherFinanceDetailService : ITeacherFinanceDetailService
         var starter = await _teacherLevelRepository.GetStarterLevelAsync(cancellationToken);
         return starter?.TeacherSharePct ?? 0m;
     }
+
+    private Task<int?> ResolveInterviewScheduleIdAsync(int teacherId, CancellationToken cancellationToken) =>
+        _db.Teachers
+            .AsNoTracking()
+            .Where(t => t.Id == teacherId)
+            .Select(t => t.InterviewUnlockCourseScheduleId)
+            .FirstOrDefaultAsync(cancellationToken);
 
     private static string ResolveEarningUiStatus(
         TeacherEarningLineStatus status,

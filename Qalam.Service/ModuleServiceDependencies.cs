@@ -127,6 +127,7 @@ namespace Qalam.Service
             services.AddTransient<IEnrollmentCancellationService, EnrollmentCancellationService>();
             services.AddTransient<IEnrollmentCompletionService, EnrollmentCompletionService>();
             services.AddTransient<ITeacherEarningService, TeacherEarningService>();
+            services.AddTransient<ITeacherEarningRecomputeService, TeacherEarningRecomputeService>();
             services.AddTransient<ITeacherFinanceDetailService, TeacherFinanceDetailService>();
             services.AddTransient<ITeacherEnrollmentFinanceListBuilder, TeacherEnrollmentFinanceListBuilder>();
             services.AddTransient<IPayoutService, PayoutService>();

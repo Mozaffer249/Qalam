@@ -67,7 +67,12 @@ public class GetCourseHourlyRatePreviewQueryHandlerTests
         };
 
         var teacherRepo = new Mock<ITeacherRepository>();
-        teacherRepo.Setup(r => r.GetByUserIdAsync(10)).ReturnsAsync(new TeacherEntity { Id = 5, UserId = 10 });
+        teacherRepo.Setup(r => r.GetByUserIdAsync(10)).ReturnsAsync(new TeacherEntity
+        {
+            Id = 5,
+            UserId = 10,
+            HasCompletedInterviewSession = true,
+        });
 
         var subjectRepo = new Mock<ITeacherSubjectRepository>();
         subjectRepo

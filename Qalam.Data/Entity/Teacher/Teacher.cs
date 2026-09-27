@@ -66,8 +66,21 @@ public class Teacher : AuditableEntity
     /// <summary>Per-teacher share override (0–100). Null = use TeacherLevel.TeacherSharePct.</summary>
     public decimal? CustomTeacherSharePct { get; set; }
 
-    /// <summary>False until first completed session unlocks min tier (or admin assigns a level).</summary>
+    /// <summary>
+    /// Account-wide interview: false until the teacher's first completed session on the platform
+    /// (any domain) or an admin level assignment. That one session is unpaid; all others earn the share.
+    /// </summary>
     public bool HasCompletedInterviewSession { get; set; }
+
+    public InterviewUnlockSource InterviewUnlockSource { get; set; } = InterviewUnlockSource.None;
+
+    /// <summary>Enrollment that holds the teacher's unpaid interview session (auto unlock).</summary>
+    public int? InterviewUnlockEnrollmentId { get; set; }
+
+    /// <summary>The teacher's unpaid interview session — never accrues a <c>TeacherEarningLine</c>.</summary>
+    public int? InterviewUnlockCourseScheduleId { get; set; }
+
+    public DateTime? InterviewUnlockedAt { get; set; }
 
     // Navigation Properties
     public TeacherLevel? TeacherLevel { get; set; }

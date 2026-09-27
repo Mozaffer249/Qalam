@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Admin.Finance.Commands.RecomputeTeacherEarnings;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminFinanceSummary;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminFinanceTransactionByKey;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminRevenueById;
@@ -56,6 +57,16 @@ public class AdminFinanceController : AppControllerBase
         => NewResult(await Mediator.Send(new GetAdminFinanceTransactionByKeyQuery
         {
             Key = key
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminFinanceRecomputeTeacherEarnings)]
+    [ProducesResponseType(typeof(AdminTeacherEarningsRecomputeResultDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RecomputeTeacherEarnings(
+        [FromQuery] bool dryRun = true,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new RecomputeTeacherEarningsCommand
+        {
+            DryRun = dryRun
         }, cancellationToken));
 
     [HttpGet(Router.AdminTeacherFinanceSummary)]

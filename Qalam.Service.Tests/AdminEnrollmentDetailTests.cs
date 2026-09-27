@@ -223,7 +223,17 @@ public class AdminEnrollmentDetailTests
         };
         db.CourseSchedules.AddRange(freeSchedule, paidSchedule);
         await db.SaveChangesAsync();
+        db.Teachers.Add(new Qalam.Data.Entity.Teacher.Teacher
+        {
+            Id = 5,
+            HasCompletedInterviewSession = true,
+            InterviewUnlockSource = InterviewUnlockSource.AutoFromSession,
+            InterviewUnlockCourseScheduleId = freeSchedule.Id,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
 
+        // Starter 10% of 85 × 2h = 17; the teacher's interview session (8.50) is unpaid.
         const decimal accruedAmount = 8.50m;
         db.TeacherEarningLines.Add(new TeacherEarningLine
         {
