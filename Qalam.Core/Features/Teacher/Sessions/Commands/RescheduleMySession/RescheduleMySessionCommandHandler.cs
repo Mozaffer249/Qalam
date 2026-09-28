@@ -57,9 +57,7 @@ public class RescheduleMySessionCommandHandler : ResponseHandler,
         if (availability.TeacherId != teacher.Id)
             return Forbidden<RescheduleMySessionResultDto>("Availability slot does not belong to you.");
 
-        var duration = availability.TimeSlot.DurationMinutes > 0
-            ? availability.TimeSlot.DurationMinutes
-            : (int)(availability.TimeSlot.EndTime - availability.TimeSlot.StartTime).TotalMinutes;
+        var duration = availability.TimeSlot.ResolveDurationMinutes();
 
         var transaction = await _scheduleRepository.BeginTransactionAsync();
         try

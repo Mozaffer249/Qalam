@@ -221,7 +221,7 @@ public class SessionPresenceService : ISessionPresenceService
 
         var utcNow = DateTime.UtcNow;
         var startUtc = PlatformTime.ToUtc(schedule.Date, slot.StartTime);
-        var endUtc = PlatformTime.ToUtc(schedule.Date, slot.EndTime);
+        var endUtc = PlatformTime.ToUtc(slot.GetEndDate(schedule.Date), slot.EndTime);
 
         if (utcNow < startUtc)
             return "Cannot join before the session start time.";

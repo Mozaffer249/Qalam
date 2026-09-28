@@ -33,16 +33,14 @@ internal static class TeacherSessionCommandHelpers
         if (timeSlot == null)
             return false;
 
-        var start = TimeOnly.FromTimeSpan(timeSlot.StartTime);
-        var end = TimeOnly.FromTimeSpan(timeSlot.EndTime);
-        if (end <= start)
+        if (timeSlot.EndTime == timeSlot.StartTime)
             return false;
 
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = PlatformTime.ToUtc(schedule.Date, start);
-        var endUtc = PlatformTime.ToUtc(schedule.Date, end);
+        var startUtc = PlatformTime.ToUtc(schedule.Date, timeSlot.StartTime);
+        var endUtc = PlatformTime.ToUtc(timeSlot.GetEndDate(schedule.Date), timeSlot.EndTime);
         return utcNow >= startUtc && utcNow <= endUtc;
     }
 }

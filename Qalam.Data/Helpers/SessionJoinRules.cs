@@ -1,3 +1,4 @@
+using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.Helpers;
@@ -22,15 +23,14 @@ public static class SessionJoinRules
         if (status is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress)) return false;
         if (startTime == null || endTime == null) return false;
 
-        var start = TimeOnly.FromTimeSpan(startTime.Value);
-        var end = TimeOnly.FromTimeSpan(endTime.Value);
-        if (end <= start) return false;
+        if (endTime.Value == startTime.Value) return false;
 
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = PlatformTime.ToUtc(date, start);
-        var endUtc = PlatformTime.ToUtc(date, end);
+        var endDate = TimeSlot.EndsNextDayFor(startTime.Value, endTime.Value) ? date.AddDays(1) : date;
+        var startUtc = PlatformTime.ToUtc(date, startTime.Value);
+        var endUtc = PlatformTime.ToUtc(endDate, endTime.Value);
         return utcNow >= startUtc && utcNow <= endUtc;
     }
 }

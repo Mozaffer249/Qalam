@@ -721,15 +721,13 @@ public class TeacherEnrollmentService : ITeacherEnrollmentService
         if (scheduleStatus is not (ScheduleStatus.Scheduled or ScheduleStatus.InProgress)) return false;
         if (timeSlot == null) return false;
 
-        var start = TimeOnly.FromTimeSpan(timeSlot.StartTime);
-        var end = TimeOnly.FromTimeSpan(timeSlot.EndTime);
-        if (end <= start) return false;
+        if (timeSlot.EndTime == timeSlot.StartTime) return false;
 
         if (!enforceJoinWindow)
             return true;
 
-        var startUtc = PlatformTime.ToUtc(sessionDate, start);
-        var endUtc = PlatformTime.ToUtc(sessionDate, end);
+        var startUtc = PlatformTime.ToUtc(sessionDate, timeSlot.StartTime);
+        var endUtc = PlatformTime.ToUtc(timeSlot.GetEndDate(sessionDate), timeSlot.EndTime);
 
         return utcNow >= startUtc && utcNow <= endUtc;
     }

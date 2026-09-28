@@ -28,9 +28,26 @@ public class TimeSlot : AuditableEntity
         if (DurationMinutes > 0)
             return DurationMinutes;
 
-        var span = EndTime - StartTime;
-        if (span <= TimeSpan.Zero)
+        return SpanMinutes(StartTime, EndTime);
+    }
+
+    /// <summary>An end time at or before the start time means the slot ends on the next day (e.g. 23:00–00:00).</summary>
+    public bool EndsNextDay => EndsNextDayFor(StartTime, EndTime);
+
+    /// <summary>Calendar date on which the slot ends when it starts on <paramref name="startDate"/>.</summary>
+    public DateOnly GetEndDate(DateOnly startDate) => EndsNextDay ? startDate.AddDays(1) : startDate;
+
+    public static bool EndsNextDayFor(TimeSpan start, TimeSpan end) => end <= start;
+
+    /// <summary>Slot length in minutes; wraps past midnight. Returns 0 when start equals end.</summary>
+    public static int SpanMinutes(TimeSpan start, TimeSpan end)
+    {
+        if (start == end)
             return 0;
+
+        var span = end - start;
+        if (span < TimeSpan.Zero)
+            span += TimeSpan.FromDays(1);
 
         return (int)Math.Round(span.TotalMinutes, MidpointRounding.AwayFromZero);
     }

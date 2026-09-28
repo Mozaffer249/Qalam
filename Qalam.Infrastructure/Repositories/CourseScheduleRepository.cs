@@ -131,7 +131,7 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
             {
                 var slot = cs.TeacherAvailability!.TimeSlot!;
                 var startUtc = PlatformTime.ToUtc(cs.Date, slot.StartTime);
-                var endUtc = PlatformTime.ToUtc(cs.Date, slot.EndTime);
+                var endUtc = PlatformTime.ToUtc(slot.GetEndDate(cs.Date), slot.EndTime);
                 return startUtc <= now && endUtc > now;
             })
             .ToList();
