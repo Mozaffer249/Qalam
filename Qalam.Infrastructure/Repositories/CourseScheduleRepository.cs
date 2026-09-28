@@ -103,8 +103,8 @@ public class CourseScheduleRepository : GenericRepositoryAsync<CourseSchedule>, 
         return candidates
             .Where(cs =>
             {
-                var end = cs.TeacherAvailability.TimeSlot!.EndTime;
-                var endUtc = PlatformTime.ToUtc(cs.Date, end);
+                var slot = cs.TeacherAvailability!.TimeSlot!;
+                var endUtc = PlatformTime.ToUtc(slot.GetEndDate(cs.Date), slot.EndTime);
                 return endUtc <= now;
             })
             .ToList();
