@@ -422,6 +422,28 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         var transaction = await _paymentRepository.BeginTransactionAsync();
         try
         {
+            await _enrollmentRepository.AcquirePaymentConfirmationLockAsync(enrollment.Id, cancellationToken);
+
+            // A concurrent confirm may have activated the enrollment while we waited for the lock;
+            // the tracked graph is stale, so check the database before generating schedules again.
+            var (committedStatus, committedSchedules) = await _enrollmentRepository
+                .GetCommittedActivationStateAsync(enrollment.Id, cancellationToken);
+            if (committedStatus == EnrollmentStatus.Active && committedSchedules > 0)
+            {
+                await _paymentRepository.SaveChangesAsync();
+                await _paymentRepository.CommitAsync();
+                return PaymentConfirmationOutcome.Ok(new PaymentResultDto
+                {
+                    PaymentId = payment.Id,
+                    Status = payment.Status,
+                    TotalAmount = payment.TotalAmount,
+                    Currency = payment.Currency,
+                    PaidAt = enrollment.ActivatedAt ?? payment.UpdatedAt ?? now,
+                    EnrollmentActivated = true,
+                    SchedulesCreated = committedSchedules
+                });
+            }
+
             var pendingParticipants = enrollment.Participants
                 .Where(p => p.PaymentStatus == PaymentStatus.Pending)
                 .ToList();
@@ -671,7 +693,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
             }
 
             // Avoid duplicating schedules on retry.
-            if (enrollment.CourseSchedules.Count == 0)
+            if (enrollment.CourseSchedules.Count == 0 && committedSchedules == 0)
             {
                 foreach (var s in preview.Slots)
                 {

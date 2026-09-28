@@ -1,3 +1,4 @@
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Infrastructure.InfrastructureBases;
 
@@ -21,6 +22,18 @@ public interface IEnrollmentRepository : IGenericRepositoryAsync<Enrollment>
     /// Tracking load with everything the payment + schedule-generation flow needs.
     /// </summary>
     Task<Enrollment?> GetByIdForPaymentAsync(int id, CancellationToken ct);
+
+    /// <summary>
+    /// Serializes payment confirmation for an enrollment (webhook, client confirm and reconciliation
+    /// can race). Must be called inside the current transaction; released on commit/rollback.
+    /// </summary>
+    Task AcquirePaymentConfirmationLockAsync(int enrollmentId, CancellationToken ct);
+
+    /// <summary>
+    /// Committed status and non-cancelled schedule count for the enrollment
+    /// (reads the database, not the tracked graph).
+    /// </summary>
+    Task<(EnrollmentStatus Status, int ScheduleCount)> GetCommittedActivationStateAsync(int enrollmentId, CancellationToken ct);
 
     /// <summary>
     /// No-tracking load with all participants for detail / list views.

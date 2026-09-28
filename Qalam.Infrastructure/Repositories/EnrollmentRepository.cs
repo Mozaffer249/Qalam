@@ -98,6 +98,38 @@ public class EnrollmentRepository : GenericRepositoryAsync<Enrollment>, IEnrollm
             .FirstOrDefaultAsync(e => e.Id == id, ct);
     }
 
+    public async Task AcquirePaymentConfirmationLockAsync(int enrollmentId, CancellationToken ct)
+    {
+        if (!_context.Database.IsRelational())
+            return;
+
+        var resource = $"enrollment-payment-confirm-{enrollmentId}";
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             DECLARE @result int;
+             EXEC @result = sp_getapplock @Resource = {resource}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 30000;
+             IF @result < 0 THROW 50001, 'Could not acquire payment confirmation lock.', 1;
+             """,
+            ct);
+    }
+
+    public async Task<(EnrollmentStatus Status, int ScheduleCount)> GetCommittedActivationStateAsync(
+        int enrollmentId,
+        CancellationToken ct)
+    {
+        var status = await _context.Enrollments
+            .AsNoTracking()
+            .Where(e => e.Id == enrollmentId)
+            .Select(e => e.EnrollmentStatus)
+            .FirstOrDefaultAsync(ct);
+        var scheduleCount = await _context.CourseSchedules
+            .AsNoTracking()
+            .CountAsync(s => s.EnrollmentId == enrollmentId
+                             && s.Status != ScheduleStatus.Cancelled
+                             && s.Status != ScheduleStatus.Rescheduled, ct);
+        return (status, scheduleCount);
+    }
+
     public async Task<Enrollment?> GetByIdWithParticipantsAsync(int id, CancellationToken ct)
     {
         return await _context.Enrollments
