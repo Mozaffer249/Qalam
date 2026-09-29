@@ -74,4 +74,9 @@
   <data name="RequiredAttribute_ValidationError" xml:space="preserve">
     <value>حقل {0} مطلوب.</value>
   </data>
+
+  <!-- Authentication -->
+  <data name="EmailBelongsToExistingAccount" xml:space="preserve">
+    <value>هذا البريد الإلكتروني مسجل بحساب آخر. سجّل الدخول برقم الجوال المرتبط بذلك الحساب لإضافة صلاحية الطالب.</value>
+  </data>
 </root>

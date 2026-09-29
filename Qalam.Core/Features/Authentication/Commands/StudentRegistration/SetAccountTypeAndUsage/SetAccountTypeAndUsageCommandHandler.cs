@@ -25,6 +25,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
     private readonly IAuthenticationService _authService;
     private readonly ILegalConsentService _consentService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IStringLocalizer<SharedResources> _localizer;
 
     public SetAccountTypeAndUsageCommandHandler(
         UserManager<User> userManager,
@@ -41,6 +42,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
         _authService = authService;
         _consentService = consentService;
         _httpContextAccessor = httpContextAccessor;
+        _localizer = localizer;
     }
 
     public async Task<Response<StudentRegistrationResponseDto>> Handle(
@@ -137,7 +139,7 @@ public class SetAccountTypeAndUsageCommandHandler : ResponseHandler,
                 }
                 if (emailOwner != null && emailOwner.Id != user.Id)
                 {
-                    return BadRequest<StudentRegistrationResponseDto>("Email is already registered.");
+                    return BadRequest<StudentRegistrationResponseDto>(_localizer[SharedResourcesKeys.EmailBelongsToExistingAccount]);
                 }
             }
 

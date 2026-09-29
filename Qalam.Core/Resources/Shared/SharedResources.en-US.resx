@@ -74,4 +74,9 @@
   <data name="RequiredAttribute_ValidationError" xml:space="preserve">
     <value>The {0} field is required.</value>
   </data>
+
+  <!-- Authentication -->
+  <data name="EmailBelongsToExistingAccount" xml:space="preserve">
+    <value>This email belongs to an existing account. Sign in with that account's phone number to add student access.</value>
+  </data>
 </root>

@@ -18,6 +18,9 @@ namespace Qalam.Core.Resources.Shared
 
         // DataAnnotations default error messages
         public const string RequiredAttribute_ValidationError = "RequiredAttribute_ValidationError";
+
+        // Authentication
+        public const string EmailBelongsToExistingAccount = "EmailBelongsToExistingAccount";
     }
 }
 

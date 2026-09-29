@@ -19,6 +19,7 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
     private readonly UserManager<User> _userManager;
     private readonly IAuthSettingsProvider _authSettingsProvider;
     private readonly IEmailDeliverabilityChecker _emailDeliverabilityChecker;
+    private readonly IStringLocalizer<SharedResources> _localizer;
 
     public StudentSendOtpCommandHandler(
         IOtpService otpService,
@@ -31,6 +32,7 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
         _userManager = userManager;
         _authSettingsProvider = authSettingsProvider;
         _emailDeliverabilityChecker = emailDeliverabilityChecker;
+        _localizer = localizer;
     }
 
     public async Task<Response<StudentSendOtpResponseDto>> Handle(
@@ -80,7 +82,7 @@ public class StudentSendOtpCommandHandler : ResponseHandler,
                 return BadRequest<StudentSendOtpResponseDto>("Email is already registered.");
             }
             if (emailOwner != null && (isNewUser || emailOwner.Id != existingUser!.Id))
-                return BadRequest<StudentSendOtpResponseDto>("Email is already registered.");
+                return BadRequest<StudentSendOtpResponseDto>(_localizer[SharedResourcesKeys.EmailBelongsToExistingAccount]);
         }
 
         LoginOtpSendResult? sendResult;
