@@ -55,16 +55,24 @@ public class DomainSessionPriceRepository : GenericRepositoryAsync<DomainSession
             .OrderByDescending(p => p.EffectiveFrom)
             .ToListAsync(cancellationToken);
 
-    public Task<List<DomainSessionPrice>> ListCurrentRatesAsync(
+    public async Task<List<DomainSessionPrice>> ListCurrentRatesAsync(
         string marketCode,
-        CancellationToken cancellationToken = default) =>
-        _set.AsNoTracking()
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _set.AsNoTracking()
             .Include(p => p.Domain)
             .Include(p => p.Market)
             .Where(p => p.MarketCode == marketCode && p.IsActive && p.EffectiveTo == null)
+            .ToListAsync(cancellationToken);
+
+        // Merged duplicate domains can leave more than one open row per (domain, session type).
+        return rows
+            .GroupBy(p => (p.DomainId, p.SessionTypeCode))
+            .Select(g => g.OrderByDescending(p => p.EffectiveFrom).ThenByDescending(p => p.Id).First())
             .OrderBy(p => p.DomainId)
             .ThenBy(p => p.SessionTypeCode)
-            .ToListAsync(cancellationToken);
+            .ToList();
+    }
 
     public async Task CloseCurrentRateAsync(
         int domainId,

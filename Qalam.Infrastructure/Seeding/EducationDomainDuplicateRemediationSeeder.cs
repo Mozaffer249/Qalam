@@ -381,8 +381,22 @@ public static class EducationDomainDuplicateRemediationSeeder
                 mode.DomainId = toId;
         }
 
+        var keeperOpenPriceKeys = (await context.DomainSessionPrices
+                .Where(x => x.DomainId == toId && x.EffectiveTo == null)
+                .Select(x => new { x.MarketCode, x.SessionTypeCode })
+                .ToListAsync())
+            .Select(x => $"{x.MarketCode}|{x.SessionTypeCode}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var mergeTime = DateTime.UtcNow;
         foreach (var row in await context.DomainSessionPrices.Where(x => x.DomainId == fromId).ToListAsync())
+        {
+            if (row.EffectiveTo == null && keeperOpenPriceKeys.Contains($"{row.MarketCode}|{row.SessionTypeCode}"))
+            {
+                row.EffectiveTo = mergeTime;
+                row.UpdatedAt = mergeTime;
+            }
             row.DomainId = toId;
+        }
         foreach (var row in await context.PricingSnapshots.Where(x => x.DomainId == fromId).ToListAsync())
             row.DomainId = toId;
 
