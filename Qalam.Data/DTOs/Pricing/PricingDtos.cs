@@ -292,9 +292,18 @@ public class TeacherMyDomainPricingDto
     public decimal? IndividualTeacherEarningsPerHour { get; set; }
     /// <summary>Teacher's own earnings per group hour at <see cref="ProjectedSharePct"/>.</summary>
     public decimal? GroupTeacherEarningsPerHour { get; set; }
+    /// <summary>One of <see cref="TeacherPriceStatus"/>.</summary>
+    public string PriceStatus { get; set; } = TeacherPriceStatus.Ready;
     public bool HasCompletedInterviewSession { get; set; }
     public string Currency { get; set; } = default!;
     public string MarketCode { get; set; } = default!;
+}
+
+public static class TeacherPriceStatus
+{
+    public const string Ready = "Ready";
+    public const string NoPlatformRate = "NoPlatformRate";
+    public const string NoShare = "NoShare";
 }
 
 public class FreeSessionPolicyStatsDto
