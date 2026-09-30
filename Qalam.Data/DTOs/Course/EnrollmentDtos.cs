@@ -343,6 +343,8 @@ public class EnrollmentSessionItemDto
     /// </summary>
     public string? Title { get; set; }
 
+    public string? Description { get; set; }
+
     public string? Notes { get; set; }
 
     /// <summary>

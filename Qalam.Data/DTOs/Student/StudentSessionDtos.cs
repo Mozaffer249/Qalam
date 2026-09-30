@@ -12,6 +12,7 @@ public class StudentSessionDetailDto
     public int EnrollmentId { get; set; }
     public int SessionNumber { get; set; }
     public string? Title { get; set; }
+    public string? Description { get; set; }
     public string? Notes { get; set; }
     public string? TeacherNote { get; set; }
     public string? TeacherDisplayName { get; set; }
