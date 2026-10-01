@@ -77,7 +77,8 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             .Where(x => x.Id == data.DomainId)
             .Select(x => new { x.Code, x.NameEn })
             .FirstOrDefaultAsync(cancellationToken);
-        if (QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn)
+        var isQuranDomain = QuranDomainHelper.IsQuranDomain(domain?.Code, domain?.NameEn);
+        if (isQuranDomain
             && data.Sessions.Any(s => !s.QuranContentTypeId.HasValue || !s.QuranLevelId.HasValue))
             return BadRequest<OpenSessionRequestDetailDto>("جلسات مجال القرآن تتطلب QuranContentTypeId و QuranLevelId");
 
@@ -124,8 +125,9 @@ public class UpdateOpenSessionRequestDraftCommandHandler
                 PreferredDate = s.PreferredDate,
                 TimeSlotId = s.TimeSlotId,
                 DurationMinutes = s.DurationMinutes,
-                QuranContentTypeId = s.QuranContentTypeId,
-                QuranLevelId = s.QuranLevelId,
+                // Non-Quran clients may send an education level id here (FK is QuranLevels).
+                QuranContentTypeId = isQuranDomain ? s.QuranContentTypeId : null,
+                QuranLevelId = isQuranDomain ? s.QuranLevelId : null,
                 Notes = s.Notes,
             };
             foreach (var u in s.Units)
