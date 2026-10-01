@@ -216,18 +216,8 @@ public class StudentOpenSessionRequestController : AppControllerBase
     /// </remarks>
     [HttpGet(Router.StudentOpenSessionRequestsMy)]
     [ProducesResponseType(typeof(List<OpenSessionRequestListItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMy(
-        [FromQuery] OpenSessionRequestStatus? status,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
-    {
-        return NewResult(await Mediator.Send(new GetMyOpenSessionRequestsQuery
-        {
-            Status = status,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        }));
-    }
+    public async Task<IActionResult> GetMy([FromQuery] GetMyOpenSessionRequestsQuery query)
+        => NewResult(await Mediator.Send(query));
 
     /// <summary>
     /// Get full detail of one open session request. Visible to the request owner (or their

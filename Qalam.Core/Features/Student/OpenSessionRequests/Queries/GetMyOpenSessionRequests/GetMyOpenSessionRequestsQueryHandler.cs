@@ -7,6 +7,7 @@ using Qalam.Core.Features.Student.OpenSessionRequests.Services;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.OpenSessionRequests;
 using Qalam.Data.Entity.Common.Enums;
+using Qalam.Infrastructure.Abstracts;
 using Qalam.Infrastructure.context;
 
 namespace Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRequests;
@@ -57,10 +58,29 @@ public class GetMyOpenSessionRequestsQueryHandler
             };
         }
 
+        if (request.IsTargeted == true)
+            query = query.Where(r => r.TargetedTeacherId != null);
+        else if (request.IsTargeted == false)
+            query = query.Where(r => r.TargetedTeacherId == null);
+
+        if (request.StudentId.HasValue)
+            query = query.Where(r => r.StudentId == request.StudentId.Value);
+
         var totalCount = await query.CountAsync(cancellationToken);
 
+        query = request.SortBy switch
+        {
+            TeacherInboxSort.ExpiringSoon => query
+                .OrderBy(r => r.ExpiresAt == null)
+                .ThenBy(r => r.ExpiresAt)
+                .ThenByDescending(r => r.CreatedAt),
+            TeacherInboxSort.MostOffers => query
+                .OrderByDescending(r => r.Offers.Count(o => o.Status != OpenSessionOfferStatus.Withdrawn))
+                .ThenByDescending(r => r.CreatedAt),
+            _ => query.OrderByDescending(r => r.CreatedAt),
+        };
+
         var items = await query
-            .OrderByDescending(r => r.CreatedAt)
             .Include(r => r.Student).ThenInclude(s => s!.User)
             .Include(r => r.Subject)
             .Include(r => r.TeachingMode)

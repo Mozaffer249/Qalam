@@ -201,9 +201,14 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             if (leadError != null)
                 return BadRequest<OpenSessionRequestDetailDto>(leadError);
         }
+        // Window is anchored to publish time; the old ExpiresAt may already be capped by the previous first session.
+        var windowBound = data.ExpiresAt
+            ?? (isPublished && entity.PublishedAt.HasValue
+                ? entity.PublishedAt.Value.AddDays(Math.Max(1, _osrSettings.RequestWindowDays))
+                : null);
         entity.ExpiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
             now,
-            data.ExpiresAt ?? entity.ExpiresAt,
+            windowBound,
             firstSessionStartUtc,
             _osrSettings,
             isTargeted);
