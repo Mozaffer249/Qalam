@@ -117,6 +117,14 @@ public class StudentOfferDetailDto : StudentOfferListItemDto
     public int SessionDurationMinutes { get; set; }
     /// <summary>Top recent approved teacher reviews (preview for the detail screen).</summary>
     public List<StudentOfferReviewPreviewDto> RecentReviews { get; set; } = new();
+    /// <summary>Pending-payment enrollment created when this offer was accepted; null otherwise.</summary>
+    public int? EnrollmentId { get; set; }
+    public int? PayParticipantId { get; set; }
+    /// <summary>Enrollment amount still due (distinct from the pre-accept teaser <see cref="StudentOfferListItemDto.AmountDue"/>).</summary>
+    public decimal? PaymentAmountDue { get; set; }
+    public DateTime? PaymentDeadline { get; set; }
+    /// <summary>True when the caller owns the pending enrollment and may still pay it.</summary>
+    public bool CanPay { get; set; }
 }
 
 /// <summary>Compact review row embedded on offer detail.</summary>

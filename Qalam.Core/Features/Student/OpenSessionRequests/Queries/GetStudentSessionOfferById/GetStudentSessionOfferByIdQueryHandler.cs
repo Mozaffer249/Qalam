@@ -166,6 +166,52 @@ public class GetStudentSessionOfferByIdQueryHandler
         offer.FreeSessionCredit = credit;
         offer.AmountDue = due;
 
+        if (offer.Status == OpenSessionOfferStatus.Accepted)
+            await AttachPendingPaymentAsync(offer, entity.StudentId, entity.RequestedByUserId, request.UserId, cancellationToken);
+
         return Success(entity: offer);
+    }
+
+    private async Task AttachPendingPaymentAsync(
+        StudentOfferDetailDto offer,
+        int requestStudentId,
+        int requestedByUserId,
+        int callerUserId,
+        CancellationToken cancellationToken)
+    {
+        var enrollment = await _db.Enrollments
+            .AsNoTracking()
+            .Where(e => e.SessionOfferId == offer.Id
+                        && e.EnrollmentStatus == EnrollmentStatus.PendingPayment)
+            .OrderByDescending(e => e.Id)
+            .Select(e => new
+            {
+                e.Id,
+                e.AmountDue,
+                e.PaymentDeadline,
+                e.OwnerUserId,
+                ParticipantId = e.Participants
+                    .OrderBy(p => p.StudentId == requestStudentId ? 0 : 1)
+                    .ThenBy(p => p.Id)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefault()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (enrollment == null)
+            return;
+
+        var ownerUserId = enrollment.OwnerUserId ?? requestedByUserId;
+        var deadlineOpen = enrollment.PaymentDeadline == null
+            || enrollment.PaymentDeadline > DateTime.UtcNow;
+
+        offer.EnrollmentId = enrollment.Id;
+        offer.PayParticipantId = enrollment.ParticipantId;
+        offer.PaymentAmountDue = enrollment.AmountDue;
+        offer.PaymentDeadline = enrollment.PaymentDeadline;
+        offer.CanPay = ownerUserId == callerUserId
+            && enrollment.ParticipantId != null
+            && enrollment.AmountDue > 0
+            && deadlineOpen;
     }
 }
