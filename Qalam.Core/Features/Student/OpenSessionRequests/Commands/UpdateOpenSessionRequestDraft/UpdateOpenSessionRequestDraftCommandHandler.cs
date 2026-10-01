@@ -25,6 +25,19 @@ public class UpdateOpenSessionRequestDraftCommandHandler
     private readonly OpenSessionRequestSettings _osrSettings;
     private readonly IMapper _mapper;
     private readonly IOpenSessionRequestStudentPricingEnricher _pricingEnricher;
+    private readonly IGuardianChildrenService _guardianChildren;
+    private readonly ITargetedOpenSessionRequestPricingService _targetedPricing;
+    private readonly IOpenSessionRequestTargetingService _targetingService;
+
+    public const string RequestEditedReason = "REQUEST_EDITED";
+
+    private static readonly OpenSessionRequestStatus[] EditableStatuses =
+    {
+        OpenSessionRequestStatus.Draft,
+        OpenSessionRequestStatus.PendingInvitations,
+        OpenSessionRequestStatus.Active,
+        OpenSessionRequestStatus.ReceivingOffers,
+    };
 
     public UpdateOpenSessionRequestDraftCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
@@ -33,7 +46,10 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         ITargetedOpenSessionRequestValidator targetedValidator,
         IOptions<OpenSessionRequestSettings> osrSettings,
         IMapper mapper,
-        IOpenSessionRequestStudentPricingEnricher pricingEnricher) : base(sharedLocalizer)
+        IOpenSessionRequestStudentPricingEnricher pricingEnricher,
+        IGuardianChildrenService guardianChildren,
+        ITargetedOpenSessionRequestPricingService targetedPricing,
+        IOpenSessionRequestTargetingService targetingService) : base(sharedLocalizer)
     {
         _db = db;
         _accessGuard = accessGuard;
@@ -41,6 +57,9 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         _osrSettings = osrSettings.Value;
         _mapper = mapper;
         _pricingEnricher = pricingEnricher;
+        _guardianChildren = guardianChildren;
+        _targetedPricing = targetedPricing;
+        _targetingService = targetingService;
     }
 
     public async Task<Response<OpenSessionRequestDetailDto>> Handle(
@@ -58,8 +77,14 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         if (!await _accessGuard.CanActOnRequestAsync(request.UserId, entity, cancellationToken))
             return Unauthorized<OpenSessionRequestDetailDto>("Forbidden");
 
-        if (entity.Status != OpenSessionRequestStatus.Draft)
-            return BadRequest<OpenSessionRequestDetailDto>("يمكن تعديل المسودات فقط. استخدم Publish للنشر.");
+        if (!EditableStatuses.Contains(entity.Status))
+            return BadRequest<OpenSessionRequestDetailDto>("REQUEST_NOT_EDITABLE");
+
+        var isPublished = entity.Status != OpenSessionRequestStatus.Draft;
+        var previousStatus = entity.Status;
+
+        if (isPublished && request.Data.TargetedTeacherId != entity.TargetedTeacherId)
+            return BadRequest<OpenSessionRequestDetailDto>("TARGETED_TEACHER_LOCKED");
 
         var data = request.Data;
         var access = await _accessGuard.CanCreateForStudentAsync(request.UserId, data.StudentId, cancellationToken);
@@ -113,9 +138,12 @@ public class UpdateOpenSessionRequestDraftCommandHandler
 
         _db.RemoveRange(entity.Sessions.SelectMany(s => s.Units));
         _db.RemoveRange(entity.Sessions);
-        _db.RemoveRange(entity.Invitations);
         entity.Sessions.Clear();
-        entity.Invitations.Clear();
+        if (!isPublished)
+        {
+            _db.RemoveRange(entity.Invitations);
+            entity.Invitations.Clear();
+        }
 
         foreach (var s in data.Sessions)
         {
@@ -141,28 +169,78 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             entity.Sessions.Add(session);
         }
 
-        foreach (var invitedId in data.InvitedStudentIds.Distinct())
+        var now = DateTime.UtcNow;
+        var isTargeted = data.TargetedTeacherId.HasValue;
+
+        if (isPublished)
         {
-            entity.Invitations.Add(new OpenSessionRequestInvitation
+            var ownedStudentIds = await _guardianChildren.GetOwnedStudentIdsAsync(
+                request.UserId, cancellationToken);
+            MergePublishedInvitations(entity, data, ownedStudentIds, now);
+        }
+        else
+        {
+            foreach (var invitedId in data.InvitedStudentIds.Distinct())
             {
-                InvitedStudentId = invitedId,
-                InvitedByStudentId = data.StudentId,
-                Status = OpenSessionRequestInvitationStatus.Pending,
-            });
+                entity.Invitations.Add(new OpenSessionRequestInvitation
+                {
+                    InvitedStudentId = invitedId,
+                    InvitedByStudentId = data.StudentId,
+                    Status = OpenSessionRequestInvitationStatus.Pending,
+                });
+            }
         }
 
         // Recompute expiry from (possibly moved) session dates; drafts skip min-lead until publish.
-        var now = DateTime.UtcNow;
         var firstSessionStartUtc = await OpenSessionRequestDeadlineResolver
             .ResolveFirstSessionStartUtcFromDtosAsync(_db, data.Sessions, cancellationToken);
+        if (isPublished)
+        {
+            var leadError = OpenSessionRequestDeadlineResolver.ValidateMinimumLead(
+                now, firstSessionStartUtc, _osrSettings, isTargeted);
+            if (leadError != null)
+                return BadRequest<OpenSessionRequestDetailDto>(leadError);
+        }
         entity.ExpiresAt = OpenSessionRequestDeadlineResolver.ResolveExpiry(
             now,
             data.ExpiresAt ?? entity.ExpiresAt,
             firstSessionStartUtc,
             _osrSettings,
-            data.TargetedTeacherId.HasValue);
+            isTargeted);
+
+        var editedTeacherIds = new List<int>();
+        if (isPublished)
+        {
+            editedTeacherIds = await AutoRejectPendingOffersAsync(entity.Id, now, cancellationToken);
+
+            var hasPendingInvites = entity.Invitations.Any(i =>
+                i.Status == OpenSessionRequestInvitationStatus.Pending);
+            entity.Status = previousStatus == OpenSessionRequestStatus.PendingInvitations && hasPendingInvites
+                ? OpenSessionRequestStatus.PendingInvitations
+                : OpenSessionRequestStatus.Active;
+        }
+
+        var staleSnapshot = isPublished && isTargeted && entity.PricingSnapshotId.HasValue
+            ? await _db.PricingSnapshots.FirstOrDefaultAsync(
+                s => s.Id == entity.PricingSnapshotId, cancellationToken)
+            : null;
+        if (staleSnapshot != null)
+            entity.PricingSnapshotId = null;
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (isPublished)
+        {
+            if (staleSnapshot != null)
+            {
+                _db.PricingSnapshots.Remove(staleSnapshot);
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+            if (isTargeted)
+                await _targetedPricing.FreezeIfNeededAsync(entity, request.UserId, cancellationToken);
+
+            await DispatchAfterEditAsync(entity, previousStatus, editedTeacherIds, cancellationToken);
+        }
 
         var detail = await _db.OpenSessionRequests
             .AsNoTracking()
@@ -192,5 +270,119 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         var dto = _mapper.Map<OpenSessionRequestDetailDto>(detail);
         await _pricingEnricher.EnrichDetailAsync(dto, detail, cancellationToken);
         return Success(entity: dto);
+    }
+
+    /// <summary>
+    /// Published edit: accepted invitees stay; pending ones missing from the payload are removed;
+    /// new (or previously declined) invitees become Pending, owned students are auto-accepted.
+    /// </summary>
+    private void MergePublishedInvitations(
+        OpenSessionRequest entity,
+        CreateOpenSessionRequestDto data,
+        IReadOnlyCollection<int> ownedStudentIds,
+        DateTime now)
+    {
+        var requested = data.InvitedStudentIds.Distinct().ToHashSet();
+
+        var removed = entity.Invitations
+            .Where(i => i.Status == OpenSessionRequestInvitationStatus.Pending
+                        && !requested.Contains(i.InvitedStudentId))
+            .ToList();
+        foreach (var invite in removed)
+        {
+            entity.Invitations.Remove(invite);
+            _db.Remove(invite);
+        }
+
+        foreach (var invitedId in requested)
+        {
+            var isOwned = ownedStudentIds.Contains(invitedId);
+            var existing = entity.Invitations.FirstOrDefault(i => i.InvitedStudentId == invitedId);
+            if (existing != null)
+            {
+                if (existing.Status is OpenSessionRequestInvitationStatus.Pending
+                    or OpenSessionRequestInvitationStatus.Accepted)
+                    continue;
+                existing.Status = isOwned
+                    ? OpenSessionRequestInvitationStatus.Accepted
+                    : OpenSessionRequestInvitationStatus.Pending;
+                existing.RespondedAt = isOwned ? now : null;
+                continue;
+            }
+
+            entity.Invitations.Add(new OpenSessionRequestInvitation
+            {
+                InvitedStudentId = invitedId,
+                InvitedByStudentId = data.StudentId,
+                Status = isOwned
+                    ? OpenSessionRequestInvitationStatus.Accepted
+                    : OpenSessionRequestInvitationStatus.Pending,
+                RespondedAt = isOwned ? now : null,
+            });
+        }
+    }
+
+    /// <summary>Auto-rejects pending offers and resets those teachers' targets; returns their teacher ids.</summary>
+    private async Task<List<int>> AutoRejectPendingOffersAsync(
+        int requestId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var pendingOffers = await _db.OpenSessionOffers
+            .Where(o => o.SessionRequestId == requestId
+                        && o.Status == OpenSessionOfferStatus.Pending)
+            .ToListAsync(cancellationToken);
+        if (pendingOffers.Count == 0)
+            return new List<int>();
+
+        foreach (var offer in pendingOffers)
+        {
+            offer.Status = OpenSessionOfferStatus.AutoRejected;
+            offer.RejectedAt = now;
+            offer.RejectionReason = RequestEditedReason;
+        }
+
+        var teacherIds = pendingOffers.Select(o => o.TeacherId).Distinct().ToList();
+        var targets = await _db.OpenSessionRequestTargets
+            .Where(t => t.SessionRequestId == requestId
+                        && teacherIds.Contains(t.TeacherId)
+                        && t.Status == OpenSessionRequestTargetStatus.OfferSubmitted)
+            .ToListAsync(cancellationToken);
+        foreach (var target in targets)
+        {
+            target.Status = OpenSessionRequestTargetStatus.Notified;
+            target.NotifiedAt = now;
+        }
+
+        return teacherIds;
+    }
+
+    private async Task DispatchAfterEditAsync(
+        OpenSessionRequest entity,
+        OpenSessionRequestStatus previousStatus,
+        List<int> editedTeacherIds,
+        CancellationToken cancellationToken)
+    {
+        if (entity.Status != OpenSessionRequestStatus.Active)
+            return;
+
+        var becameActive = previousStatus == OpenSessionRequestStatus.PendingInvitations;
+        if (entity.TargetedTeacherId.HasValue)
+        {
+            var teacherId = entity.TargetedTeacherId.Value;
+            if (becameActive)
+            {
+                await _targetingService.NotifyTargetedTeacherAsync(entity.Id, teacherId, cancellationToken);
+                return;
+            }
+            if (!editedTeacherIds.Contains(teacherId))
+                editedTeacherIds.Add(teacherId);
+        }
+        else
+        {
+            await _targetingService.RunMatchingAndNotifyAsync(entity.Id, cancellationToken);
+        }
+
+        await _targetingService.NotifyRequestEditedAsync(entity.Id, editedTeacherIds, cancellationToken);
     }
 }

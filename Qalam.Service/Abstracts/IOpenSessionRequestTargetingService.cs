@@ -25,6 +25,15 @@ public interface IOpenSessionRequestTargetingService
     /// When a teacher gains or reactivates subjects, attach them to existing open broadcast OSRs
     /// for those subject ids (idempotent). Returns the count of new target rows created.
     /// </summary>
+    /// <summary>
+    /// Tells teachers that the student edited a published request (their pending offers were
+    /// auto-rejected) so they can review the changes and send a new offer.
+    /// </summary>
+    Task NotifyRequestEditedAsync(
+        int requestId,
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default);
+
     Task<int> RematchTeacherForSubjectsAsync(
         int teacherId,
         IReadOnlyList<int> subjectIds,

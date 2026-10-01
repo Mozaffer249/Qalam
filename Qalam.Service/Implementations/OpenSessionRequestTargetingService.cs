@@ -109,6 +109,27 @@ public class OpenSessionRequestTargetingService : IOpenSessionRequestTargetingSe
         return 1;
     }
 
+    public async Task NotifyRequestEditedAsync(
+        int requestId,
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        var distinct = teacherIds.Distinct().ToList();
+        if (distinct.Count == 0) return;
+
+        _logger.LogInformation(
+            "Request {RequestId} edited by student: notifying {Count} teachers.",
+            requestId, distinct.Count);
+
+        await NotifyTeachersAsync(
+            distinct,
+            subject: "تم تعديل طلب جلسات قدّمت عليه",
+            emailBody: "قام الطالب بتعديل طلب الجلسات الذي قدّمت عليه، وتم إلغاء عرضك السابق. افتح الطلب لمراجعة التعديلات وتقديم عرض جديد.",
+            smsBody: "تم تعديل طلب جلسات قدّمت عليه على منصة قلم. افتح الطلب لمراجعة التعديلات وتقديم عرض جديد.",
+            DateTime.UtcNow,
+            cancellationToken);
+    }
+
     public async Task<int> RematchTeacherForSubjectsAsync(
         int teacherId,
         IReadOnlyList<int> subjectIds,

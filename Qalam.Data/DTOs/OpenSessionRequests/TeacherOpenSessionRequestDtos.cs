@@ -43,6 +43,7 @@ public class TeacherAvailableRequestListItemDto
     public OpenSessionRequestStatus RequestStatus { get; set; }
     /// <summary>This teacher's latest non-withdrawn offer status, if any.</summary>
     public OpenSessionOfferStatus? MyOfferStatus { get; set; }
+    public string? MyOfferRejectionReason { get; set; }
 
     /// <summary>Offer price preview for this teacher (frozen for directed; live for broadcast).</summary>
     public decimal? TotalPrice { get; set; }

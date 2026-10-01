@@ -25,6 +25,8 @@ public class OpenSessionRequestProfile : Profile
                 s.Domain != null
                     ? LocalizableEntity.GetLocalizedValue(s.Domain.NameAr, s.Domain.NameEn)
                     : null))
+            .ForMember(d => d.DomainCode, opt => opt.MapFrom(s =>
+                s.Domain != null ? s.Domain.Code : null))
             .ForMember(d => d.SubjectName, opt => opt.MapFrom(s =>
                 s.Subject != null
                     ? LocalizableEntity.GetLocalizedValue(s.Subject.NameAr, s.Subject.NameEn)

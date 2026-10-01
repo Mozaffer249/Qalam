@@ -168,6 +168,11 @@ public class OpenSessionRequestTargetRepository : GenericRepositoryAsync<OpenSes
                     .OrderByDescending(o => o.CreatedAt)
                     .Select(o => (OpenSessionOfferStatus?)o.Status)
                     .FirstOrDefault(),
+                MyOfferRejectionReason = x.Request.Offers
+                    .Where(o => o.TeacherId == teacherId && o.Status != OpenSessionOfferStatus.Withdrawn)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .Select(o => o.RejectionReason)
+                    .FirstOrDefault(),
             })
             .ToListAsync(cancellationToken);
 

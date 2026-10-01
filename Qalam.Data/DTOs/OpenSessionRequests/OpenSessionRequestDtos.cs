@@ -221,6 +221,7 @@ public class OpenSessionRequestDetailDto
 
     public int DomainId { get; set; }
     public string? DomainName { get; set; }
+    public string? DomainCode { get; set; }
     public int SubjectId { get; set; }
     public string? SubjectName { get; set; }
     public int? CurriculumId { get; set; }
