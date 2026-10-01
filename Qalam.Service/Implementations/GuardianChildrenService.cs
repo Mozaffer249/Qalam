@@ -68,7 +68,7 @@ public class GuardianChildrenService : IGuardianChildrenService
         var childrenDtos = children.Select(MapChild).ToList();
 
         var selfStudent = await _studentRepository.GetTableNoTracking()
-            .Where(s => s.UserId == userId && s.IsActive && s.GuardianId == null)
+            .Where(s => s.UserId == userId && !s.IsMinor)
             .Include(s => s.Domain)
             .Include(s => s.Curriculum)
             .Include(s => s.Level)
@@ -78,7 +78,9 @@ public class GuardianChildrenService : IGuardianChildrenService
 
         if (selfStudent != null)
         {
-            var selfDto = MapChild(selfStudent);
+            var selfDto = childrenDtos.FirstOrDefault(c => c.Id == selfStudent.Id)
+                          ?? MapChild(selfStudent);
+            childrenDtos.Remove(selfDto);
             selfDto.IsSelf = true;
             childrenDtos.Insert(0, selfDto);
         }
