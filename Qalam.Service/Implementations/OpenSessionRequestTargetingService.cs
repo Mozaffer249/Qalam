@@ -130,6 +130,27 @@ public class OpenSessionRequestTargetingService : IOpenSessionRequestTargetingSe
             cancellationToken);
     }
 
+    public async Task NotifyRequestRepublishedAsync(
+        int requestId,
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default)
+    {
+        var distinct = teacherIds.Distinct().ToList();
+        if (distinct.Count == 0) return;
+
+        _logger.LogInformation(
+            "Request {RequestId} republished by student: notifying {Count} teachers.",
+            requestId, distinct.Count);
+
+        await NotifyTeachersAsync(
+            distinct,
+            subject: "تمت إعادة نشر طلب جلسات",
+            emailBody: "أعاد الطالب نشر طلب جلسات بمواعيد جديدة. افتح لوحة \"الطلبات الجديدة\" لعرض التفاصيل وتقديم عرضك.",
+            smsBody: "تمت إعادة نشر طلب جلسات بمواعيد جديدة على منصة قلم. افتح الطلبات الجديدة لتقديم عرضك.",
+            DateTime.UtcNow,
+            cancellationToken);
+    }
+
     public async Task<int> RematchTeacherForSubjectsAsync(
         int teacherId,
         IReadOnlyList<int> subjectIds,

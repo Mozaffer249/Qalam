@@ -83,6 +83,7 @@ public class GetMyOpenSessionRequestsQueryHandler
         var items = await query
             .Include(r => r.Student).ThenInclude(s => s!.User)
             .Include(r => r.Subject)
+            .Include(r => r.Domain)
             .Include(r => r.TeachingMode)
             .Include(r => r.TargetedTeacher).ThenInclude(t => t!.User)
             .Include(r => r.Offers)

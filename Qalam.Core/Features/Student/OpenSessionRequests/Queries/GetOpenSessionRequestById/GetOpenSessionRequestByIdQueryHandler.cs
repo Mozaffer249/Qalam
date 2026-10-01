@@ -53,6 +53,7 @@ public class GetOpenSessionRequestByIdQueryHandler
             .Include(r => r.TargetedTeacher).ThenInclude(t => t!.User)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
+            .Include(r => r.Sessions).ThenInclude(s => s.TimeSlot)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)

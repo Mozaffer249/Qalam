@@ -34,6 +34,12 @@ public interface IOpenSessionRequestTargetingService
         IReadOnlyList<int> teacherIds,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Tells already-targeted teachers that a closed request was republished.</summary>
+    Task NotifyRequestRepublishedAsync(
+        int requestId,
+        IReadOnlyList<int> teacherIds,
+        CancellationToken cancellationToken = default);
+
     Task<int> RematchTeacherForSubjectsAsync(
         int teacherId,
         IReadOnlyList<int> subjectIds,

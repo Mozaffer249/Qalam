@@ -39,6 +39,14 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         OpenSessionRequestStatus.ReceivingOffers,
     };
 
+    /// <summary>Closed requests the owner may reopen with edited timing.</summary>
+    private static readonly OpenSessionRequestStatus[] RepublishableStatuses =
+    {
+        OpenSessionRequestStatus.Expired,
+        OpenSessionRequestStatus.Cancelled,
+        OpenSessionRequestStatus.Rejected,
+    };
+
     public UpdateOpenSessionRequestDraftCommandHandler(
         IStringLocalizer<SharedResources> sharedLocalizer,
         ApplicationDBContext db,
@@ -77,7 +85,8 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         if (!await _accessGuard.CanActOnRequestAsync(request.UserId, entity, cancellationToken))
             return Unauthorized<OpenSessionRequestDetailDto>("Forbidden");
 
-        if (!EditableStatuses.Contains(entity.Status))
+        var isRepublish = RepublishableStatuses.Contains(entity.Status);
+        if (!isRepublish && !EditableStatuses.Contains(entity.Status))
             return BadRequest<OpenSessionRequestDetailDto>("REQUEST_NOT_EDITABLE");
 
         var isPublished = entity.Status != OpenSessionRequestStatus.Draft;
@@ -201,6 +210,13 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             if (leadError != null)
                 return BadRequest<OpenSessionRequestDetailDto>(leadError);
         }
+        if (isRepublish)
+        {
+            entity.CancelledAt = null;
+            entity.CancellationReason = null;
+            entity.PublishedAt = now;
+            entity.ExpiryNudgeStage = 0;
+        }
         // Window is anchored to publish time; the old ExpiresAt may already be capped by the previous first session.
         var windowBound = data.ExpiresAt
             ?? (isPublished && entity.PublishedAt.HasValue
@@ -220,10 +236,15 @@ public class UpdateOpenSessionRequestDraftCommandHandler
 
             var hasPendingInvites = entity.Invitations.Any(i =>
                 i.Status == OpenSessionRequestInvitationStatus.Pending);
-            entity.Status = previousStatus == OpenSessionRequestStatus.PendingInvitations && hasPendingInvites
+            entity.Status = (isRepublish || previousStatus == OpenSessionRequestStatus.PendingInvitations)
+                            && hasPendingInvites
                 ? OpenSessionRequestStatus.PendingInvitations
                 : OpenSessionRequestStatus.Active;
         }
+
+        var republishedTeacherIds = isRepublish
+            ? await ResetTargetsForRepublishAsync(entity.Id, now, cancellationToken)
+            : new List<int>();
 
         var staleSnapshot = isPublished && isTargeted && entity.PricingSnapshotId.HasValue
             ? await _db.PricingSnapshots.FirstOrDefaultAsync(
@@ -244,7 +265,10 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             if (isTargeted)
                 await _targetedPricing.FreezeIfNeededAsync(entity, request.UserId, cancellationToken);
 
-            await DispatchAfterEditAsync(entity, previousStatus, editedTeacherIds, cancellationToken);
+            if (isRepublish)
+                await DispatchAfterRepublishAsync(entity, republishedTeacherIds, cancellationToken);
+            else
+                await DispatchAfterEditAsync(entity, previousStatus, editedTeacherIds, cancellationToken);
         }
 
         var detail = await _db.OpenSessionRequests
@@ -264,6 +288,7 @@ public class UpdateOpenSessionRequestDraftCommandHandler
             .Include(r => r.TeachingMode)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranContentType)
             .Include(r => r.Sessions).ThenInclude(s => s.QuranLevel)
+            .Include(r => r.Sessions).ThenInclude(s => s.TimeSlot)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.Lesson)
             .Include(r => r.Sessions).ThenInclude(s => s.Units).ThenInclude(u => u.ContentUnit)
             .Include(r => r.Invitations).ThenInclude(i => i.InvitedStudent).ThenInclude(s => s!.User)
@@ -360,6 +385,49 @@ public class UpdateOpenSessionRequestDraftCommandHandler
         }
 
         return teacherIds;
+    }
+
+    /// <summary>Puts every existing target (incl. Skipped) back to Notified; returns their teacher ids.</summary>
+    private async Task<List<int>> ResetTargetsForRepublishAsync(
+        int requestId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var targets = await _db.OpenSessionRequestTargets
+            .Where(t => t.SessionRequestId == requestId)
+            .ToListAsync(cancellationToken);
+        foreach (var target in targets)
+        {
+            target.Status = OpenSessionRequestTargetStatus.Notified;
+            target.NotifiedAt = now;
+            target.ViewedAt = null;
+        }
+        return targets.Select(t => t.TeacherId).Distinct().ToList();
+    }
+
+    private async Task DispatchAfterRepublishAsync(
+        OpenSessionRequest entity,
+        List<int> existingTeacherIds,
+        CancellationToken cancellationToken)
+    {
+        if (entity.Status != OpenSessionRequestStatus.Active)
+            return;
+
+        if (entity.TargetedTeacherId.HasValue)
+        {
+            var teacherId = entity.TargetedTeacherId.Value;
+            if (!existingTeacherIds.Contains(teacherId))
+            {
+                await _targetingService.NotifyTargetedTeacherAsync(entity.Id, teacherId, cancellationToken);
+                return;
+            }
+        }
+        else
+        {
+            await _targetingService.RunMatchingAndNotifyAsync(entity.Id, cancellationToken);
+        }
+
+        await _targetingService.NotifyRequestRepublishedAsync(entity.Id, existingTeacherIds, cancellationToken);
     }
 
     private async Task DispatchAfterEditAsync(

@@ -281,6 +281,9 @@ public class OpenSessionRequestSessionDto
     public int SequenceNumber { get; set; }
     public DateOnly? PreferredDate { get; set; }
     public int? TimeSlotId { get; set; }
+    /// <summary>Platform-local (Asia/Riyadh) wall-clock start of the slot.</summary>
+    public TimeSpan? StartTime { get; set; }
+    public TimeSpan? EndTime { get; set; }
     public int DurationMinutes { get; set; }
     public int? QuranContentTypeId { get; set; }
     public string? QuranContentTypeName { get; set; }
@@ -342,6 +345,8 @@ public class OpenSessionRequestListItemDto
     public int OffersCount { get; set; }
     public int? TargetedTeacherId { get; set; }
     public string? TargetedTeacherName { get; set; }
+    public string? TargetedTeacherAvatarUrl { get; set; }
+    public string? DomainCode { get; set; }
     public DateTime? PublishedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }

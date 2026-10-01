@@ -84,7 +84,11 @@ public class OpenSessionRequestProfile : Profile
             .ForMember(d => d.QuranLevelName, opt => opt.MapFrom(s =>
                 s.QuranLevel != null
                     ? LocalizableEntity.GetLocalizedValue(s.QuranLevel.NameAr, s.QuranLevel.NameEn)
-                    : null));
+                    : null))
+            .ForMember(d => d.StartTime, opt => opt.MapFrom(s =>
+                s.TimeSlot != null ? (TimeSpan?)s.TimeSlot.StartTime : null))
+            .ForMember(d => d.EndTime, opt => opt.MapFrom(s =>
+                s.TimeSlot != null ? (TimeSpan?)s.TimeSlot.EndTime : null));
 
         CreateMap<OpenSessionRequestSessionUnit, OpenSessionRequestUnitDto>()
             .ForMember(d => d.ContentUnitNameEn, opt => opt.MapFrom(s =>
@@ -121,6 +125,12 @@ public class OpenSessionRequestProfile : Profile
                 s.TargetedTeacher != null && s.TargetedTeacher.User != null
                     ? (s.TargetedTeacher.User.FirstName + " " + s.TargetedTeacher.User.LastName).Trim()
                     : null))
+            .ForMember(d => d.TargetedTeacherAvatarUrl, opt => opt.MapFrom(s =>
+                s.TargetedTeacher != null && s.TargetedTeacher.User != null
+                    ? s.TargetedTeacher.User.ProfilePictureUrl
+                    : null))
+            .ForMember(d => d.DomainCode, opt => opt.MapFrom(s =>
+                s.Domain != null ? s.Domain.Code : null))
             .ForMember(d => d.OffersCount, opt => opt.MapFrom(s => s.Offers.Count));
     }
 }
