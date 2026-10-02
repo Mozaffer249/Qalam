@@ -79,7 +79,7 @@ public class AdminFinanceService : IAdminFinanceService
         return new AdminRevenueSummaryDto
         {
             TotalRevenue = agg.TotalCollected,
-            NetRevenue = agg.PlatformCommission - agg.TotalRefunds,
+            NetRevenue = agg.TotalCollected - agg.TotalRefunds - agg.TeacherEarningsActive + agg.TeacherClawbacks,
             PlatformCommission = agg.PlatformCommission,
             TeacherEarnings = agg.TeacherEarningsPending + agg.TeacherEarningsPaid,
             Refunds = agg.TotalRefunds,

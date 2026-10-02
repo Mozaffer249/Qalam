@@ -64,6 +64,18 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
                         && l.PayoutItem.PayoutBatch.Status == PayoutBatchStatus.Paid)
             .SumAsync(l => l.Amount, cancellationToken);
 
+        var teacherActive = await lines
+            .Where(l => l.Status != TeacherEarningLineStatus.Voided)
+            .SumAsync(l => l.Amount, cancellationToken);
+
+        var adjustments = _context.TeacherBalanceAdjustments.AsNoTracking()
+            .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement);
+        if (fromUtc.HasValue)
+            adjustments = adjustments.Where(a => a.CreatedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            adjustments = adjustments.Where(a => a.CreatedAt <= toUtc.Value);
+        var clawbacks = await adjustments.SumAsync(a => a.Amount, cancellationToken);
+
         var payoutsDraft = await batches
             .Where(b => b.Status == PayoutBatchStatus.Pending)
             .SumAsync(b => b.TotalAmount, cancellationToken);
@@ -118,6 +130,8 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             PlatformCommission = platformCommission,
             FreeTrialImpact = freeTrialImpact,
             PendingPayments = pendingPayments,
+            TeacherEarningsActive = teacherActive,
+            TeacherClawbacks = clawbacks,
             RevenueBySource = bySource
         };
     }
@@ -274,6 +288,34 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             .Select(g => new { PaymentId = g.Key, Total = g.Sum(r => r.Amount) })
             .ToDictionaryAsync(x => x.PaymentId, x => x.Total, cancellationToken);
 
+        var enrollmentIds = rows.Select(r => r.Enrollment.Id).Distinct().ToList();
+        var enrollmentPaid = await _context.EnrollmentPayments.AsNoTracking()
+            .Where(ep => enrollmentIds.Contains(ep.EnrollmentParticipant.EnrollmentId)
+                         && (ep.Payment.Status == PaymentStatus.Succeeded || ep.Payment.Status == PaymentStatus.Refunded))
+            .Select(ep => new { ep.EnrollmentParticipant.EnrollmentId, ep.PaymentId, ep.Payment.TotalAmount })
+            .Distinct()
+            .GroupBy(x => x.EnrollmentId)
+            .Select(g => new { EnrollmentId = g.Key, Total = g.Sum(x => x.TotalAmount) })
+            .ToDictionaryAsync(x => x.EnrollmentId, x => x.Total, cancellationToken);
+        var accruedEarnings = await _context.TeacherEarningLines.AsNoTracking()
+            .Where(l => enrollmentIds.Contains(l.EnrollmentId) && l.Status != TeacherEarningLineStatus.Voided)
+            .GroupBy(l => l.EnrollmentId)
+            .Select(g => new { EnrollmentId = g.Key, Total = g.Sum(l => l.Amount) })
+            .ToDictionaryAsync(x => x.EnrollmentId, x => x.Total, cancellationToken);
+        var clawbacks = (await _context.TeacherBalanceAdjustments.AsNoTracking()
+                .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement)
+                .Select(a => new
+                {
+                    a.Amount,
+                    EnrollmentId = a.PolicyCaseId != null
+                        ? _context.PolicyCases.Where(c => c.Id == a.PolicyCaseId).Select(c => (int?)c.EnrollmentId).FirstOrDefault()
+                        : _context.Refunds.Where(r => r.Id == a.RelatedRefundId).Select(r => (int?)r.EnrollmentId).FirstOrDefault()
+                })
+                .Where(x => x.EnrollmentId != null && enrollmentIds.Contains(x.EnrollmentId.Value))
+                .ToListAsync(cancellationToken))
+            .GroupBy(x => x.EnrollmentId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
         var items = new List<AdminRevenueRecordDto>();
         foreach (var row in rows)
         {
@@ -283,6 +325,13 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             var platformCommission = e.PricingSnapshot != null ? e.PricingSnapshot.PlatformShare : 0m;
             var refunds = refundTotals.GetValueOrDefault(p.Id);
             var freeTrialImpact = e.IsFreeTrial && e.AmountDue == 0 ? teacherEarnings : 0m;
+
+            // Collected − refunds − accrued (non-voided) teacher earnings + clawbacks, split by payment share.
+            var enrollmentTotal = enrollmentPaid.GetValueOrDefault(e.Id);
+            var paymentShare = enrollmentTotal > 0 ? p.TotalAmount / enrollmentTotal : 1m;
+            var teacherCost = accruedEarnings.GetValueOrDefault(e.Id) * paymentShare;
+            var clawback = clawbacks.GetValueOrDefault(e.Id) * paymentShare;
+            var netPlatform = Math.Round(p.TotalAmount - refunds - teacherCost + clawback, 2, MidpointRounding.AwayFromZero);
 
             items.Add(new AdminRevenueRecordDto
             {
@@ -295,7 +344,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
                 PlatformCommission = platformCommission,
                 TeacherEarnings = teacherEarnings,
                 Refunds = refunds,
-                NetPlatformRevenue = platformCommission - refunds,
+                NetPlatformRevenue = netPlatform,
                 IsFreeTrial = e.IsFreeTrial,
                 FreeTrialImpact = freeTrialImpact,
                 Source = e.Source.ToString(),

@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Policy;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 
@@ -39,7 +40,11 @@ public static class EnrollmentLifecycleRules
         return false;
     }
 
-    public static bool CanStudentCancel(Enrollment enrollment, bool isOwner)
+    /// <summary>
+    /// Unpaid enrollments can always be cancelled; active ones follow the enrollment's cancellation policy
+    /// (before/after first session sections). The engine applies the finer timing rules.
+    /// </summary>
+    public static bool CanStudentCancel(Enrollment enrollment, bool isOwner, CancellationPolicyRules? rules = null)
     {
         if (!isOwner)
             return false;
@@ -48,7 +53,12 @@ public static class EnrollmentLifecycleRules
             return true;
 
         if (enrollment.EnrollmentStatus == EnrollmentStatus.Active)
-            return !HasSessionStarted(enrollment);
+        {
+            rules ??= CancellationPolicyDefaults.Create();
+            return HasSessionStarted(enrollment)
+                ? rules.AfterFirstSession.Enabled
+                : rules.BeforeFirstSession.Enabled;
+        }
 
         return false;
     }

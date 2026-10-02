@@ -1,14 +1,22 @@
+using Qalam.Data.DTOs.Policy;
+
 namespace Qalam.Service.Abstracts;
 
 public interface IEnrollmentCancellationService
 {
+    /// <summary>What cancelling the enrollment would refund under its policy version. Null when not found.</summary>
+    Task<PolicyPreviewDto?> PreviewAsync(int enrollmentId, CancellationToken cancellationToken = default);
+
     /// <summary>
-    /// Cancels enrollment (PendingPayment or Active before first session), cancels open schedules,
-    /// issues mock refunds when paid, restores free-trial flag when applicable.
+    /// Cancels an enrollment. Unpaid enrollments are cancelled directly; active ones go through the
+    /// cancellation policy (before/after first session), which refunds and records a policy case.
+    /// Throws <see cref="Models.Policy.PolicyDeniedException"/> when the policy does not allow it.
     /// </summary>
-    Task CancelAsync(
+    /// <returns>The applied case, or null when no money was involved.</returns>
+    Task<PolicyOutcomeDto?> CancelAsync(
         int enrollmentId,
         int cancelledByUserId,
         string? reason = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string actorRole = "Student");
 }

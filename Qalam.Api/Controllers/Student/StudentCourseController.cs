@@ -15,6 +15,7 @@ using Qalam.Core.Features.Student.EnrollmentRequests.Queries.GetMyInvitations;
 using Qalam.Core.Features.Student.EnrollmentRequests.Queries.SearchStudentsForGroup;
 using Qalam.Core.Features.Student.Enrollments.Commands.CancelEnrollment;
 using Qalam.Core.Features.Student.Enrollments.Commands.CreateIndividualEnrollment;
+using Qalam.Core.Features.Student.Enrollments.Queries.CancellationPolicy;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollmentById;
 using Qalam.Core.Features.Student.Enrollments.Queries.GetMyEnrollments;
 using Qalam.Core.Features.Student.Queries.SearchStudents;
@@ -24,6 +25,7 @@ using Qalam.Core.Features.Student.Commands.UpdateChild;
 using Qalam.Core.Features.Student.Commands.UpdateChildProfilePicture;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Course;
+using Qalam.Data.DTOs.Policy;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.DTOs.Teacher;
 
@@ -377,7 +379,7 @@ public class StudentCourseController : AppControllerBase
     /// Owner cancels PendingPayment, or Active before the first session (mock refund if paid).
     /// </summary>
     [HttpPost(Router.StudentEnrollmentCancel)]
-    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PolicyOutcomeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelEnrollment(int id)
@@ -385,6 +387,20 @@ public class StudentCourseController : AppControllerBase
         var command = new CancelEnrollmentCommand { EnrollmentId = id };
         return NewResult(await Mediator.Send(command));
     }
+
+    /// <summary>What cancelling this enrollment would refund (amount, fee, destination, explanation).</summary>
+    /// <remarks>GET Api/V1/Student/Enrollments/{id}/Cancel/Preview</remarks>
+    [HttpGet(Router.StudentEnrollmentCancelPreview)]
+    [ProducesResponseType(typeof(PolicyPreviewDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> PreviewCancelEnrollment(int id)
+        => NewResult(await Mediator.Send(new GetEnrollmentCancelPreviewQuery { EnrollmentId = id }));
+
+    /// <summary>Plain-language cancellation &amp; refund policy locked for this enrollment.</summary>
+    /// <remarks>GET Api/V1/Student/Enrollments/{id}/CancellationPolicy</remarks>
+    [HttpGet(Router.StudentEnrollmentCancellationPolicy)]
+    [ProducesResponseType(typeof(PolicySummaryDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEnrollmentCancellationPolicy(int id)
+        => NewResult(await Mediator.Send(new GetEnrollmentCancellationPolicyQuery { EnrollmentId = id }));
 
     /// <summary>
     /// Get pending invitations for the user's students (self + children).

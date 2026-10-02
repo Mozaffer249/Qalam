@@ -40,13 +40,16 @@ public class RefundService : IRefundService
         CancellationToken cancellationToken = default,
         RefundDestination destination = RefundDestination.Wallet,
         int? complaintId = null,
-        int? courseScheduleId = null)
+        int? courseScheduleId = null,
+        RefundPolicyOptions? policy = null)
     {
         if (amount <= 0)
             throw new InvalidOperationException("Refund amount must be positive.");
 
         var payment = await _refunds.GetTrackedPaymentWithRefundsAsync(paymentId, cancellationToken)
             ?? throw new InvalidOperationException($"Payment {paymentId} not found.");
+        if (!string.IsNullOrWhiteSpace(payment.Currency))
+            currency = payment.Currency;
 
         if (payment.Status is not PaymentStatus.Succeeded and not PaymentStatus.Refunded)
             throw new InvalidOperationException("Only succeeded payments can be refunded.");
@@ -87,7 +90,7 @@ public class RefundService : IRefundService
         {
             refund = await CreditWalletRefundAsync(
                 payment, enrollmentId, amount, currency, reason, initiatedByUserId,
-                complaintId, courseScheduleId, cancellationToken);
+                complaintId, courseScheduleId, policy, cancellationToken);
             refundStatus = refund.Status;
             providerRefundId = refund.ProviderRefundId;
         }
@@ -107,6 +110,8 @@ public class RefundService : IRefundService
                 ProviderRefundId = providerRefundId,
                 InitiatedByUserId = initiatedByUserId,
                 Destination = RefundDestination.OriginalMethod,
+                FeeAmount = Math.Round(policy?.FeeAmount ?? 0m, 2),
+                PolicyCaseId = policy?.PolicyCaseId,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -128,12 +133,14 @@ public class RefundService : IRefundService
                     ep.Status = PaymentStatus.Refunded;
             }
 
-            var voidedAmount = await VoidTeacherEarningsForRefundAsync(
-                enrollmentId,
-                refund.Amount,
-                payment.TotalAmount,
-                isFullRefund,
-                cancellationToken);
+            var voidedAmount = policy == null
+                ? await VoidTeacherEarningsForRefundAsync(
+                    enrollmentId,
+                    refund.Amount,
+                    payment.TotalAmount,
+                    isFullRefund,
+                    cancellationToken)
+                : 0m;
 
             if (voidedAmount > 0
                 && await _financeImpact.IsAlreadyPaidForEnrollmentAsync(enrollmentId, cancellationToken))
@@ -194,6 +201,7 @@ public class RefundService : IRefundService
         int? initiatedByUserId,
         int? complaintId,
         int? courseScheduleId,
+        RefundPolicyOptions? policy,
         CancellationToken cancellationToken)
     {
         var refund = new Refund
@@ -206,6 +214,8 @@ public class RefundService : IRefundService
             Status = RefundStatus.Pending,
             InitiatedByUserId = initiatedByUserId,
             Destination = RefundDestination.Wallet,
+            FeeAmount = Math.Round(policy?.FeeAmount ?? 0m, 2),
+            PolicyCaseId = policy?.PolicyCaseId,
             CreatedAt = DateTime.UtcNow
         };
         await _refunds.AddRefundAsync(refund, cancellationToken);
@@ -221,8 +231,9 @@ public class RefundService : IRefundService
             EnrollmentId = enrollmentId,
             CourseScheduleId = courseScheduleId,
             ComplaintId = complaintId,
+            PolicyCaseId = policy?.PolicyCaseId,
             Description = refund.Reason,
-            ReasonCode = "REFUND",
+            ReasonCode = policy != null ? "POLICY_REFUND" : "REFUND",
             CreatedByUserId = initiatedByUserId
         }, cancellationToken);
 

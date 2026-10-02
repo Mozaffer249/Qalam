@@ -121,6 +121,20 @@ public class PolicyDecision
     };
 }
 
+/// <summary>The policy does not allow the requested action; <see cref="Exception.Message"/> is the English explanation.</summary>
+public class PolicyDeniedException : InvalidOperationException
+{
+    public string Code { get; }
+    public PolicyExplanationLine? Explanation { get; }
+
+    public PolicyDeniedException(PolicyDecision decision)
+        : base(decision.Explanation.FirstOrDefault()?.En ?? decision.DenyCode ?? "Not allowed by the cancellation policy.")
+    {
+        Code = decision.DenyCode ?? PolicyDenyCodes.RuleDisabled;
+        Explanation = decision.Explanation.FirstOrDefault();
+    }
+}
+
 public static class PolicyDenyCodes
 {
     public const string CancelDisabled = "POLICY_CANCEL_DISABLED";

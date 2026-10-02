@@ -26,6 +26,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly IMapper _mapper;
     private readonly SessionSettings _sessionSettings;
+    private readonly IPolicyResolver? _policyResolver;
 
     public GetMyEnrollmentByIdQueryHandler(
         IStudentRepository studentRepository,
@@ -33,8 +34,10 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
         IEnrollmentRepository enrollmentRepository,
         IMapper mapper,
         IOptions<SessionSettings> sessionSettings,
-        IStringLocalizer<SharedResources> localizer) : base(localizer)
+        IStringLocalizer<SharedResources> localizer,
+        IPolicyResolver? policyResolver = null) : base(localizer)
     {
+        _policyResolver = policyResolver;
         _studentRepository = studentRepository;
         _guardianRepository = guardianRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -69,7 +72,8 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
             .Select(p => _mapper.Map<EnrollmentParticipantDto>(p))
             .ToList();
         dto.IsOwner = isOwner;
-        ApplyPaymentFlags(dto, enrollment, isOwner);
+        var policy = _policyResolver == null ? null : await _policyResolver.ForEnrollmentAsync(enrollment, cancellationToken);
+        ApplyPaymentFlags(dto, enrollment, isOwner, policy?.Rules);
 
         var viewingStudentId = ResolveViewingStudentId(enrollment, ownedStudentIds);
         dto.Sessions = BuildSessions(
@@ -183,7 +187,8 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
     private static void ApplyPaymentFlags(
         EnrollmentDetailDto dto,
         Enrollment enrollment,
-        bool isOwner)
+        bool isOwner,
+        Data.DTOs.Policy.CancellationPolicyRules? rules)
     {
         dto.PaymentDeadline = enrollment.PaymentDeadline;
 
@@ -202,7 +207,7 @@ public class GetMyEnrollmentByIdQueryHandler : ResponseHandler,
                      && dto.AmountDue > 0
                      && pendingParticipant != null;
         dto.PayParticipantId = dto.CanPay ? pendingParticipant!.Id : null;
-        dto.CanCancel = EnrollmentLifecycleRules.CanStudentCancel(enrollment, isOwner);
+        dto.CanCancel = EnrollmentLifecycleRules.CanStudentCancel(enrollment, isOwner, rules);
     }
 
     private static List<EnrollmentSessionItemDto> BuildSessions(

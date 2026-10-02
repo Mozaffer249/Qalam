@@ -25,7 +25,8 @@ public interface IRefundService
         CancellationToken cancellationToken = default,
         RefundDestination destination = RefundDestination.Wallet,
         int? complaintId = null,
-        int? courseScheduleId = null);
+        int? courseScheduleId = null,
+        RefundPolicyOptions? policy = null);
 
     Task<IReadOnlyList<Refund>> RefundEnrollmentPaymentsAsync(
         int enrollmentId,
@@ -40,3 +41,9 @@ public interface IRefundService
 
     Task<AdminRefundDetailDto?> GetByIdAsync(int refundId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Set when a refund is issued by a policy case. The case owns teacher-earning effects,
+/// so the refund does not void earnings on its own.
+/// </summary>
+public record RefundPolicyOptions(int PolicyCaseId, decimal FeeAmount);

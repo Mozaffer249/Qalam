@@ -47,5 +47,9 @@ public class FinanceAggregateProjection
     public decimal PlatformCommission { get; set; }
     public decimal FreeTrialImpact { get; set; }
     public decimal PendingPayments { get; set; }
+    /// <summary>All non-voided earning lines (pending, on hold, in a payout).</summary>
+    public decimal TeacherEarningsActive { get; set; }
+    /// <summary>Deductions/settlements recovered from teachers.</summary>
+    public decimal TeacherClawbacks { get; set; }
     public List<AdminRevenueBySourceDto> RevenueBySource { get; set; } = new();
 }
