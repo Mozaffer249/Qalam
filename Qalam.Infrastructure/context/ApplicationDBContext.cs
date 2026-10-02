@@ -206,6 +206,7 @@ namespace Qalam.Infrastructure.context
         public DbSet<MessageLog> MessageLogs { get; set; }
         public DbSet<EmailSuppression> EmailSuppressions { get; set; }
         public DbSet<UserDeviceToken> UserDeviceTokens { get; set; }
+        public DbSet<UserNotification> UserNotifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

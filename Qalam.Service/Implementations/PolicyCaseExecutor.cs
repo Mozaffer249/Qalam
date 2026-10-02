@@ -15,12 +15,18 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
     private readonly ApplicationDBContext _db;
     private readonly IRefundService _refunds;
     private readonly IReplacementScheduleService _replacements;
+    private readonly IPolicyNotificationService? _notifications;
 
-    public PolicyCaseExecutor(ApplicationDBContext db, IRefundService refunds, IReplacementScheduleService replacements)
+    public PolicyCaseExecutor(
+        ApplicationDBContext db,
+        IRefundService refunds,
+        IReplacementScheduleService replacements,
+        IPolicyNotificationService? notifications = null)
     {
         _db = db;
         _refunds = refunds;
         _replacements = replacements;
+        _notifications = notifications;
     }
 
     public async Task<PolicyCase> ApplyAsync(
@@ -41,9 +47,10 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
         if (_db.Database.IsRelational() && _db.Database.CurrentTransaction == null)
             tx = await _db.Database.BeginTransactionAsync(cancellationToken);
 
+        PolicyCase policyCase;
         try
         {
-            var policyCase = NewCase(bundle, decision, actor, options);
+            policyCase = NewCase(bundle, decision, actor, options);
             _db.PolicyCases.Add(policyCase);
             await _db.SaveChangesAsync(cancellationToken);
 
@@ -93,7 +100,6 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
             await _db.SaveChangesAsync(cancellationToken);
             if (tx != null)
                 await tx.CommitAsync(cancellationToken);
-            return policyCase;
         }
         catch
         {
@@ -106,6 +112,10 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
             if (tx != null)
                 await tx.DisposeAsync();
         }
+
+        if (_notifications != null)
+            await _notifications.NotifyCaseAsync(policyCase, cancellationToken);
+        return policyCase;
     }
 
     public async Task<PolicyCase> RecordAsync(
@@ -122,6 +132,8 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
         policyCase.ReplacementScheduleId = replacementScheduleId;
         _db.PolicyCases.Add(policyCase);
         await _db.SaveChangesAsync(cancellationToken);
+        if (_notifications != null)
+            await _notifications.NotifyCaseAsync(policyCase, cancellationToken);
         return policyCase;
     }
 
