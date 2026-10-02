@@ -108,7 +108,8 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
                 plan.Currency,
                 resolutionNotes ?? $"Session complaint #{complaintId}",
                 adminUserId,
-                cancellationToken);
+                cancellationToken,
+                courseScheduleId: schedule.Id);
             refundId = refund.Id;
 
             if (await _financeImpact.IsAlreadyPaidForEnrollmentAsync(complaint.EnrollmentId, cancellationToken))
@@ -571,7 +572,8 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
                 preview.Currency,
                 request.ResolutionNotes ?? $"Complaint #{tracked.Id}",
                 adminUserId,
-                cancellationToken);
+                cancellationToken,
+                complaintId: tracked.Id);
             refundId = refund.Id;
         }
         else if (request.ResolutionCode is ComplaintResolution.ReplacementSession

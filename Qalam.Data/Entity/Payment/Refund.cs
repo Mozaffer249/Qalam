@@ -31,6 +31,8 @@ public class Refund : AuditableEntity
 
     public int? InitiatedByUserId { get; set; }
 
+    public RefundDestination Destination { get; set; } = RefundDestination.OriginalMethod;
+
     public Payment Payment { get; set; } = null!;
     public Course.Enrollment Enrollment { get; set; } = null!;
     public User? InitiatedByUser { get; set; }

@@ -115,6 +115,9 @@ namespace Qalam.Data.AppMetaData
         public const string AdminStudents = AdminStudentManagement + "/Students";
         public const string AdminStudentById = AdminStudents + "/{studentId}";
         public const string AdminStudentFreeTrialConsumptions = AdminStudentById + "/FreeTrialConsumptions";
+        public const string AdminStudentWallet = AdminStudentById + "/Wallet";
+        public const string AdminStudentWalletTransactions = AdminStudentWallet + "/Transactions";
+        public const string AdminStudentWalletAdjustments = AdminStudentWallet + "/Adjustments";
         public const string AdminTeacherInterviewUnlocks = Rule + "Admin/Teachers/{teacherId}/InterviewUnlocks";
 
         #region Legal Documents
@@ -495,6 +498,17 @@ namespace Qalam.Data.AppMetaData
         public const string StudentPayments = Rule + "Student/Payments";
         /// <summary>Student payment receipt: Api/V1/Student/Payments/{paymentId}</summary>
         public const string StudentPaymentById = StudentPayments + "/{paymentId:int}";
+        /// <summary>Pay an enrollment participant from the wallet balance: Api/V1/Student/Payments/Wallet</summary>
+        public const string StudentPayWithWallet = StudentPayments + "/Wallet";
+
+        /// <summary>Student wallet summary: Api/V1/Student/Wallet</summary>
+        public const string StudentWallet = Rule + "Student/Wallet";
+        /// <summary>Wallet ledger: Api/V1/Student/Wallet/Transactions</summary>
+        public const string StudentWalletTransactions = StudentWallet + "/Transactions";
+        /// <summary>Wallet top-up checkout intent: Api/V1/Student/Wallet/TopUps</summary>
+        public const string StudentWalletTopUps = StudentWallet + "/TopUps";
+        /// <summary>Wallet top-up when the Mock gateway is active: Api/V1/Student/Wallet/TopUps/Mock</summary>
+        public const string StudentWalletMockTopUp = StudentWalletTopUps + "/Mock";
 
         /// <summary>Provider webhook receiver: Api/V1/Payments/Webhooks/{provider}</summary>
         public const string PaymentWebhook = Rule + "Payments/Webhooks/{provider}";

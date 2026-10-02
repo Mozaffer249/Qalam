@@ -22,6 +22,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     private readonly IRefundService _refundService;
     private readonly IPaymentGatewayResolver _gatewayResolver;
     private readonly IPaymentTransactionEventService _events;
+    private readonly IStudentWalletService _walletService;
     private readonly ILogger<PaymentConfirmationService> _logger;
 
     public PaymentConfirmationService(
@@ -35,8 +36,10 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         IRefundService refundService,
         IPaymentGatewayResolver gatewayResolver,
         IPaymentTransactionEventService events,
+        IStudentWalletService walletService,
         ILogger<PaymentConfirmationService> logger)
     {
+        _walletService = walletService;
         _paymentRepository = paymentRepository;
         _enrollmentRepository = enrollmentRepository;
         _enrollmentPaymentRepository = enrollmentPaymentRepository;
@@ -359,6 +362,38 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     private static string? Truncate(string? s, int max)
         => string.IsNullOrEmpty(s) ? s : (s.Length <= max ? s : s[..max]);
 
+    private async Task<PaymentConfirmationOutcome> ConfirmWalletTopUpAsync(
+        Data.Entity.Payment.Payment payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.Status != PaymentStatus.Succeeded)
+            return PaymentConfirmationOutcome.Fail("PAYMENT_NOT_PAID", "Payment has not been marked paid yet.");
+
+        var credit = await _walletService.CreditAsync(new WalletEntryRequest
+        {
+            UserId = payment.PayerUserId,
+            Amount = payment.TotalAmount,
+            Type = WalletTransactionType.TopUp,
+            PaymentId = payment.Id,
+            Description = "Wallet top-up",
+            ReasonCode = "TOPUP"
+        }, cancellationToken);
+
+        if (!credit.Succeeded)
+            return PaymentConfirmationOutcome.Fail(credit.ErrorCode ?? "WALLET_CREDIT_FAILED", "Wallet credit failed.");
+
+        return PaymentConfirmationOutcome.Ok(new PaymentResultDto
+        {
+            PaymentId = payment.Id,
+            Status = payment.Status,
+            TotalAmount = payment.TotalAmount,
+            Currency = payment.Currency,
+            PaidAt = credit.Transaction!.CreatedAt,
+            EnrollmentActivated = false,
+            SchedulesCreated = 0
+        });
+    }
+
     public async Task<PaymentConfirmationOutcome> ConfirmAsync(
         int paymentId,
         CancellationToken cancellationToken = default)
@@ -372,6 +407,9 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
         if (payment.Status == PaymentStatus.Refunded)
             return PaymentConfirmationOutcome.Fail("PAYMENT_REFUNDED", "Payment was already refunded.");
+
+        if (payment.PaymentItems.Any(i => i.ItemType == PaymentItemType.WalletTopUp))
+            return await ConfirmWalletTopUpAsync(payment, cancellationToken);
 
         var enrollmentId = payment.PaymentItems
             .FirstOrDefault(i => i.ItemType == PaymentItemType.CourseEnrollment)

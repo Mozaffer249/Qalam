@@ -10,6 +10,7 @@ using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
+using Qalam.Service.Payments;
 
 namespace Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
 
@@ -56,25 +57,9 @@ public class PayEnrollmentParticipantCommandHandler : ResponseHandler,
 
         var enrollment = participant.Enrollment;
 
-        if (enrollment.EnrollmentStatus != EnrollmentStatus.PendingPayment)
-            return BadRequest<PaymentResultDto>("Only pending-payment enrollments can be paid.");
-
-        var now = DateTime.UtcNow;
-        if (enrollment.PaymentDeadline.HasValue && enrollment.PaymentDeadline.Value < now)
-            return BadRequest<PaymentResultDto>("Payment deadline has expired.");
-
-        if (enrollment.EnrollmentRequest == null
-            && (enrollment.SelectedSessionSlots == null || enrollment.SelectedSessionSlots.Count == 0))
-            return BadRequest<PaymentResultDto>(
-                "Enrollment is missing schedule selections — cannot generate schedules.");
-
-        var ownerUserId = enrollment.EnrollmentRequest?.RequestedByUserId ?? enrollment.OwnerUserId;
-        if (!ownerUserId.HasValue || ownerUserId.Value != request.UserId)
-            return BadRequest<PaymentResultDto>("Only the enrollment owner can pay for this enrollment.");
-
-        if (enrollment.PaidByUserId.HasValue
-            || enrollment.Participants.Any(p => p.PaymentStatus == PaymentStatus.Succeeded))
-            return BadRequest<PaymentResultDto>("This enrollment has already been paid.");
+        var payabilityError = EnrollmentPayabilityRules.Validate(enrollment, request.UserId, DateTime.UtcNow);
+        if (payabilityError != null)
+            return BadRequest<PaymentResultDto>(payabilityError);
 
         var totalAmount = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
 

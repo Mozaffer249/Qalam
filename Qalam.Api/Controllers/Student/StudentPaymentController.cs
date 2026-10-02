@@ -4,6 +4,7 @@ using Qalam.Api.Base;
 using Qalam.Core.Features.Student.Payments.Commands.ConfirmPayment;
 using Qalam.Core.Features.Student.Payments.Commands.CreatePaymentIntent;
 using Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
+using Qalam.Core.Features.Student.Payments.Commands.PayWithWallet;
 using Qalam.Core.Features.Student.Payments.Queries.GetEnrollmentPaymentSummary;
 using Qalam.Core.Features.Student.Payments.Queries.GetMyPayments;
 using Qalam.Core.Features.Student.Payments.Queries.GetPaymentReceipt;
@@ -51,6 +52,18 @@ public class StudentPaymentController : AppControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Pay one enrollment participant from the payer's wallet balance (full amount only).
+    /// </summary>
+    [HttpPost(Router.StudentPayWithWallet)]
+    [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PayWithWallet([FromBody] PayWithWalletCommand command)
     {
         return NewResult(await Mediator.Send(command));
     }

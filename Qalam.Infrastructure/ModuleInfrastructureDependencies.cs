@@ -108,6 +108,7 @@ namespace Qalam.Infrastructure
 
             // Finance Repositories
             services.AddTransient<IRefundRepository, RefundRepository>();
+            services.AddTransient<IStudentWalletRepository, StudentWalletRepository>();
             services.AddTransient<IPayoutRepository, PayoutRepository>();
             services.AddTransient<IAdminFinanceReadRepository, AdminFinanceReadRepository>();
             services.AddTransient<ITeacherFinanceImpactRepository, TeacherFinanceImpactRepository>();

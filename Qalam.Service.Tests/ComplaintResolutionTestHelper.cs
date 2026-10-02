@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using Qalam.Infrastructure.context;
 using Qalam.Infrastructure.Repositories;
@@ -24,6 +25,11 @@ internal static class ComplaintResolutionTestHelper
         return new PaymentGatewayResolver(new[] { mockGateway }, settingsProvider.Object);
     }
 
+    internal static IStudentWalletService CreateWalletService(ApplicationDBContext db)
+        => new StudentWalletService(
+            new StudentWalletRepository(db),
+            Options.Create(new Qalam.Data.Helpers.PaymentSettings()));
+
     internal static ComplaintResolutionOrchestrator CreateOrchestrator(
         ApplicationDBContext db,
         IRefundService? refundService = null)
@@ -39,7 +45,8 @@ internal static class ComplaintResolutionTestHelper
                 new RefundRepository(db),
                 financeImpact,
                 CreateMockResolver(),
-                Mock.Of<IPaymentTransactionEventService>()),
+                Mock.Of<IPaymentTransactionEventService>(),
+                CreateWalletService(db)),
             audit,
             financeImpact,
             db);
@@ -68,7 +75,8 @@ internal static class ComplaintResolutionTestHelper
             new RefundRepository(db),
             new TeacherFinanceImpactService(new TeacherFinanceImpactRepository(db)),
             CreateMockResolver(),
-            Mock.Of<IPaymentTransactionEventService>()));
+            Mock.Of<IPaymentTransactionEventService>(),
+            CreateWalletService(db)));
         return new SessionComplaintService(
             complaintRepo,
             scheduleRepo,

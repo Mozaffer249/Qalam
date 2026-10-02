@@ -7,6 +7,23 @@ public enum RefundStatus
     Failed = 3
 }
 
+/// <summary>Where refunded money goes.</summary>
+public enum RefundDestination
+{
+    OriginalMethod = 1,
+    Wallet = 2
+}
+
+public enum WalletTransactionType
+{
+    TopUp = 1,
+    Payment = 2,
+    Refund = 3,
+    AdminCredit = 4,
+    AdminDebit = 5,
+    Reversal = 6
+}
+
 public enum TeacherEarningSource
 {
     SessionCompleted = 1,

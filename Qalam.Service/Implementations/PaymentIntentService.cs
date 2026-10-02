@@ -217,6 +217,119 @@ public class PaymentIntentService : IPaymentIntentService
             ["paymentId"] = payment.Id.ToString()
         };
 
+        return await StartCheckoutAsync(
+            gateway,
+            payment,
+            givenId,
+            description,
+            metadata,
+            effectiveMode,
+            appReturnUrl,
+            (type, result, error, notes) => RecordIntentEventAsync(
+                payment,
+                enrollment.Id,
+                participant.Id,
+                enrollment.EnrollmentRequestId,
+                enrollment.SessionRequestId,
+                type,
+                result,
+                cancellationToken,
+                error,
+                notes),
+            cancellationToken);
+    }
+
+    public async Task<PaymentIntentServiceResult> CreateWalletTopUpAsync(
+        int walletId,
+        int userId,
+        decimal amount,
+        string? appReturnUrl = null,
+        CancellationToken cancellationToken = default)
+    {
+        amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        if (amount < _settings.Wallet.MinTopUp || amount > _settings.Wallet.MaxTopUp)
+            return PaymentIntentServiceResult.Fail(
+                "WALLET_TOPUP_OUT_OF_RANGE",
+                $"Top-up amount must be between {_settings.Wallet.MinTopUp} and {_settings.Wallet.MaxTopUp}.");
+
+        IPaymentGateway gateway;
+        try
+        {
+            gateway = await _gatewayResolver.ResolveActiveAsync(cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return PaymentIntentServiceResult.Fail("PROVIDER_NOT_CONFIGURED", ex.Message);
+        }
+
+        if (gateway.ProviderName.Equals(MockPaymentGateway.Name, StringComparison.OrdinalIgnoreCase))
+            return PaymentIntentServiceResult.Fail("USE_MOCK_PAY", "Active provider is Mock.");
+
+        const string description = "Qalam wallet top-up";
+        var effectiveMode = await ResolveEffectiveClientModeAsync(gateway, cancellationToken);
+        var givenId = Guid.NewGuid().ToString();
+        var payment = new Payment
+        {
+            PayerUserId = userId,
+            Currency = _settings.DefaultCurrency,
+            PaymentProvider = gateway.ProviderName,
+            ProviderTransactionId = givenId,
+            Subtotal = amount,
+            VatAmount = 0,
+            DiscountAmount = 0,
+            TotalAmount = amount,
+            Status = PaymentStatus.Pending
+        };
+        payment.PaymentItems.Add(new PaymentItem
+        {
+            ItemType = PaymentItemType.WalletTopUp,
+            ReferenceId = walletId,
+            Description = description,
+            Amount = amount
+        });
+        await _paymentRepository.AddAsync(payment);
+
+        Task Record(PaymentTransactionEventType type, PaymentTransactionEventResult result, string? error, string? notes)
+            => _events.RecordAsync(new PaymentTransactionEventRequest
+            {
+                PaymentId = payment.Id,
+                PaymentProvider = payment.PaymentProvider,
+                Source = PaymentTransactionEventSource.Intent,
+                EventType = type,
+                Result = result,
+                StatusAfter = payment.Status,
+                Amount = payment.TotalAmount,
+                Currency = payment.Currency,
+                ProviderPaymentId = payment.ProviderTransactionId,
+                ProviderInvoiceId = payment.ProviderInvoiceId,
+                ErrorMessage = error,
+                Notes = notes ?? "wallet_topup"
+            }, cancellationToken);
+
+        await Record(PaymentTransactionEventType.IntentCreated, PaymentTransactionEventResult.Success, null, null);
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["walletId"] = walletId.ToString(),
+            ["paymentId"] = payment.Id.ToString(),
+            ["purpose"] = "wallet_topup"
+        };
+
+        return await StartCheckoutAsync(
+            gateway, payment, givenId, description, metadata, effectiveMode, appReturnUrl, Record, cancellationToken);
+    }
+
+    private async Task<PaymentIntentServiceResult> StartCheckoutAsync(
+        IPaymentGateway gateway,
+        Payment payment,
+        string givenId,
+        string description,
+        Dictionary<string, string> metadata,
+        PaymentClientMode effectiveMode,
+        string? appReturnUrl,
+        Func<PaymentTransactionEventType, PaymentTransactionEventResult, string?, string?, Task> recordEvent,
+        CancellationToken cancellationToken)
+    {
         GatewayCheckoutDto checkout;
         try
         {
@@ -253,16 +366,11 @@ public class PaymentIntentService : IPaymentIntentService
             payment.FailureMessage = Truncate(ex.Message, 500);
             payment.UpdatedAt = DateTime.UtcNow;
             await _paymentRepository.UpdateAsync(payment);
-            await RecordIntentEventAsync(
-                payment,
-                enrollment.Id,
-                participant.Id,
-                enrollment.EnrollmentRequestId,
-                enrollment.SessionRequestId,
+            await recordEvent(
                 PaymentTransactionEventType.CheckoutFailed,
                 PaymentTransactionEventResult.Failed,
-                cancellationToken,
-                error: Truncate(ex.Message, 1000));
+                Truncate(ex.Message, 1000),
+                null);
             return PaymentIntentServiceResult.Fail("CHECKOUT_FAILED", ex.Message);
         }
 
@@ -282,16 +390,11 @@ public class PaymentIntentService : IPaymentIntentService
             await _paymentRepository.UpdateAsync(payment);
         }
 
-        await RecordIntentEventAsync(
-            payment,
-            enrollment.Id,
-            participant.Id,
-            enrollment.EnrollmentRequestId,
-            enrollment.SessionRequestId,
+        await recordEvent(
             PaymentTransactionEventType.CheckoutCreated,
             PaymentTransactionEventResult.Success,
-            cancellationToken,
-            notes: checkout.ClientMode.ToString());
+            null,
+            checkout.ClientMode.ToString());
 
         return PaymentIntentServiceResult.Ok(new PaymentIntentDto
         {

@@ -104,7 +104,8 @@ public class AdminSessionActionService : IAdminSessionActionService
             "SAR",
             request.Reason,
             adminUserId,
-            cancellationToken);
+            cancellationToken,
+            courseScheduleId: scheduleId);
 
         await _audit.LogAsync(
             scheduleId,

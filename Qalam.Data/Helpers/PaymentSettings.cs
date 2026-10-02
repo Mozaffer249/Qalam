@@ -25,6 +25,18 @@ public class PaymentSettings
     public StripePaymentSettings Stripe { get; set; } = new();
 
     public PaymentReconciliationSettings Reconciliation { get; set; } = new();
+
+    public WalletSettings Wallet { get; set; } = new();
+}
+
+public class WalletSettings
+{
+    /// <summary><see cref="Qalam.Data.Entity.Payment.Payment.PaymentProvider"/> for wallet-funded payments.</summary>
+    public const string ProviderName = "Wallet";
+
+    public decimal MinTopUp { get; set; } = 10m;
+
+    public decimal MaxTopUp { get; set; } = 5000m;
 }
 
 public class PaymentReconciliationSettings

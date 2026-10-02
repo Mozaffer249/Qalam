@@ -13,6 +13,17 @@ public interface IPaymentIntentService
         int userId,
         string? appReturnUrl = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a Pending wallet top-up payment against the active gateway. Confirmation
+    /// (client confirm, webhook, reconciliation) credits the wallet.
+    /// </summary>
+    Task<PaymentIntentServiceResult> CreateWalletTopUpAsync(
+        int walletId,
+        int userId,
+        decimal amount,
+        string? appReturnUrl = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class PaymentIntentServiceResult

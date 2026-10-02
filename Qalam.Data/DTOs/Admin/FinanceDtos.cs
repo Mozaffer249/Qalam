@@ -122,6 +122,9 @@ public class IssueAdminRefundDto
     public int? EnrollmentId { get; set; }
     public decimal? Amount { get; set; }
     public string Reason { get; set; } = "";
+
+    /// <summary>"Wallet" (default) or "OriginalMethod" (card via the original gateway).</summary>
+    public string? Destination { get; set; }
 }
 
 public class AdminPendingEarningDto

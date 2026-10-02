@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
 
 namespace Qalam.Service.Abstracts;
@@ -10,6 +11,10 @@ namespace Qalam.Service.Abstracts;
 /// </summary>
 public interface IRefundService
 {
+    /// <param name="destination">
+    /// Wallet (default) credits the payer's wallet; OriginalMethod refunds through the payment's gateway.
+    /// Wallet-funded payments always refund to the wallet.
+    /// </param>
     Task<Refund> IssueRefundAsync(
         int paymentId,
         int enrollmentId,
@@ -17,13 +22,17 @@ public interface IRefundService
         string currency,
         string reason,
         int? initiatedByUserId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        RefundDestination destination = RefundDestination.Wallet,
+        int? complaintId = null,
+        int? courseScheduleId = null);
 
     Task<IReadOnlyList<Refund>> RefundEnrollmentPaymentsAsync(
         int enrollmentId,
         string reason,
         int? initiatedByUserId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        RefundDestination destination = RefundDestination.Wallet);
 
     Task<PagedResult<AdminRefundListItemDto>> ListAsync(
         AdminRefundListFilter filter,

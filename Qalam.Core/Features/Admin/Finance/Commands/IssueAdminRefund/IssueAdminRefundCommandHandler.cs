@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Admin.Finance.Commands.IssueAdminRefund;
@@ -24,6 +25,10 @@ public class IssueAdminRefundCommandHandler : ResponseHandler,
         CancellationToken cancellationToken)
     {
         var body = request.Body;
+        var destination = Enum.TryParse<RefundDestination>(body.Destination, ignoreCase: true, out var parsed)
+                          && Enum.IsDefined(parsed)
+            ? parsed
+            : RefundDestination.Wallet;
         try
         {
             if (body.PaymentId.HasValue && body.EnrollmentId.HasValue && body.Amount.HasValue)
@@ -35,7 +40,8 @@ public class IssueAdminRefundCommandHandler : ResponseHandler,
                     "SAR",
                     body.Reason,
                     request.InitiatedByUserId,
-                    cancellationToken);
+                    cancellationToken,
+                    destination);
                 var detail = await _refunds.GetByIdAsync(refund.Id, cancellationToken);
                 return Success(entity: detail!);
             }
@@ -46,7 +52,8 @@ public class IssueAdminRefundCommandHandler : ResponseHandler,
                     body.EnrollmentId.Value,
                     string.IsNullOrWhiteSpace(body.Reason) ? "Admin refund" : body.Reason,
                     request.InitiatedByUserId,
-                    cancellationToken);
+                    cancellationToken,
+                    destination);
                 if (refunds.Count == 0)
                     return BadRequest<AdminRefundDetailDto>("No refundable payments for this enrollment.");
 

@@ -68,7 +68,9 @@ public class RefundUsesRecordedProviderTests
             });
 
         var resolver = new PaymentGatewayResolver(new IPaymentGateway[] { mockGw, moyasar.Object }, settings.Object);
-        var service = new RefundService(refunds.Object, finance.Object, resolver, Mock.Of<IPaymentTransactionEventService>());
+        var service = new RefundService(
+            refunds.Object, finance.Object, resolver, Mock.Of<IPaymentTransactionEventService>(),
+            Mock.Of<IStudentWalletService>());
 
         var refund = await service.IssueRefundAsync(
             paymentId: 10,
@@ -76,7 +78,8 @@ public class RefundUsesRecordedProviderTests
             amount: 100m,
             currency: "SAR",
             reason: "test",
-            initiatedByUserId: null);
+            initiatedByUserId: null,
+            destination: RefundDestination.OriginalMethod);
 
         Assert.Equal("ref_moyasar", refund.ProviderRefundId);
         moyasar.Verify(

@@ -19,7 +19,8 @@ public enum PaymentItemType
 {
     CourseEnrollment = 1,
     SessionBooking = 2,
-    PackageSubscription = 3
+    PackageSubscription = 3,
+    WalletTopUp = 4
 }
 
 /// <summary>Who/what produced a payment transaction audit event.</summary>

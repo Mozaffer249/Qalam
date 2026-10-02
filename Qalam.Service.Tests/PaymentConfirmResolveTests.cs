@@ -216,6 +216,7 @@ public class PaymentConfirmResolveTests
             Mock.Of<IRefundService>(),
             gatewayResolver,
             Mock.Of<IPaymentTransactionEventService>(),
+            Mock.Of<IStudentWalletService>(),
             NullLogger<PaymentConfirmationService>.Instance);
     }
 }

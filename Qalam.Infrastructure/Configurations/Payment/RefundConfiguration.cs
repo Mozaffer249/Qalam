@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
 
 namespace Qalam.Infrastructure.Configurations.Payment;
@@ -22,6 +23,7 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(r => r.Reason).HasMaxLength(500).IsRequired();
         builder.Property(r => r.ProviderRefundId).HasMaxLength(120);
         builder.Property(r => r.Status).IsRequired();
+        builder.Property(r => r.Destination).IsRequired().HasDefaultValue(RefundDestination.OriginalMethod);
 
         builder.HasOne(r => r.Payment)
             .WithMany(p => p.Refunds)

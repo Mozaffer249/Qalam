@@ -54,6 +54,7 @@ public class PaymentConfirmationConcurrencyTests
             Mock.Of<IRefundService>(),
             Mock.Of<IPaymentGatewayResolver>(),
             Mock.Of<IPaymentTransactionEventService>(),
+            Mock.Of<IStudentWalletService>(),
             NullLogger<PaymentConfirmationService>.Instance);
 
         var outcome = await sut.ConfirmAsync(10);
