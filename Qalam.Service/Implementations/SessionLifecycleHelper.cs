@@ -20,6 +20,7 @@ public class SessionLifecycleHelper : ISessionLifecycleService
     private readonly ITeacherEarningService _teacherEarning;
     private readonly ISessionComplaintService _sessionComplaints;
     private readonly ILogger<SessionLifecycleHelper> _logger;
+    private readonly ISessionPolicyService? _sessionPolicy;
 
     public SessionLifecycleHelper(
         ICourseScheduleRepository courseScheduleRepository,
@@ -29,8 +30,10 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         IEnrollmentCompletionService enrollmentCompletion,
         ITeacherEarningService teacherEarning,
         ISessionComplaintService sessionComplaints,
-        ILogger<SessionLifecycleHelper> logger)
+        ILogger<SessionLifecycleHelper> logger,
+        ISessionPolicyService? sessionPolicy = null)
     {
+        _sessionPolicy = sessionPolicy;
         _courseScheduleRepository = courseScheduleRepository;
         _liveSessionProvider = liveSessionProvider;
         _freeSessionPolicy = freeSessionPolicy;
@@ -50,7 +53,10 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         await CompleteAsync(schedule, cancellationToken);
     }
 
-    public async Task CompleteAsync(CourseSchedule schedule, CancellationToken cancellationToken = default)
+    public async Task CompleteAsync(
+        CourseSchedule schedule,
+        CancellationToken cancellationToken = default,
+        bool completedByTeacher = false)
     {
         if (schedule.Status == ScheduleStatus.Completed)
             return;
@@ -64,6 +70,14 @@ public class SessionLifecycleHelper : ISessionLifecycleService
 
         // Never invent Present for never-joined; Pending + no JoinedAt → Absent.
         SessionAttendanceRules.AutoResolveMissingAttendance(schedule);
+
+        if (!completedByTeacher
+            && _sessionPolicy != null
+            && schedule.TeacherAttendanceStatus == SessionAttendanceStatus.Absent)
+        {
+            await HandleTeacherNoShowAsync(schedule, cancellationToken);
+            return;
+        }
 
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation(
@@ -138,6 +152,59 @@ public class SessionLifecycleHelper : ISessionLifecycleService
                 schedule.Id);
         }
 
+        if (_sessionPolicy != null
+            && schedule.Attendances.Count > 0
+            && schedule.Attendances.All(a => a.Status == SessionAttendanceStatus.Absent))
+        {
+            try
+            {
+                await _sessionPolicy.ApplyStudentNoShowAsync(schedule.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to apply student no-show policy for CourseSchedule {ScheduleId}",
+                    schedule.Id);
+            }
+        }
+
+        await TryCompleteEnrollmentAsync(schedule, cancellationToken);
+    }
+
+    /// <summary>
+    /// The teacher never joined: the session did not happen. It is cancelled (no earning accrues) and the
+    /// teacher no-show rule compensates the student. A disabled rule leaves the cancellation for admin follow-up.
+    /// </summary>
+    private async Task HandleTeacherNoShowAsync(CourseSchedule schedule, CancellationToken cancellationToken)
+    {
+        schedule.Status = ScheduleStatus.Cancelled;
+        schedule.CancellationReason = ScheduleCancellationReason.TeacherNoShow;
+        await _courseScheduleRepository.SaveChangesAsync();
+        _logger.LogInformation("CourseSchedule {ScheduleId} ended without the teacher; marked teacher no-show.", schedule.Id);
+
+        await _liveSessionProvider.EndRoomAsync(LiveSessionRoomNames.ForSchedule(schedule.Id), cancellationToken);
+
+        try
+        {
+            await _sessionPolicy!.ApplyTeacherFaultAsync(
+                schedule.Id,
+                PolicyCaseKind.TeacherNoShow,
+                ScheduleCancellationReason.TeacherNoShow,
+                PolicyActor.System,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to apply teacher no-show policy for CourseSchedule {ScheduleId}",
+                schedule.Id);
+        }
+
+        await TryCompleteEnrollmentAsync(schedule, cancellationToken);
+    }
+
+    private async Task TryCompleteEnrollmentAsync(CourseSchedule schedule, CancellationToken cancellationToken)
+    {
         try
         {
             await _enrollmentCompletion.TryCompleteEnrollmentIfFinishedAsync(

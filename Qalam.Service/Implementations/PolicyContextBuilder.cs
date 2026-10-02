@@ -64,8 +64,14 @@ public class PolicyContextBuilder : IPolicyContextBuilder
             .Select(p => new PolicyPaymentInfo { PaymentId = p.PaymentId, Paid = p.TotalAmount, AlreadyRefunded = p.Refunded })
             .ToList();
 
+        // A rescheduled session is represented by its successor; replacements for cancelled sessions are extra.
+        var rescheduledIds = enrollment.CourseSchedules
+            .Where(s => s.Status == ScheduleStatus.Rescheduled)
+            .Select(s => s.Id)
+            .ToHashSet();
         var packageSchedules = enrollment.CourseSchedules
-            .Where(s => s.ReplacesScheduleId == null && s.Status != ScheduleStatus.Rescheduled)
+            .Where(s => s.Status != ScheduleStatus.Rescheduled
+                        && (s.ReplacesScheduleId == null || rescheduledIds.Contains(s.ReplacesScheduleId.Value)))
             .ToList();
         var sessions = enrollment.CourseSchedules
             .Select(s => new PolicySessionInfo

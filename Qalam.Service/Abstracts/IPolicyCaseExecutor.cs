@@ -33,6 +33,16 @@ public interface IPolicyCaseExecutor
         PolicyApplyOptions? options = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Writes the case only, for actions already performed elsewhere (e.g. complaint resolution).</summary>
+    Task<PolicyCase> RecordAsync(
+        PolicyContextBundle bundle,
+        PolicyDecision decision,
+        PolicyActor actor,
+        PolicyApplyOptions? options = null,
+        int? refundId = null,
+        int? replacementScheduleId = null,
+        CancellationToken cancellationToken = default);
+
     PolicyPreviewDto ToPreview(PolicyContextBundle bundle, PolicyDecision decision);
 
     PolicyOutcomeDto ToOutcome(PolicyContextBundle bundle, PolicyDecision decision, PolicyCase policyCase);

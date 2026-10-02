@@ -14,11 +14,13 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
 {
     private readonly ApplicationDBContext _db;
     private readonly IRefundService _refunds;
+    private readonly IReplacementScheduleService _replacements;
 
-    public PolicyCaseExecutor(ApplicationDBContext db, IRefundService refunds)
+    public PolicyCaseExecutor(ApplicationDBContext db, IRefundService refunds, IReplacementScheduleService replacements)
     {
         _db = db;
         _refunds = refunds;
+        _replacements = replacements;
     }
 
     public async Task<PolicyCase> ApplyAsync(
@@ -41,31 +43,7 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
 
         try
         {
-            var policyCase = new PolicyCase
-            {
-                Kind = decision.Kind,
-                Status = PolicyCaseStatus.Applied,
-                EnrollmentId = enrollment.Id,
-                CourseScheduleId = ctx.TargetScheduleId,
-                ComplaintId = options.ComplaintId,
-                PolicyVersionId = bundle.Policy.VersionId,
-                RuleSectionJson = decision.RuleSection == null
-                    ? null
-                    : JsonSerializer.Serialize(decision.RuleSection, decision.RuleSection.GetType(), CancellationPolicyDefaults.JsonOptions),
-                InputsJson = JsonSerializer.Serialize(Inputs(ctx), CancellationPolicyDefaults.JsonOptions),
-                ExplanationJson = JsonSerializer.Serialize(decision.Explanation, CancellationPolicyDefaults.JsonOptions),
-                GrossValue = decision.GrossValue,
-                RefundAmount = decision.RefundAmount,
-                FeeAmount = decision.FeeAmount,
-                TeacherEarningImpact = decision.TeacherEarningImpact,
-                PlatformRevenueImpact = decision.PlatformRevenueImpact,
-                Currency = decision.Currency,
-                Destination = decision.RefundAmount > 0 ? decision.Destination : null,
-                Reason = Truncate(options.Reason, 1000),
-                ActorUserId = actor.UserId,
-                ActorRole = Truncate(actor.Role, 30) ?? "System",
-                CreatedAt = DateTime.UtcNow
-            };
+            var policyCase = NewCase(bundle, decision, actor, options);
             _db.PolicyCases.Add(policyCase);
             await _db.SaveChangesAsync(cancellationToken);
 
@@ -100,6 +78,15 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
 
             await ApplyTeacherEffectAsync(policyCase, decision, enrollment.ApprovedByTeacherId, actor, cancellationToken);
 
+            if (decision.CreateReplacement
+                && enrollment.CourseSchedules.FirstOrDefault(s => s.Id == ctx.TargetScheduleId) is { } source)
+            {
+                var replacement = await _replacements.CreateAsync(
+                    source, $"Replacement for session #{source.Id} (policy case #{policyCase.Id})",
+                    cancellationToken: cancellationToken);
+                policyCase.ReplacementScheduleId = replacement.Id;
+            }
+
             if (options.BeforeCommit != null)
                 await options.BeforeCommit(policyCase);
 
@@ -120,6 +107,49 @@ public class PolicyCaseExecutor : IPolicyCaseExecutor
                 await tx.DisposeAsync();
         }
     }
+
+    public async Task<PolicyCase> RecordAsync(
+        PolicyContextBundle bundle,
+        PolicyDecision decision,
+        PolicyActor actor,
+        PolicyApplyOptions? options = null,
+        int? refundId = null,
+        int? replacementScheduleId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var policyCase = NewCase(bundle, decision, actor, options ?? new PolicyApplyOptions());
+        policyCase.RefundId = refundId;
+        policyCase.ReplacementScheduleId = replacementScheduleId;
+        _db.PolicyCases.Add(policyCase);
+        await _db.SaveChangesAsync(cancellationToken);
+        return policyCase;
+    }
+
+    private static PolicyCase NewCase(PolicyContextBundle bundle, PolicyDecision decision, PolicyActor actor, PolicyApplyOptions options) => new()
+    {
+        Kind = decision.Kind,
+        Status = PolicyCaseStatus.Applied,
+        EnrollmentId = bundle.Enrollment.Id,
+        CourseScheduleId = bundle.Context.TargetScheduleId,
+        ComplaintId = options.ComplaintId,
+        PolicyVersionId = bundle.Policy.VersionId,
+        RuleSectionJson = decision.RuleSection == null
+            ? null
+            : JsonSerializer.Serialize(decision.RuleSection, decision.RuleSection.GetType(), CancellationPolicyDefaults.JsonOptions),
+        InputsJson = JsonSerializer.Serialize(Inputs(bundle.Context), CancellationPolicyDefaults.JsonOptions),
+        ExplanationJson = JsonSerializer.Serialize(decision.Explanation, CancellationPolicyDefaults.JsonOptions),
+        GrossValue = decision.GrossValue,
+        RefundAmount = decision.RefundAmount,
+        FeeAmount = decision.FeeAmount,
+        TeacherEarningImpact = decision.TeacherEarningImpact,
+        PlatformRevenueImpact = decision.PlatformRevenueImpact,
+        Currency = decision.Currency,
+        Destination = decision.RefundAmount > 0 ? decision.Destination : null,
+        Reason = Truncate(options.Reason, 1000),
+        ActorUserId = actor.UserId,
+        ActorRole = Truncate(actor.Role, 30) ?? "System",
+        CreatedAt = DateTime.UtcNow
+    };
 
     /// <summary>
     /// Earning lines only exist for delivered sessions. Unpaid lines are voided; lines already in a payout

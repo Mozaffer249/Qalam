@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Student.Sessions.Commands.CancelStudentSession;
 using Qalam.Core.Features.Student.Sessions.Commands.FileStudentSessionComplaint;
 using Qalam.Core.Features.Student.Sessions.Commands.GetSessionLiveToken;
 using Qalam.Core.Features.Student.Sessions.Commands.JoinSession;
@@ -11,6 +12,8 @@ using Qalam.Core.Features.Student.Sessions.Queries.ListStudentSessions;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.DTOs.Live;
+using Qalam.Data.DTOs.Policy;
+using Qalam.Service.Models.Policy;
 using Qalam.Data.DTOs.Student;
 using Qalam.Data.DTOs.Teacher;
 
@@ -41,6 +44,21 @@ public class StudentSessionsController : AppControllerBase
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> LiveToken(int id)
         => NewResult(await Mediator.Send(new GetStudentSessionLiveTokenCommand { Id = id }));
+
+    /// <summary>What cancelling (refund) or rescheduling this session would do, per the enrollment's policy.</summary>
+    [HttpGet("{id:int}/Cancel/Preview")]
+    [ProducesResponseType(typeof(PolicyPreviewDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> PreviewCancel(int id, [FromQuery] PolicyStudentChoice choice = PolicyStudentChoice.Refund)
+        => NewResult(await Mediator.Send(new GetStudentSessionCancelPreviewQuery { ScheduleId = id, Choice = choice }));
+
+    /// <summary>Cancel one session for a refund, or reschedule it to a new teacher slot.</summary>
+    [HttpPost("{id:int}/Cancel")]
+    [ProducesResponseType(typeof(PolicyOutcomeDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Cancel(int id, [FromBody] CancelStudentSessionCommand body)
+    {
+        body.ScheduleId = id;
+        return NewResult(await Mediator.Send(body));
+    }
 
     [HttpPost("{id:int}/Review")]
     [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]

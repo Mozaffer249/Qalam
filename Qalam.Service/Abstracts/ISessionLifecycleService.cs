@@ -17,7 +17,14 @@ public interface ISessionLifecycleService
     /// Complete an already-tracked schedule that has Enrollment.Participants and Attendances loaded.
     /// Sets Status=Completed, EndedAt=UtcNow, and creates auto-resolved attendance for missing participants.
     /// </summary>
-    Task CompleteAsync(CourseSchedule schedule, CancellationToken cancellationToken = default);
+    /// <param name="completedByTeacher">
+    /// True when the teacher completed it (they were present). Otherwise a teacher who never joined is
+    /// treated as a no-show: the session is cancelled and the teacher no-show policy applies.
+    /// </param>
+    Task CompleteAsync(
+        CourseSchedule schedule,
+        CancellationToken cancellationToken = default,
+        bool completedByTeacher = false);
 
     /// <summary>
     /// Sets Status=InProgress when still Scheduled. No-op for terminal or already InProgress.

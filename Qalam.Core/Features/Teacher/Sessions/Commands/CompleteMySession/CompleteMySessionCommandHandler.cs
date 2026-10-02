@@ -45,7 +45,7 @@ public class CompleteMySessionCommandHandler : ResponseHandler,
         if (schedule.Status == ScheduleStatus.Completed)
             return Success(entity: "Session already completed.");
 
-        await _lifecycleService.CompleteAsync(schedule, cancellationToken);
+        await _lifecycleService.CompleteAsync(schedule, cancellationToken, completedByTeacher: true);
         return Success(entity: "Session completed.");
     }
 }

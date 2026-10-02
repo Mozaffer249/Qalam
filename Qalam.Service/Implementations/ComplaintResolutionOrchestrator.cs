@@ -23,6 +23,8 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
     private readonly ISessionAuditService _audit;
     private readonly ITeacherFinanceImpactService _financeImpact;
     private readonly ApplicationDBContext _db;
+    private readonly IReplacementScheduleService _replacements;
+    private readonly ISessionPolicyService? _sessionPolicy;
 
     public ComplaintResolutionOrchestrator(
         ISessionComplaintRepository complaints,
@@ -30,8 +32,12 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
         IRefundService refundService,
         ISessionAuditService audit,
         ITeacherFinanceImpactService financeImpact,
-        ApplicationDBContext db)
+        ApplicationDBContext db,
+        IReplacementScheduleService? replacements = null,
+        ISessionPolicyService? sessionPolicy = null)
     {
+        _replacements = replacements ?? new ReplacementScheduleService(db);
+        _sessionPolicy = sessionPolicy;
         _complaints = complaints;
         _schedules = schedules;
         _refundService = refundService;
@@ -82,6 +88,7 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
             cancellationToken)
             ?? throw new InvalidOperationException("Enrollment financial context not found.");
 
+        refundAmountOverride ??= await TechnicalIssuePolicyRefundAsync(complaint, resolutionCode, scheduleId, cancellationToken);
         var plan = BuildPlan(resolutionCode, financial, refundAmountOverride, paymentIdOverride);
 
         int? replacementScheduleId = null;
@@ -197,6 +204,37 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
             SessionAuditActionType.ComplaintStatusChanged,
             new { complaintId, resolutionCode = resolutionCode.ToString(), refundId, replacementScheduleId },
             cancellationToken);
+
+        if (_sessionPolicy != null
+            && complaint.ReasonCode == SessionComplaintReason.TechnicalIssue
+            && resolutionCode is not (SessionComplaintResolution.RejectComplaint or SessionComplaintResolution.NoAction))
+        {
+            await _sessionPolicy.RecordTechnicalIssueAsync(
+                schedule.Id,
+                complaintId,
+                adminUserId,
+                plan.IssueRefund ? plan.RefundAmount : 0m,
+                refundId,
+                replacementScheduleId,
+                resolutionNotes,
+                cancellationToken);
+        }
+    }
+
+    /// <summary>Partial refunds for technical-issue complaints default to the policy's suggested amount.</summary>
+    private async Task<decimal?> TechnicalIssuePolicyRefundAsync(
+        SessionComplaint complaint,
+        SessionComplaintResolution resolutionCode,
+        int scheduleId,
+        CancellationToken cancellationToken)
+    {
+        if (_sessionPolicy == null
+            || complaint.ReasonCode != SessionComplaintReason.TechnicalIssue
+            || resolutionCode != SessionComplaintResolution.PartialRefund)
+            return null;
+
+        var decision = await _sessionPolicy.EvaluateTechnicalIssueAsync(scheduleId, cancellationToken);
+        return decision is { Allowed: true, RefundAmount: > 0 } ? decision.RefundAmount : null;
     }
 
     private async Task EnsureComplaintOnScheduleAsync(
@@ -230,6 +268,7 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
             cancellationToken)
             ?? throw new InvalidOperationException("Enrollment financial context not found.");
 
+        refundAmountOverride ??= await TechnicalIssuePolicyRefundAsync(complaint, resolutionCode, scheduleId, cancellationToken);
         var plan = BuildPlan(resolutionCode, financial, refundAmountOverride, paymentIdOverride);
         var payoutImpact = await _complaints.GetPayoutImpactAsync(
             complaint.EnrollmentId,
@@ -323,25 +362,10 @@ public class ComplaintResolutionOrchestrator : IComplaintResolutionOrchestrator
         CourseSchedule source,
         CancellationToken cancellationToken)
     {
-        var suggestedDate = source.Date > DateOnly.FromDateTime(DateTime.UtcNow)
-            ? source.Date
-            : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
-
-        var replacement = new CourseSchedule
-        {
-            EnrollmentId = source.EnrollmentId,
-            CourseSessionId = source.CourseSessionId,
-            Date = suggestedDate,
-            TeacherAvailabilityId = source.TeacherAvailabilityId,
-            DurationMinutes = source.DurationMinutes,
-            TeachingModeId = source.TeachingModeId,
-            LocationId = source.LocationId,
-            Status = ScheduleStatus.Scheduled,
-            TeacherNote = $"Replacement for complaint #{complaint.Id}",
-            CreatedAt = DateTime.UtcNow,
-        };
-
-        var created = await _schedules.AddAsync(replacement);
+        var created = await _replacements.CreateAsync(
+            source,
+            $"Replacement for complaint #{complaint.Id}",
+            cancellationToken: cancellationToken);
         return created.Id;
     }
 

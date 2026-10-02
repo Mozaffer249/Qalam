@@ -14,6 +14,7 @@ public class AdminSessionActionService : IAdminSessionActionService
     private readonly IRefundService _refundService;
     private readonly ITeacherManagementService _teacherManagement;
     private readonly ITeacherFinanceImpactService _financeImpact;
+    private readonly ISessionPolicyService? _sessionPolicy;
 
     public AdminSessionActionService(
         ICourseScheduleRepository schedules,
@@ -21,8 +22,10 @@ public class AdminSessionActionService : IAdminSessionActionService
         ISessionComplaintService complaints,
         IRefundService refundService,
         ITeacherManagementService teacherManagement,
-        ITeacherFinanceImpactService financeImpact)
+        ITeacherFinanceImpactService financeImpact,
+        ISessionPolicyService? sessionPolicy = null)
     {
+        _sessionPolicy = sessionPolicy;
         _schedules = schedules;
         _audit = audit;
         _complaints = complaints;
@@ -77,14 +80,28 @@ public class AdminSessionActionService : IAdminSessionActionService
         if (schedule.Status is ScheduleStatus.Completed or ScheduleStatus.Cancelled or ScheduleStatus.Rescheduled)
             throw new InvalidOperationException($"Cannot cancel session in status {schedule.Status}.");
 
-        schedule.Status = ScheduleStatus.Cancelled;
-        await _schedules.SaveChangesAsync();
+        var policyCase = _sessionPolicy == null
+            ? null
+            : await _sessionPolicy.ApplyTeacherFaultAsync(
+                scheduleId,
+                PolicyCaseKind.TeacherSessionCancel,
+                ScheduleCancellationReason.AdminCancel,
+                new PolicyActor(adminUserId, "Admin"),
+                cancellationToken);
+
+        if (policyCase == null)
+        {
+            schedule.Status = ScheduleStatus.Cancelled;
+            schedule.CancellationReason = ScheduleCancellationReason.AdminCancel;
+            await _schedules.SaveChangesAsync();
+        }
+
         await _audit.LogAsync(
             scheduleId,
             adminUserId,
             "Admin",
             SessionAuditActionType.SessionCancelled,
-            null,
+            policyCase == null ? null : new { policyCaseId = policyCase.Id, policyCase.RefundAmount, policyCase.ReplacementScheduleId },
             cancellationToken);
     }
 
@@ -101,7 +118,7 @@ public class AdminSessionActionService : IAdminSessionActionService
             request.PaymentId,
             enrollmentId,
             request.Amount,
-            "SAR",
+            "",
             request.Reason,
             adminUserId,
             cancellationToken,

@@ -101,6 +101,8 @@ namespace Qalam.Service
             services.AddTransient<IPolicyAdminService, PolicyAdminService>();
             services.AddTransient<IPolicyContextBuilder, PolicyContextBuilder>();
             services.AddTransient<IPolicyCaseExecutor, PolicyCaseExecutor>();
+            services.AddTransient<IReplacementScheduleService, ReplacementScheduleService>();
+            services.AddTransient<ISessionPolicyService, SessionPolicyService>();
             services.AddTransient<IPaymentConfirmationService, PaymentConfirmationService>();
             services.AddTransient<IPaymentIntentService, PaymentIntentService>();
             services.AddTransient<IPaymentWebhookService, PaymentWebhookService>();

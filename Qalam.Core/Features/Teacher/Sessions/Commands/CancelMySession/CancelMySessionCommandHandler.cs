@@ -4,6 +4,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Sessions.Commands.CancelMySession;
 
@@ -12,14 +13,17 @@ public class CancelMySessionCommandHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
+    private readonly ISessionPolicyService? _sessionPolicy;
 
     public CancelMySessionCommandHandler(
         ITeacherRepository teacherRepository,
         ICourseScheduleRepository scheduleRepository,
-        IStringLocalizer<SharedResources> localizer) : base(localizer)
+        IStringLocalizer<SharedResources> localizer,
+        ISessionPolicyService? sessionPolicy = null) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _scheduleRepository = scheduleRepository;
+        _sessionPolicy = sessionPolicy;
     }
 
     public async Task<Response<string>> Handle(CancelMySessionCommand request, CancellationToken cancellationToken)
@@ -38,8 +42,21 @@ public class CancelMySessionCommandHandler : ResponseHandler,
         if (schedule.Status is ScheduleStatus.Completed or ScheduleStatus.Cancelled or ScheduleStatus.Rescheduled)
             return BadRequest<string>($"Cannot cancel a session in status {schedule.Status}.");
 
-        schedule.Status = ScheduleStatus.Cancelled;
-        await _scheduleRepository.SaveChangesAsync();
+        var policyCase = _sessionPolicy == null
+            ? null
+            : await _sessionPolicy.ApplyTeacherFaultAsync(
+                schedule.Id,
+                PolicyCaseKind.TeacherSessionCancel,
+                ScheduleCancellationReason.TeacherCancel,
+                new PolicyActor(request.UserId, "Teacher"),
+                cancellationToken);
+
+        if (policyCase == null)
+        {
+            schedule.Status = ScheduleStatus.Cancelled;
+            schedule.CancellationReason = ScheduleCancellationReason.TeacherCancel;
+            await _scheduleRepository.SaveChangesAsync();
+        }
 
         return Success(entity: "Session cancelled.");
     }
