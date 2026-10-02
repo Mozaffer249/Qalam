@@ -26,6 +26,11 @@ public interface IPayoutRepository
         DateTime end,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Tracked Pending balance adjustments (policy deductions and correction credits) for these teachers.</summary>
+    Task<List<TeacherBalanceAdjustment>> GetPendingAdjustmentsAsync(
+        IReadOnlyCollection<int> teacherIds,
+        CancellationToken cancellationToken = default);
+
     Task<PayoutBatch?> GetBatchTrackedWithLinesAsync(
         int batchId,
         CancellationToken cancellationToken = default);

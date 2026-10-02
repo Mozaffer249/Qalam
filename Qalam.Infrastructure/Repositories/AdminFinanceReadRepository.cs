@@ -69,7 +69,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             .SumAsync(l => l.Amount, cancellationToken);
 
         var adjustments = _context.TeacherBalanceAdjustments.AsNoTracking()
-            .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement);
+            .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement || a.Kind == TeacherBalanceAdjustmentKind.Correction);
         if (fromUtc.HasValue)
             adjustments = adjustments.Where(a => a.CreatedAt >= fromUtc.Value);
         if (toUtc.HasValue)
@@ -303,7 +303,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
             .Select(g => new { EnrollmentId = g.Key, Total = g.Sum(l => l.Amount) })
             .ToDictionaryAsync(x => x.EnrollmentId, x => x.Total, cancellationToken);
         var clawbacks = (await _context.TeacherBalanceAdjustments.AsNoTracking()
-                .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement)
+                .Where(a => a.Kind == TeacherBalanceAdjustmentKind.Deduction || a.Kind == TeacherBalanceAdjustmentKind.Settlement || a.Kind == TeacherBalanceAdjustmentKind.Correction)
                 .Select(a => new
                 {
                     a.Amount,

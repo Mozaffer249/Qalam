@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
+using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
@@ -38,5 +40,38 @@ public class ReplacementScheduleService : IReplacementScheduleService
         _db.CourseSchedules.Add(replacement);
         await _db.SaveChangesAsync(cancellationToken);
         return replacement;
+    }
+
+    public async Task<CourseSchedule> RescheduleAsync(
+        CourseSchedule original,
+        int teacherId,
+        DateOnly date,
+        int teacherAvailabilityId,
+        ScheduleCancellationReason reason,
+        int? policyCaseId,
+        string note,
+        CancellationToken cancellationToken = default)
+    {
+        var slot = await _db.TeacherAvailabilities
+            .Include(a => a.TimeSlot)
+            .FirstOrDefaultAsync(a => a.Id == teacherAvailabilityId, cancellationToken);
+        if (slot == null || !slot.IsActive || slot.TeacherId != teacherId)
+            throw new InvalidOperationException("The selected time is not available for this teacher.");
+
+        if (PlatformTime.ToUtc(date, slot.TimeSlot.StartTime) <= DateTime.UtcNow)
+            throw new InvalidOperationException("The new time must be in the future.");
+
+        var taken = await _db.CourseSchedules.AnyAsync(s => s.Date == date
+                                                             && s.TeacherAvailabilityId == teacherAvailabilityId
+                                                             && (s.Status == ScheduleStatus.Scheduled || s.Status == ScheduleStatus.InProgress),
+            cancellationToken);
+        if (taken)
+            throw new InvalidOperationException("The selected time is already booked.");
+
+        original.Status = ScheduleStatus.Rescheduled;
+        original.CancellationReason = reason;
+        original.PolicyCaseId = policyCaseId ?? original.PolicyCaseId;
+
+        return await CreateAsync(original, note, date, slot.Id, slot.TimeSlot.ResolveDurationMinutes(), cancellationToken);
     }
 }

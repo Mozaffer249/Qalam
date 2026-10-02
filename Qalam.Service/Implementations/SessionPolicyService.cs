@@ -1,11 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Qalam.Data.DTOs.Policy;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Payment;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
-using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Models.Policy;
 
@@ -13,7 +10,7 @@ namespace Qalam.Service.Implementations;
 
 public class SessionPolicyService : ISessionPolicyService
 {
-    private readonly ApplicationDBContext _db;
+    private readonly IReplacementScheduleService _replacements;
     private readonly IPolicyContextBuilder _builder;
     private readonly ICancellationPolicyEngine _engine;
     private readonly IPolicyCaseExecutor _executor;
@@ -21,14 +18,14 @@ public class SessionPolicyService : ISessionPolicyService
     private readonly ILogger<SessionPolicyService> _logger;
 
     public SessionPolicyService(
-        ApplicationDBContext db,
+        IReplacementScheduleService replacements,
         IPolicyContextBuilder builder,
         ICancellationPolicyEngine engine,
         IPolicyCaseExecutor executor,
         IPolicyCaseRepository cases,
         ILogger<SessionPolicyService> logger)
     {
-        _db = db;
+        _replacements = replacements;
         _builder = builder;
         _engine = engine;
         _executor = executor;
@@ -61,13 +58,8 @@ public class SessionPolicyService : ISessionPolicyService
             throw new PolicyDeniedException(decision);
 
         var original = bundle.Enrollment.CourseSchedules.First(s => s.Id == scheduleId);
-        Data.Entity.Teacher.TeacherAvailability? slot = null;
-        if (decision.Reschedule)
-        {
-            if (request.NewDate is not DateOnly newDate || request.NewTeacherAvailabilityId is not int availabilityId)
-                throw new InvalidOperationException("Choose a new date and time to reschedule.");
-            slot = await ValidateSlotAsync(bundle.Enrollment.ApprovedByTeacherId, newDate, availabilityId, cancellationToken);
-        }
+        if (decision.Reschedule && (request.NewDate == null || request.NewTeacherAvailabilityId == null))
+            throw new InvalidOperationException("Choose a new date and time to reschedule.");
 
         var policyCase = await _executor.ApplyAsync(
             bundle,
@@ -79,26 +71,17 @@ public class SessionPolicyService : ISessionPolicyService
                 ScheduleReason = ScheduleCancellationReason.StudentCancel,
                 BeforeCommit = async pc =>
                 {
-                    if (slot == null)
+                    if (!decision.Reschedule)
                         return;
-                    original.Status = ScheduleStatus.Rescheduled;
-                    original.CancellationReason = ScheduleCancellationReason.StudentReschedule;
-                    original.PolicyCaseId = pc.Id;
-                    var replacement = new Data.Entity.Course.CourseSchedule
-                    {
-                        EnrollmentId = original.EnrollmentId,
-                        CourseSessionId = original.CourseSessionId,
-                        Date = request.NewDate!.Value,
-                        TeacherAvailabilityId = slot.Id,
-                        DurationMinutes = slot.TimeSlot.ResolveDurationMinutes() is > 0 and var d ? d : original.DurationMinutes,
-                        TeachingModeId = original.TeachingModeId,
-                        LocationId = original.LocationId,
-                        Status = ScheduleStatus.Scheduled,
-                        ReplacesScheduleId = original.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    _db.CourseSchedules.Add(replacement);
-                    await _db.SaveChangesAsync(cancellationToken);
+                    var replacement = await _replacements.RescheduleAsync(
+                        original,
+                        bundle.Enrollment.ApprovedByTeacherId,
+                        request.NewDate!.Value,
+                        request.NewTeacherAvailabilityId!.Value,
+                        ScheduleCancellationReason.StudentReschedule,
+                        pc.Id,
+                        $"Rescheduled by student (policy case #{pc.Id})",
+                        cancellationToken);
                     pc.ReplacementScheduleId = replacement.Id;
                 }
             },
@@ -238,27 +221,5 @@ public class SessionPolicyService : ISessionPolicyService
             return null;
         var owner = bundle.Enrollment.OwnerUserId ?? bundle.Enrollment.EnrollmentRequest?.RequestedByUserId;
         return owner == userId ? bundle : null;
-    }
-
-    private async Task<Data.Entity.Teacher.TeacherAvailability> ValidateSlotAsync(
-        int teacherId, DateOnly date, int availabilityId, CancellationToken cancellationToken)
-    {
-        var slot = await _db.TeacherAvailabilities
-            .Include(a => a.TimeSlot)
-            .FirstOrDefaultAsync(a => a.Id == availabilityId, cancellationToken);
-        if (slot == null || !slot.IsActive || slot.TeacherId != teacherId)
-            throw new InvalidOperationException("The selected time is not available for this teacher.");
-
-        if (PlatformTime.ToUtc(date, slot.TimeSlot.StartTime) <= DateTime.UtcNow)
-            throw new InvalidOperationException("The new time must be in the future.");
-
-        var taken = await _db.CourseSchedules.AnyAsync(s => s.Date == date
-                                                             && s.TeacherAvailabilityId == availabilityId
-                                                             && (s.Status == ScheduleStatus.Scheduled || s.Status == ScheduleStatus.InProgress),
-            cancellationToken);
-        if (taken)
-            throw new InvalidOperationException("The selected time is already booked.");
-
-        return slot;
     }
 }

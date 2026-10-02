@@ -45,6 +45,8 @@ public class PayoutService : IPayoutService
 
         var currency = lines.Select(l => l.Currency).FirstOrDefault() ?? "SAR";
         var byTeacher = lines.GroupBy(l => l.TeacherId).ToList();
+        var adjustments = await _payouts.GetPendingAdjustmentsAsync(
+            byTeacher.Select(g => g.Key).ToList(), cancellationToken);
 
         var batch = new PayoutBatch
         {
@@ -60,6 +62,15 @@ public class PayoutService : IPayoutService
         foreach (var group in byTeacher)
         {
             var amount = group.Sum(l => l.Amount);
+            // Credits (negative) first; a deduction larger than what is left stays Pending for the next batch.
+            foreach (var adjustment in adjustments.Where(a => a.TeacherId == group.Key))
+            {
+                if (amount - adjustment.Amount < 0)
+                    continue;
+                amount -= adjustment.Amount;
+                adjustment.Status = TeacherBalanceAdjustmentStatus.Applied;
+            }
+
             var item = new PayoutItem
             {
                 TeacherId = group.Key,

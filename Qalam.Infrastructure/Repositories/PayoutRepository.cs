@@ -152,6 +152,15 @@ public class PayoutRepository : IPayoutRepository
                         && l.CreatedAt <= end)
             .ToListAsync(cancellationToken);
 
+    public Task<List<TeacherBalanceAdjustment>> GetPendingAdjustmentsAsync(
+        IReadOnlyCollection<int> teacherIds,
+        CancellationToken cancellationToken = default) =>
+        _context.TeacherBalanceAdjustments
+            .Where(a => teacherIds.Contains(a.TeacherId)
+                        && a.Status == TeacherBalanceAdjustmentStatus.Pending)
+            .OrderBy(a => a.Amount).ThenBy(a => a.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     public async Task AddBatchAsync(PayoutBatch batch, CancellationToken cancellationToken = default)
     {
         await _context.PayoutBatches.AddAsync(batch, cancellationToken);
