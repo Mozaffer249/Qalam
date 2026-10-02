@@ -16,6 +16,7 @@ public class StudentSessionDetailDto
     public string? Notes { get; set; }
     public string? TeacherNote { get; set; }
     public string? TeacherDisplayName { get; set; }
+    public int TeacherId { get; set; }
     public string? TeacherImageUrl { get; set; }
     public string? StudentDisplayName { get; set; }
     public string? StudentAvatarUrl { get; set; }
@@ -49,6 +50,10 @@ public class StudentSessionDetailDto
     public bool HasOpenComplaint { get; set; }
     public int? OpenComplaintId { get; set; }
     public List<SessionComplaintSummaryDto> Complaints { get; set; } = new();
+    public string? CancellationReason { get; set; }
+    public int? PolicyCaseId { get; set; }
+    public int? ReplacementScheduleId { get; set; }
+    public bool CanCancel { get; set; }
 }
 
 /// <summary>One participant row on student session detail attendance overview.</summary>

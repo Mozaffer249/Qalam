@@ -178,6 +178,8 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 cs.TeacherInRoom,
                 EnrollmentStatus = cs.Enrollment.EnrollmentStatus,
                 EndTime = cs.TeacherAvailability.TimeSlot.EndTime,
+                cs.CancellationReason,
+                cs.PolicyCaseId,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -267,6 +269,13 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 .Select(l => new { l.Id, Status = l.Status.ToString() })
                 .FirstOrDefaultAsync(cancellationToken);
 
+            var policyImpact = courseDetail.PolicyCaseId is int policyCaseId
+                ? await _context.PolicyCases.AsNoTracking()
+                    .Where(c => c.Id == policyCaseId)
+                    .Select(c => new { c.TeacherEarningImpact, c.Currency })
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
+
             return new TeacherMySessionDetailDto
             {
                 Id = courseDetail.Id,
@@ -292,6 +301,10 @@ public class TeacherDashboardReadRepository : ITeacherDashboardReadRepository
                 Complaints = complaints,
                 EarningLineStatus = earningLine?.Status,
                 EarningLineKey = earningLine != null ? $"earn-{earningLine.Id}" : null,
+                CancellationReason = courseDetail.CancellationReason?.ToString(),
+                PolicyCaseId = courseDetail.PolicyCaseId,
+                TeacherEarningImpact = policyImpact?.TeacherEarningImpact,
+                Currency = policyImpact?.Currency ?? "SAR",
             };
         }
 

@@ -53,6 +53,10 @@ public class TeacherMySessionDetailDto : TeacherMySessionListItemDto
     public List<SessionComplaintSummaryDto> Complaints { get; set; } = new();
     public string? EarningLineStatus { get; set; }
     public string? EarningLineKey { get; set; }
+    public string? CancellationReason { get; set; }
+    public int? PolicyCaseId { get; set; }
+    public decimal? TeacherEarningImpact { get; set; }
+    public string Currency { get; set; } = "SAR";
 }
 
 public class SessionLivePresenceEventDto

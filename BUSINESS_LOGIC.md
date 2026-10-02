@@ -1550,4 +1550,49 @@ Implementation reference: `EnrollmentPricingRules.ResolvePayableAmount`, `Studen
 
 ---
 
-*آخر تحديث: يناير 2026*
+## Cancellation & Refund Policy
+
+Cancellation and refund decisions are governed by a published, versioned policy. An enrollment snapshots `PolicyVersionId` when it becomes paid or active, so later policy publications never change that enrollment's outcome.
+
+### Decision and execution
+
+- `CancellationPolicyEngine` is the single pure decision engine used by preview and apply operations. It evaluates paid/refunded value, used sessions or minutes, notice windows, attendance, free-trial status, enrollment kind, fees, refund destination, and teacher-earning effects.
+- `PolicyCaseExecutor` applies an allowed decision transactionally. It creates one immutable `PolicyCase`, issues refunds, updates enrollment/session state, adjusts teacher earnings, creates replacement sessions when required, and records wallet and audit links.
+- Corrections never edit a case. Admin exceptions and reversals create linked compensating cases. Original-method refunds cannot be reversed through the wallet.
+- Platform revenue impact is derived from collected funds, refunds, active teacher earnings, retained fees, and clawbacks; it is not independently editable.
+
+### Enrollment cancellation
+
+- `GET /Api/V1/Student/Enrollments/{id}/Cancel/Preview` returns the exact refund, fee, destination, affected sessions, and localized explanation used by apply.
+- `POST /Api/V1/Student/Enrollments/{id}/Cancel` applies that decision. Before-first-session and after-first-session rules are independently configurable.
+- Group refunds are allocated proportionally across participant payments. Free trials have a zero monetary refund but may still produce cancellation, replacement, or reschedule effects.
+- Refund destination comes from the enrollment's policy snapshot. The seeded default uses the wallet; it is not a universal hard-coded rule.
+
+### Session cancellation and attendance outcomes
+
+- Individual-enrollment sessions can be previewed and cancelled with `Refund` or `Reschedule`. Rescheduling must use a currently free teacher-availability slot.
+- Teacher cancellation and teacher no-show use the teacher-caused missed-session rule. The student receives the configured refund/replacement outcome and the teacher earning follows the configured effect.
+- Student no-show remains completed when configured as used. A no-refund `PolicyCase` is still recorded for traceability; teacher earnings follow the configured effect.
+- If both parties are absent, teacher absence takes precedence.
+- Technical issues are reported through complaints inside the configured report window, and resolution records a linked technical-issue policy case.
+
+### Accounting and traceability
+
+- Wallet policy refunds record `BalanceBefore`, `BalanceAfter`, `Status`, and `PolicyCaseId`. Reversals use compensating ledger entries; ledger history is never deleted.
+- Paid teacher earnings produce `TeacherBalanceAdjustment` clawbacks rather than mutating payout history. Pending deductions are consumed by payout batching.
+- Admins can inspect policy cases and an enrollment financial timeline covering payments, refunds, wallet entries, earnings, adjustments, session audit events, and notifications.
+
+### Notifications and clients
+
+- Applied outcomes write `UserNotification` inbox rows and dispatch configured email/push channels after commit.
+- All signed-in roles use `GET /Api/V1/Me/Notifications`, `POST /Me/Notifications/{id}/Read`, and `POST /Me/Notifications/ReadAll`.
+- Student clients show the server preview before confirmation, support refund/reschedule session cancellation, display outcome banners, and deep-link from the inbox.
+- Teacher clients show cancellation reason and only the teacher's own earning impact. The read-only teacher policy summary never exposes student payment details.
+
+### Legal copy
+
+The legal document seed's `refund-method` wording may differ from the configurable policy destination. Legal Documents must be updated by an administrator whenever policy wording changes; runtime financial behavior always follows the enrollment's immutable policy snapshot.
+
+---
+
+*آخر تحديث: أكتوبر 2026*

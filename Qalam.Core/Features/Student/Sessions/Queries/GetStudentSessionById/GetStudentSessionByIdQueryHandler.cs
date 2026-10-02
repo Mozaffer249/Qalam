@@ -16,7 +16,6 @@ using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
-using Qalam.Service.Implementations;
 
 namespace Qalam.Core.Features.Student.Sessions.Queries.GetStudentSessionById;
 
@@ -179,6 +178,11 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             })
             .ToList();
 
+        var replacementScheduleId = await _scheduleRepository.GetTableNoTracking()
+            .Where(s => s.ReplacesScheduleId == schedule.Id)
+            .Select(s => (int?)s.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var dto = new StudentSessionDetailDto
         {
             ScheduleId = schedule.Id,
@@ -189,6 +193,9 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Notes = proposed?.Notes ?? courseSession?.Notes,
             TeacherNote = schedule.TeacherNote,
             TeacherDisplayName = FormatUserName(teacherUser),
+            TeacherId = enrollment.ApprovedByTeacherId > 0
+                ? enrollment.ApprovedByTeacherId
+                : enrollment.Course?.TeacherId ?? 0,
             TeacherImageUrl = NullIfEmpty(teacherUser?.ProfilePictureUrl),
             StudentDisplayName = FormatUserName(studentUser),
             StudentAvatarUrl = NullIfEmpty(studentUser?.ProfilePictureUrl),
@@ -216,6 +223,10 @@ public class GetStudentSessionByIdQueryHandler : ResponseHandler,
             Attachments = contentLinks.Select(MapAttachment).ToList(),
             Reviews = reviews,
             Participants = participants,
+            CancellationReason = schedule.CancellationReason?.ToString(),
+            PolicyCaseId = schedule.PolicyCaseId,
+            ReplacementScheduleId = replacementScheduleId,
+            CanCancel = schedule.Status == ScheduleStatus.Scheduled,
         };
 
         if (viewingStudentId is int complaintStudentId)
