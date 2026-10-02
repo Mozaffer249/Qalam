@@ -91,6 +91,7 @@ public class StudentWalletService : IStudentWalletService
                 return WalletOperationResult.Fail(InsufficientBalance);
             }
 
+            var balanceBefore = wallet.Balance;
             wallet.Balance += signed;
             wallet.UpdatedAt = DateTime.UtcNow;
 
@@ -99,13 +100,16 @@ public class StudentWalletService : IStudentWalletService
                 WalletId = wallet.Id,
                 Type = request.Type,
                 Amount = signed,
+                BalanceBefore = balanceBefore,
                 BalanceAfter = wallet.Balance,
+                Status = WalletTransactionStatus.Completed,
                 Currency = wallet.Currency,
                 PaymentId = request.PaymentId,
                 RefundId = request.RefundId,
                 EnrollmentId = request.EnrollmentId,
                 CourseScheduleId = request.CourseScheduleId,
                 ComplaintId = request.ComplaintId,
+                PolicyCaseId = request.PolicyCaseId,
                 Description = Truncate(request.Description, 300),
                 ReasonCode = Truncate(request.ReasonCode, 64),
                 CreatedByUserId = request.CreatedByUserId,
@@ -113,6 +117,12 @@ public class StudentWalletService : IStudentWalletService
             };
             _wallets.AddTransaction(tx);
             await _wallets.SaveChangesAsync(cancellationToken);
+
+            if (request.ReversesTransactionId is int reversedId)
+            {
+                await _wallets.MarkReversedAsync(reversedId, tx.Id, cancellationToken);
+                await _wallets.SaveChangesAsync(cancellationToken);
+            }
 
             if (ownsTransaction)
                 await _wallets.CommitAsync(cancellationToken);
@@ -189,7 +199,7 @@ public class StudentWalletService : IStudentWalletService
             case "spent":
                 return new[] { WalletTransactionType.Payment, WalletTransactionType.AdminDebit, WalletTransactionType.Reversal };
             case "refunded":
-                return new[] { WalletTransactionType.Refund };
+                return new[] { WalletTransactionType.Refund, WalletTransactionType.PolicyReversal };
         }
 
         return Enum.TryParse<WalletTransactionType>(filter, ignoreCase: true, out var exact)

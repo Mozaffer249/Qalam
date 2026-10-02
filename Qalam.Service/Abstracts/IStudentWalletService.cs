@@ -40,6 +40,9 @@ public class WalletEntryRequest
     public int? EnrollmentId { get; set; }
     public int? CourseScheduleId { get; set; }
     public int? ComplaintId { get; set; }
+    public int? PolicyCaseId { get; set; }
+    /// <summary>When set, the referenced transaction is marked Reversed and linked to the new row.</summary>
+    public int? ReversesTransactionId { get; set; }
     public string? Description { get; set; }
     public string? ReasonCode { get; set; }
     public int? CreatedByUserId { get; set; }

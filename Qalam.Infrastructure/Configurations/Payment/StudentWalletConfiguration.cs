@@ -43,6 +43,9 @@ public class WalletTransactionConfiguration : IEntityTypeConfiguration<WalletTra
 
         builder.Property(t => t.Amount).HasPrecision(18, 2).IsRequired();
         builder.Property(t => t.BalanceAfter).HasPrecision(18, 2).IsRequired();
+        builder.Property(t => t.BalanceBefore).HasPrecision(18, 2).IsRequired();
+        builder.Property(t => t.Status).IsRequired().HasDefaultValue(WalletTransactionStatus.Completed);
+        builder.HasIndex(t => t.PolicyCaseId).HasFilter("[PolicyCaseId] IS NOT NULL");
         builder.Property(t => t.Currency).HasMaxLength(3).IsRequired();
         builder.Property(t => t.Description).HasMaxLength(300);
         builder.Property(t => t.ReasonCode).HasMaxLength(64);

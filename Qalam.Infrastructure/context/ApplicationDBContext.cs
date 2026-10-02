@@ -199,6 +199,8 @@ namespace Qalam.Infrastructure.context
         public DbSet<PayoutItem> PayoutItems { get; set; }
         public DbSet<TeacherBalanceAdjustment> TeacherBalanceAdjustments { get; set; }
         public DbSet<TeacherDisciplinaryRecord> TeacherDisciplinaryRecords { get; set; }
+        public DbSet<PolicyVersion> PolicyVersions { get; set; }
+        public DbSet<PolicyCase> PolicyCases { get; set; }
 
         // Messaging Schema DbSets
         public DbSet<MessageLog> MessageLogs { get; set; }

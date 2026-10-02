@@ -24,6 +24,8 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(r => r.ProviderRefundId).HasMaxLength(120);
         builder.Property(r => r.Status).IsRequired();
         builder.Property(r => r.Destination).IsRequired().HasDefaultValue(RefundDestination.OriginalMethod);
+        builder.Property(r => r.FeeAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+        builder.HasIndex(r => r.PolicyCaseId).HasFilter("[PolicyCaseId] IS NOT NULL");
 
         builder.HasOne(r => r.Payment)
             .WithMany(p => p.Refunds)

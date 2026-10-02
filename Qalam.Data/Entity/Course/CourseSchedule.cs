@@ -60,6 +60,15 @@ public class CourseSchedule : AuditableEntity
     /// <summary>True while the teacher is currently connected to the live room.</summary>
     public bool TeacherInRoom { get; set; }
 
+    /// <summary>Why the session was cancelled (set with <see cref="ScheduleStatus.Cancelled"/>).</summary>
+    public ScheduleCancellationReason? CancellationReason { get; set; }
+
+    /// <summary>Policy case that cancelled/refunded this session, if any.</summary>
+    public int? PolicyCaseId { get; set; }
+
+    /// <summary>Original session this one replaces (teacher no-show, technical issue, reschedule).</summary>
+    public int? ReplacesScheduleId { get; set; }
+
     // Navigation Properties
     public Enrollment Enrollment { get; set; } = null!;
     public CourseSession? CourseSession { get; set; }

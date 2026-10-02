@@ -15,6 +15,8 @@ public interface IStudentWalletRepository
 
     void AddTransaction(WalletTransaction transaction);
 
+    Task MarkReversedAsync(int transactionId, int reversedByTransactionId, CancellationToken cancellationToken = default);
+
     Task<WalletTransaction?> FindIdempotentAsync(
         WalletTransactionType type,
         int? paymentId,

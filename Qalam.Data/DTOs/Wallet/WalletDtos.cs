@@ -22,7 +22,11 @@ public class WalletTransactionDto
     /// <summary>Signed: positive = money in, negative = money out.</summary>
     public decimal Amount { get; set; }
 
+    public decimal BalanceBefore { get; set; }
     public decimal BalanceAfter { get; set; }
+    /// <summary>Completed or Reversed.</summary>
+    public string Status { get; set; } = "Completed";
+    public int? PolicyCaseId { get; set; }
     public string Currency { get; set; } = "SAR";
     public DateTime CreatedAt { get; set; }
 

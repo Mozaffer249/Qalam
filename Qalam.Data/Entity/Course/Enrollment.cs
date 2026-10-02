@@ -73,6 +73,9 @@ public class Enrollment : AuditableEntity
     /// <summary>Locked pricing breakdown at enrollment creation.</summary>
     public int? PricingSnapshotId { get; set; }
 
+    /// <summary>Cancellation &amp; refund policy version locked when the enrollment was activated.</summary>
+    public int? PolicyVersionId { get; set; }
+
     /// <summary>
     /// User who paid the full AmountDue. Null until payment succeeds.
     /// </summary>
@@ -113,6 +116,7 @@ public class Enrollment : AuditableEntity
     public User? OwnerUser { get; set; }
     public User? CancelledByUser { get; set; }
     public Pricing.PricingSnapshot? PricingSnapshot { get; set; }
+    public Payment.PolicyVersion? PolicyVersion { get; set; }
 
     public ICollection<EnrollmentParticipant> Participants { get; set; } = new List<EnrollmentParticipant>();
     public ICollection<CourseSchedule> CourseSchedules { get; set; } = new List<CourseSchedule>();

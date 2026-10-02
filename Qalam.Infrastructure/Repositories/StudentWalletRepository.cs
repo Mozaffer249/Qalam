@@ -65,6 +65,14 @@ public class StudentWalletRepository : IStudentWalletRepository
         return Task.FromResult<WalletTransaction?>(null);
     }
 
+    public async Task MarkReversedAsync(int transactionId, int reversedByTransactionId, CancellationToken cancellationToken = default)
+    {
+        var tx = await _context.WalletTransactions.FirstOrDefaultAsync(t => t.Id == transactionId, cancellationToken);
+        if (tx == null) return;
+        tx.Status = WalletTransactionStatus.Reversed;
+        tx.ReversedByTransactionId = reversedByTransactionId;
+    }
+
     public bool HasActiveTransaction => _context.Database.CurrentTransaction != null;
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
@@ -119,7 +127,7 @@ public class StudentWalletRepository : IStudentWalletRepository
         var added = Sum(WalletTransactionType.TopUp, WalletTransactionType.AdminCredit);
         var spent = -Sum(WalletTransactionType.Payment, WalletTransactionType.AdminDebit)
                     - Sum(WalletTransactionType.Reversal);
-        var refunded = Sum(WalletTransactionType.Refund);
+        var refunded = Sum(WalletTransactionType.Refund, WalletTransactionType.PolicyReversal);
         return (added, Math.Max(0, spent), refunded);
     }
 
@@ -168,7 +176,10 @@ public class StudentWalletRepository : IStudentWalletRepository
                 t.Id,
                 t.Type,
                 t.Amount,
+                t.BalanceBefore,
                 t.BalanceAfter,
+                t.Status,
+                t.PolicyCaseId,
                 t.Currency,
                 t.CreatedAt,
                 t.Description,
@@ -206,7 +217,10 @@ public class StudentWalletRepository : IStudentWalletRepository
             Id = r.Id,
             Type = r.Type.ToString(),
             Amount = r.Amount,
+            BalanceBefore = r.BalanceBefore,
             BalanceAfter = r.BalanceAfter,
+            Status = r.Status.ToString(),
+            PolicyCaseId = r.PolicyCaseId,
             Currency = r.Currency,
             CreatedAt = r.CreatedAt,
             Title = r.CourseTitle ?? r.SubjectAr ?? r.SubjectEn,

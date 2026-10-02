@@ -31,6 +31,8 @@ public class TeacherBalanceAdjustment : AuditableEntity
 
     public int? RelatedComplaintId { get; set; }
 
+    public int? PolicyCaseId { get; set; }
+
     public int? CreatedByUserId { get; set; }
 
     public Teacher.Teacher Teacher { get; set; } = null!;

@@ -97,6 +97,18 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPaymentReconciliationRuns = Rule + "Admin/Payments/Reconciliation/Runs";
         public const string AdminPaymentReconciliationRunById = AdminPaymentReconciliationRuns + "/{id:int}";
         public const string AdminPaymentReconciliationStart = Rule + "Admin/Payments/Reconciliation/Start";
+        public const string AdminCancellationPolicy = Rule + "Admin/CancellationPolicy";
+        public const string AdminCancellationPolicyCurrent = AdminCancellationPolicy + "/Current";
+        public const string AdminCancellationPolicyVersions = AdminCancellationPolicy + "/Versions";
+        public const string AdminCancellationPolicyVersionById = AdminCancellationPolicyVersions + "/{id:int}";
+        public const string AdminCancellationPolicyCompare = AdminCancellationPolicy + "/Compare";
+        public const string AdminCancellationPolicyDraft = AdminCancellationPolicy + "/Draft";
+        public const string AdminCancellationPolicyDraftPublish = AdminCancellationPolicyDraft + "/Publish";
+        public const string AdminPolicyCases = Rule + "Admin/PolicyCases";
+        public const string AdminPolicyCaseById = AdminPolicyCases + "/{id:int}";
+        public const string AdminPolicyCaseReverse = AdminPolicyCaseById + "/Reverse";
+        public const string AdminPolicyCaseExceptions = AdminPolicyCases + "/Exceptions";
+        public const string AdminEnrollmentFinancialTimeline = AdminEnrollmentById + "/FinancialTimeline";
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
@@ -166,6 +178,11 @@ namespace Qalam.Data.AppMetaData
         public const string AccountDelete = Authentication + "/Delete";
         public const string AccountNotificationPreferences = Authentication + "/NotificationPreferences";
         public const string AccountDeviceTokens = Authentication + "/DeviceTokens";
+        public const string MyNotifications = Rule + "Me/Notifications";
+        public const string MyNotificationRead = MyNotifications + "/{id:int}/Read";
+        public const string MyNotificationsReadAll = MyNotifications + "/ReadAll";
+        public const string MyNotificationsUnreadCount = MyNotifications + "/UnreadCount";
+        public const string TeacherCancellationPolicy = Rule + "Teacher/CancellationPolicy";
         #endregion
 
         #region Users
@@ -477,6 +494,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentEnrollmentById = StudentEnrollments + "/{id}";
         /// <summary>Owner cancel PendingPayment enrollment: Api/V1/Student/Enrollments/{id}/Cancel</summary>
         public const string StudentEnrollmentCancel = StudentEnrollments + "/{id}/Cancel";
+        public const string StudentEnrollmentCancelPreview = StudentEnrollments + "/{id}/Cancel/Preview";
+        public const string StudentEnrollmentCancellationPolicy = StudentEnrollments + "/{id}/CancellationPolicy";
         /// <summary>Search students for group enrollment: Api/V1/Student/Students/Search</summary>
         public const string StudentSearchForGroup = Rule + "Student/Students/Search";
         /// <summary>Search students by name or email: Api/V1/Student/Search</summary>
@@ -526,6 +545,8 @@ namespace Qalam.Data.AppMetaData
         public const string StudentSessions = Rule + "Student/Sessions";
         public const string StudentSessionById = StudentSessions + "/{id:int}";
         public const string StudentSessionComplaints = StudentSessionById + "/Complaints";
+        public const string StudentSessionCancel = StudentSessionById + "/Cancel";
+        public const string StudentSessionCancelPreview = StudentSessionById + "/Cancel/Preview";
         public const string StudentSessionComplaintById = StudentSessions + "/Complaints/{complaintId:int}";
         public const string StudentComplaints = Rule + "Student/Complaints";
         public const string StudentComplaintById = StudentComplaints + "/{id:int}";

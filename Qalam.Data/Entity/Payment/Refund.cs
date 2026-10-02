@@ -33,6 +33,11 @@ public class Refund : AuditableEntity
 
     public RefundDestination Destination { get; set; } = RefundDestination.OriginalMethod;
 
+    /// <summary>Cancellation fee retained from this refund (already excluded from <see cref="Amount"/>).</summary>
+    public decimal FeeAmount { get; set; }
+
+    public int? PolicyCaseId { get; set; }
+
     public Payment Payment { get; set; } = null!;
     public Course.Enrollment Enrollment { get; set; } = null!;
     public User? InitiatedByUser { get; set; }

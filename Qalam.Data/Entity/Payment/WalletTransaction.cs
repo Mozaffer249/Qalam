@@ -16,7 +16,16 @@ public class WalletTransaction
 
     public decimal Amount { get; set; }
 
+    public decimal BalanceBefore { get; set; }
+
     public decimal BalanceAfter { get; set; }
+
+    public WalletTransactionStatus Status { get; set; } = WalletTransactionStatus.Completed;
+
+    /// <summary>Compensating row that reversed this one (status then becomes Reversed).</summary>
+    public int? ReversedByTransactionId { get; set; }
+
+    public int? PolicyCaseId { get; set; }
 
     [Required, MaxLength(3)]
     public string Currency { get; set; } = "SAR";

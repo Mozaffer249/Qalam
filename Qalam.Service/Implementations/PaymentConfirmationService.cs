@@ -23,6 +23,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     private readonly IPaymentGatewayResolver _gatewayResolver;
     private readonly IPaymentTransactionEventService _events;
     private readonly IStudentWalletService _walletService;
+    private readonly IPolicyResolver? _policyResolver;
     private readonly ILogger<PaymentConfirmationService> _logger;
 
     public PaymentConfirmationService(
@@ -37,8 +38,10 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         IPaymentGatewayResolver gatewayResolver,
         IPaymentTransactionEventService events,
         IStudentWalletService walletService,
-        ILogger<PaymentConfirmationService> logger)
+        ILogger<PaymentConfirmationService> logger,
+        IPolicyResolver? policyResolver = null)
     {
+        _policyResolver = policyResolver;
         _walletService = walletService;
         _paymentRepository = paymentRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -516,6 +519,8 @@ public class PaymentConfirmationService : IPaymentConfirmationService
                 enrollment.EnrollmentStatus = EnrollmentStatus.Active;
                 enrollment.ActivatedAt = now;
             }
+            if (_policyResolver != null)
+                await _policyResolver.SnapshotAsync(enrollment, cancellationToken);
 
             var today = DateOnly.FromDateTime(now);
             var enrollmentRequest = enrollment.EnrollmentRequest;
