@@ -376,7 +376,8 @@ public class CancellationPolicyEngine : ICancellationPolicyEngine
 
     private static void Finalize(PolicyContext ctx, PolicyDecision d)
     {
-        if (ctx.IsFreeTrial)
+        // Using the first-session credit does not make the paid remainder free.
+        if (ctx.IsFreeTrial && ctx.TotalRefundable <= 0)
         {
             d.RefundAmount = 0;
             d.FeeAmount = 0;

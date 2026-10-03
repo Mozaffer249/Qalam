@@ -72,6 +72,22 @@ public class CancellationPolicyEngineTests
     }
 
     [Fact]
+    public void BeforeFirstSession_FirstSessionCredit_RefundsAmountActuallyPaid()
+    {
+        var ctx = Package(5, 400m);
+        ctx.IsFreeTrial = true;
+        ctx.Kind = PolicyCaseKind.BeforeFirstSessionCancel;
+
+        var d = _engine.Evaluate(ctx, CancellationPolicyDefaults.Create());
+
+        Assert.True(d.Allowed);
+        Assert.Equal(400m, d.GrossValue);
+        Assert.Equal(400m, d.RefundAmount);
+        Assert.Single(d.Allocations);
+        Assert.Equal(400m, d.Allocations[0].Amount);
+    }
+
+    [Fact]
     public void BeforeFirstSession_Disabled_Denies()
     {
         var rules = CancellationPolicyDefaults.Create();
