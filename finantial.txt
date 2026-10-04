@@ -1,0 +1,214 @@
+# Prompt: Redesign Qalam Admin — Complaints & Financial Management
+
+Redesign and modernize the **Qalam Admin Platform**, focusing on Complaints, Finance, Revenue, Refunds, and Teacher Payouts.
+
+**Existing pages to review:**
+- https://admin-staging.qalam.net.sa/complaints
+- https://admin-staging.qalam.net.sa/finance
+- https://admin-staging.qalam.net.sa/finance/revenue
+- https://admin-staging.qalam.net.sa/refunds
+- Teacher Payout Management
+
+Analyze the existing implementation, workflows, and available data before redesigning. Preserve existing functionality while improving usability, navigation, operational efficiency, and financial transparency.
+
+## 1. Main Objective
+
+Create a modern, professional, and fully integrated administration experience that allows administrators to manage complaints, payments, refunds, revenue, and teacher payouts from one connected system.
+
+Every financial transaction or complaint must be traceable to its original source, including:
+
+- Student and teacher
+- Course and enrollment
+- Open Session Request (OSR)
+- Individual or group session
+- Payment and wallet transactions
+- Refunds and adjustments
+- Teacher earnings and payouts
+- Platform revenue
+
+Administrators should be able to understand an entire case without navigating through multiple unrelated pages.
+
+## 2. Unified Admin Dashboard
+
+Create an intuitive overview showing:
+
+- Total revenue and net platform revenue
+- Teacher earnings and pending payouts
+- Available and pending teacher balances
+- Pending and completed refunds
+- Open and unresolved complaints
+- Transactions requiring attention
+- Financial adjustments and disputed payments
+
+Provide actionable alerts, useful charts, advanced filters, and quick access to pending administrative tasks.
+
+Avoid unnecessary cards and excessive dashboard information.
+
+## 3. Complaints Management
+
+Redesign the Complaints module with a professional, searchable management table.
+
+Each complaint should include:
+
+- Complaint ID and category
+- Student and teacher information
+- Related enrollment, OSR, course, or session
+- Complaint description and supporting evidence
+- Session attendance and participation details
+- Related payments and financial impact
+- Priority, status, and assigned administrator
+- Complete activity timeline
+
+Create a comprehensive Complaint Details page with connected information, allowing administrators to investigate and resolve complaints without leaving the page.
+
+Supported actions should include reviewing evidence, contacting relevant parties, issuing refunds, providing replacement sessions, adjusting teacher earnings, and resolving complaints.
+
+Every decision must be recorded in the audit log.
+
+## 4. Financial Management
+
+Redesign the Finance module as the central financial management workspace.
+
+Provide clear visibility into:
+
+- Student payments
+- Course and session payments
+- OSR payments
+- Student wallet transactions
+- Teacher earnings
+- Platform commissions
+- Refunds and financial adjustments
+- Teacher payout requests
+
+Create a unified financial transaction explorer with advanced searching, filtering, sorting, and export capabilities.
+
+Every transaction must have a detailed view showing its complete financial breakdown and relationships.
+
+## 5. Revenue Management
+
+Redesign the Revenue page with:
+
+- Gross revenue
+- Net platform revenue
+- Platform commissions
+- Teacher earnings
+- Discounts
+- Refunds
+- Financial adjustments
+- Revenue trends and source breakdowns
+
+Allow administrators to filter revenue by date, teacher, student, course, enrollment, OSR, session, and payment status.
+
+Support drill-down navigation from revenue summaries to individual transactions and their original sources.
+
+## 6. Refund Management
+
+Design a modern, table-based Refund Management module.
+
+Include comprehensive filters, refund statuses, transaction references, refund reasons, original payment information, and financial impact.
+
+The Refund Details page should show:
+
+- Original payment and payment method
+- Related enrollment, OSR, or session
+- Student and teacher
+- Refund amount and calculation
+- Refund destination, including the student wallet
+- Impact on teacher earnings and platform revenue
+- Related complaint, if applicable
+- Complete processing and approval timeline
+
+Refunds should follow the configured Qalam cancellation and refund policies.
+
+Support approval, rejection, processing, and tracking of refunds. Do not introduce a general **Issue Refund** button on the refunds listing page; initiate refunds through authorized, context-specific workflows.
+
+## 7. Teacher Payout System
+
+Design a complete Teacher Payout Management system integrated with teacher earnings and the Finance module.
+
+Include:
+
+- Total earned, pending, available, and paid balances
+- Teacher payout requests
+- Payout eligibility and validation
+- Platform commissions and deductions
+- Refund-related adjustments
+- Payment methods and transaction references
+- Payout history and downloadable statements
+
+Support the following payout lifecycle:
+
+Pending → Under Review → Approved → Processing → Paid
+
+Also handle Rejected, Failed, and Cancelled states.
+
+Provide appropriate actions for each status, including review, approve, reject, process, retry, and mark as paid.
+
+The Payout Details page must explain exactly how the payable amount was calculated, including the contributing sessions, earnings, commissions, refunds, and adjustments.
+
+Prevent duplicate payouts and ensure earnings are not paid before becoming eligible.
+
+## 8. Unified Details and Navigation
+
+This is a critical requirement.
+
+Create a connected experience where administrators can navigate between related records.
+
+For example:
+
+**Complaint → Session → Enrollment → Payment → Refund → Teacher Earnings → Payout**
+
+Each details page should display relevant related records, financial summaries, status history, and contextual actions.
+
+Use reusable detail panels, timelines, tables, and clearly organized sections.
+
+Avoid duplicating information across modules.
+
+## 9. Business Rules and Automation
+
+Integrate the existing Qalam business rules, including:
+
+- Configurable cancellation and refund policies
+- Student wallet refunds
+- First free session rules
+- Completed-session-based teacher earnings
+- Teacher and student no-show handling
+- Financial adjustments
+- Refund and payout approval workflows
+- Policy versioning and financial audit trails
+
+Ensure that a financial action updates all affected records consistently.
+
+## 10. UI/UX Requirements
+
+Create a modern, premium SaaS administration interface with:
+
+- Clean and consistent visual design
+- Clear navigation and information hierarchy
+- Professional financial tables
+- Powerful but intuitive filters
+- Global search and contextual quick actions
+- Clear status indicators
+- Comprehensive detail views
+- Confirmation dialogs for sensitive actions
+- Empty, loading, success, and error states
+- Responsive layouts for desktop, tablet, and mobile
+- Arabic and English support, including RTL
+
+Prioritize administrator productivity. Common operations should require minimal clicks, while complex financial information should remain accessible through progressive disclosure.
+
+## 11. Permissions, Security, and Audit
+
+Implement role-based access for sensitive financial operations.
+
+Support approval workflows, authorization checks, prevention of duplicate transactions, and immutable financial audit records.
+
+All sensitive actions must record the administrator, timestamp, reason, affected records, and previous and updated financial values.
+
+## Expected Result
+
+Deliver a complete, consistent redesign of all specified modules, including their dashboards, tables, detail pages, forms, workflows, and connected navigation.
+
+**Most importantly:** An administrator must be able to open any complaint, refund, payment, or payout and immediately understand its origin, related enrollment or OSR, associated sessions, financial calculations, current status, available actions, and complete history.
+
+Do not redesign these modules as isolated pages. Build one integrated administrative management experience based on Qalam's actual business logic and existing implementation.

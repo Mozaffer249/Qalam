@@ -23,6 +23,8 @@ public interface IRefundRepository
 
     Task AddRefundAsync(Refund refund, CancellationToken cancellationToken = default);
 
+    Task<Refund?> GetTrackedRefundAsync(int refundId, CancellationToken cancellationToken = default);
+
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task<RefundDetailProjection?> GetDetailProjectionAsync(
@@ -63,6 +65,9 @@ public class RefundDetailProjection
     public DateTime CreatedAt { get; set; }
     public int? InitiatedByUserId { get; set; }
     public string? InitiatedByName { get; set; }
+    public string Destination { get; set; } = "Wallet";
+    public decimal FeeAmount { get; set; }
+    public int? PolicyCaseId { get; set; }
     public decimal PaymentTotal { get; set; }
     public decimal RefundedTotal { get; set; }
     public string? CourseTitle { get; set; }

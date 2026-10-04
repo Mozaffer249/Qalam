@@ -22,6 +22,11 @@ public interface IPayoutService
         int? createdByUserId,
         CancellationToken cancellationToken = default);
 
+    Task<Data.DTOs.Admin.AdminPayoutBatchDto?> SubmitForReviewAsync(
+        int batchId,
+        int? reviewedByUserId = null,
+        CancellationToken cancellationToken = default);
+
     Task<Data.DTOs.Admin.AdminPayoutBatchDto?> ApproveAsync(
         int batchId,
         int? approvedByUserId = null,

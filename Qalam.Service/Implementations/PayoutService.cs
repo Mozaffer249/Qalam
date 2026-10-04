@@ -9,10 +9,26 @@ namespace Qalam.Service.Implementations;
 public class PayoutService : IPayoutService
 {
     private readonly IPayoutRepository _payouts;
+    private readonly IAuditService? _audit;
 
-    public PayoutService(IPayoutRepository payouts)
+    public PayoutService(IPayoutRepository payouts, IAuditService? audit = null)
     {
         _payouts = payouts;
+        _audit = audit;
+    }
+
+    private async Task AuditAsync(string action, int? actorUserId, int batchId, string details)
+    {
+        if (_audit == null)
+            return;
+        await _audit.LogAsync(
+            action,
+            actorUserId is > 0 ? actorUserId : null,
+            ipAddress: string.Empty,
+            success: true,
+            details: details,
+            entityType: nameof(PayoutBatch),
+            entityId: batchId.ToString());
     }
 
     public async Task<PagedResult<AdminPendingEarningDto>> ListPendingEarningsAsync(
@@ -94,6 +110,22 @@ public class PayoutService : IPayoutService
         return (await GetBatchAsync(batch.Id, cancellationToken))!;
     }
 
+    public async Task<AdminPayoutBatchDto?> SubmitForReviewAsync(
+        int batchId,
+        int? reviewedByUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
+        if (batch == null)
+            return null;
+        if (batch.Status != PayoutBatchStatus.Pending)
+            throw new InvalidOperationException("Only pending batches can be submitted for review.");
+
+        batch.Status = PayoutBatchStatus.UnderReview;
+        await _payouts.SaveChangesAsync(cancellationToken);
+        return await GetBatchAsync(batchId, cancellationToken);
+    }
+
     public async Task<AdminPayoutBatchDto?> ApproveAsync(
         int batchId,
         int? approvedByUserId = null,
@@ -102,13 +134,15 @@ public class PayoutService : IPayoutService
         var batch = await _payouts.GetBatchTrackedAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
-        if (batch.Status != PayoutBatchStatus.Pending)
-            throw new InvalidOperationException("Only pending batches can be approved.");
+        if (batch.Status is not PayoutBatchStatus.Pending and not PayoutBatchStatus.UnderReview)
+            throw new InvalidOperationException("Only pending or under-review batches can be approved.");
 
         batch.Status = PayoutBatchStatus.Approved;
         batch.ApprovedAt = DateTime.UtcNow;
         batch.ApprovedByUserId = approvedByUserId;
         await _payouts.SaveChangesAsync(cancellationToken);
+        await AuditAsync("Payout.Approved", approvedByUserId, batchId,
+            $"{{\"statusAfter\":\"Approved\",\"amount\":{batch.TotalAmount},\"currency\":\"{batch.Currency}\"}}");
         return await GetBatchAsync(batchId, cancellationToken);
     }
 
@@ -120,14 +154,16 @@ public class PayoutService : IPayoutService
         var batch = await _payouts.GetBatchTrackedWithLinesAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
-        if (batch.Status != PayoutBatchStatus.Pending)
-            throw new InvalidOperationException("Only pending batches can be rejected.");
+        if (batch.Status is not PayoutBatchStatus.Pending and not PayoutBatchStatus.UnderReview)
+            throw new InvalidOperationException("Only pending or under-review batches can be rejected.");
 
         ReleaseBatchLines(batch);
         batch.Status = PayoutBatchStatus.Rejected;
         batch.RejectedAt = DateTime.UtcNow;
         batch.RejectionReason = reason?.Trim();
         await _payouts.SaveChangesAsync(cancellationToken);
+        await AuditAsync("Payout.Rejected", null, batchId,
+            $"{{\"statusAfter\":\"Rejected\",\"amount\":{batch.TotalAmount},\"currency\":\"{batch.Currency}\",\"reason\":{System.Text.Json.JsonSerializer.Serialize(reason)}}}");
         return await GetBatchAsync(batchId, cancellationToken);
     }
 
@@ -139,7 +175,9 @@ public class PayoutService : IPayoutService
         var batch = await _payouts.GetBatchTrackedWithLinesAsync(batchId, cancellationToken);
         if (batch == null)
             return null;
-        if (batch.Status is not PayoutBatchStatus.Pending and not PayoutBatchStatus.Approved)
+        if (batch.Status is not PayoutBatchStatus.Pending
+            and not PayoutBatchStatus.UnderReview
+            and not PayoutBatchStatus.Approved)
             throw new InvalidOperationException("Batch cannot be cancelled in its current status.");
 
         ReleaseBatchLines(batch);
@@ -147,6 +185,8 @@ public class PayoutService : IPayoutService
         batch.CancelledAt = DateTime.UtcNow;
         batch.AdminNotes = reason?.Trim();
         await _payouts.SaveChangesAsync(cancellationToken);
+        await AuditAsync("Payout.Cancelled", null, batchId,
+            $"{{\"statusAfter\":\"Cancelled\",\"amount\":{batch.TotalAmount},\"currency\":\"{batch.Currency}\",\"reason\":{System.Text.Json.JsonSerializer.Serialize(reason)}}}");
         return await GetBatchAsync(batchId, cancellationToken);
     }
 
@@ -182,6 +222,8 @@ public class PayoutService : IPayoutService
         batch.PaidAt = DateTime.UtcNow;
         batch.MockTransferRef ??= $"MOCK-PAYOUT-{batch.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}";
         await _payouts.SaveChangesAsync(cancellationToken);
+        await AuditAsync("Payout.MarkedPaid", null, batchId,
+            $"{{\"statusAfter\":\"Paid\",\"amount\":{batch.TotalAmount},\"currency\":\"{batch.Currency}\",\"transferRef\":\"{batch.MockTransferRef}\"}}");
         return await GetBatchAsync(batchId, cancellationToken);
     }
 

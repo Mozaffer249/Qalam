@@ -108,6 +108,7 @@ internal static class ComplaintResolutionTestHelper
             CreateComplaintService(db, refundMock),
             CreateOrchestrator(db, refundMock?.Object),
             fileStorage.Object,
-            storageUrls);
+            storageUrls,
+            new Mock<INotificationDispatcher>().Object);
     }
 }

@@ -48,6 +48,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
         }
 
         var totalCollected = await payments.SumAsync(p => p.TotalAmount, cancellationToken);
+        var totalDiscounts = await payments.SumAsync(p => p.DiscountAmount, cancellationToken);
         var totalRefunds = await refunds.SumAsync(r => r.Amount, cancellationToken);
         var pendingPayments = await _context.Payments.AsNoTracking()
             .Where(p => p.Status == PaymentStatus.Pending)
@@ -121,6 +122,7 @@ public class AdminFinanceReadRepository : IAdminFinanceReadRepository
         return new FinanceAggregateProjection
         {
             TotalCollected = totalCollected,
+            Discounts = totalDiscounts,
             TotalRefunds = totalRefunds,
             TeacherEarningsPending = teacherPending,
             TeacherEarningsPaid = teacherPaid,

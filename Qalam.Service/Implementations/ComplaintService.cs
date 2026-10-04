@@ -22,6 +22,7 @@ public class ComplaintService : IComplaintService
     private readonly IComplaintResolutionOrchestrator _resolution;
     private readonly IFileStorageService _fileStorage;
     private readonly IStoragePublicUrlProvider _storagePublicUrls;
+    private readonly INotificationDispatcher _dispatcher;
 
     public ComplaintService(
         IComplaintRepository complaints,
@@ -29,7 +30,8 @@ public class ComplaintService : IComplaintService
         ISessionComplaintService sessionComplaints,
         IComplaintResolutionOrchestrator resolution,
         IFileStorageService fileStorage,
-        IStoragePublicUrlProvider storagePublicUrls)
+        IStoragePublicUrlProvider storagePublicUrls,
+        INotificationDispatcher dispatcher)
     {
         _complaints = complaints;
         _db = db;
@@ -37,6 +39,7 @@ public class ComplaintService : IComplaintService
         _resolution = resolution;
         _fileStorage = fileStorage;
         _storagePublicUrls = storagePublicUrls;
+        _dispatcher = dispatcher;
     }
 
     public async Task<(List<ComplaintListItemDto> Items, int Total)> ListAsync(
@@ -502,6 +505,44 @@ public class ComplaintService : IComplaintService
         // Reload after orchestrator mutations
         var updated = await GetTrackedAsync(complaintId, cancellationToken);
         await SyncLegacySessionAsync(updated, cancellationToken);
+
+        // Best-effort inbox/email/push to the parties (never throws).
+        await NotifyPartiesAsync(
+            updated,
+            type: "ComplaintResolved",
+            titleAr: "تم حل الشكوى",
+            titleEn: "Complaint resolved",
+            bodyAr: $"تم حل الشكوى رقم {updated.Id}.",
+            bodyEn: $"Complaint #{updated.Id} has been resolved.",
+            cancellationToken);
+    }
+
+    private async Task NotifyPartiesAsync(
+        Complaint complaint,
+        string type,
+        string titleAr,
+        string titleEn,
+        string bodyAr,
+        string bodyEn,
+        CancellationToken cancellationToken)
+    {
+        var recipients = new List<int> { complaint.ComplainantUserId };
+        if (complaint.RespondentUserId.HasValue)
+            recipients.Add(complaint.RespondentUserId.Value);
+
+        var distinct = recipients.Where(id => id > 0).Distinct().ToList();
+        if (distinct.Count == 0)
+            return;
+
+        var content = new NotificationContent(
+            Type: type,
+            TitleAr: titleAr,
+            TitleEn: titleEn,
+            BodyAr: bodyAr,
+            BodyEn: bodyEn,
+            Data: new Dictionary<string, object?> { ["complaintId"] = complaint.Id });
+
+        await _dispatcher.NotifyAsync(distinct, content, cancellationToken);
     }
 
     private async Task<Complaint> EnsureSessionMirrorAsync(

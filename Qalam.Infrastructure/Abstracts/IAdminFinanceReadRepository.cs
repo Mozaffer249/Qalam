@@ -38,6 +38,8 @@ public interface IAdminFinanceReadRepository
 public class FinanceAggregateProjection
 {
     public decimal TotalCollected { get; set; }
+    /// <summary>Sum of discounts applied across collected payments (Payment.DiscountAmount).</summary>
+    public decimal Discounts { get; set; }
     public decimal TotalRefunds { get; set; }
     public decimal TeacherEarningsPending { get; set; }
     public decimal TeacherEarningsPaid { get; set; }

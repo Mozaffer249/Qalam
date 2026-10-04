@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Admin.Finance.Commands.ApproveAdminRefund;
 using Qalam.Core.Features.Admin.Finance.Commands.IssueAdminRefund;
+using Qalam.Core.Features.Admin.Finance.Commands.RejectAdminRefund;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminRefundById;
 using Qalam.Core.Features.Admin.Finance.Queries.ListAdminRefunds;
 using Qalam.Data.AppMetaData;
@@ -62,6 +64,38 @@ public class RefundsController : AppControllerBase
         {
             Body = body,
             InitiatedByUserId = userId
+        }, cancellationToken));
+    }
+
+    [HttpPost(Router.AdminRefundApprove)]
+    [ProducesResponseType(typeof(AdminRefundDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken = default)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int? userId = int.TryParse(userIdClaim, out var uid) ? uid : null;
+        return NewResult(await Mediator.Send(new ApproveAdminRefundCommand
+        {
+            Id = id,
+            ApprovedByUserId = userId
+        }, cancellationToken));
+    }
+
+    [HttpPost(Router.AdminRefundReject)]
+    [ProducesResponseType(typeof(AdminRefundDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Reject(
+        int id,
+        [FromBody] PayoutActionReasonDto? body = null,
+        CancellationToken cancellationToken = default)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int? userId = int.TryParse(userIdClaim, out var uid) ? uid : null;
+        return NewResult(await Mediator.Send(new RejectAdminRefundCommand
+        {
+            Id = id,
+            RejectedByUserId = userId,
+            Reason = body?.Reason
         }, cancellationToken));
     }
 }

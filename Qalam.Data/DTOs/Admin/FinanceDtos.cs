@@ -1,3 +1,4 @@
+using Qalam.Data.DTOs.Complaint;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Data.DTOs.Admin;
@@ -102,6 +103,9 @@ public class AdminRefundListItemDto
 public class AdminRefundDetailDto : AdminRefundListItemDto
 {
     public int? InitiatedByUserId { get; set; }
+    public string Destination { get; set; } = "Wallet";
+    public decimal FeeAmount { get; set; }
+    public int? PolicyCaseId { get; set; }
     public decimal PaymentTotalAmount { get; set; }
     public decimal PaymentRefundedTotal { get; set; }
     public int SessionsUsed { get; set; }
@@ -223,6 +227,38 @@ public class AdminFinanceSummaryDto
     public decimal PayoutsDraft { get; set; }
     public decimal PayoutsApproved { get; set; }
     public decimal PayoutsPaid { get; set; }
+    public string Currency { get; set; } = "SAR";
+    public DateTime? FromUtc { get; set; }
+    public DateTime? ToUtc { get; set; }
+}
+
+/// <summary>
+/// A single actionable alert surfaced on the unified admin dashboard, deep-linking
+/// into the module where the administrator resolves it.
+/// </summary>
+public class DashboardAlertDto
+{
+    /// <summary>info | warning | critical</summary>
+    public string Severity { get; set; } = "info";
+    /// <summary>Stable code the UI maps to a localized label, e.g. payouts.awaitingPayment.</summary>
+    public string Code { get; set; } = "";
+    public int Count { get; set; }
+    public decimal? Amount { get; set; }
+    public string? Currency { get; set; }
+    /// <summary>Relative admin route to act on the alert, e.g. /payouts?status=Approved.</summary>
+    public string? Href { get; set; }
+}
+
+/// <summary>
+/// Composite overview for the unified admin dashboard. Aggregates the existing
+/// finance, revenue and complaint summaries so the UI needs a single request.
+/// </summary>
+public class AdminDashboardOverviewDto
+{
+    public AdminFinanceSummaryDto Finance { get; set; } = new();
+    public AdminRevenueSummaryDto Revenue { get; set; } = new();
+    public ComplaintCountsDto Complaints { get; set; } = new();
+    public List<DashboardAlertDto> Alerts { get; set; } = new();
     public string Currency { get; set; } = "SAR";
     public DateTime? FromUtc { get; set; }
     public DateTime? ToUtc { get; set; }

@@ -83,7 +83,7 @@ public class AdminFinanceService : IAdminFinanceService
             PlatformCommission = agg.PlatformCommission,
             TeacherEarnings = agg.TeacherEarningsPending + agg.TeacherEarningsPaid,
             Refunds = agg.TotalRefunds,
-            Discounts = 0,
+            Discounts = agg.Discounts,
             PendingRevenue = agg.PendingPayments,
             FreeTrialImpact = agg.FreeTrialImpact,
             Currency = "SAR",

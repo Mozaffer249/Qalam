@@ -33,6 +33,7 @@ public class IssueAdminRefundCommandHandler : ResponseHandler,
         {
             if (body.PaymentId.HasValue && body.EnrollmentId.HasValue && body.Amount.HasValue)
             {
+                // Ad-hoc admin refunds are gated: created awaiting approval, settled on approve.
                 var refund = await _refunds.IssueRefundAsync(
                     body.PaymentId.Value,
                     body.EnrollmentId.Value,
@@ -41,7 +42,8 @@ public class IssueAdminRefundCommandHandler : ResponseHandler,
                     body.Reason,
                     request.InitiatedByUserId,
                     cancellationToken,
-                    destination);
+                    destination,
+                    requiresApproval: true);
                 var detail = await _refunds.GetByIdAsync(refund.Id, cancellationToken);
                 return Success(entity: detail!);
             }

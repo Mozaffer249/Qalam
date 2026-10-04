@@ -15,19 +15,22 @@ public class RefundService : IRefundService
     private readonly IPaymentGatewayResolver _gatewayResolver;
     private readonly IPaymentTransactionEventService _events;
     private readonly IStudentWalletService _wallet;
+    private readonly IAuditService? _audit;
 
     public RefundService(
         IRefundRepository refunds,
         ITeacherFinanceImpactService financeImpact,
         IPaymentGatewayResolver gatewayResolver,
         IPaymentTransactionEventService events,
-        IStudentWalletService wallet)
+        IStudentWalletService wallet,
+        IAuditService? audit = null)
     {
         _refunds = refunds;
         _financeImpact = financeImpact;
         _gatewayResolver = gatewayResolver;
         _events = events;
         _wallet = wallet;
+        _audit = audit;
     }
 
     public async Task<Refund> IssueRefundAsync(
@@ -41,7 +44,8 @@ public class RefundService : IRefundService
         RefundDestination destination = RefundDestination.Wallet,
         int? complaintId = null,
         int? courseScheduleId = null,
-        RefundPolicyOptions? policy = null)
+        RefundPolicyOptions? policy = null,
+        bool requiresApproval = false)
     {
         if (amount <= 0)
             throw new InvalidOperationException("Refund amount must be positive.");
@@ -62,9 +66,26 @@ public class RefundService : IRefundService
             throw new InvalidOperationException(
                 $"Refund amount {amount} exceeds remaining refundable {remaining}.");
 
-        string? providerRefundId = null;
-        var refundStatus = RefundStatus.Succeeded;
-        var statusBefore = payment.Status;
+        var toWallet = destination == RefundDestination.Wallet
+            || payment.PaymentProvider.Equals(WalletSettings.ProviderName, StringComparison.OrdinalIgnoreCase);
+
+        // Always create the refund row first; settlement happens now (immediate) or on approval.
+        var refund = new Refund
+        {
+            PaymentId = paymentId,
+            EnrollmentId = enrollmentId,
+            Amount = Math.Round(amount, 2),
+            Currency = string.IsNullOrWhiteSpace(currency) ? payment.Currency : currency,
+            Reason = string.IsNullOrWhiteSpace(reason) ? "Refund" : reason.Trim(),
+            Status = requiresApproval ? RefundStatus.RequiresApproval : RefundStatus.Pending,
+            InitiatedByUserId = initiatedByUserId,
+            Destination = toWallet ? RefundDestination.Wallet : RefundDestination.OriginalMethod,
+            FeeAmount = Math.Round(policy?.FeeAmount ?? 0m, 2),
+            PolicyCaseId = policy?.PolicyCaseId,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _refunds.AddRefundAsync(refund, cancellationToken);
+        await _refunds.SaveChangesAsync(cancellationToken);
 
         await _events.RecordAsync(new PaymentTransactionEventRequest
         {
@@ -74,51 +95,164 @@ public class RefundService : IRefundService
             Source = PaymentTransactionEventSource.Admin,
             EventType = PaymentTransactionEventType.RefundRequested,
             Result = PaymentTransactionEventResult.Pending,
-            StatusBefore = statusBefore,
-            Amount = amount,
-            Currency = currency,
+            StatusBefore = payment.Status,
+            Amount = refund.Amount,
+            Currency = refund.Currency,
             ProviderPaymentId = payment.ProviderTransactionId,
             ProviderInvoiceId = payment.ProviderInvoiceId,
             Notes = reason
         }, cancellationToken);
 
-        var toWallet = destination == RefundDestination.Wallet
+        // Gated refunds move no money until an admin approves them.
+        if (requiresApproval)
+            return refund;
+
+        await SettleRefundAsync(
+            refund, payment, enrollmentId, alreadyRefunded,
+            complaintId, courseScheduleId, policy, cancellationToken);
+        return refund;
+    }
+
+    public async Task<Refund> ApproveRefundAsync(
+        int refundId,
+        int approvedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var refund = await _refunds.GetTrackedRefundAsync(refundId, cancellationToken)
+            ?? throw new InvalidOperationException($"Refund {refundId} not found.");
+        if (refund.Status != RefundStatus.RequiresApproval)
+            throw new InvalidOperationException("Only refunds awaiting approval can be approved.");
+
+        var payment = await _refunds.GetTrackedPaymentWithRefundsAsync(refund.PaymentId, cancellationToken)
+            ?? throw new InvalidOperationException($"Payment {refund.PaymentId} not found.");
+
+        var alreadyRefunded = payment.Refunds
+            .Where(r => r.Status == RefundStatus.Succeeded && r.Id != refund.Id)
+            .Sum(r => r.Amount);
+
+        // Reset to Pending so SettleRefundAsync can drive it to its terminal state.
+        refund.Status = RefundStatus.Pending;
+        if (approvedByUserId > 0)
+            refund.InitiatedByUserId ??= approvedByUserId;
+
+        await SettleRefundAsync(
+            refund, payment, refund.EnrollmentId, alreadyRefunded,
+            complaintId: null, courseScheduleId: null, policy: null, cancellationToken);
+
+        await AuditAsync(
+            "Refund.Approved", approvedByUserId, refund,
+            $"{{\"statusBefore\":\"RequiresApproval\",\"statusAfter\":\"{refund.Status}\",\"amount\":{refund.Amount},\"currency\":\"{refund.Currency}\",\"destination\":\"{refund.Destination}\"}}");
+        return refund;
+    }
+
+    public async Task<Refund> RejectRefundAsync(
+        int refundId,
+        int rejectedByUserId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var refund = await _refunds.GetTrackedRefundAsync(refundId, cancellationToken)
+            ?? throw new InvalidOperationException($"Refund {refundId} not found.");
+        if (refund.Status != RefundStatus.RequiresApproval)
+            throw new InvalidOperationException("Only refunds awaiting approval can be rejected.");
+
+        refund.Status = RefundStatus.Rejected;
+        if (!string.IsNullOrWhiteSpace(reason))
+            refund.Reason = $"{refund.Reason} | Rejected: {reason.Trim()}";
+        await _refunds.SaveChangesAsync(cancellationToken);
+
+        await _events.RecordAsync(new PaymentTransactionEventRequest
+        {
+            PaymentId = refund.PaymentId,
+            EnrollmentId = refund.EnrollmentId,
+            PaymentProvider = string.Empty,
+            Source = PaymentTransactionEventSource.Admin,
+            EventType = PaymentTransactionEventType.RefundFailed,
+            Result = PaymentTransactionEventResult.Failed,
+            Amount = refund.Amount,
+            Currency = refund.Currency,
+            Notes = reason,
+            ErrorMessage = "rejected_by_admin"
+        }, cancellationToken);
+
+        await AuditAsync(
+            "Refund.Rejected", rejectedByUserId, refund,
+            $"{{\"statusBefore\":\"RequiresApproval\",\"statusAfter\":\"Rejected\",\"amount\":{refund.Amount},\"currency\":\"{refund.Currency}\",\"reason\":{System.Text.Json.JsonSerializer.Serialize(reason)}}}");
+
+        return refund;
+    }
+
+    private async Task AuditAsync(string action, int actorUserId, Refund refund, string details)
+    {
+        if (_audit == null)
+            return;
+        await _audit.LogAsync(
+            action,
+            actorUserId > 0 ? actorUserId : null,
+            ipAddress: string.Empty,
+            success: true,
+            details: details,
+            entityType: nameof(Refund),
+            entityId: refund.Id.ToString());
+    }
+
+    /// <summary>
+    /// Moves the money for an already-persisted refund row (wallet credit or gateway),
+    /// then applies payment-status, enrollment-payment and teacher-earning effects on success.
+    /// Shared by the immediate issue path and the approval path.
+    /// </summary>
+    private async Task SettleRefundAsync(
+        Refund refund,
+        Payment payment,
+        int enrollmentId,
+        decimal alreadyRefunded,
+        int? complaintId,
+        int? courseScheduleId,
+        RefundPolicyOptions? policy,
+        CancellationToken cancellationToken)
+    {
+        var statusBefore = payment.Status;
+        var toWallet = refund.Destination == RefundDestination.Wallet
             || payment.PaymentProvider.Equals(WalletSettings.ProviderName, StringComparison.OrdinalIgnoreCase);
 
-        Refund refund;
         if (toWallet)
         {
-            refund = await CreditWalletRefundAsync(
-                payment, enrollmentId, amount, currency, reason, initiatedByUserId,
-                complaintId, courseScheduleId, policy, cancellationToken);
-            refundStatus = refund.Status;
-            providerRefundId = refund.ProviderRefundId;
+            var credit = await _wallet.CreditAsync(new WalletEntryRequest
+            {
+                UserId = payment.PayerUserId,
+                Amount = refund.Amount,
+                Type = WalletTransactionType.Refund,
+                PaymentId = payment.Id,
+                RefundId = refund.Id,
+                EnrollmentId = enrollmentId,
+                CourseScheduleId = courseScheduleId,
+                ComplaintId = complaintId,
+                PolicyCaseId = policy?.PolicyCaseId,
+                Description = refund.Reason,
+                ReasonCode = policy != null ? "POLICY_REFUND" : "REFUND",
+                CreatedByUserId = refund.InitiatedByUserId
+            }, cancellationToken);
+
+            if (credit.Succeeded)
+            {
+                refund.Status = RefundStatus.Succeeded;
+                refund.ProviderRefundId = $"WALLET-{credit.Transaction!.Id}";
+            }
+            else
+            {
+                refund.Status = RefundStatus.Failed;
+            }
         }
         else
         {
-            (refundStatus, providerRefundId) = await RefundThroughGatewayAsync(
-                payment, amount, remaining, cancellationToken);
-
-            refund = new Refund
-            {
-                PaymentId = paymentId,
-                EnrollmentId = enrollmentId,
-                Amount = Math.Round(amount, 2),
-                Currency = string.IsNullOrWhiteSpace(currency) ? payment.Currency : currency,
-                Reason = string.IsNullOrWhiteSpace(reason) ? "Refund" : reason.Trim(),
-                Status = refundStatus,
-                ProviderRefundId = providerRefundId,
-                InitiatedByUserId = initiatedByUserId,
-                Destination = RefundDestination.OriginalMethod,
-                FeeAmount = Math.Round(policy?.FeeAmount ?? 0m, 2),
-                PolicyCaseId = policy?.PolicyCaseId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _refunds.AddRefundAsync(refund, cancellationToken);
+            var remaining = payment.TotalAmount - alreadyRefunded;
+            var (status, providerRefundId) = await RefundThroughGatewayAsync(
+                payment, refund.Amount, remaining, cancellationToken);
+            refund.Status = status;
+            refund.ProviderRefundId = providerRefundId;
         }
 
-        if (refundStatus == RefundStatus.Succeeded)
+        if (refund.Status == RefundStatus.Succeeded)
         {
             var newTotal = alreadyRefunded + refund.Amount;
             var isFullRefund = newTotal >= payment.TotalAmount - 0.001m;
@@ -128,7 +262,7 @@ public class RefundService : IRefundService
             if (payment.Status == PaymentStatus.Refunded)
             {
                 var enrollmentPayments = await _refunds.GetEnrollmentPaymentsForPaymentAsync(
-                    paymentId, cancellationToken);
+                    payment.Id, cancellationToken);
                 foreach (var ep in enrollmentPayments)
                     ep.Status = PaymentStatus.Refunded;
             }
@@ -155,7 +289,7 @@ public class RefundService : IRefundService
                         refund.Id,
                         complaintId: null,
                         earningLineId: null,
-                        initiatedByUserId,
+                        refund.InitiatedByUserId,
                         cancellationToken);
                 }
             }
@@ -169,10 +303,10 @@ public class RefundService : IRefundService
             EnrollmentId = enrollmentId,
             PaymentProvider = payment.PaymentProvider,
             Source = PaymentTransactionEventSource.Admin,
-            EventType = refundStatus == RefundStatus.Succeeded
+            EventType = refund.Status == RefundStatus.Succeeded
                 ? PaymentTransactionEventType.RefundSucceeded
                 : PaymentTransactionEventType.RefundFailed,
-            Result = refundStatus == RefundStatus.Succeeded
+            Result = refund.Status == RefundStatus.Succeeded
                 ? PaymentTransactionEventResult.Success
                 : PaymentTransactionEventResult.Failed,
             StatusBefore = statusBefore,
@@ -181,73 +315,9 @@ public class RefundService : IRefundService
             Currency = refund.Currency,
             ProviderPaymentId = payment.ProviderTransactionId,
             ProviderInvoiceId = payment.ProviderInvoiceId,
-            Notes = providerRefundId,
-            ErrorMessage = refundStatus == RefundStatus.Succeeded ? null : "gateway_refund_pending_or_failed"
+            Notes = refund.ProviderRefundId,
+            ErrorMessage = refund.Status == RefundStatus.Succeeded ? null : "gateway_refund_pending_or_failed"
         }, cancellationToken);
-
-        return refund;
-    }
-
-    /// <summary>
-    /// Saves the refund as Pending, credits the payer's wallet linked to it, then marks it Succeeded.
-    /// A failed credit leaves a Pending refund for finance follow-up instead of losing the money.
-    /// </summary>
-    private async Task<Refund> CreditWalletRefundAsync(
-        Payment payment,
-        int enrollmentId,
-        decimal amount,
-        string currency,
-        string reason,
-        int? initiatedByUserId,
-        int? complaintId,
-        int? courseScheduleId,
-        RefundPolicyOptions? policy,
-        CancellationToken cancellationToken)
-    {
-        var refund = new Refund
-        {
-            PaymentId = payment.Id,
-            EnrollmentId = enrollmentId,
-            Amount = Math.Round(amount, 2),
-            Currency = string.IsNullOrWhiteSpace(currency) ? payment.Currency : currency,
-            Reason = string.IsNullOrWhiteSpace(reason) ? "Refund" : reason.Trim(),
-            Status = RefundStatus.Pending,
-            InitiatedByUserId = initiatedByUserId,
-            Destination = RefundDestination.Wallet,
-            FeeAmount = Math.Round(policy?.FeeAmount ?? 0m, 2),
-            PolicyCaseId = policy?.PolicyCaseId,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _refunds.AddRefundAsync(refund, cancellationToken);
-        await _refunds.SaveChangesAsync(cancellationToken);
-
-        var credit = await _wallet.CreditAsync(new WalletEntryRequest
-        {
-            UserId = payment.PayerUserId,
-            Amount = refund.Amount,
-            Type = WalletTransactionType.Refund,
-            PaymentId = payment.Id,
-            RefundId = refund.Id,
-            EnrollmentId = enrollmentId,
-            CourseScheduleId = courseScheduleId,
-            ComplaintId = complaintId,
-            PolicyCaseId = policy?.PolicyCaseId,
-            Description = refund.Reason,
-            ReasonCode = policy != null ? "POLICY_REFUND" : "REFUND",
-            CreatedByUserId = initiatedByUserId
-        }, cancellationToken);
-
-        if (credit.Succeeded)
-        {
-            refund.Status = RefundStatus.Succeeded;
-            refund.ProviderRefundId = $"WALLET-{credit.Transaction!.Id}";
-        }
-        else
-        {
-            refund.Status = RefundStatus.Failed;
-        }
-
-        return refund;
     }
 
     private async Task<(RefundStatus Status, string? ProviderRefundId)> RefundThroughGatewayAsync(
@@ -436,6 +506,9 @@ public class RefundService : IRefundService
             ProcessedAt = r.Status == RefundStatus.Succeeded.ToString() ? r.CreatedAt : null,
             InitiatedByUserId = r.InitiatedByUserId,
             InitiatedByName = r.InitiatedByName,
+            Destination = r.Destination,
+            FeeAmount = r.FeeAmount,
+            PolicyCaseId = r.PolicyCaseId,
             PaymentTotalAmount = r.PaymentTotal,
             PaymentRefundedTotal = r.RefundedTotal,
             CourseTitle = r.CourseTitle,

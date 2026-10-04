@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
 using Qalam.Core.Features.Admin.Finance.Commands.RecomputeTeacherEarnings;
+using Qalam.Core.Features.Admin.Finance.Queries.GetAdminDashboardOverview;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminFinanceSummary;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminFinanceTransactionByKey;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminRevenueById;
@@ -26,6 +27,18 @@ namespace Qalam.Api.Controllers.Admin;
 [Tags("Admin · Finance")]
 public class AdminFinanceController : AppControllerBase
 {
+    [HttpGet(Router.AdminDashboardOverview)]
+    [ProducesResponseType(typeof(AdminDashboardOverviewDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DashboardOverview(
+        [FromQuery] DateTime? fromUtc = null,
+        [FromQuery] DateTime? toUtc = null,
+        CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new GetAdminDashboardOverviewQuery
+        {
+            FromUtc = fromUtc,
+            ToUtc = toUtc
+        }, cancellationToken));
+
     [HttpGet(Router.AdminFinanceSummary)]
     [ProducesResponseType(typeof(AdminFinanceSummaryDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Summary(

@@ -45,6 +45,8 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPricing = Rule + "Admin/Pricing";
         public const string AdminRefunds = Rule + "Admin/Refunds";
         public const string AdminRefundById = AdminRefunds + "/{id}";
+        public const string AdminRefundApprove = AdminRefundById + "/Approve";
+        public const string AdminRefundReject = AdminRefundById + "/Reject";
         public const string AdminEnrollments = Rule + "Admin/Enrollments";
         public const string AdminEnrollmentById = AdminEnrollments + "/{id}";
         public const string AdminSessions = Rule + "Admin/Sessions";
@@ -73,6 +75,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminComplaintCancel = AdminComplaintById + "/Cancel";
         public const string AdminPayouts = Rule + "Admin/Payouts";
         public const string AdminPayoutById = AdminPayouts + "/{id}";
+        public const string AdminPayoutSubmitForReview = AdminPayoutById + "/SubmitForReview";
         public const string AdminPayoutApprove = AdminPayoutById + "/Approve";
         public const string AdminPayoutMarkPaid = AdminPayoutById + "/MarkPaid";
         public const string AdminPayoutReject = AdminPayoutById + "/Reject";
@@ -81,6 +84,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPayoutFail = AdminPayoutById + "/Fail";
         public const string AdminPayoutRetry = AdminPayoutById + "/Retry";
         public const string AdminPayoutPendingEarnings = AdminPayouts + "/PendingEarnings";
+        public const string AdminDashboardOverview = Rule + "Admin/Dashboard/Overview";
         public const string AdminFinance = Rule + "Admin/Finance";
         public const string AdminFinanceSummary = AdminFinance + "/Summary";
         public const string AdminFinanceTransactions = AdminFinance + "/Transactions";

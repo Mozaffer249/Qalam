@@ -9,6 +9,7 @@ using Qalam.Core.Features.Admin.Finance.Commands.MarkAdminPayoutBatchPaid;
 using Qalam.Core.Features.Admin.Finance.Commands.ProcessAdminPayoutBatch;
 using Qalam.Core.Features.Admin.Finance.Commands.RejectAdminPayoutBatch;
 using Qalam.Core.Features.Admin.Finance.Commands.RetryAdminPayoutBatch;
+using Qalam.Core.Features.Admin.Finance.Commands.SubmitAdminPayoutBatchForReview;
 using Qalam.Core.Features.Admin.Finance.Queries.GetAdminPayoutBatchById;
 using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPayoutBatches;
 using Qalam.Core.Features.Admin.Finance.Queries.ListAdminPendingEarnings;
@@ -80,6 +81,15 @@ public class PayoutsController : AppControllerBase
         {
             Body = body,
             CreatedByUserId = CurrentUserId()
+        }, cancellationToken));
+
+    [HttpPost(Router.AdminPayoutSubmitForReview)]
+    [ProducesResponseType(typeof(AdminPayoutBatchDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SubmitForReview(int id, CancellationToken cancellationToken = default)
+        => NewResult(await Mediator.Send(new SubmitAdminPayoutBatchForReviewCommand
+        {
+            Id = id,
+            ReviewedByUserId = CurrentUserId()
         }, cancellationToken));
 
     [HttpPost(Router.AdminPayoutApprove)]

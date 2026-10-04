@@ -26,7 +26,21 @@ public interface IRefundService
         RefundDestination destination = RefundDestination.Wallet,
         int? complaintId = null,
         int? courseScheduleId = null,
-        RefundPolicyOptions? policy = null);
+        RefundPolicyOptions? policy = null,
+        bool requiresApproval = false);
+
+    /// <summary>Settles a refund that was created in <see cref="RefundStatus.RequiresApproval"/>.</summary>
+    Task<Refund> ApproveRefundAsync(
+        int refundId,
+        int approvedByUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Rejects a refund awaiting approval; no money is moved.</summary>
+    Task<Refund> RejectRefundAsync(
+        int refundId,
+        int rejectedByUserId,
+        string? reason,
+        CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Refund>> RefundEnrollmentPaymentsAsync(
         int enrollmentId,

@@ -4,7 +4,11 @@ public enum RefundStatus
 {
     Pending = 1,
     Succeeded = 2,
-    Failed = 3
+    Failed = 3,
+    /// <summary>Admin-initiated ad-hoc refund awaiting approval; no money moved yet.</summary>
+    RequiresApproval = 4,
+    /// <summary>An approval-gated refund that was rejected; no money moved.</summary>
+    Rejected = 5
 }
 
 /// <summary>Where refunded money goes.</summary>
@@ -92,6 +96,8 @@ public enum PayoutBatchStatus
     Rejected = 5,
     Failed = 6,
     Cancelled = 7,
+    /// <summary>Submitted for review before approval (Pending → UnderReview → Approved).</summary>
+    UnderReview = 8,
 }
 
 public enum TeacherBalanceAdjustmentKind

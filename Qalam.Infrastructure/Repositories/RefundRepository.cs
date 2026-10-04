@@ -142,6 +142,9 @@ public class RefundRepository : IRefundRepository
         await _context.Refunds.AddAsync(refund, cancellationToken);
     }
 
+    public Task<Refund?> GetTrackedRefundAsync(int refundId, CancellationToken cancellationToken = default) =>
+        _context.Refunds.FirstOrDefaultAsync(r => r.Id == refundId, cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 
@@ -170,6 +173,9 @@ public class RefundRepository : IRefundRepository
                         .Select(u => ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim())
                         .FirstOrDefault()
                     : null,
+                Destination = x.Destination.ToString(),
+                FeeAmount = x.FeeAmount,
+                PolicyCaseId = x.PolicyCaseId,
                 PaymentTotal = x.Payment.TotalAmount,
                 RefundedTotal = x.Payment.Refunds
                     .Where(rr => rr.Status == RefundStatus.Succeeded)
