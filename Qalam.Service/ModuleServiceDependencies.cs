@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 using Qalam.Service.Implementations;
+using Qalam.Service.Implementations.LRS;
 using Qalam.Service.Repositories;
 
 namespace Qalam.Service
@@ -171,6 +172,14 @@ namespace Qalam.Service
             services.AddTransient<IStudentInvitationInboxService, StudentInvitationInboxService>();
             services.AddTransient<IOpenSessionRequestReleaseService, OpenSessionRequestReleaseService>();
             services.AddTransient<ISessionAvailabilityMatchService, SessionAvailabilityMatchService>();
+
+            // LRS / xAPI
+            services.Configure<Qalam.Data.Helpers.LrsSettings>(
+                configuration.GetSection(Qalam.Data.Helpers.LrsSettings.SectionName));
+            services.AddHttpClient<NelcLrsClient>();
+            services.AddTransient<ILrsClient>(sp => sp.GetRequiredService<NelcLrsClient>());
+            services.AddTransient<IXApiStatementBuilder, XApiStatementBuilder>();
+            services.AddTransient<ILrsDispatchService, LrsDispatchService>();
 
             // Pricing
             services.AddTransient<IPricingEngine, PricingEngine>();

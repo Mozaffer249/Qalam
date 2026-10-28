@@ -84,6 +84,14 @@ namespace Qalam.Service.Implementations
                     queue: _settings.SessionComplaintAttachmentUploadQueueName,
                     durable: true, exclusive: false, autoDelete: false, arguments: null);
 
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.LrsQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
+                await _channel.QueueDeclareAsync(
+                    queue: _settings.LrsDeadLetterQueueName,
+                    durable: true, exclusive: false, autoDelete: false, arguments: null);
+
                 _initialized = true;
                 _logger.LogInformation("RabbitMQ connection established. Queues: {EmailQueue}, {SmsQueue}, {PushQueue}, {TeacherDocQueue}, {ProfilePicQueue}",
                     _settings.EmailQueueName, _settings.SmsQueueName, _settings.PushQueueName,
@@ -337,6 +345,34 @@ namespace Qalam.Service.Implementations
                 _logger.LogError(ex,
                     "Failed to queue session complaint attachment upload: ComplaintId={ComplaintId}, AttachmentId={AttachmentId}",
                     message.ComplaintId, message.AttachmentId);
+                throw;
+            }
+        }
+
+        public async Task QueueLrsStatementAsync(LrsStatementMessage message)
+        {
+            try
+            {
+                await EnsureInitializedAsync();
+                message.QueuedAt = DateTime.UtcNow;
+
+                var messageJson = JsonSerializer.Serialize(message);
+                var body = Encoding.UTF8.GetBytes(messageJson);
+                var properties = new BasicProperties { Persistent = true };
+
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: _settings.LrsQueueName,
+                    mandatory: false, basicProperties: properties, body: body);
+
+                _logger.LogInformation(
+                    "LRS statement queued: Verb={Verb}, Actor={ActorName}, Object={ObjectId}",
+                    message.Verb, message.ActorName, message.ObjectId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to queue LRS statement: Verb={Verb}, Object={ObjectId}",
+                    message.Verb, message.ObjectId);
                 throw;
             }
         }

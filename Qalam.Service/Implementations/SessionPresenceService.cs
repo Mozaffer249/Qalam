@@ -16,6 +16,7 @@ public class SessionPresenceService : ISessionPresenceService
     private readonly ICourseScheduleRepository _scheduleRepository;
     private readonly ApplicationDBContext _db;
     private readonly SessionSettings _sessionSettings;
+    private readonly ILrsDispatchService _lrsDispatch;
     private readonly ILogger<SessionPresenceService> _logger;
 
     public SessionPresenceService(
@@ -24,6 +25,7 @@ public class SessionPresenceService : ISessionPresenceService
         ICourseScheduleRepository scheduleRepository,
         ApplicationDBContext db,
         IOptions<SessionSettings> sessionSettings,
+        ILrsDispatchService lrsDispatch,
         ILogger<SessionPresenceService> logger)
     {
         _teacherRepository = teacherRepository;
@@ -31,6 +33,7 @@ public class SessionPresenceService : ISessionPresenceService
         _scheduleRepository = scheduleRepository;
         _db = db;
         _sessionSettings = sessionSettings.Value;
+        _lrsDispatch = lrsDispatch;
         _logger = logger;
     }
 
@@ -176,6 +179,17 @@ public class SessionPresenceService : ISessionPresenceService
         _logger.LogInformation(
             "Student {StudentId} joined CourseSchedule {ScheduleId}.",
             student.Id, schedule.Id);
+
+        try
+        {
+            await _lrsDispatch.DispatchStudentAttendedAsync(student.Id, schedule, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to dispatch LRS student-attended for Student {StudentId}, CourseSchedule {ScheduleId}",
+                student.Id, schedule.Id);
+        }
 
         return (true, "Joined session.", false, false);
     }

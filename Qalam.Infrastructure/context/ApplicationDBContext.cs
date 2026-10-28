@@ -202,6 +202,9 @@ namespace Qalam.Infrastructure.context
         public DbSet<PolicyVersion> PolicyVersions { get; set; }
         public DbSet<PolicyCase> PolicyCases { get; set; }
 
+        // LRS DbSets
+        public DbSet<Qalam.Data.Entity.LRS.LrsStatementLog> LrsStatementLogs { get; set; }
+
         // Messaging Schema DbSets
         public DbSet<MessageLog> MessageLogs { get; set; }
         public DbSet<EmailSuppression> EmailSuppressions { get; set; }
@@ -236,6 +239,17 @@ namespace Qalam.Infrastructure.context
                 entity.Property(e => e.Recipient).IsRequired().HasMaxLength(500);
                 entity.Property(e => e.Subject).HasMaxLength(500);
                 entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            });
+
+            // LRS table mapping
+            builder.Entity<Qalam.Data.Entity.LRS.LrsStatementLog>(entity =>
+            {
+                entity.ToTable("LrsStatementLogs", "lrs");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.StatementId);
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasIndex(e => new { e.SourceEntityType, e.SourceEntityId });
             });
 
             // Apply encryption

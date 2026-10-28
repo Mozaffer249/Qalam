@@ -23,6 +23,55 @@ SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
 ------------------------------------------------------------
+-- 0) Finance / policy / complaint graph that FKs into the rows
+--    deleted below. These were added after the original script;
+--    several carry RESTRICT foreign keys to Refunds / Payments /
+--    Enrollments / CourseSchedules, so they MUST be cleared first
+--    or the whole transaction aborts (XACT_ABORT) and nothing is
+--    deleted. Order matters — most dependent first.
+--
+--    NOTE: PolicyVersions is intentionally KEPT (versioned policy
+--    config, not enrollment data). Only PolicyCases are wiped.
+------------------------------------------------------------
+-- Wallet ledger: WalletTransactions RESTRICT-reference Refund/Payment/Enrollment
+IF OBJECT_ID(N'dbo.WalletTransactions', N'U') IS NOT NULL
+    DELETE FROM dbo.WalletTransactions;
+IF OBJECT_ID(N'dbo.StudentWallets', N'U') IS NOT NULL
+    DELETE FROM dbo.StudentWallets;
+
+-- Teacher balance/discipline rows (reference Refund / EarningLine / Complaint / PolicyCase)
+IF OBJECT_ID(N'dbo.TeacherBalanceAdjustments', N'U') IS NOT NULL
+    DELETE FROM dbo.TeacherBalanceAdjustments;
+IF OBJECT_ID(N'dbo.TeacherDisciplinaryRecords', N'U') IS NOT NULL
+    DELETE FROM dbo.TeacherDisciplinaryRecords;
+
+-- Earning lines (reference PayoutItem / Enrollment / CourseSchedule) before payout batches/items
+IF OBJECT_ID(N'dbo.TeacherEarningLines', N'U') IS NOT NULL
+    DELETE FROM dbo.TeacherEarningLines;
+IF OBJECT_ID(N'dbo.PayoutItems', N'U') IS NOT NULL
+    DELETE FROM dbo.PayoutItems;
+IF OBJECT_ID(N'dbo.PayoutBatches', N'U') IS NOT NULL
+    DELETE FROM dbo.PayoutBatches;
+
+-- Policy cases (reference Enrollment/Payment/Refund/CourseSchedule/Complaint) — before Complaints
+IF OBJECT_ID(N'finance.PolicyCases', N'U') IS NOT NULL
+    DELETE FROM finance.PolicyCases;
+
+-- Unified complaint hub (reference CourseSchedule/Enrollment/Payment/Refund/OSR)
+IF OBJECT_ID(N'complaint.ComplaintTimelineEntries', N'U') IS NOT NULL
+    DELETE FROM complaint.ComplaintTimelineEntries;
+IF OBJECT_ID(N'complaint.ComplaintAttachments', N'U') IS NOT NULL
+    DELETE FROM complaint.ComplaintAttachments;
+IF OBJECT_ID(N'complaint.Complaints', N'U') IS NOT NULL
+    DELETE FROM complaint.Complaints;
+
+-- Legacy session complaints (reference CourseSchedule)
+IF OBJECT_ID(N'course.SessionComplaintAttachments', N'U') IS NOT NULL
+    DELETE FROM course.SessionComplaintAttachments;
+IF OBJECT_ID(N'course.SessionComplaints', N'U') IS NOT NULL
+    DELETE FROM course.SessionComplaints;
+
+------------------------------------------------------------
 -- 1) Payments linked to enrollments
 --    Order: Refunds → EnrollmentPayments → PaymentItems → Payments
 --    (Refunds FK → Payments and Enrollments)
@@ -144,4 +193,13 @@ UNION ALL SELECT 'SessionRequests(sr)', COUNT(*) FROM sr.SessionRequests
 UNION ALL SELECT 'EnrollmentPayments', COUNT(*) FROM dbo.EnrollmentPayments
 UNION ALL SELECT 'Refunds', COUNT(*) FROM dbo.Refunds
 UNION ALL SELECT 'Payments', COUNT(*) FROM dbo.Payments
-UNION ALL SELECT 'StudentFreeTrialConsumptions', COUNT(*) FROM student.StudentFreeTrialConsumptions;
+UNION ALL SELECT 'StudentFreeTrialConsumptions', COUNT(*) FROM student.StudentFreeTrialConsumptions
+UNION ALL SELECT 'WalletTransactions', COUNT(*) FROM dbo.WalletTransactions
+UNION ALL SELECT 'StudentWallets', COUNT(*) FROM dbo.StudentWallets
+UNION ALL SELECT 'TeacherEarningLines', COUNT(*) FROM dbo.TeacherEarningLines
+UNION ALL SELECT 'PayoutBatches', COUNT(*) FROM dbo.PayoutBatches
+UNION ALL SELECT 'PayoutItems', COUNT(*) FROM dbo.PayoutItems
+UNION ALL SELECT 'TeacherBalanceAdjustments', COUNT(*) FROM dbo.TeacherBalanceAdjustments
+UNION ALL SELECT 'PolicyCases', COUNT(*) FROM finance.PolicyCases
+UNION ALL SELECT 'Complaints', COUNT(*) FROM complaint.Complaints
+UNION ALL SELECT 'SessionComplaints', COUNT(*) FROM course.SessionComplaints;

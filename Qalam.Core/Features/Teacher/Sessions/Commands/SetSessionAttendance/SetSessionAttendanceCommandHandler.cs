@@ -1,10 +1,12 @@
 using MediatR;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Infrastructure.Abstracts;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Teacher.Sessions.Commands.SetSessionAttendance;
 
@@ -13,14 +15,20 @@ public class SetSessionAttendanceCommandHandler : ResponseHandler,
 {
     private readonly ITeacherRepository _teacherRepository;
     private readonly ICourseScheduleRepository _scheduleRepository;
+    private readonly ILrsDispatchService _lrsDispatch;
+    private readonly ILogger<SetSessionAttendanceCommandHandler> _logger;
 
     public SetSessionAttendanceCommandHandler(
         ITeacherRepository teacherRepository,
         ICourseScheduleRepository scheduleRepository,
+        ILrsDispatchService lrsDispatch,
+        ILogger<SetSessionAttendanceCommandHandler> logger,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _teacherRepository = teacherRepository;
         _scheduleRepository = scheduleRepository;
+        _lrsDispatch = lrsDispatch;
+        _logger = logger;
     }
 
     public async Task<Response<string>> Handle(SetSessionAttendanceCommand request, CancellationToken cancellationToken)
@@ -103,6 +111,18 @@ public class SetSessionAttendanceCommandHandler : ResponseHandler,
         }
 
         await _scheduleRepository.SaveChangesAsync();
+
+        try
+        {
+            await _lrsDispatch.DispatchProgressUpdatedAsync(schedule, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to dispatch LRS progress-updated for CourseSchedule {ScheduleId}",
+                schedule.Id);
+        }
+
         return Success(entity: "Attendance updated.");
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Qalam.Data.DTOs.Admin;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
@@ -14,6 +15,8 @@ public class AdminSessionActionService : IAdminSessionActionService
     private readonly IRefundService _refundService;
     private readonly ITeacherManagementService _teacherManagement;
     private readonly ITeacherFinanceImpactService _financeImpact;
+    private readonly ILrsDispatchService _lrsDispatch;
+    private readonly ILogger<AdminSessionActionService> _logger;
     private readonly ISessionPolicyService? _sessionPolicy;
 
     public AdminSessionActionService(
@@ -23,6 +26,8 @@ public class AdminSessionActionService : IAdminSessionActionService
         IRefundService refundService,
         ITeacherManagementService teacherManagement,
         ITeacherFinanceImpactService financeImpact,
+        ILrsDispatchService lrsDispatch,
+        ILogger<AdminSessionActionService> logger,
         ISessionPolicyService? sessionPolicy = null)
     {
         _sessionPolicy = sessionPolicy;
@@ -32,6 +37,8 @@ public class AdminSessionActionService : IAdminSessionActionService
         _refundService = refundService;
         _teacherManagement = teacherManagement;
         _financeImpact = financeImpact;
+        _lrsDispatch = lrsDispatch;
+        _logger = logger;
     }
 
     public async Task SetAttendanceAsync(
@@ -72,6 +79,17 @@ public class AdminSessionActionService : IAdminSessionActionService
             SessionAuditActionType.AttendanceSet,
             request,
             cancellationToken);
+
+        try
+        {
+            await _lrsDispatch.DispatchProgressUpdatedAsync(schedule, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to dispatch LRS progress-updated for CourseSchedule {ScheduleId}",
+                schedule.Id);
+        }
     }
 
     public async Task CancelAsync(int scheduleId, int adminUserId, CancellationToken cancellationToken = default)

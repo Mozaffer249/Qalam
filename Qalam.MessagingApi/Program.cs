@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Qalam.MessagingApi.BackgroundServices;
 using Qalam.MessagingApi.Configuration;
 using Qalam.MessagingApi.Data;
@@ -35,6 +36,7 @@ builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("R
 builder.Services.Configure<OssSettings>(builder.Configuration.GetSection("OssSettings"));
 builder.Services.Configure<WasabiSettings>(builder.Configuration.GetSection("WasabiSettings"));
 builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("StorageSettings"));
+builder.Services.Configure<LrsSettings>(builder.Configuration.GetSection(LrsSettings.SectionName));
 
 // Services
 builder.Services.AddSingleton<IConsumerLivenessTracker, ConsumerLivenessTracker>();
@@ -59,6 +61,20 @@ builder.Services.AddHostedService<TeacherContentFileUploadConsumer>();
 builder.Services.AddHostedService<CourseImageUploadConsumer>();
 builder.Services.AddHostedService<SessionComplaintAttachmentConsumer>();
 builder.Services.AddHostedService<BounceIngestionService>();
+builder.Services.AddHostedService<LrsStatementConsumer>();
+
+// LRS HTTP client (used by consumer to POST xAPI statements)
+builder.Services.AddHttpClient("NelcLrs", (sp, client) =>
+{
+    var lrs = sp.GetRequiredService<IOptions<LrsSettings>>().Value;
+    if (!string.IsNullOrEmpty(lrs.Key) && !string.IsNullOrEmpty(lrs.Secret))
+    {
+        var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{lrs.Key}:{lrs.Secret}"));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+    }
+    client.DefaultRequestHeaders.Add("X-Experience-API-Version", lrs.XApiVersion);
+});
 
 // Controllers + Swagger 
 builder.Services.AddControllers()

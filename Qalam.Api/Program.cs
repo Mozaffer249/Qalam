@@ -86,6 +86,8 @@ builder.Services.Configure<Qalam.Data.Helpers.SessionSettings>(
     builder.Configuration.GetSection("SessionSettings"));
 builder.Services.Configure<Qalam.Data.Helpers.LiveSessionSettings>(
     builder.Configuration.GetSection(Qalam.Data.Helpers.LiveSessionSettings.SectionName));
+builder.Services.Configure<Qalam.Data.Helpers.LrsSettings>(
+    builder.Configuration.GetSection(Qalam.Data.Helpers.LrsSettings.SectionName));
 
 // Background Services
 builder.Services.AddHostedService<Qalam.Service.BackgroundServices.EnrollmentExpirationService>();

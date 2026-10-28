@@ -10,13 +10,16 @@ namespace Qalam.Service.Implementations;
 public class EnrollmentCompletionService : IEnrollmentCompletionService
 {
     private readonly ApplicationDBContext _db;
+    private readonly ILrsDispatchService _lrsDispatch;
     private readonly ILogger<EnrollmentCompletionService> _logger;
 
     public EnrollmentCompletionService(
         ApplicationDBContext db,
+        ILrsDispatchService lrsDispatch,
         ILogger<EnrollmentCompletionService> logger)
     {
         _db = db;
+        _lrsDispatch = lrsDispatch;
         _logger = logger;
     }
 
@@ -38,6 +41,17 @@ public class EnrollmentCompletionService : IEnrollmentCompletionService
         enrollment.CompletedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Marked Enrollment {EnrollmentId} Completed (all sessions finished).", enrollmentId);
+
+        try
+        {
+            await _lrsDispatch.DispatchCourseCompletedAsync(enrollment, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to dispatch LRS course-completed for Enrollment {EnrollmentId}",
+                enrollmentId);
+        }
     }
 
     public async Task<int> SweepFinishedEnrollmentsAsync(CancellationToken cancellationToken = default)
@@ -62,7 +76,23 @@ public class EnrollmentCompletionService : IEnrollmentCompletionService
         }
 
         if (count > 0)
+        {
             await _db.SaveChangesAsync(cancellationToken);
+
+            foreach (var enrollment in candidates.Where(e => e.EnrollmentStatus == EnrollmentStatus.Completed))
+            {
+                try
+                {
+                    await _lrsDispatch.DispatchCourseCompletedAsync(enrollment, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to dispatch LRS course-completed for Enrollment {EnrollmentId}",
+                        enrollment.Id);
+                }
+            }
+        }
 
         return count;
     }

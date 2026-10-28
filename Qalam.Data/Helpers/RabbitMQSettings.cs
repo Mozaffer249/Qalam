@@ -18,5 +18,7 @@ namespace Qalam.Data.Helpers
         public string TeacherContentFileUploadQueueName { get; set; } = "teacher-content-file-upload-queue";
         public string CourseImageUploadQueueName { get; set; } = "course-image-upload-queue";
         public string SessionComplaintAttachmentUploadQueueName { get; set; } = "session-complaint-attachment-upload-queue";
+        public string LrsQueueName { get; set; } = "lrs-queue";
+        public string LrsDeadLetterQueueName { get; set; } = "lrs-queue.dlq";
     }
 }

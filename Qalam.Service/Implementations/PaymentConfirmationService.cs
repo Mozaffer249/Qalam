@@ -24,6 +24,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
     private readonly IPaymentTransactionEventService _events;
     private readonly IStudentWalletService _walletService;
     private readonly IPolicyResolver? _policyResolver;
+    private readonly ILrsDispatchService _lrsDispatch;
     private readonly ILogger<PaymentConfirmationService> _logger;
 
     public PaymentConfirmationService(
@@ -38,6 +39,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         IPaymentGatewayResolver gatewayResolver,
         IPaymentTransactionEventService events,
         IStudentWalletService walletService,
+        ILrsDispatchService lrsDispatch,
         ILogger<PaymentConfirmationService> logger,
         IPolicyResolver? policyResolver = null)
     {
@@ -53,6 +55,7 @@ public class PaymentConfirmationService : IPaymentConfirmationService
         _refundService = refundService;
         _gatewayResolver = gatewayResolver;
         _events = events;
+        _lrsDispatch = lrsDispatch;
         _logger = logger;
     }
 
@@ -775,6 +778,17 @@ public class PaymentConfirmationService : IPaymentConfirmationService
 
             await _paymentRepository.SaveChangesAsync();
             await _paymentRepository.CommitAsync();
+
+            try
+            {
+                await _lrsDispatch.DispatchEnrollmentActivatedAsync(enrollment, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to dispatch LRS enrollment-activated for Enrollment {EnrollmentId}",
+                    enrollment.Id);
+            }
 
             return PaymentConfirmationOutcome.Ok(new PaymentResultDto
             {

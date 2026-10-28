@@ -113,6 +113,12 @@ namespace Qalam.Data.AppMetaData
         public const string AdminPolicyCaseReverse = AdminPolicyCaseById + "/Reverse";
         public const string AdminPolicyCaseExceptions = AdminPolicyCases + "/Exceptions";
         public const string AdminEnrollmentFinancialTimeline = AdminEnrollmentById + "/FinancialTimeline";
+        public const string AdminLrs = Rule + "Admin/Lrs";
+        public const string AdminLrsStatements = AdminLrs + "/Statements";
+        public const string AdminLrsStatementById = AdminLrsStatements + "/{id}";
+        public const string AdminLrsStatementRetry = AdminLrsStatementById + "/Retry";
+        public const string AdminLrsDashboard = AdminLrs + "/Dashboard";
+
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";
         public const string AdminEmailSuppressions = Rule + "Admin/Email/Suppressions";
