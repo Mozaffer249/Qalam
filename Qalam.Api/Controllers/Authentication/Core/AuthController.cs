@@ -11,6 +11,8 @@ using Qalam.Core.Features.Authentication.Commands.VerifyOtpAndCreateAccount;
 using Qalam.Core.Features.Authentication.Commands.CompletePersonalInfo;
 using Qalam.Core.Features.Authentication.Commands.ChangePassword;
 using Qalam.Core.Features.Authentication.Commands.DeactivateAccount;
+using Qalam.Core.Features.Authentication.Commands.RefreshToken;
+using Qalam.Core.Features.Authentication.Commands.Logout;
 using Qalam.Core.Features.Authentication.Commands.ResetPassword;
 using Qalam.Core.Features.Authentication.Commands.SendResetPasswordCode;
 using Qalam.Core.Features.Authentication.Commands.UpdateProfile;
@@ -73,6 +75,29 @@ namespace Qalam.Api.Controllers.Authentication.Core
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> AdminLogin([FromBody] LoginCommand command)
         {
+            return NewResult(await Mediator.Send(command));
+        }
+
+        [AllowAnonymous]
+        [Tags("Authentication")]
+        [HttpPost(Router.AuthenticationRefreshToken)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenCommand command)
+        {
+            return NewResult(await Mediator.Send(command));
+        }
+
+        [Authorize]
+        [Tags("Authentication")]
+        [HttpPost(Router.AuthenticationLogout)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Logout([FromBody] LogoutCommand command)
+        {
+            var authHeader = Request.Headers.Authorization.ToString();
+            command.AccessToken = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : authHeader;
             return NewResult(await Mediator.Send(command));
         }
 
