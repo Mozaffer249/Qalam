@@ -14,20 +14,19 @@ public class XApiVerb
 public static class XApiVerbs
 {
     public const string Registered = "http://adlnet.gov/expapi/verbs/registered";
-    public const string Launched = "http://adlnet.gov/expapi/verbs/launched";
+    public const string Initialized = "http://adlnet.gov/expapi/verbs/initialized";
     public const string Attended = "http://adlnet.gov/expapi/verbs/attended";
     public const string Completed = "http://adlnet.gov/expapi/verbs/completed";
     public const string Progressed = "http://adlnet.gov/expapi/verbs/progressed";
+    public const string Rated = "http://id.tincanapi.com/verb/rated";
+    public const string Earned = "http://id.tincanapi.com/verb/earned";
 
-    public static XApiVerb Create(string iri, string enLabel, string? arLabel = null)
+    public static XApiVerb Create(string iri, string enLabel)
     {
-        var verb = new XApiVerb
+        return new XApiVerb
         {
             Id = iri,
             Display = new Dictionary<string, string> { ["en-US"] = enLabel }
         };
-        if (arLabel != null)
-            verb.Display["ar"] = arLabel;
-        return verb;
     }
 }

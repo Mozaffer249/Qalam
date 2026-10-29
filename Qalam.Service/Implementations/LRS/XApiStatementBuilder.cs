@@ -19,12 +19,28 @@ public class XApiStatementBuilder : IXApiStatementBuilder
 
     public XApiStatement BuildRegistered(User student, Course course, Enrollment enrollment, User? teacher)
     {
+        var ctx = BuildContext(teacher, course);
+        ctx.Extensions ??= new Dictionary<string, object>();
+        ctx.Extensions[NelcExtensions.LearnerFullName] = $"{student.FirstName} {student.LastName}".Trim();
+        ctx.Extensions[NelcExtensions.LmsUrl] = _settings.PlatformIri;
+        ctx.Extensions[NelcExtensions.ProgramUrl] = $"{_settings.PlatformIri}/courses/{course.Id}";
+        ctx.Extensions[NelcExtensions.Platform] = new Dictionary<string, string>
+        {
+            ["ar-SA"] = _settings.PlatformNameAr,
+            ["en-US"] = _settings.PlatformNameEn
+        };
+
+        if (!string.IsNullOrEmpty(student.PhoneNumber))
+            ctx.Extensions[NelcExtensions.LearnerMobileNo] = student.PhoneNumber;
+        if (!string.IsNullOrEmpty(student.Nationality))
+            ctx.Extensions[NelcExtensions.LearnerNationality] = student.Nationality;
+
         return new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Registered, "registered", "مسجّل"),
+            Verb = XApiVerbs.Create(XApiVerbs.Registered, "registered"),
             Object = BuildCourseObject(course),
-            Context = BuildContext(teacher, course),
+            Context = ctx,
             Timestamp = DateTime.UtcNow.ToString("o")
         };
     }
@@ -34,7 +50,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         return new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Launched, "launched", "بدأ"),
+            Verb = XApiVerbs.Create(XApiVerbs.Initialized, "initialized"),
             Object = BuildSessionObject(schedule, course),
             Context = BuildContextWithParentCourse(course),
             Timestamp = DateTime.UtcNow.ToString("o")
@@ -43,11 +59,24 @@ public class XApiStatementBuilder : IXApiStatementBuilder
 
     public XApiStatement BuildSessionAttended(User student, CourseSchedule schedule, Course course)
     {
+        var result = new XApiResult { Completion = true };
+
+        if (schedule.StartedAt.HasValue && schedule.EndedAt.HasValue)
+        {
+            var duration = schedule.EndedAt.Value - schedule.StartedAt.Value;
+            result.Duration = $"PT{(int)duration.TotalMinutes}M";
+        }
+        else if (schedule.DurationMinutes > 0)
+        {
+            result.Duration = $"PT{schedule.DurationMinutes}M";
+        }
+
         return new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Attended, "attended", "حضر"),
+            Verb = XApiVerbs.Create(XApiVerbs.Attended, "attended"),
             Object = BuildSessionObject(schedule, course),
+            Result = result,
             Context = BuildContextWithParentCourse(course),
             Timestamp = DateTime.UtcNow.ToString("o")
         };
@@ -58,13 +87,14 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         var stmt = new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed", "أكمل"),
+            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed"),
             Object = BuildSessionObject(schedule, course),
             Context = BuildContext(teacher, course),
             Timestamp = DateTime.UtcNow.ToString("o"),
             Result = new XApiResult
             {
-                Completion = attendance == SessionAttendanceStatus.Present
+                Completion = attendance == SessionAttendanceStatus.Present,
+                Success = attendance == SessionAttendanceStatus.Present
             }
         };
 
@@ -84,7 +114,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         return new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Progressed, "progressed", "تقدّم"),
+            Verb = XApiVerbs.Create(XApiVerbs.Progressed, "progressed"),
             Object = BuildCourseObject(course),
             Result = new XApiResult
             {
@@ -97,6 +127,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
                 },
                 Completion = completedSessions >= totalSessions
             },
+            Context = BuildContextWithParentCourse(course),
             Timestamp = DateTime.UtcNow.ToString("o")
         };
     }
@@ -106,9 +137,13 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         var stmt = new XApiStatement
         {
             Actor = BuildActor(student),
-            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed", "أكمل"),
+            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed"),
             Object = BuildCourseObject(course),
-            Result = new XApiResult { Completion = true },
+            Result = new XApiResult
+            {
+                Completion = true,
+                Success = true
+            },
             Timestamp = DateTime.UtcNow.ToString("o")
         };
 
@@ -121,16 +156,19 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         return stmt;
     }
 
-    private XApiActor BuildActor(User student)
+    private XApiActor BuildActor(User user)
     {
         return new XApiActor
         {
-            Name = $"{student.FirstName} {student.LastName}".Trim(),
-            Account = new XApiAccount
-            {
-                HomePage = _settings.PlatformIri,
-                Name = $"student-{student.Id}"
-            }
+            Name = user.Email ?? $"{user.FirstName} {user.LastName}".Trim(),
+            Mbox = !string.IsNullOrEmpty(user.Email) ? $"mailto:{user.Email}" : null,
+            Account = string.IsNullOrEmpty(user.Email)
+                ? new XApiAccount
+                {
+                    HomePage = _settings.PlatformIri,
+                    Name = $"user-{user.Id}"
+                }
+                : null
         };
     }
 
@@ -138,11 +176,11 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiObject
         {
-            Id = $"{_settings.PlatformIri}/courses/{course.Id}",
+            Id = $"{_settings.PlatformIri}/course/{course.Id}",
             Definition = new XApiActivityDefinition
             {
                 Type = XApiActivityTypes.Course,
-                Name = new Dictionary<string, string> { ["ar"] = course.Title }
+                Name = new Dictionary<string, string> { ["ar-SA"] = course.Title }
             }
         };
     }
@@ -151,13 +189,13 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiObject
         {
-            Id = $"{_settings.PlatformIri}/sessions/{schedule.Id}",
+            Id = $"{_settings.PlatformIri}/course/{course.Id}/session/{schedule.Id}",
             Definition = new XApiActivityDefinition
             {
-                Type = XApiActivityTypes.Session,
+                Type = XApiActivityTypes.VirtualClassroom,
                 Name = new Dictionary<string, string>
                 {
-                    ["ar"] = $"{course.Title} - جلسة {schedule.Date:yyyy-MM-dd}"
+                    ["ar-SA"] = $"{course.Title} - جلسة {schedule.Date:yyyy-MM-dd}"
                 }
             }
         };
@@ -167,21 +205,13 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         var ctx = new XApiContext
         {
-            Platform = _settings.PlatformIri,
-            Language = "ar"
+            Platform = _settings.PlatformKey,
+            Language = "ar-SA"
         };
 
         if (teacher != null)
         {
-            ctx.Instructor = new XApiActor
-            {
-                Name = $"{teacher.FirstName} {teacher.LastName}".Trim(),
-                Account = new XApiAccount
-                {
-                    HomePage = _settings.PlatformIri,
-                    Name = $"teacher-{teacher.Id}"
-                }
-            };
+            ctx.Instructor = BuildActor(teacher);
         }
 
         if (course != null)
@@ -199,8 +229,8 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiContext
         {
-            Platform = _settings.PlatformIri,
-            Language = "ar",
+            Platform = _settings.PlatformKey,
+            Language = "ar-SA",
             ContextActivities = new XApiContextActivities
             {
                 Parent = new List<XApiObject> { BuildCourseObject(course) }

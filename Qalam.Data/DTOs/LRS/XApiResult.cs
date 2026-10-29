@@ -8,6 +8,10 @@ public class XApiResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Completion { get; set; }
 
+    [JsonPropertyName("success")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Success { get; set; }
+
     [JsonPropertyName("duration")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Duration { get; set; }
@@ -15,6 +19,10 @@ public class XApiResult
     [JsonPropertyName("score")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public XApiScore? Score { get; set; }
+
+    [JsonPropertyName("response")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Response { get; set; }
 
     [JsonPropertyName("extensions")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

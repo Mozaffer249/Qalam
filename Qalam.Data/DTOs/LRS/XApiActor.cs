@@ -11,8 +11,13 @@ public class XApiActor
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; set; }
 
+    [JsonPropertyName("mbox")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Mbox { get; set; }
+
     [JsonPropertyName("account")]
-    public XApiAccount Account { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public XApiAccount? Account { get; set; }
 }
 
 public class XApiAccount
