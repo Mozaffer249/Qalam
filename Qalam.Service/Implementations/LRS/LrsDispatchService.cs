@@ -212,12 +212,14 @@ public class LrsDispatchService : ILrsDispatchService
 
             if (course == null) return;
 
+            var teacherUser = await ResolveTeacherUserAsync(enrollment, ct);
+
             foreach (var participant in enrollment.Participants)
             {
                 var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
-                var stmt = _builder.BuildCourseCompleted(studentUser, course, enrollment, identityNumber);
+                var stmt = _builder.BuildCourseCompleted(studentUser, course, enrollment, teacherUser, identityNumber);
                 await QueueAsync(stmt, "completed", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
             }
         }
@@ -322,7 +324,7 @@ public class LrsDispatchService : ILrsDispatchService
             // 6. course completed (if enrollment is completed)
             if (enrollment.EnrollmentStatus == EnrollmentStatus.Completed)
             {
-                var cc = _builder.BuildCourseCompleted(studentUser, course, enrollment, identityNumber);
+                var cc = _builder.BuildCourseCompleted(studentUser, course, enrollment, teacherUser, identityNumber);
                 await QueueAsync(cc, "completed", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
                 count++;
             }

@@ -168,13 +168,14 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         };
     }
 
-    public XApiStatement BuildCourseCompleted(User student, Course course, Enrollment enrollment, string? identityNumber = null)
+    public XApiStatement BuildCourseCompleted(User student, Course course, Enrollment enrollment, User? teacher = null, string? identityNumber = null)
     {
         var stmt = new XApiStatement
         {
             Actor = BuildActor(student, identityNumber),
             Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed"),
             Object = BuildCourseObject(course),
+            Context = BuildContext(teacher, course),
             Result = new XApiResult
             {
                 Completion = true,
