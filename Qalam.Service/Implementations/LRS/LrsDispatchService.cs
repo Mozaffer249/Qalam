@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Identity;
+using Qalam.Data.Entity.LRS;
 using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
@@ -209,9 +210,30 @@ public class LrsDispatchService : ILrsDispatchService
 
     private async Task QueueAsync(Data.DTOs.LRS.XApiStatement stmt, string verb, User student, string objectId, string sourceType, int sourceId)
     {
+        var statementJson = JsonSerializer.Serialize(stmt);
+        var actorIdentifier = !string.IsNullOrEmpty(student.Email)
+            ? student.Email
+            : $"user-{student.Id}";
+
+        var log = new LrsStatementLog
+        {
+            StatementId = Guid.TryParse(stmt.Id, out var parsedId) ? parsedId : Guid.NewGuid(),
+            Verb = verb,
+            ActorIdentifier = actorIdentifier,
+            ObjectIri = objectId,
+            Status = LrsStatementStatus.Queued,
+            CreatedAt = DateTime.UtcNow,
+            SourceEntityType = sourceType,
+            SourceEntityId = sourceId,
+            StatementJson = statementJson,
+        };
+        _db.LrsStatementLogs.Add(log);
+        await _db.SaveChangesAsync();
+
         var msg = new LrsStatementMessage
         {
-            StatementJson = JsonSerializer.Serialize(stmt),
+            LogId = log.Id,
+            StatementJson = statementJson,
             Verb = verb,
             ActorName = $"{student.FirstName} {student.LastName}".Trim(),
             ObjectId = objectId,

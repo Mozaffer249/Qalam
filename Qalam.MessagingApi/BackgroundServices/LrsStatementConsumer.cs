@@ -1,9 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Qalam.MessagingApi.Configuration;
+using Qalam.MessagingApi.Data;
 using Qalam.MessagingApi.Models;
 using Qalam.MessagingApi.Services.Interfaces;
 
@@ -20,6 +22,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
     private readonly ILogger<LrsStatementConsumer> _logger;
     private readonly LrsSettings _lrsSettings;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IServiceScopeFactory _scopeFactory;
     private IChannel? _channel;
 
     public LrsStatementConsumer(
@@ -27,12 +30,14 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
         IOptions<RabbitMQSettings> rabbitSettings,
         IOptions<LrsSettings> lrsSettings,
         IHttpClientFactory httpClientFactory,
+        IServiceScopeFactory scopeFactory,
         IConsumerLivenessTracker liveness)
         : base(rabbitSettings, liveness, logger)
     {
         _logger = logger;
         _lrsSettings = lrsSettings.Value;
         _httpClientFactory = httpClientFactory;
+        _scopeFactory = scopeFactory;
     }
 
     protected override string ConsumerName => LivenessName;
@@ -86,6 +91,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                     _logger.LogInformation(
                         "LRS statement sent: Verb={Verb}, Actor={Actor}, Object={Object}",
                         message.Verb, message.ActorName, message.ObjectId);
+                    await UpdateLogAsync(message.LogId, LrsStatementStatus.Sent, (int?)result.HttpStatusCode, null);
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
                 else if (result.HttpStatusCode.HasValue && result.HttpStatusCode.Value >= 400 && result.HttpStatusCode.Value < 500)
@@ -93,6 +99,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                     _logger.LogWarning(
                         "LRS permanent failure ({StatusCode}), moving to DLQ: {Error}",
                         result.HttpStatusCode, result.ErrorMessage);
+                    await UpdateLogAsync(message.LogId, LrsStatementStatus.DeadLettered, (int?)result.HttpStatusCode, result.ErrorMessage);
                     await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties,
                         $"HTTP {result.HttpStatusCode}: {result.ErrorMessage}");
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
@@ -117,11 +124,13 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                     _logger.LogWarning(
                         "LRS max retries reached ({Retry}/{Max}), moving to DLQ",
                         retryCount, maxRetries);
+                    await UpdateLogAsync(message?.LogId, LrsStatementStatus.DeadLettered, null, ex.Message);
                     await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
                 else
                 {
+                    await UpdateLogAsync(message?.LogId, LrsStatementStatus.Failed, null, ex.Message, retryCount + 1);
                     await RepublishForRetryAsync(payload, retryCount + 1);
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
@@ -186,6 +195,32 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
         await _channel!.BasicPublishAsync(
             exchange: "", routingKey: Settings.LrsDeadLetterQueueName,
             mandatory: false, basicProperties: properties, body: body);
+    }
+
+    private async Task UpdateLogAsync(int? logId, LrsStatementStatus status, int? httpStatusCode, string? errorMessage, int? retryCount = null)
+    {
+        if (!logId.HasValue) return;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+            var log = await db.LrsStatementLogs.FindAsync(logId.Value);
+            if (log == null) return;
+
+            log.Status = status;
+            log.HttpStatusCode = httpStatusCode ?? log.HttpStatusCode;
+            log.ErrorMessage = errorMessage != null
+                ? (errorMessage.Length > 2000 ? errorMessage[..2000] : errorMessage)
+                : log.ErrorMessage;
+            if (retryCount.HasValue) log.RetryCount = retryCount.Value;
+            if (status == LrsStatementStatus.Sent) log.SentAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update LrsStatementLog {LogId} to {Status}", logId, status);
+        }
     }
 
     private static int GetRetryCount(IReadOnlyBasicProperties? properties)

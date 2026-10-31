@@ -12,6 +12,7 @@ public class MessagingDbContext : DbContext
 
     public DbSet<MessageLog> MessageLogs { get; set; } = null!;
     public DbSet<EmailSuppression> EmailSuppressions { get; set; } = null!;
+    public DbSet<LrsStatementLog> LrsStatementLogs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,6 +45,12 @@ public class MessagingDbContext : DbContext
             entity.HasIndex(e => e.MessageId).IsUnique();
             entity.HasIndex(e => e.QueuedAt);
             entity.HasIndex(e => e.Status);
+        });
+
+        modelBuilder.Entity<LrsStatementLog>(entity =>
+        {
+            entity.ToTable("LrsStatementLogs", "lrs");
+            entity.HasKey(e => e.Id);
         });
 
         modelBuilder.Entity<EmailSuppression>(entity =>
