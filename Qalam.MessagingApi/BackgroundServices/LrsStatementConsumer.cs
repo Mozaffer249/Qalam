@@ -44,7 +44,8 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
 
     protected override async Task SetupAndConsumeAsync(IChannel channel, CancellationToken stoppingToken)
     {
-        if (!_lrsSettings.Enabled)
+        var enabled = _lrsSettings.Enabled || await IsEnabledInDbAsync();
+        if (!enabled)
         {
             _logger.LogInformation("LRS consumer disabled (LrsSettings.Enabled=false). Idling.");
             await Task.Delay(Timeout.Infinite, stoppingToken);
@@ -148,12 +149,71 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
             Settings.LrsQueueName, Settings.LrsDeadLetterQueueName, _lrsSettings.MaxRetries);
     }
 
+    private async Task<bool> IsEnabledInDbAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+            var row = await db.SystemSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == "LrsCredentials");
+            if (row != null && !string.IsNullOrEmpty(row.Value))
+            {
+                var doc = JsonSerializer.Deserialize<JsonElement>(row.Value);
+                if (doc.TryGetProperty("enabled", out var e) && e.GetBoolean())
+                    return true;
+            }
+        }
+        catch { /* fall through */ }
+        return false;
+    }
+
+    private async Task<(string Endpoint, string Key, string Secret, string XApiVersion)> LoadEffectiveCredentialsAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+            var row = await db.SystemSettings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == "LrsCredentials");
+
+            if (row != null && !string.IsNullOrEmpty(row.Value))
+            {
+                var creds = JsonSerializer.Deserialize<JsonElement>(row.Value);
+                var endpoint = creds.TryGetProperty("endpoint", out var ep) ? ep.GetString() : null;
+                var key = creds.TryGetProperty("key", out var k) ? k.GetString() : null;
+                var secret = creds.TryGetProperty("secret", out var s) ? s.GetString() : null;
+                var version = creds.TryGetProperty("xApiVersion", out var v) ? v.GetString() : null;
+
+                if (!string.IsNullOrEmpty(endpoint) && !string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
+                    return (endpoint, key, secret, version ?? _lrsSettings.XApiVersion);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load LRS credentials from DB, falling back to env");
+        }
+
+        return (_lrsSettings.Endpoint, _lrsSettings.Key, _lrsSettings.Secret, _lrsSettings.XApiVersion);
+    }
+
     private async Task<(bool Success, int? HttpStatusCode, string? ErrorMessage)> SendToLrsAsync(
         string statementJson, CancellationToken ct)
     {
-        var client = _httpClientFactory.CreateClient("NelcLrs");
+        var (endpoint, key, secret, xApiVersion) = await LoadEffectiveCredentialsAsync();
+
+        var client = _httpClientFactory.CreateClient();
+        if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
+        {
+            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+        }
+        client.DefaultRequestHeaders.Add("X-Experience-API-Version", xApiVersion);
+
         var content = new StringContent(statementJson, Encoding.UTF8, "application/json");
-        var response = await client.PostAsync(_lrsSettings.Endpoint, content, ct);
+        var response = await client.PostAsync(endpoint, content, ct);
         var responseBody = await response.Content.ReadAsStringAsync(ct);
 
         return (response.IsSuccessStatusCode, (int)response.StatusCode, responseBody);

@@ -119,6 +119,7 @@ namespace Qalam.Data.AppMetaData
         public const string AdminLrsStatementRetry = AdminLrsStatementById + "/Retry";
         public const string AdminLrsDashboard = AdminLrs + "/Dashboard";
         public const string AdminLrsDispatchEnrollment = AdminLrs + "/Dispatch/Enrollment/{enrollmentId}";
+        public const string AdminLrsSettings = AdminLrs + "/Settings";
 
         public const string AdminEmailSuppressionsSeed = Rule + "Admin/EmailSuppressions/Seed";
         public const string AdminEmailFailedContacts = Rule + "Admin/Email/FailedContacts";

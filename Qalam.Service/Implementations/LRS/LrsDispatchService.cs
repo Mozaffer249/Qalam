@@ -35,9 +35,28 @@ public class LrsDispatchService : ILrsDispatchService
         _logger = logger;
     }
 
+    private async Task<bool> IsEnabledAsync(CancellationToken ct)
+    {
+        if (_settings.Enabled) return true;
+        try
+        {
+            var row = await _db.Set<Data.Entity.Common.SystemSetting>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == "LrsCredentials", ct);
+            if (row != null && !string.IsNullOrEmpty(row.Value))
+            {
+                var doc = JsonSerializer.Deserialize<JsonElement>(row.Value);
+                if (doc.TryGetProperty("enabled", out var e) && e.GetBoolean())
+                    return true;
+            }
+        }
+        catch { /* fall through */ }
+        return false;
+    }
+
     public async Task DispatchSessionCompletedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {
@@ -70,7 +89,7 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchSessionLaunchedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {
@@ -99,7 +118,7 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchStudentAttendedAsync(int studentId, CourseSchedule schedule, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {
@@ -122,7 +141,7 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchEnrollmentActivatedAsync(Enrollment enrollment, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {
@@ -150,7 +169,7 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchProgressUpdatedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {
@@ -184,7 +203,7 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchCourseCompletedAsync(Enrollment enrollment, CancellationToken ct = default)
     {
-        if (!_settings.Enabled) return;
+        if (!await IsEnabledAsync(ct)) return;
 
         try
         {

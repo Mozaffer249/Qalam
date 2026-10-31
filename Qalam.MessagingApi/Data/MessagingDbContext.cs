@@ -13,6 +13,7 @@ public class MessagingDbContext : DbContext
     public DbSet<MessageLog> MessageLogs { get; set; } = null!;
     public DbSet<EmailSuppression> EmailSuppressions { get; set; } = null!;
     public DbSet<LrsStatementLog> LrsStatementLogs { get; set; } = null!;
+    public DbSet<SystemSettingRow> SystemSettings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +52,13 @@ public class MessagingDbContext : DbContext
         {
             entity.ToTable("LrsStatementLogs", "lrs");
             entity.HasKey(e => e.Id);
+        });
+
+        modelBuilder.Entity<SystemSettingRow>(entity =>
+        {
+            entity.ToTable("SystemSettings", "common");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Key).IsRequired().HasMaxLength(100);
         });
 
         modelBuilder.Entity<EmailSuppression>(entity =>

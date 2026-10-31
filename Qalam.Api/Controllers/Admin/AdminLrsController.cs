@@ -5,6 +5,7 @@ using Qalam.Core.Bases;
 using Qalam.Core.Features.Admin.Lrs.Commands;
 using Qalam.Core.Features.Admin.Lrs.Queries;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Admin;
 
 namespace Qalam.Api.Controllers.Admin;
 
@@ -47,5 +48,21 @@ public class AdminLrsController : AppControllerBase
     {
         var result = await Mediator.Send(new DispatchEnrollmentLrsCommand { EnrollmentId = enrollmentId });
         return NewResult(result);
+    }
+
+    [HttpGet(Router.AdminLrsSettings)]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [ProducesResponseType(typeof(Response<AdminLrsSettingsDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSettings()
+    {
+        return NewResult(await Mediator.Send(new GetLrsSettingsQuery()));
+    }
+
+    [HttpPut(Router.AdminLrsSettings)]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [ProducesResponseType(typeof(Response<AdminLrsSettingsDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateSettings([FromBody] AdminLrsSettingsDto settings)
+    {
+        return NewResult(await Mediator.Send(new UpdateLrsSettingsCommand { Settings = settings }));
     }
 }
