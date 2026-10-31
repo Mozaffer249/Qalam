@@ -59,6 +59,20 @@ Never hardcode entity IDs in logic. Use the `code` value on education entities (
 
 ---
 
+## Student Identity (NELC compliance)
+
+Students can set a national identity document (National ID for Saudi, Iqama/Passport for non-Saudi) used as the xAPI actor identifier for NELC compliance.
+
+- **Entity fields** on `Student`: `IdentityType` (enum), `IdentityNumber` (max 50), `NationalityId` (FK → Nationality), `IssuingCountryCode` (max 3). Added in migration `20261031145637_AddStudentIdentityFields`.
+- **Validation rules** stored in `SystemSetting` key `StudentIdentityRules` (JSON). Rules map nationality codes to allowed identity types. Default: Saudi → NationalId only; others → Iqama or Passport (issuing country required).
+- **Service:** `IStudentIdentityService` / `StudentIdentityService` — loads rules, resolves allowed types by nationality.
+- **Business rules:** `StudentIdentityBusinessRules` — type-allowed, issuing-country, uniqueness checks.
+- **API endpoints** (`StudentIdentityController`): `POST/GET Student/Identity`, `GET Student/Identity/AllowedTypes`, `PUT Student/Children/{id}/Identity`.
+- **xAPI integration:** `XApiStatementBuilder.BuildActor` prefers `identityNumber` as `account.name` when set; `LrsDispatchService.ResolveStudentUserAsync` returns `(User, IdentityNumber)` tuple.
+- **Flutter:** `ChildNationalIdentitySection` widget (nationality → identity type → number → issuing country). Wired into add child and edit child screens.
+
+---
+
 ## LRS (Learning Record Store / xAPI)
 
 Full reference: [docs/LRS.md](docs/LRS.md).

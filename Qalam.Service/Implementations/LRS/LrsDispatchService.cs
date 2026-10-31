@@ -54,11 +54,11 @@ public class LrsDispatchService : ILrsDispatchService
 
             foreach (var participant in enrollment.Participants)
             {
-                var studentUser = await ResolveStudentUserAsync(participant.StudentId, ct);
+                var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
                 var attendance = schedule.Attendances?.FirstOrDefault(a => a.StudentId == participant.StudentId);
-                var stmt = _builder.BuildSessionCompleted(studentUser, schedule, enrollment.Course, teacherUser, attendance?.Status);
+                var stmt = _builder.BuildSessionCompleted(studentUser, schedule, enrollment.Course, teacherUser, attendance?.Status, identityNumber);
                 await QueueAsync(stmt, "completed", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
             }
         }
@@ -84,10 +84,10 @@ public class LrsDispatchService : ILrsDispatchService
 
             foreach (var participant in enrollment.Participants)
             {
-                var studentUser = await ResolveStudentUserAsync(participant.StudentId, ct);
+                var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
-                var stmt = _builder.BuildSessionLaunched(studentUser, schedule, enrollment.Course);
+                var stmt = _builder.BuildSessionLaunched(studentUser, schedule, enrollment.Course, identityNumber);
                 await QueueAsync(stmt, "launched", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
             }
         }
@@ -108,10 +108,10 @@ public class LrsDispatchService : ILrsDispatchService
 
             if (course == null) return;
 
-            var studentUser = await ResolveStudentUserAsync(studentId, ct);
+            var (studentUser, identityNumber) = await ResolveStudentUserAsync(studentId, ct);
             if (studentUser == null) return;
 
-            var stmt = _builder.BuildSessionAttended(studentUser, schedule, course);
+            var stmt = _builder.BuildSessionAttended(studentUser, schedule, course, identityNumber);
             await QueueAsync(stmt, "attended", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
         }
         catch (Exception ex)
@@ -135,10 +135,10 @@ public class LrsDispatchService : ILrsDispatchService
 
             foreach (var participant in enrollment.Participants)
             {
-                var studentUser = await ResolveStudentUserAsync(participant.StudentId, ct);
+                var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
-                var stmt = _builder.BuildRegistered(studentUser, course, enrollment, teacherUser);
+                var stmt = _builder.BuildRegistered(studentUser, course, enrollment, teacherUser, identityNumber);
                 await QueueAsync(stmt, "registered", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
             }
         }
@@ -169,10 +169,10 @@ public class LrsDispatchService : ILrsDispatchService
 
             foreach (var participant in enrollment.Participants)
             {
-                var studentUser = await ResolveStudentUserAsync(participant.StudentId, ct);
+                var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
-                var stmt = _builder.BuildProgressUpdated(studentUser, enrollment.Course, enrollment, completedSessions, totalSessions);
+                var stmt = _builder.BuildProgressUpdated(studentUser, enrollment.Course, enrollment, completedSessions, totalSessions, identityNumber);
                 await QueueAsync(stmt, "progressed", studentUser, $"courses/{enrollment.Course.Id}", "Enrollment", enrollment.Id);
             }
         }
@@ -195,10 +195,10 @@ public class LrsDispatchService : ILrsDispatchService
 
             foreach (var participant in enrollment.Participants)
             {
-                var studentUser = await ResolveStudentUserAsync(participant.StudentId, ct);
+                var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
                 if (studentUser == null) continue;
 
-                var stmt = _builder.BuildCourseCompleted(studentUser, course, enrollment);
+                var stmt = _builder.BuildCourseCompleted(studentUser, course, enrollment, identityNumber);
                 await QueueAsync(stmt, "completed", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
             }
         }
@@ -245,12 +245,12 @@ public class LrsDispatchService : ILrsDispatchService
         await _rabbitMQ.QueueLrsStatementAsync(msg);
     }
 
-    private async Task<User?> ResolveStudentUserAsync(int studentId, CancellationToken ct)
+    private async Task<(User? User, string? IdentityNumber)> ResolveStudentUserAsync(int studentId, CancellationToken ct)
     {
         var student = await _db.Students
             .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.Id == studentId, ct);
-        return student?.User;
+        return (student?.User, student?.IdentityNumber);
     }
 
     private async Task<User?> ResolveTeacherUserAsync(Enrollment enrollment, CancellationToken ct)

@@ -13,6 +13,7 @@ public class DatabaseSeeder
         await TeacherAccessSettingsSeeder.SeedAsync(context);
         await OsrNotificationSettingsSeeder.SeedAsync(context);
         await PaymentGatewaySettingsSeeder.SeedAsync(context);
+        await StudentIdentitySettingsSeeder.SeedAsync(context);
         await NationalitiesSeeder.SeedAsync(context);
         await TeacherRegistrationRequirementsSeeder.SeedAsync(context);
         await EducationDomainsSeeder.SeedAsync(context);

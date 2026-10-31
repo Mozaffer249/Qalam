@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Qalam.Data.Commons;
+using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Education;
 using Qalam.Data.Entity.Identity;
@@ -49,6 +50,17 @@ public class Student : AuditableEntity
     public DateOnly? DateOfBirth { get; set; }
     public Gender? Gender { get; set; }
 
+    // Identity document
+    public IdentityType? IdentityType { get; set; }
+
+    [MaxLength(50)]
+    public string? IdentityNumber { get; set; }
+
+    public int? NationalityId { get; set; }
+
+    [MaxLength(3)]
+    public string? IssuingCountryCode { get; set; }
+
     [MaxLength(500)]
     public string? Bio { get; set; }
 
@@ -59,6 +71,7 @@ public class Student : AuditableEntity
 
     // Navigation Properties
     public User User { get; set; } = null!;
+    public Nationality? Nationality { get; set; }
     public EducationDomain? Domain { get; set; }
     public Curriculum? Curriculum { get; set; }
     public EducationLevel? Level { get; set; }

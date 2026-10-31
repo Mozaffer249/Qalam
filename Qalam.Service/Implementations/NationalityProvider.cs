@@ -30,6 +30,7 @@ public class NationalityProvider : INationalityProvider
     public NationalityPublicDto ToPublicDto(Nationality entity) =>
         new()
         {
+            Id = entity.Id,
             Code = entity.Code,
             NameAr = entity.NameAr,
             NameEn = entity.NameEn,

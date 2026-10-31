@@ -33,7 +33,21 @@ public class StudentConfiguration : IEntityTypeConfiguration<StudentEntity>
         builder.Property(s => s.Bio).HasMaxLength(500);
         builder.Property(s => s.DateOfBirth).HasColumnType("date");
 
+        // Identity fields
+        builder.Property(s => s.IdentityNumber).HasMaxLength(50);
+        builder.Property(s => s.IssuingCountryCode).HasMaxLength(3);
+
+        builder.HasIndex(s => s.NationalityId);
+        builder.HasIndex(s => new { s.IdentityType, s.IdentityNumber })
+               .IsUnique()
+               .HasFilter("[IdentityNumber] IS NOT NULL");
+
         // Relationships
+
+        builder.HasOne(s => s.Nationality)
+               .WithMany()
+               .HasForeignKey(s => s.NationalityId)
+               .OnDelete(DeleteBehavior.Restrict);
 
         // User (One-to-One) — Student.UserId required
         builder.HasOne(s => s.User)

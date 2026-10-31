@@ -1,4 +1,5 @@
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Student;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.InfrastructureBases;
@@ -9,6 +10,7 @@ public interface IStudentRepository : IGenericRepositoryAsync<Student>
 {
     Task<Student?> GetByUserIdAsync(int userId);
     Task<List<Student>> GetChildrenByGuardianIdAsync(int guardianId);
+    Task<bool> IsIdentityNumberUniqueAsync(IdentityType type, string number, string? issuingCountryCode, int? excludeStudentId = null);
 
     Task<PaginatedResult<AdminStudentListItemDto>> SearchForAdminAsync(
         AdminStudentListFilters filters,

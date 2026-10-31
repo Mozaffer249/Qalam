@@ -14,6 +14,9 @@ public class AdminStudentListItemDto
     public bool IsActive { get; set; }
     public string? GuardianName { get; set; }
     public int ChildrenCount { get; set; }
+    public IdentityType? IdentityType { get; set; }
+    public string? IdentityNumber { get; set; }
+    public string? NationalityCode { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -68,6 +71,15 @@ public class AdminStudentDetailDto
     public Gender? Gender { get; set; }
     public string? Bio { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Identity
+    public IdentityType? IdentityType { get; set; }
+    public string? IdentityNumber { get; set; }
+    public int? NationalityId { get; set; }
+    public string? NationalityCode { get; set; }
+    public string? NationalityNameAr { get; set; }
+    public string? NationalityNameEn { get; set; }
+    public string? IssuingCountryCode { get; set; }
 
     public int? DomainId { get; set; }
     public string? DomainNameEn { get; set; }

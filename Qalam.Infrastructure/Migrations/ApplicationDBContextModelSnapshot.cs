@@ -6490,6 +6490,13 @@ namespace Qalam.Infrastructure.Migrations
                     b.Property<bool>("HasUsedFreeTrialSession")
                         .HasColumnType("bit");
 
+                    b.Property<string>("IdentityNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("IdentityType")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -6498,7 +6505,14 @@ namespace Qalam.Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("IssuingCountryCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<int?>("LevelId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("NationalityId")
                         .HasColumnType("int");
 
                     b.Property<int?>("UniversityId")
@@ -6533,8 +6547,14 @@ namespace Qalam.Infrastructure.Migrations
 
                     b.HasIndex("LevelId");
 
+                    b.HasIndex("NationalityId");
+
                     b.HasIndex("UserId")
                         .IsUnique();
+
+                    b.HasIndex("IdentityType", "IdentityNumber")
+                        .IsUnique()
+                        .HasFilter("[IdentityNumber] IS NOT NULL");
 
                     b.HasIndex("DomainId", "CurriculumId", "LevelId", "GradeId");
 
@@ -10186,6 +10206,11 @@ namespace Qalam.Infrastructure.Migrations
                         .HasForeignKey("LevelId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Qalam.Data.Entity.Common.Nationality", "Nationality")
+                        .WithMany()
+                        .HasForeignKey("NationalityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Qalam.Data.Entity.Education.University", "University")
                         .WithMany()
                         .HasForeignKey("UniversityId")
@@ -10212,6 +10237,8 @@ namespace Qalam.Infrastructure.Migrations
                     b.Navigation("Guardian");
 
                     b.Navigation("Level");
+
+                    b.Navigation("Nationality");
 
                     b.Navigation("University");
 

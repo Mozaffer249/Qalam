@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Student;
 using Qalam.Data.Results;
 using Qalam.Infrastructure.Abstracts;
@@ -21,6 +22,23 @@ public class StudentRepository : GenericRepositoryAsync<Student>, IStudentReposi
     {
         return await _students
             .FirstOrDefaultAsync(s => s.UserId == userId);
+    }
+
+    public async Task<bool> IsIdentityNumberUniqueAsync(IdentityType type, string number, string? issuingCountryCode, int? excludeStudentId = null)
+    {
+        var query = _students.Where(s =>
+            s.IdentityType == type &&
+            s.IdentityNumber == number);
+
+        if (!string.IsNullOrEmpty(issuingCountryCode))
+            query = query.Where(s => s.IssuingCountryCode == issuingCountryCode);
+        else
+            query = query.Where(s => s.IssuingCountryCode == null || s.IssuingCountryCode == "");
+
+        if (excludeStudentId.HasValue)
+            query = query.Where(s => s.Id != excludeStudentId.Value);
+
+        return !await query.AnyAsync();
     }
 
     public async Task<List<Student>> GetChildrenByGuardianIdAsync(int guardianId)
@@ -82,6 +100,9 @@ public class StudentRepository : GenericRepositoryAsync<Student>, IStudentReposi
                 ChildrenCount = st.User.GuardianProfile != null
                     ? st.User.GuardianProfile.Students.Count
                     : 0,
+                IdentityType = st.IdentityType,
+                IdentityNumber = st.IdentityNumber,
+                NationalityCode = st.Nationality != null ? st.Nationality.Code : null,
                 CreatedAt = st.CreatedAt
             })
             .ToListAsync(cancellationToken);
@@ -121,6 +142,7 @@ public class StudentRepository : GenericRepositoryAsync<Student>, IStudentReposi
             .Include(s => s.Curriculum)
             .Include(s => s.Level)
             .Include(s => s.Grade)
+            .Include(s => s.Nationality)
             .FirstOrDefaultAsync(s => s.Id == studentId, cancellationToken);
 
         if (student == null)
@@ -167,6 +189,13 @@ public class StudentRepository : GenericRepositoryAsync<Student>, IStudentReposi
             Gender = student.Gender,
             Bio = student.Bio,
             CreatedAt = student.CreatedAt,
+            IdentityType = student.IdentityType,
+            IdentityNumber = student.IdentityNumber,
+            NationalityId = student.NationalityId,
+            NationalityCode = student.Nationality?.Code,
+            NationalityNameAr = student.Nationality?.NameAr,
+            NationalityNameEn = student.Nationality?.NameEn,
+            IssuingCountryCode = student.IssuingCountryCode,
             DomainId = student.DomainId,
             DomainNameEn = student.Domain?.NameEn,
             DomainNameAr = student.Domain?.NameAr,

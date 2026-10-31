@@ -75,7 +75,7 @@ All statements use NELC-specific context extensions on the `registered` verb:
 | `learnerMobileNo` | Student phone (if present) |
 | `learnerNationality` | Student nationality (if present) |
 
-**Actor** — identified by `mbox: mailto:{email}` when the user has an email address; falls back to an `account` with `homePage` + `name: user-{id}`.
+**Actor** — when the student has a national identity number set (via `Student.IdentityNumber`), the actor uses `account: { homePage: PlatformIri, name: identityNumber }` for NELC compliance. Falls back to `mbox: mailto:{email}` when the user has an email address, or `account` with `homePage` + `name: user-{id}` as a last resort.
 
 **Object IRI**:
 - Course: `{PlatformIri}/course/{courseId}`
