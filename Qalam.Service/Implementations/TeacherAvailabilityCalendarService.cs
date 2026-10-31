@@ -206,7 +206,8 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
             return AvailabilitySlotStatus.Blocked;
 
         var startUtc = PlatformTime.ToUtc(date, slot.TimeSlot.StartTime);
-        if (startUtc <= utcNow)
+        // TEMP: allow current hour for testing (was <=)
+        if (startUtc.AddHours(1) <= utcNow)
             return AvailabilitySlotStatus.Past;
 
         return AvailabilitySlotStatus.Free;
