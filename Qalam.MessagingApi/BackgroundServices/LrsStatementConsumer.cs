@@ -203,7 +203,17 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                 var version = creds.TryGetProperty("xApiVersion", out var v) ? v.GetString() : null;
 
                 if (!string.IsNullOrEmpty(endpoint) && !string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
+                {
+                    _logger.LogInformation("LRS credentials loaded from DB: endpoint={Endpoint}, key={Key}", endpoint, key);
                     return (endpoint, key, secret, version ?? "1.0.3");
+                }
+
+                _logger.LogWarning("LRS DB row found but credentials incomplete: endpoint={Endpoint}, key={Key}, secretEmpty={SecretEmpty}",
+                    endpoint, key, string.IsNullOrEmpty(secret));
+            }
+            else
+            {
+                _logger.LogWarning("LRS credentials row not found in DB (key=LrsCredentials)");
             }
         }
         catch (Exception ex)
@@ -222,6 +232,10 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
             return (false, null, "LRS credentials not configured in database");
 
         var (endpoint, key, secret, xApiVersion) = cred.Value;
+
+        _logger.LogInformation(
+            "LRS sending to {Endpoint} as user={Key}, secret length={SecretLen}, xApiVersion={Ver}",
+            endpoint, key, secret.Length, xApiVersion);
 
         var client = _httpClientFactory.CreateClient();
         var authBytes = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
