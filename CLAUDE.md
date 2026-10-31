@@ -70,6 +70,7 @@ Students can set a national identity document (National ID for Saudi, Iqama/Pass
 - **API endpoints** (`StudentIdentityController`): `POST/GET Student/Identity`, `GET Student/Identity/AllowedTypes`, `PUT Student/Children/{id}/Identity`.
 - **xAPI integration:** `XApiStatementBuilder.BuildActor` prefers `identityNumber` as `account.name` when set; `LrsDispatchService.ResolveStudentUserAsync` returns `(User, IdentityNumber)` tuple.
 - **Flutter:** `ChildNationalIdentitySection` widget (nationality → identity type → number → issuing country). Wired into add child and edit child screens.
+- **Admin panel:** Student list shows `identityNumber` column. Student detail page has an "Identity" card (type, number, nationality, issuing country). Enrollment detail page shows `teacherActor` / `studentActor` profile cards with contact info and identity data via `AdminEnrollmentActorDto`.
 
 ---
 

@@ -64,6 +64,12 @@ dotnet test Qalam.Service.Tests
 ### Student Flutter
 - Follow `apps/Qalam/.cursor/rules/` and `apps/Qalam/docs/CONTRIBUTING.md`
 
+### Student Identity (NELC)
+- Backend: `StudentIdentityController` — `POST/GET Student/Identity`, `GET Student/Identity/AllowedTypes`, `PUT Student/Children/{id}/Identity`
+- Admin: student list + detail show identity fields; enrollment detail shows actor profile cards (`AdminEnrollmentActorDto`)
+- Flutter: `ChildNationalIdentitySection` widget in add/edit child screens
+- Rules configured via `SystemSetting` key `StudentIdentityRules` (JSON)
+
 ## Principles
 
 - Smallest correct diff

@@ -292,6 +292,48 @@ public class AdminEnrollmentQueryService : IAdminEnrollmentQueryService
             };
         }
 
+        // Actor profiles
+        if (teacherId > 0)
+        {
+            var teacher = await _db.Teachers
+                .AsNoTracking()
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Id == teacherId, cancellationToken);
+            if (teacher?.User != null)
+            {
+                detail.TeacherActor = new AdminEnrollmentActorDto
+                {
+                    FullName = $"{teacher.User.FirstName} {teacher.User.LastName}".Trim(),
+                    Email = teacher.User.Email,
+                    Phone = teacher.User.PhoneNumber,
+                    ProfilePictureUrl = teacher.User.ProfilePictureUrl,
+                };
+            }
+        }
+        if (detail.PrimaryStudentId.HasValue)
+        {
+            var student = await _db.Students
+                .AsNoTracking()
+                .Include(s => s.User)
+                .Include(s => s.Nationality)
+                .FirstOrDefaultAsync(s => s.Id == detail.PrimaryStudentId.Value, cancellationToken);
+            if (student?.User != null)
+            {
+                detail.StudentActor = new AdminEnrollmentActorDto
+                {
+                    FullName = $"{student.User.FirstName} {student.User.LastName}".Trim(),
+                    Email = student.User.Email,
+                    Phone = student.User.PhoneNumber,
+                    IdentityTypeName = student.IdentityType?.ToString(),
+                    IdentityNumber = student.IdentityNumber,
+                    NationalityCode = student.Nationality?.Code,
+                    NationalityNameAr = student.Nationality?.NameAr,
+                    NationalityNameEn = student.Nationality?.NameEn,
+                    ProfilePictureUrl = student.User.ProfilePictureUrl,
+                };
+            }
+        }
+
         detail.RefundCount = await _db.Refunds
             .AsNoTracking()
             .CountAsync(r => r.EnrollmentId == enrollmentId, cancellationToken);

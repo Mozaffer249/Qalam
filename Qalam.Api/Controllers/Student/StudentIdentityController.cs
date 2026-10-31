@@ -6,8 +6,6 @@ using Qalam.Core.Features.Student.Queries.GetStudentAllowedIdentityTypes;
 using Qalam.Core.Features.Student.Queries.GetStudentIdentity;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Student;
-using Qalam.Data.Entity.Common.Enums;
-
 namespace Qalam.Api.Controllers.Student;
 
 [Authorize(Roles = Roles.Student + "," + Roles.Guardian)]
@@ -26,7 +24,7 @@ public class StudentIdentityController : AppControllerBase
         => NewResult(await Mediator.Send(new GetStudentIdentityQuery()));
 
     [HttpGet(Router.StudentIdentityAllowedTypes)]
-    [ProducesResponseType(typeof(List<IdentityType>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<int>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllowedTypes([FromQuery] int nationalityId)
         => NewResult(await Mediator.Send(new GetStudentAllowedIdentityTypesQuery { NationalityId = nationalityId }));
 

@@ -116,8 +116,24 @@ public class AdminEnrollmentFreeTrialDto
     public bool RestoredEligibility { get; set; }
 }
 
+public class AdminEnrollmentActorDto
+{
+    public string? FullName { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? IdentityTypeName { get; set; }
+    public string? IdentityNumber { get; set; }
+    public string? NationalityCode { get; set; }
+    public string? NationalityNameAr { get; set; }
+    public string? NationalityNameEn { get; set; }
+    public string? ProfilePictureUrl { get; set; }
+}
+
 public class AdminEnrollmentDetailDto : AdminEnrollmentListItemDto
 {
+    public AdminEnrollmentActorDto? TeacherActor { get; set; }
+    public AdminEnrollmentActorDto? StudentActor { get; set; }
+
     public int? EnrollmentRequestId { get; set; }
     public int? SessionRequestId { get; set; }
     public int? SessionOfferId { get; set; }
