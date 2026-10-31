@@ -245,6 +245,71 @@ public class LrsDispatchService : ILrsDispatchService
         await _rabbitMQ.QueueLrsStatementAsync(msg);
     }
 
+    public async Task<int> ReplayFullJourneyAsync(int enrollmentId, CancellationToken ct = default)
+    {
+        var enrollment = await _db.Enrollments
+            .Include(e => e.Course)
+            .Include(e => e.Participants).ThenInclude(p => p.Student)
+            .Include(e => e.CourseSchedules).ThenInclude(s => s.Attendances)
+            .Include(e => e.ApprovedByTeacher)
+            .FirstOrDefaultAsync(e => e.Id == enrollmentId, ct);
+
+        if (enrollment?.Course == null) return 0;
+
+        var count = 0;
+        var course = enrollment.Course;
+        var teacherUser = await ResolveTeacherUserAsync(enrollment, ct);
+        var completedSchedules = enrollment.CourseSchedules
+            .Where(s => s.Status == ScheduleStatus.Completed)
+            .OrderBy(s => s.Date).ThenBy(s => s.Id)
+            .ToList();
+        var totalSessions = enrollment.CourseSchedules.Count;
+
+        foreach (var participant in enrollment.Participants)
+        {
+            var (studentUser, identityNumber) = await ResolveStudentUserAsync(participant.StudentId, ct);
+            if (studentUser == null) continue;
+
+            // 1. registered
+            var reg = _builder.BuildRegistered(studentUser, course, enrollment, teacherUser, identityNumber);
+            await QueueAsync(reg, "registered", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
+            count++;
+
+            // 2-5. Per completed session: initialized → attended → completed → progressed
+            var completedSoFar = 0;
+            foreach (var schedule in completedSchedules)
+            {
+                var init = _builder.BuildSessionLaunched(studentUser, schedule, course, identityNumber);
+                await QueueAsync(init, "launched", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
+                count++;
+
+                var att = _builder.BuildSessionAttended(studentUser, schedule, course, identityNumber);
+                await QueueAsync(att, "attended", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
+                count++;
+
+                var attendance = schedule.Attendances?.FirstOrDefault(a => a.StudentId == participant.StudentId);
+                var comp = _builder.BuildSessionCompleted(studentUser, schedule, course, teacherUser, attendance?.Status, identityNumber);
+                await QueueAsync(comp, "completed", studentUser, $"sessions/{schedule.Id}", "CourseSchedule", schedule.Id);
+                count++;
+
+                completedSoFar++;
+                var prog = _builder.BuildProgressUpdated(studentUser, course, enrollment, completedSoFar, totalSessions, identityNumber);
+                await QueueAsync(prog, "progressed", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
+                count++;
+            }
+
+            // 6. course completed (if enrollment is completed)
+            if (enrollment.EnrollmentStatus == EnrollmentStatus.Completed)
+            {
+                var cc = _builder.BuildCourseCompleted(studentUser, course, enrollment, identityNumber);
+                await QueueAsync(cc, "completed", studentUser, $"courses/{course.Id}", "Enrollment", enrollment.Id);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     private async Task<(User? User, string? IdentityNumber)> ResolveStudentUserAsync(int studentId, CancellationToken ct)
     {
         var student = await _db.Students

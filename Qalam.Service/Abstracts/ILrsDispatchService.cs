@@ -11,4 +11,5 @@ public interface ILrsDispatchService
     Task DispatchEnrollmentActivatedAsync(Enrollment enrollment, CancellationToken ct = default);
     Task DispatchProgressUpdatedAsync(CourseSchedule schedule, CancellationToken ct = default);
     Task DispatchCourseCompletedAsync(Enrollment enrollment, CancellationToken ct = default);
+    Task<int> ReplayFullJourneyAsync(int enrollmentId, CancellationToken ct = default);
 }

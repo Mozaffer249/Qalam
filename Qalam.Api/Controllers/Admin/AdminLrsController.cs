@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Bases;
 using Qalam.Core.Features.Admin.Lrs.Commands;
 using Qalam.Core.Features.Admin.Lrs.Queries;
 using Qalam.Data.AppMetaData;
@@ -37,6 +38,14 @@ public class AdminLrsController : AppControllerBase
     public async Task<IActionResult> GetDashboard()
     {
         var result = await Mediator.Send(new GetLrsDashboardQuery());
+        return NewResult(result);
+    }
+
+    [HttpPost(Router.AdminLrsDispatchEnrollment)]
+    [ProducesResponseType(typeof(Response<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DispatchEnrollment(int enrollmentId)
+    {
+        var result = await Mediator.Send(new DispatchEnrollmentLrsCommand { EnrollmentId = enrollmentId });
         return NewResult(result);
     }
 }
