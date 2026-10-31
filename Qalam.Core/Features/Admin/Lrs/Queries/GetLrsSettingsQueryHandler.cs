@@ -1,11 +1,9 @@
 using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Admin;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 
 namespace Qalam.Core.Features.Admin.Lrs.Queries;
@@ -14,15 +12,12 @@ public class GetLrsSettingsQueryHandler : ResponseHandler,
     IRequestHandler<GetLrsSettingsQuery, Response<AdminLrsSettingsDto>>
 {
     private readonly ISystemSettingRepository _settings;
-    private readonly LrsSettings _envSettings;
 
     public GetLrsSettingsQueryHandler(
         ISystemSettingRepository settings,
-        IOptions<LrsSettings> envSettings,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
         _settings = settings;
-        _envSettings = envSettings.Value;
     }
 
     public async Task<Response<AdminLrsSettingsDto>> Handle(
@@ -38,19 +33,18 @@ public class GetLrsSettingsQueryHandler : ResponseHandler,
                 return Success(entity: dto);
         }
 
-        // Fall back to env-based settings (mask the secret)
         return Success(entity: new AdminLrsSettingsDto
         {
-            Enabled = _envSettings.Enabled,
-            Endpoint = _envSettings.Endpoint,
-            Key = _envSettings.Key,
-            Secret = string.IsNullOrEmpty(_envSettings.Secret) ? "" : "••••••••",
-            MaxRetries = _envSettings.MaxRetries,
-            PlatformIri = _envSettings.PlatformIri,
-            XApiVersion = _envSettings.XApiVersion,
-            PlatformKey = _envSettings.PlatformKey,
-            PlatformNameAr = _envSettings.PlatformNameAr,
-            PlatformNameEn = _envSettings.PlatformNameEn,
+            Enabled = false,
+            Endpoint = "",
+            Key = "",
+            Secret = "",
+            MaxRetries = 3,
+            PlatformIri = "https://qalam.net.sa",
+            XApiVersion = "1.0.3",
+            PlatformKey = "",
+            PlatformNameAr = "قلم",
+            PlatformNameEn = "Qalam",
         });
     }
 }

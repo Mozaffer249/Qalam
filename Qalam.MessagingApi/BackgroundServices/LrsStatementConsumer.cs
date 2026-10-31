@@ -20,7 +20,6 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
     private const string FailedAtHeader = "x-failed-at";
 
     private readonly ILogger<LrsStatementConsumer> _logger;
-    private readonly LrsSettings _lrsSettings;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IServiceScopeFactory _scopeFactory;
     private IChannel? _channel;
@@ -28,14 +27,12 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
     public LrsStatementConsumer(
         ILogger<LrsStatementConsumer> logger,
         IOptions<RabbitMQSettings> rabbitSettings,
-        IOptions<LrsSettings> lrsSettings,
         IHttpClientFactory httpClientFactory,
         IServiceScopeFactory scopeFactory,
         IConsumerLivenessTracker liveness)
         : base(rabbitSettings, liveness, logger)
     {
         _logger = logger;
-        _lrsSettings = lrsSettings.Value;
         _httpClientFactory = httpClientFactory;
         _scopeFactory = scopeFactory;
     }
@@ -44,10 +41,10 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
 
     protected override async Task SetupAndConsumeAsync(IChannel channel, CancellationToken stoppingToken)
     {
-        var enabled = _lrsSettings.Enabled || await IsEnabledInDbAsync();
+        var enabled = await IsEnabledInDbAsync();
         if (!enabled)
         {
-            _logger.LogInformation("LRS consumer disabled (LrsSettings.Enabled=false). Idling.");
+            _logger.LogInformation("LRS consumer disabled (not enabled in DB settings). Idling.");
             await Task.Delay(Timeout.Infinite, stoppingToken);
             return;
         }
@@ -117,7 +114,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                     "LRS consumer error (Verb={Verb}, Retry={Retry})",
                     message?.Verb, retryCount);
 
-                var maxRetries = Math.Max(0, _lrsSettings.MaxRetries);
+                var maxRetries = Math.Max(0, await LoadMaxRetriesAsync());
                 var payload = ea.Body.ToArray();
 
                 if (retryCount >= maxRetries)
@@ -146,7 +143,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
 
         _logger.LogInformation(
             "LrsStatementConsumer listening on queue: {Queue} (DLQ: {Dlq}, MaxRetries: {MaxRetries})",
-            Settings.LrsQueueName, Settings.LrsDeadLetterQueueName, _lrsSettings.MaxRetries);
+            Settings.LrsQueueName, Settings.LrsDeadLetterQueueName, 3);
     }
 
     private async Task<bool> IsEnabledInDbAsync()
@@ -168,7 +165,26 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
         return false;
     }
 
-    private async Task<(string Endpoint, string Key, string Secret, string XApiVersion)> LoadEffectiveCredentialsAsync()
+    private async Task<int> LoadMaxRetriesAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+            var row = await db.SystemSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == "LrsCredentials");
+            if (row != null && !string.IsNullOrEmpty(row.Value))
+            {
+                var doc = JsonSerializer.Deserialize<JsonElement>(row.Value);
+                if (doc.TryGetProperty("maxRetries", out var mr))
+                    return mr.GetInt32();
+            }
+        }
+        catch { /* fall through */ }
+        return 3;
+    }
+
+    private async Task<(string Endpoint, string Key, string Secret, string XApiVersion)?> LoadEffectiveCredentialsAsync()
     {
         try
         {
@@ -187,29 +203,30 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                 var version = creds.TryGetProperty("xApiVersion", out var v) ? v.GetString() : null;
 
                 if (!string.IsNullOrEmpty(endpoint) && !string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
-                    return (endpoint, key, secret, version ?? _lrsSettings.XApiVersion);
+                    return (endpoint, key, secret, version ?? "1.0.3");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load LRS credentials from DB, falling back to env");
+            _logger.LogError(ex, "Failed to load LRS credentials from DB");
         }
 
-        return (_lrsSettings.Endpoint, _lrsSettings.Key, _lrsSettings.Secret, _lrsSettings.XApiVersion);
+        return null;
     }
 
     private async Task<(bool Success, int? HttpStatusCode, string? ErrorMessage)> SendToLrsAsync(
         string statementJson, CancellationToken ct)
     {
-        var (endpoint, key, secret, xApiVersion) = await LoadEffectiveCredentialsAsync();
+        var cred = await LoadEffectiveCredentialsAsync();
+        if (cred == null)
+            return (false, null, "LRS credentials not configured in database");
+
+        var (endpoint, key, secret, xApiVersion) = cred.Value;
 
         var client = _httpClientFactory.CreateClient();
-        if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(secret))
-        {
-            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
-        }
+        var authBytes = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authBytes);
         client.DefaultRequestHeaders.Add("X-Experience-API-Version", xApiVersion);
 
         var content = new StringContent(statementJson, Encoding.UTF8, "application/json");

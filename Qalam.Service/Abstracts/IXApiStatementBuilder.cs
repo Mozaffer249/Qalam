@@ -7,6 +7,7 @@ namespace Qalam.Service.Abstracts;
 
 public interface IXApiStatementBuilder
 {
+    Task LoadSettingsAsync(CancellationToken ct = default);
     XApiStatement BuildRegistered(User student, Course course, Enrollment enrollment, User? teacher, string? identityNumber = null);
     XApiStatement BuildSessionLaunched(User student, CourseSchedule schedule, Course course, string? identityNumber = null);
     XApiStatement BuildSessionAttended(User student, CourseSchedule schedule, Course course, string? identityNumber = null);

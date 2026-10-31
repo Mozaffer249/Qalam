@@ -95,16 +95,6 @@ services:
       - WasabiSettings__PublicBaseUrl=${WASABI_PUBLIC_BASE_URL:-https://auth-and-identities-certificates-staging.s3.ap-southeast-1.wasabisys.com}
       - WasabiSettings__LearningBucketName=${WASABI_LEARNING_BUCKET:-qalam-content-dev}
       - WasabiSettings__LearningPublicBaseUrl=${WASABI_LEARNING_PUBLIC_BASE_URL:-https://qalam-content-dev.s3.ap-southeast-1.wasabisys.com}
-      - LrsSettings__Enabled=${LRS_ENABLED:-false}
-      - LrsSettings__Endpoint=${LRS_ENDPOINT:-}
-      - LrsSettings__Key=${LRS_KEY:-}
-      - LrsSettings__Secret=${LRS_SECRET:-}
-      - LrsSettings__MaxRetries=${LRS_MAX_RETRIES:-3}
-      - LrsSettings__PlatformIri=${LRS_PLATFORM_IRI:-https://qalam.net.sa}
-      - LrsSettings__XApiVersion=${LRS_XAPI_VERSION:-1.0.3}
-      - LrsSettings__PlatformKey=${LRS_PLATFORM_KEY:-}
-      - LrsSettings__PlatformNameAr=${LRS_PLATFORM_NAME_AR:-قلم}
-      - LrsSettings__PlatformNameEn=${LRS_PLATFORM_NAME_EN:-Qalam}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -156,16 +146,6 @@ services:
       - LiveSession__LiveKit__ApiSecret=${LIVEKIT_API_SECRET:-}
       - LiveSession__LiveKit__TokenTtlMinutes=${LIVEKIT_TOKEN_TTL_MINUTES:-120}
       - SessionSettings__EnforceJoinWindow=${SESSION_ENFORCE_JOIN_WINDOW:-true}
-      - LrsSettings__Enabled=${LRS_ENABLED:-false}
-      - LrsSettings__Endpoint=${LRS_ENDPOINT:-}
-      - LrsSettings__Key=${LRS_KEY:-}
-      - LrsSettings__Secret=${LRS_SECRET:-}
-      - LrsSettings__MaxRetries=${LRS_MAX_RETRIES:-3}
-      - LrsSettings__PlatformIri=${LRS_PLATFORM_IRI:-https://qalam.net.sa}
-      - LrsSettings__XApiVersion=${LRS_XAPI_VERSION:-1.0.3}
-      - LrsSettings__PlatformKey=${LRS_PLATFORM_KEY:-}
-      - LrsSettings__PlatformNameAr=${LRS_PLATFORM_NAME_AR:-قلم}
-      - LrsSettings__PlatformNameEn=${LRS_PLATFORM_NAME_EN:-Qalam}
       - PaymentSettings__Provider=${PAYMENT_PROVIDER:-Mock}
       - PaymentSettings__Moyasar__PublishableApiKey=${MOYASAR_PUBLISHABLE_KEY:-}
       - PaymentSettings__Moyasar__SecretApiKey=${MOYASAR_SECRET_KEY:-}

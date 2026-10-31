@@ -1,20 +1,56 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Qalam.Data.DTOs.LRS;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Helpers;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Service.Implementations.LRS;
 
 public class XApiStatementBuilder : IXApiStatementBuilder
 {
-    private readonly LrsSettings _settings;
+    private readonly ApplicationDBContext _db;
+    private readonly LrsSettings _fallback;
+    private LrsSettings? _effective;
 
-    public XApiStatementBuilder(IOptions<LrsSettings> settings)
+    public XApiStatementBuilder(ApplicationDBContext db, IOptions<LrsSettings> fallback)
     {
-        _settings = settings.Value;
+        _db = db;
+        _fallback = fallback.Value;
+    }
+
+    private LrsSettings Settings => _effective ?? _fallback;
+
+    public async Task LoadSettingsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var row = await _db.Set<Data.Entity.Common.SystemSetting>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == "LrsCredentials", ct);
+            if (row != null && !string.IsNullOrEmpty(row.Value))
+            {
+                var doc = JsonSerializer.Deserialize<JsonElement>(row.Value);
+                _effective = new LrsSettings
+                {
+                    Enabled = doc.TryGetProperty("enabled", out var e) && e.GetBoolean(),
+                    Endpoint = doc.TryGetProperty("endpoint", out var ep) ? ep.GetString() ?? "" : "",
+                    Key = doc.TryGetProperty("key", out var k) ? k.GetString() ?? "" : "",
+                    Secret = doc.TryGetProperty("secret", out var s) ? s.GetString() ?? "" : "",
+                    MaxRetries = doc.TryGetProperty("maxRetries", out var mr) ? mr.GetInt32() : _fallback.MaxRetries,
+                    PlatformIri = doc.TryGetProperty("platformIri", out var pi) && !string.IsNullOrEmpty(pi.GetString()) ? pi.GetString()! : _fallback.PlatformIri,
+                    XApiVersion = doc.TryGetProperty("xApiVersion", out var xv) && !string.IsNullOrEmpty(xv.GetString()) ? xv.GetString()! : _fallback.XApiVersion,
+                    PlatformKey = doc.TryGetProperty("platformKey", out var pk) ? pk.GetString() ?? "" : "",
+                    PlatformNameAr = doc.TryGetProperty("platformNameAr", out var pna) && !string.IsNullOrEmpty(pna.GetString()) ? pna.GetString()! : _fallback.PlatformNameAr,
+                    PlatformNameEn = doc.TryGetProperty("platformNameEn", out var pne) && !string.IsNullOrEmpty(pne.GetString()) ? pne.GetString()! : _fallback.PlatformNameEn,
+                };
+            }
+        }
+        catch { /* fall through to defaults */ }
     }
 
     public XApiStatement BuildRegistered(User student, Course course, Enrollment enrollment, User? teacher, string? identityNumber = null)
@@ -22,12 +58,12 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         var ctx = BuildContext(teacher, course);
         ctx.Extensions ??= new Dictionary<string, object>();
         ctx.Extensions[NelcExtensions.LearnerFullName] = $"{student.FirstName} {student.LastName}".Trim();
-        ctx.Extensions[NelcExtensions.LmsUrl] = _settings.PlatformIri;
-        ctx.Extensions[NelcExtensions.ProgramUrl] = $"{_settings.PlatformIri}/courses/{course.Id}";
+        ctx.Extensions[NelcExtensions.LmsUrl] = Settings.PlatformIri;
+        ctx.Extensions[NelcExtensions.ProgramUrl] = $"{Settings.PlatformIri}/courses/{course.Id}";
         ctx.Extensions[NelcExtensions.Platform] = new Dictionary<string, string>
         {
-            ["ar-SA"] = _settings.PlatformNameAr,
-            ["en-US"] = _settings.PlatformNameEn
+            ["ar-SA"] = Settings.PlatformNameAr,
+            ["en-US"] = Settings.PlatformNameEn
         };
 
         if (!string.IsNullOrEmpty(student.PhoneNumber))
@@ -165,7 +201,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
                 Name = $"{user.FirstName} {user.LastName}".Trim(),
                 Account = new XApiAccount
                 {
-                    HomePage = _settings.PlatformIri,
+                    HomePage = Settings.PlatformIri,
                     Name = identityNumber
                 }
             };
@@ -178,7 +214,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
             Account = string.IsNullOrEmpty(user.Email)
                 ? new XApiAccount
                 {
-                    HomePage = _settings.PlatformIri,
+                    HomePage = Settings.PlatformIri,
                     Name = $"user-{user.Id}"
                 }
                 : null
@@ -189,7 +225,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiObject
         {
-            Id = $"{_settings.PlatformIri}/course/{course.Id}",
+            Id = $"{Settings.PlatformIri}/course/{course.Id}",
             Definition = new XApiActivityDefinition
             {
                 Type = XApiActivityTypes.Course,
@@ -202,7 +238,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiObject
         {
-            Id = $"{_settings.PlatformIri}/course/{course.Id}/session/{schedule.Id}",
+            Id = $"{Settings.PlatformIri}/course/{course.Id}/session/{schedule.Id}",
             Definition = new XApiActivityDefinition
             {
                 Type = XApiActivityTypes.VirtualClassroom,
@@ -218,7 +254,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         var ctx = new XApiContext
         {
-            Platform = _settings.PlatformKey,
+            Platform = Settings.PlatformKey,
             Language = "ar-SA"
         };
 
@@ -242,7 +278,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiContext
         {
-            Platform = _settings.PlatformKey,
+            Platform = Settings.PlatformKey,
             Language = "ar-SA",
             ContextActivities = new XApiContextActivities
             {

@@ -1,13 +1,11 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Entity.LRS;
 using Qalam.Data.Entity.Messaging;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
@@ -15,20 +13,17 @@ namespace Qalam.Service.Implementations.LRS;
 
 public class LrsDispatchService : ILrsDispatchService
 {
-    private readonly LrsSettings _settings;
     private readonly IXApiStatementBuilder _builder;
     private readonly IRabbitMQService _rabbitMQ;
     private readonly ApplicationDBContext _db;
     private readonly ILogger<LrsDispatchService> _logger;
 
     public LrsDispatchService(
-        IOptions<LrsSettings> settings,
         IXApiStatementBuilder builder,
         IRabbitMQService rabbitMQ,
         ApplicationDBContext db,
         ILogger<LrsDispatchService> logger)
     {
-        _settings = settings.Value;
         _builder = builder;
         _rabbitMQ = rabbitMQ;
         _db = db;
@@ -37,7 +32,6 @@ public class LrsDispatchService : ILrsDispatchService
 
     private async Task<bool> IsEnabledAsync(CancellationToken ct)
     {
-        if (_settings.Enabled) return true;
         try
         {
             var row = await _db.Set<Data.Entity.Common.SystemSetting>()
@@ -57,6 +51,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchSessionCompletedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -90,6 +85,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchSessionLaunchedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -119,6 +115,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchStudentAttendedAsync(int studentId, CourseSchedule schedule, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -142,6 +139,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchEnrollmentActivatedAsync(Enrollment enrollment, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -170,6 +168,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchProgressUpdatedAsync(CourseSchedule schedule, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -204,6 +203,7 @@ public class LrsDispatchService : ILrsDispatchService
     public async Task DispatchCourseCompletedAsync(Enrollment enrollment, CancellationToken ct = default)
     {
         if (!await IsEnabledAsync(ct)) return;
+        await _builder.LoadSettingsAsync(ct);
 
         try
         {
@@ -266,6 +266,8 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task<int> ReplayFullJourneyAsync(int enrollmentId, CancellationToken ct = default)
     {
+        await _builder.LoadSettingsAsync(ct);
+
         var enrollment = await _db.Enrollments
             .Include(e => e.Course)
             .Include(e => e.Participants).ThenInclude(p => p.Student)
