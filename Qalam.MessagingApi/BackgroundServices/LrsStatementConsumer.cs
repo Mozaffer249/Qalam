@@ -87,8 +87,8 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
                 if (result.Success)
                 {
                     _logger.LogInformation(
-                        "LRS statement sent: Verb={Verb}, Actor={Actor}, Object={Object}",
-                        message.Verb, message.ActorName, message.ObjectId);
+                        "LRS statement sent ({StatusCode}): Verb={Verb}, Actor={Actor}, Object={Object}, Response={Response}",
+                        result.HttpStatusCode, message.Verb, message.ActorName, message.ObjectId, result.ErrorMessage);
                     await UpdateLogAsync(message.LogId, LrsStatementStatus.Sent, (int?)result.HttpStatusCode, null);
                     await channel.BasicAckAsync(ea.DeliveryTag, false);
                 }
