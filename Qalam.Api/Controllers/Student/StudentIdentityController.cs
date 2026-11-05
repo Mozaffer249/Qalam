@@ -23,6 +23,7 @@ public class StudentIdentityController : AppControllerBase
     public async Task<IActionResult> GetIdentity()
         => NewResult(await Mediator.Send(new GetStudentIdentityQuery()));
 
+    [AllowAnonymous]
     [HttpGet(Router.StudentIdentityAllowedTypes)]
     [ProducesResponseType(typeof(List<int>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllowedTypes([FromQuery] int nationalityId)
