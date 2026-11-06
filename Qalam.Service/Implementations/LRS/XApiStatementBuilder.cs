@@ -44,7 +44,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
                     MaxRetries = doc.TryGetProperty("maxRetries", out var mr) ? mr.GetInt32() : _fallback.MaxRetries,
                     PlatformIri = doc.TryGetProperty("platformIri", out var pi) && !string.IsNullOrEmpty(pi.GetString()) ? pi.GetString()! : _fallback.PlatformIri,
                     XApiVersion = doc.TryGetProperty("xApiVersion", out var xv) && !string.IsNullOrEmpty(xv.GetString()) ? xv.GetString()! : _fallback.XApiVersion,
-                    PlatformKey = doc.TryGetProperty("platformKey", out var pk) ? pk.GetString() ?? "" : "",
+                    PlatformKey = doc.TryGetProperty("platformKey", out var pk) && !string.IsNullOrEmpty(pk.GetString()) ? pk.GetString()! : _fallback.PlatformKey,
                     PlatformNameAr = doc.TryGetProperty("platformNameAr", out var pna) && !string.IsNullOrEmpty(pna.GetString()) ? pna.GetString()! : _fallback.PlatformNameAr,
                     PlatformNameEn = doc.TryGetProperty("platformNameEn", out var pne) && !string.IsNullOrEmpty(pne.GetString()) ? pne.GetString()! : _fallback.PlatformNameEn,
                 };
@@ -255,7 +255,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         var ctx = new XApiContext
         {
-            Platform = Settings.PlatformKey,
+            Platform = string.IsNullOrEmpty(Settings.PlatformKey) ? null : Settings.PlatformKey,
             Language = "ar-SA"
         };
 
@@ -279,7 +279,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiContext
         {
-            Platform = Settings.PlatformKey,
+            Platform = string.IsNullOrEmpty(Settings.PlatformKey) ? null : Settings.PlatformKey,
             Language = "ar-SA",
             ContextActivities = new XApiContextActivities
             {
