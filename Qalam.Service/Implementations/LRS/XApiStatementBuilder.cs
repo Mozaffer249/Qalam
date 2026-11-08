@@ -199,7 +199,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         {
             return new XApiActor
             {
-                Name = $"{user.FirstName} {user.LastName}".Trim(),
+                Name = identityNumber,
                 Account = new XApiAccount
                 {
                     HomePage = Settings.PlatformIri,
@@ -255,7 +255,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         var ctx = new XApiContext
         {
-            Platform = string.IsNullOrEmpty(Settings.PlatformKey) ? null : Settings.PlatformKey,
+            Platform = !string.IsNullOrEmpty(Settings.PlatformKey) ? Settings.PlatformKey : Settings.PlatformIri,
             Language = "ar-SA"
         };
 
@@ -279,7 +279,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         return new XApiContext
         {
-            Platform = string.IsNullOrEmpty(Settings.PlatformKey) ? null : Settings.PlatformKey,
+            Platform = !string.IsNullOrEmpty(Settings.PlatformKey) ? Settings.PlatformKey : Settings.PlatformIri,
             Language = "ar-SA",
             ContextActivities = new XApiContextActivities
             {

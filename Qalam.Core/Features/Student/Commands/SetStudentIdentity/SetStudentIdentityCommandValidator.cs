@@ -20,6 +20,11 @@ public class SetStudentIdentityCommandValidator : AbstractValidator<SetStudentId
                 .NotEmpty().WithMessage("Identity number is required.")
                 .MaximumLength(50).WithMessage("Identity number must not exceed 50 characters.");
 
+            RuleFor(x => x.Identity.IdentityNumber)
+                .Matches(@"^[124]\d{9}$")
+                .WithMessage("National ID must be 10 digits starting with 1, 2, or 4.")
+                .When(x => x.Identity.IdentityType == Data.Entity.Common.Enums.IdentityType.NationalId);
+
             RuleFor(x => x.Identity.IssuingCountryCode)
                 .MaximumLength(3).WithMessage("Issuing country code must not exceed 3 characters.")
                 .When(x => !string.IsNullOrEmpty(x.Identity.IssuingCountryCode));
