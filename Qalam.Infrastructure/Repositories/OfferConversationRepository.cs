@@ -269,6 +269,41 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<List<OfferConversationListRow>> ListByUserAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.OfferConversations
+            .AsNoTracking()
+            .Where(c => c.LastMessageAt != null
+                && (c.Teacher.UserId == userId
+                    || c.OpenSessionRequest.RequestedByUserId == userId
+                    || (c.OpenSessionRequest.CreatedByGuardian != null
+                        && c.OpenSessionRequest.CreatedByGuardian.UserId == userId)))
+            .OrderByDescending(c => c.LastMessageAt)
+            .Select(c => new OfferConversationListRow(
+                c.Id,
+                c.SessionOfferId,
+                ((c.Teacher.User != null ? c.Teacher.User.FirstName : "") + " " +
+                 (c.Teacher.User != null ? c.Teacher.User.LastName : "")).Trim(),
+                c.OpenSessionRequest.Subject != null
+                    ? c.OpenSessionRequest.Subject.NameAr
+                    : null,
+                c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.Content)
+                    .FirstOrDefault(),
+                c.LastMessageAt,
+                c.Messages.Count(m =>
+                    m.SenderUserId != null
+                    && (c.Teacher.UserId == userId
+                        ? (c.TeacherLastReadAt == null || m.SentAt > c.TeacherLastReadAt)
+                        : (c.StudentLastReadAt == null || m.SentAt > c.StudentLastReadAt))),
+                c.Teacher.UserId ?? 0,
+                c.OpenSessionRequest.RequestedByUserId
+            ))
+            .Take(100)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ConversationParticipantInfo?> ResolveParticipantAsync(int conversationId, int userId, CancellationToken cancellationToken = default)
     {
         var row = await _context.OfferConversations

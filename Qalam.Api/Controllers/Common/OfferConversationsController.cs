@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Student.Conversations.Queries.GetMyConversations;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.MarkConversationRead;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Commands.PostConversationMessage;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetConversationMessages;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetOrCreateConversationByOffer;
 using Qalam.Core.Features.Teacher.OpenSessionRequests.Queries.GetOrCreateConversationByRequest;
 using Qalam.Data.AppMetaData;
+using Qalam.Data.DTOs.Conversations;
 using Qalam.Data.DTOs.OpenSessionRequests;
 
 namespace Qalam.Api.Controllers.Common;
@@ -21,6 +23,14 @@ namespace Qalam.Api.Controllers.Common;
 [Route(Router.OfferConversations)]
 public class OfferConversationsController : AppControllerBase
 {
+    /// <summary>
+    /// Unified inbox — all conversations (offer + enrollment) for the current user, sorted by most recent.
+    /// </summary>
+    [HttpGet("my")]
+    [ProducesResponseType(typeof(List<MyConversationListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyConversations()
+        => NewResult(await Mediator.Send(new GetMyConversationsQuery()));
+
     /// <summary>
     /// Find-or-create the request-scoped conversation (targeted OSR only).
     /// Broadcast requests must use <see cref="GetOrCreateByOffer"/>.

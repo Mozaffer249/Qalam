@@ -61,6 +61,12 @@ public interface IOfferConversationRepository : IGenericRepositoryAsync<OfferCon
     /// authorization. Returns null when the user has no claim on this conversation.
     /// </summary>
     Task<ConversationParticipantInfo?> ResolveParticipantAsync(int conversationId, int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// All conversations where <paramref name="userId"/> is a participant (student, guardian, or teacher),
+    /// ordered by LastMessageAt descending.
+    /// </summary>
+    Task<List<OfferConversationListRow>> ListByUserAsync(int userId, CancellationToken cancellationToken = default);
 }
 
 public enum ConversationCaller
@@ -78,3 +84,14 @@ public record ConversationParticipantInfo(
     int StudentUserId,
     int? GuardianUserId,
     ConversationCaller CallerRole);
+
+public record OfferConversationListRow(
+    int ConversationId,
+    int? OfferId,
+    string? TeacherName,
+    string? SubjectName,
+    string? LastMessageContent,
+    DateTime? LastMessageAt,
+    int UnreadCount,
+    int TeacherUserId,
+    int StudentUserId);

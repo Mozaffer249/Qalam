@@ -414,6 +414,9 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Withdraw an offer: Api/V1/Teacher/Offers/{id}/withdraw</summary>
         public const string TeacherSessionOfferWithdraw = TeacherSessionOfferById + "/withdraw";
 
+        /// <summary>Unified conversations inbox (merges offer + enrollment threads): Api/V1/Conversations/my</summary>
+        public const string MyConversations = Rule + "Conversations/my";
+
         /// <summary>Conversations namespace (shared between teacher + student): Api/V1/Conversations</summary>
         public const string OfferConversations = Rule + "Conversations";
         /// <summary>

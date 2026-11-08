@@ -203,6 +203,39 @@ public class EnrollmentConversationRepository : GenericRepositoryAsync<Enrollmen
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<List<EnrollmentConversationListRow>> ListByUserAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.EnrollmentConversations
+            .AsNoTracking()
+            .Where(c => c.LastMessageAt != null
+                && (c.StudentUserId == userId || c.Teacher.UserId == userId))
+            .OrderByDescending(c => c.LastMessageAt)
+            .Select(c => new EnrollmentConversationListRow(
+                c.Id,
+                c.EnrollmentId,
+                ((c.Teacher.User != null ? c.Teacher.User.FirstName : "") + " " +
+                 (c.Teacher.User != null ? c.Teacher.User.LastName : "")).Trim(),
+                c.Enrollment.Course != null && c.Enrollment.Course.TeacherSubject != null
+                    && c.Enrollment.Course.TeacherSubject.Subject != null
+                    ? c.Enrollment.Course.TeacherSubject.Subject.NameAr
+                    : null,
+                c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.Content)
+                    .FirstOrDefault(),
+                c.LastMessageAt,
+                c.Messages.Count(m =>
+                    m.SenderUserId != null
+                    && (c.Teacher.UserId == userId
+                        ? (c.TeacherLastReadAt == null || m.SentAt > c.TeacherLastReadAt)
+                        : (c.StudentLastReadAt == null || m.SentAt > c.StudentLastReadAt))),
+                c.Teacher.UserId ?? 0,
+                c.StudentUserId
+            ))
+            .Take(100)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<EnrollmentConversationParticipantInfo?> ResolveParticipantAsync(
         int conversationId,
         int userId,

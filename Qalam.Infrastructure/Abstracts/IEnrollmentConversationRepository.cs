@@ -43,6 +43,8 @@ public interface IEnrollmentConversationRepository : IGenericRepositoryAsync<Enr
         int conversationId,
         int userId,
         CancellationToken cancellationToken = default);
+
+    Task<List<EnrollmentConversationListRow>> ListByUserAsync(int userId, CancellationToken cancellationToken = default);
 }
 
 public enum EnrollmentConversationCaller
@@ -58,3 +60,14 @@ public record EnrollmentConversationParticipantInfo(
     int TeacherUserId,
     int StudentUserId,
     EnrollmentConversationCaller CallerRole);
+
+public record EnrollmentConversationListRow(
+    int ConversationId,
+    int EnrollmentId,
+    string? TeacherName,
+    string? SubjectName,
+    string? LastMessageContent,
+    DateTime? LastMessageAt,
+    int UnreadCount,
+    int TeacherUserId,
+    int StudentUserId);

@@ -412,8 +412,8 @@ raw/
 .env.local
 docker-compose.override.yml
 
-# Flutter mobile app (separate repo — develop in apps/Qalam on its own)
-apps/Qalam/
+# Flutter mobile app (git submodule — develop in apps/Qalam on its own repo)
+# apps/Qalam/ — now tracked as a submodule
 
 # Flutter/Dart artifacts if tooling is run from this repo root
 .metadata

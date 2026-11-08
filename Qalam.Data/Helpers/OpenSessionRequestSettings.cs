@@ -10,13 +10,13 @@ public class OpenSessionRequestSettings
     public int RequestWindowDays { get; set; } = 7;
 
     /// <summary>Broadcast: first session must start at least this many hours from now.</summary>
-    public int BroadcastMinimumLeadHours { get; set; } = 3;
+    public int BroadcastMinimumLeadHours { get; set; } = 0;
 
     /// <summary>Broadcast: stop accepting offers this many hours before the first session.</summary>
-    public int BroadcastOfferCutoffHours { get; set; } = 2;
+    public int BroadcastOfferCutoffHours { get; set; } = 0;
 
     /// <summary>Broadcast: payment deadline must end at least this many hours before the first session.</summary>
-    public int BroadcastPaymentCutoffHours { get; set; } = 1;
+    public int BroadcastPaymentCutoffHours { get; set; } = 0;
 
     /// <summary>Targeted: first session must start at least this many hours from now.</summary>
     public int TargetedMinimumLeadHours { get; set; } = 2;
