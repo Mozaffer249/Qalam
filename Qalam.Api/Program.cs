@@ -55,39 +55,6 @@ builder.Services.AddHttpClient();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Qalam API", Version = "v1" });
-
-    // Large API: avoid schemaId collisions between same-named DTOs and conflicting routes.
-    c.CustomSchemaIds(type => type.FullName);
-    c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
-
-    // JWT bearer so protected endpoints are testable from Swagger / Scalar.
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Enter the JWT token (without the 'Bearer ' prefix)."
-    });
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
 
 // Connection to SQL Server
 builder.Services.AddDbContext<ApplicationDBContext>(option =>
