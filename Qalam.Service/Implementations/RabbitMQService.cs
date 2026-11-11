@@ -27,14 +27,16 @@ namespace Qalam.Service.Implementations
 
         private async Task EnsureInitializedAsync()
         {
-            if (_initialized)
+            if (_initialized && _connection is { IsOpen: true } && _channel is { IsOpen: true })
                 return;
 
             await _initLock.WaitAsync();
             try
             {
-                if (_initialized)
+                if (_initialized && _connection is { IsOpen: true } && _channel is { IsOpen: true })
                     return;
+
+                await DisposeConnectionAsync();
 
                 var factory = new ConnectionFactory
                 {
@@ -42,7 +44,10 @@ namespace Qalam.Service.Implementations
                     Port = _settings.Port,
                     UserName = _settings.UserName,
                     Password = _settings.Password,
-                    VirtualHost = _settings.VirtualHost
+                    VirtualHost = _settings.VirtualHost,
+                    AutomaticRecoveryEnabled = true,
+                    NetworkRecoveryInterval = TimeSpan.FromSeconds(5),
+                    TopologyRecoveryEnabled = true
                 };
 
                 _connection = await factory.CreateConnectionAsync();
@@ -99,12 +104,72 @@ namespace Qalam.Service.Implementations
             }
             catch (Exception ex)
             {
+                _initialized = false;
                 _logger.LogError(ex, "Failed to establish RabbitMQ connection");
                 throw;
             }
             finally
             {
                 _initLock.Release();
+            }
+        }
+
+        private async Task DisposeConnectionAsync()
+        {
+            _initialized = false;
+
+            if (_channel != null)
+            {
+                try
+                {
+                    if (_channel.IsOpen)
+                        await _channel.CloseAsync();
+                }
+                catch { /* ignore close races */ }
+
+                try { await _channel.DisposeAsync(); }
+                catch { /* ignore */ }
+
+                _channel = null;
+            }
+
+            if (_connection != null)
+            {
+                try
+                {
+                    if (_connection.IsOpen)
+                        await _connection.CloseAsync();
+                }
+                catch { /* ignore close races */ }
+
+                try { await _connection.DisposeAsync(); }
+                catch { /* ignore */ }
+
+                _connection = null;
+            }
+        }
+
+        private async Task PublishAsync<T>(string queueName, T message)
+        {
+            await EnsureInitializedAsync();
+
+            var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+            var properties = new BasicProperties { Persistent = true };
+
+            try
+            {
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: queueName,
+                    mandatory: false, basicProperties: properties, body: body);
+            }
+            catch (Exception)
+            {
+                // Connection may have dropped between init and publish — force reconnect once.
+                _initialized = false;
+                await EnsureInitializedAsync();
+                await _channel!.BasicPublishAsync(
+                    exchange: "", routingKey: queueName,
+                    mandatory: false, basicProperties: properties, body: body);
             }
         }
 
@@ -115,20 +180,12 @@ namespace Qalam.Service.Implementations
                 if (string.IsNullOrWhiteSpace(emailMessage.To) || !MailboxAddress.TryParse(emailMessage.To, out _))
                     throw new ArgumentException($"Invalid email address: '{emailMessage.To}'", nameof(emailMessage));
 
-                await EnsureInitializedAsync();
-
                 if (string.IsNullOrWhiteSpace(emailMessage.MessageId))
                     emailMessage.MessageId = Guid.NewGuid().ToString();
 
                 emailMessage.QueuedAt = DateTime.UtcNow;
 
-                var messageJson = JsonSerializer.Serialize(emailMessage);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.EmailQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.EmailQueueName, emailMessage);
 
                 _logger.LogInformation("Email queued successfully to: {To}, MessageId: {MessageId}",
                     emailMessage.To, emailMessage.MessageId);
@@ -144,16 +201,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 smsMessage.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(smsMessage);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.SmsQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.SmsQueueName, smsMessage);
 
                 _logger.LogInformation("SMS queued successfully to: {PhoneNumber}", smsMessage.PhoneNumber);
             }
@@ -168,16 +217,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 pushMessage.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(pushMessage);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.PushQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.PushQueueName, pushMessage);
 
                 _logger.LogInformation("Push notification queued successfully to: {DeviceToken}", pushMessage.DeviceToken);
             }
@@ -192,16 +233,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.TeacherDocUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.TeacherDocUploadQueueName, message);
 
                 _logger.LogInformation("Teacher doc upload queued: TeacherId={TeacherId}, DocId={DocumentId}",
                     message.TeacherId, message.DocumentId);
@@ -217,16 +250,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.ProfilePicUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.ProfilePicUploadQueueName, message);
 
                 _logger.LogInformation("Profile pic upload queued: UserId={UserId}", message.UserId);
             }
@@ -241,16 +266,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.OpenSessionRequestAttachmentUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.OpenSessionRequestAttachmentUploadQueueName, message);
 
                 _logger.LogInformation(
                     "Open session request attachment upload queued: RequestId={RequestId}, AttachmentId={AttachmentId}",
@@ -269,16 +286,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.TeacherContentFileUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.TeacherContentFileUploadQueueName, message);
 
                 _logger.LogInformation(
                     "Teacher content file upload queued: TeacherId={TeacherId}, ItemId={ItemId}",
@@ -297,16 +306,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.CourseImageUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.CourseImageUploadQueueName, message);
 
                 _logger.LogInformation(
                     "Course image upload queued: TeacherId={TeacherId}, Key={Key}",
@@ -325,16 +326,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.SessionComplaintAttachmentUploadQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.SessionComplaintAttachmentUploadQueueName, message);
 
                 _logger.LogInformation(
                     "Session complaint attachment upload queued: ComplaintId={ComplaintId}, AttachmentId={AttachmentId}",
@@ -353,16 +346,8 @@ namespace Qalam.Service.Implementations
         {
             try
             {
-                await EnsureInitializedAsync();
                 message.QueuedAt = DateTime.UtcNow;
-
-                var messageJson = JsonSerializer.Serialize(message);
-                var body = Encoding.UTF8.GetBytes(messageJson);
-                var properties = new BasicProperties { Persistent = true };
-
-                await _channel!.BasicPublishAsync(
-                    exchange: "", routingKey: _settings.LrsQueueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                await PublishAsync(_settings.LrsQueueName, message);
 
                 _logger.LogInformation(
                     "LRS statement queued: Verb={Verb}, Actor={ActorName}, Object={ObjectId}",
@@ -379,16 +364,7 @@ namespace Qalam.Service.Implementations
 
         public async ValueTask DisposeAsync()
         {
-            if (_channel != null)
-            {
-                await _channel.CloseAsync();
-                await _channel.DisposeAsync();
-            }
-            if (_connection != null)
-            {
-                await _connection.CloseAsync();
-                await _connection.DisposeAsync();
-            }
+            await DisposeConnectionAsync();
             _initLock?.Dispose();
         }
     }
