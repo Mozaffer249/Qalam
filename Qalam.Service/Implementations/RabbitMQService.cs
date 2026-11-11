@@ -51,7 +51,9 @@ namespace Qalam.Service.Implementations
                 };
 
                 _connection = await factory.CreateConnectionAsync();
-                _channel = await _connection.CreateChannelAsync();
+                _channel = await _connection.CreateChannelAsync(new CreateChannelOptions(
+                    publisherConfirmationsEnabled: true,
+                    publisherConfirmationTrackingEnabled: true));
 
                 await _channel.QueueDeclareAsync(
                     queue: _settings.EmailQueueName,
@@ -160,7 +162,7 @@ namespace Qalam.Service.Implementations
             {
                 await _channel!.BasicPublishAsync(
                     exchange: "", routingKey: queueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                    mandatory: true, basicProperties: properties, body: body);
             }
             catch (Exception)
             {
@@ -169,7 +171,7 @@ namespace Qalam.Service.Implementations
                 await EnsureInitializedAsync();
                 await _channel!.BasicPublishAsync(
                     exchange: "", routingKey: queueName,
-                    mandatory: false, basicProperties: properties, body: body);
+                    mandatory: true, basicProperties: properties, body: body);
             }
         }
 

@@ -6,6 +6,8 @@ using Qalam.Core.Features.Admin.Lrs.Commands;
 using Qalam.Core.Features.Admin.Lrs.Queries;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Messaging;
+using Qalam.Service.Abstracts;
 
 namespace Qalam.Api.Controllers.Admin;
 
@@ -64,5 +66,47 @@ public class AdminLrsController : AppControllerBase
     public async Task<IActionResult> UpdateSettings([FromBody] AdminLrsSettingsDto settings)
     {
         return NewResult(await Mediator.Send(new UpdateLrsSettingsCommand { Settings = settings }));
+    }
+
+    /// <summary>
+    /// Diagnostic: publishes a single test message straight to the LRS RabbitMQ queue and
+    /// reports whether the broker confirmed it. Isolates the publish path from the admin
+    /// dispatch flow. With publisher confirms enabled, a broker-side failure surfaces here
+    /// instead of being silently swallowed.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost(Router.AdminLrsTestPublish)]
+    public async Task<IActionResult> TestPublish([FromServices] IRabbitMQService rabbitMQ)
+    {
+        var testMessage = new LrsStatementMessage
+        {
+            StatementJson = $"{{\"diagnostic\":true,\"ts\":\"{DateTime.UtcNow:o}\"}}",
+            Verb = "diagnostic",
+            ActorName = "diagnostic-test",
+            ObjectId = "diagnostic/test",
+            Timestamp = DateTime.UtcNow,
+            SourceEntityType = "Diagnostic",
+            SourceEntityId = 0,
+            QueuedAt = DateTime.UtcNow
+        };
+
+        try
+        {
+            await rabbitMQ.QueueLrsStatementAsync(testMessage);
+            return Ok(new
+            {
+                success = true,
+                message = "Broker confirmed the test publish. With the consumer stopped, lrs-queue depth should now be 1."
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new
+            {
+                success = false,
+                error = ex.Message,
+                detail = ex.ToString()
+            });
+        }
     }
 }
