@@ -1,12 +1,18 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Qalam.Api.Base;
 using Qalam.Core.Bases;
 using Qalam.Core.Features.Admin.Lrs.Commands;
 using Qalam.Core.Features.Admin.Lrs.Queries;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.Admin;
+using Qalam.Data.Entity.Common;
 using Qalam.Data.Entity.Messaging;
+using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Api.Controllers.Admin;
@@ -107,6 +113,91 @@ public class AdminLrsController : AppControllerBase
                 error = ex.Message,
                 detail = ex.ToString()
             });
+        }
+    }
+
+    /// <summary>
+    /// Diagnostic: builds an xAPI statement and POSTs it DIRECTLY to the NELC LRS endpoint
+    /// (Basic auth from DB credentials), bypassing RabbitMQ and the consumer entirely.
+    /// Returns NELC's HTTP status and response body so the send path can be tested in isolation.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost(Router.AdminLrsTestSendDirect)]
+    public async Task<IActionResult> TestSendDirect(
+        [FromServices] ApplicationDBContext db,
+        [FromQuery] string nationalId = "1066181346",
+        [FromQuery] string courseId = "6009",
+        [FromQuery] string verb = "attended")
+    {
+        var row = await db.Set<SystemSetting>().AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == "LrsCredentials");
+        if (row == null || string.IsNullOrEmpty(row.Value))
+            return Ok(new { success = false, error = "LrsCredentials not configured in DB." });
+
+        var creds = JsonSerializer.Deserialize<JsonElement>(row.Value);
+        var endpoint = creds.TryGetProperty("endpoint", out var ep) ? ep.GetString() : null;
+        var key = creds.TryGetProperty("key", out var k) ? k.GetString() : null;
+        var secret = creds.TryGetProperty("secret", out var s) ? s.GetString() : null;
+        var version = creds.TryGetProperty("xApiVersion", out var ver) && !string.IsNullOrEmpty(ver.GetString())
+            ? ver.GetString()! : "1.0.3";
+        var platform = creds.TryGetProperty("platformKey", out var pk) && !string.IsNullOrEmpty(pk.GetString())
+            ? pk.GetString()!
+            : (creds.TryGetProperty("platformIri", out var pi) ? pi.GetString() ?? "https://qalam.net.sa" : "https://qalam.net.sa");
+
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key) || string.IsNullOrEmpty(secret))
+            return Ok(new { success = false, error = "LrsCredentials incomplete (endpoint/key/secret).", endpoint, key });
+
+        var statement = new
+        {
+            actor = new
+            {
+                objectType = "Agent",
+                name = nationalId,
+                account = new { homePage = "https://qalam.net.sa", name = nationalId }
+            },
+            verb = new
+            {
+                id = $"http://adlnet.gov/expapi/verbs/{verb}",
+                display = new Dictionary<string, string> { ["en-US"] = verb }
+            },
+            @object = new
+            {
+                objectType = "Activity",
+                id = $"https://qalam.net.sa/course/{courseId}",
+                definition = new
+                {
+                    type = "https://w3id.org/xapi/cmi5/activitytype/course",
+                    name = new Dictionary<string, string> { ["ar-SA"] = "diagnostic-direct" }
+                }
+            },
+            result = new { completion = true, success = true },
+            context = new { platform, language = "ar-SA" },
+            timestamp = DateTime.UtcNow.ToString("o")
+        };
+        var json = JsonSerializer.Serialize(statement);
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        var authBytes = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authBytes);
+        client.DefaultRequestHeaders.Add("X-Experience-API-Version", version);
+
+        try
+        {
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync(endpoint, content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            return Ok(new
+            {
+                success = response.IsSuccessStatusCode,
+                statusCode = (int)response.StatusCode,
+                endpoint,
+                nelcResponse = responseBody,
+                sentStatement = json
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { success = false, error = ex.Message, detail = ex.ToString(), endpoint });
         }
     }
 }
