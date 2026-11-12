@@ -6,4 +6,8 @@
 	path = apps/teacher
 	url = https://github.com/Mozaffer249/qalam-teacher.git
 	branch = main
+[submodule "apps/Qalam"]
+	path = apps/Qalam
+	url = https://github.com/ahmedhantop/qalam.git
+	branch = main
 
