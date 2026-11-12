@@ -200,6 +200,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
             return new XApiActor
             {
                 Name = identityNumber,
+                Mbox = !string.IsNullOrEmpty(user.Email) ? $"mailto:{user.Email}" : null,
                 Account = new XApiAccount
                 {
                     HomePage = Settings.PlatformIri,
