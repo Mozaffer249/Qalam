@@ -105,6 +105,9 @@ namespace Qalam.Infrastructure
                 });
                 c.EnableAnnotations();
 
+                // Nested controller types share short names (e.g. multiple *Controller+RespondBody); disambiguate to avoid schemaId collisions while keeping clean generic names.
+                c.CustomSchemaIds(BuildSchemaId);
+
                 // Same route + verb with different Content-Type (e.g. AddChild JSON vs multipart) breaks OpenAPI unless resolved.
                 c.ResolveConflictingActions(apiDescriptions =>
                 {
@@ -184,6 +187,21 @@ namespace Qalam.Infrastructure
             });
 
             return services;
+        }
+
+        // Produces unique OpenAPI schemaIds: clean generic names (ResponseOfStudentDto) with
+        // namespace-qualified base names so same-short-name types (e.g. two *Controller+RespondBody,
+        // or same-named DTOs in different namespaces) never collide and fail document generation.
+        private static string BuildSchemaId(Type type)
+        {
+            if (type.IsGenericType)
+            {
+                var baseName = type.Name.Substring(0, type.Name.IndexOf('`'));
+                var argNames = string.Join("And", type.GetGenericArguments().Select(BuildSchemaId));
+                return $"{baseName}Of{argNames}";
+            }
+
+            return (type.FullName ?? type.Name).Replace("+", ".");
         }
     }
 }

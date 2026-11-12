@@ -197,10 +197,20 @@ public class XApiStatementBuilder : IXApiStatementBuilder
     {
         if (!string.IsNullOrEmpty(identityNumber))
         {
+            // xAPI allows exactly one inverse-functional identifier. NELC matches learners by
+            // email, so use mbox when available; the national ID stays as the actor name.
+            if (!string.IsNullOrEmpty(user.Email))
+            {
+                return new XApiActor
+                {
+                    Name = identityNumber,
+                    Mbox = $"mailto:{user.Email}"
+                };
+            }
+
             return new XApiActor
             {
                 Name = identityNumber,
-                Mbox = !string.IsNullOrEmpty(user.Email) ? $"mailto:{user.Email}" : null,
                 Account = new XApiAccount
                 {
                     HomePage = Settings.PlatformIri,

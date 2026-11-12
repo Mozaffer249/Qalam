@@ -148,6 +148,7 @@ public class AdminLrsController : AppControllerBase
         if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key) || string.IsNullOrEmpty(secret))
             return Ok(new { success = false, error = "LrsCredentials incomplete (endpoint/key/secret).", endpoint, key });
 
+        // xAPI allows exactly one inverse-functional identifier: mbox (email) when provided, else account.
         object actor = string.IsNullOrEmpty(email)
             ? new
             {
@@ -159,8 +160,7 @@ public class AdminLrsController : AppControllerBase
             {
                 objectType = "Agent",
                 name = nationalId,
-                mbox = $"mailto:{email}",
-                account = new { homePage = "https://qalam.net.sa", name = nationalId }
+                mbox = $"mailto:{email}"
             };
 
         var statement = new
