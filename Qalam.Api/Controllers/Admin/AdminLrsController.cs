@@ -127,7 +127,8 @@ public class AdminLrsController : AppControllerBase
         [FromServices] ApplicationDBContext db,
         [FromQuery] string nationalId = "1066181346",
         [FromQuery] string courseId = "6009",
-        [FromQuery] string verb = "attended")
+        [FromQuery] string verb = "attended",
+        [FromQuery] string? email = null)
     {
         var row = await db.Set<SystemSetting>().AsNoTracking()
             .FirstOrDefaultAsync(s => s.Key == "LrsCredentials");
@@ -147,14 +148,24 @@ public class AdminLrsController : AppControllerBase
         if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key) || string.IsNullOrEmpty(secret))
             return Ok(new { success = false, error = "LrsCredentials incomplete (endpoint/key/secret).", endpoint, key });
 
-        var statement = new
-        {
-            actor = new
+        object actor = string.IsNullOrEmpty(email)
+            ? new
             {
                 objectType = "Agent",
                 name = nationalId,
                 account = new { homePage = "https://qalam.net.sa", name = nationalId }
-            },
+            }
+            : new
+            {
+                objectType = "Agent",
+                name = nationalId,
+                mbox = $"mailto:{email}",
+                account = new { homePage = "https://qalam.net.sa", name = nationalId }
+            };
+
+        var statement = new
+        {
+            actor,
             verb = new
             {
                 id = $"http://adlnet.gov/expapi/verbs/{verb}",
