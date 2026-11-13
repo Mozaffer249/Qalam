@@ -73,12 +73,12 @@ public abstract class RabbitMqConsumerBase : BackgroundService
                 backoff = MinBackoff;
                 _logger.LogInformation("{Consumer} connected and listening", ConsumerName);
 
-                await WaitUntilDisconnectedAsync(connection, stoppingToken);
+                await WaitUntilUnhealthyAsync(connection, channel, stoppingToken);
 
                 if (stoppingToken.IsCancellationRequested)
                     break;
 
-                _logger.LogWarning("{Consumer} RabbitMQ connection lost; will reconnect", ConsumerName);
+                _logger.LogWarning("{Consumer} RabbitMQ connection/channel lost; will reconnect", ConsumerName);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -116,16 +116,18 @@ public abstract class RabbitMqConsumerBase : BackgroundService
         _logger.LogInformation("{Consumer} stopping...", ConsumerName);
     }
 
-    private async Task WaitUntilDisconnectedAsync(IConnection connection, CancellationToken stoppingToken)
+    private async Task WaitUntilUnhealthyAsync(IConnection connection, IChannel channel, CancellationToken stoppingToken)
     {
-        // Poll IsOpen so AutomaticRecovery can restore a brief blip without tearing down
-        // the consumer. Only full-reconnect after sustained closed state.
+        // Poll both the connection and the channel so AutomaticRecovery can restore a brief blip
+        // without tearing down the consumer, but a channel that dies on its own (e.g. an exception
+        // escaping a message handler during a DB outage) still triggers a full reconnect+resubscribe
+        // instead of silently leaving the queue with zero consumers.
         var consecutiveClosed = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
             await Task.Delay(OpenPollInterval, stoppingToken);
 
-            if (connection.IsOpen)
+            if (connection.IsOpen && channel.IsOpen)
             {
                 consecutiveClosed = 0;
                 continue;

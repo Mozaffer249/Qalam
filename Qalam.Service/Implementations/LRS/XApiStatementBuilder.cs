@@ -2,15 +2,22 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Qalam.Data.DTOs.LRS;
-using Qalam.Data.Entity.Common.Enums;
 using Qalam.Data.Entity.Course;
 using Qalam.Data.Entity.Identity;
 using Qalam.Data.Helpers;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations.LRS.Building;
 
 namespace Qalam.Service.Implementations.LRS;
 
+/// <summary>
+/// Thin orchestrator: composes each NELC statement from the reusable builders in
+/// <c>LRS/Building/</c> (actor, activity, context, extensions, duration, id). The NELC validator
+/// rules live in those helpers — CRS002 (no contextActivities on course objects) in
+/// <see cref="NelcContextFactory"/>, CRS004 (ISO-8601 duration) in <see cref="XApiDuration"/>,
+/// SEQ003 (deterministic ids) in <see cref="XApiStatementId"/>.
+/// </summary>
 public class XApiStatementBuilder : IXApiStatementBuilder
 {
     private readonly ApplicationDBContext _db;
@@ -55,247 +62,112 @@ public class XApiStatementBuilder : IXApiStatementBuilder
 
     public XApiStatement BuildRegistered(User student, Course course, Enrollment enrollment, User? teacher, string? identityNumber = null)
     {
-        var ctx = BuildContext(teacher, course);
-        ctx.Extensions ??= new Dictionary<string, object>();
-        ctx.Extensions[NelcExtensions.LearnerFullName] = $"{student.FirstName} {student.LastName}".Trim();
-        ctx.Extensions[NelcExtensions.LmsUrl] = Settings.PlatformIri;
-        ctx.Extensions[NelcExtensions.ProgramUrl] = $"{Settings.PlatformIri}/courses/{course.Id}";
-        ctx.Extensions[NelcExtensions.Platform] = new Dictionary<string, string>
-        {
-            ["ar-SA"] = Settings.PlatformNameAr,
-            ["en-US"] = Settings.PlatformNameEn
-        };
+        var totalMinutes = enrollment.CourseSchedules?.Sum(cs => cs.DurationMinutes) ?? 0;
+        var extensions = NelcExtensionsFactory.Registration(Settings, course, XApiDuration.FromMinutes(totalMinutes));
 
-        if (!string.IsNullOrEmpty(student.PhoneNumber))
-            ctx.Extensions[NelcExtensions.LearnerMobileNo] = student.PhoneNumber;
-        if (!string.IsNullOrEmpty(student.Nationality))
-            ctx.Extensions[NelcExtensions.LearnerNationality] = student.Nationality;
-
-        return new XApiStatement
-        {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Registered, "registered"),
-            Object = BuildCourseObject(course),
-            Context = ctx,
-            Timestamp = DateTime.UtcNow.ToString("o")
-        };
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Registered, "registered"),
+            NelcActivityFactory.Course(Settings, course),
+            NelcContextFactory.Course(Settings, teacher, extensions),
+            result: null);
     }
 
-    public XApiStatement BuildSessionLaunched(User student, CourseSchedule schedule, Course course, string? identityNumber = null)
+    public XApiStatement BuildInitialized(User student, Course course, User? teacher, string? identityNumber = null)
     {
-        return new XApiStatement
-        {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Initialized, "initialized"),
-            Object = BuildSessionObject(schedule, course),
-            Context = BuildContextWithParentCourse(course),
-            Timestamp = DateTime.UtcNow.ToString("o")
-        };
-    }
-
-    public XApiStatement BuildSessionAttended(User student, CourseSchedule schedule, Course course, string? identityNumber = null)
-    {
-        var result = new XApiResult { Completion = true };
-
-        if (schedule.StartedAt.HasValue && schedule.EndedAt.HasValue)
-        {
-            var duration = schedule.EndedAt.Value - schedule.StartedAt.Value;
-            result.Duration = $"PT{(int)duration.TotalMinutes}M";
-        }
-        else if (schedule.DurationMinutes > 0)
-        {
-            result.Duration = $"PT{schedule.DurationMinutes}M";
-        }
-
-        return new XApiStatement
-        {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Attended, "attended"),
-            Object = BuildSessionObject(schedule, course),
-            Result = result,
-            Context = BuildContextWithParentCourse(course),
-            Timestamp = DateTime.UtcNow.ToString("o")
-        };
-    }
-
-    public XApiStatement BuildSessionCompleted(User student, CourseSchedule schedule, Course course, User? teacher, SessionAttendanceStatus? attendance, string? identityNumber = null)
-    {
-        var stmt = new XApiStatement
-        {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed"),
-            Object = BuildSessionObject(schedule, course),
-            Context = BuildContext(teacher, course),
-            Timestamp = DateTime.UtcNow.ToString("o"),
-            Result = new XApiResult
-            {
-                Completion = attendance == SessionAttendanceStatus.Present,
-                Success = attendance == SessionAttendanceStatus.Present
-            }
-        };
-
-        if (schedule.StartedAt.HasValue && schedule.EndedAt.HasValue)
-        {
-            var duration = schedule.EndedAt.Value - schedule.StartedAt.Value;
-            stmt.Result.Duration = $"PT{(int)duration.TotalMinutes}M";
-        }
-
-        return stmt;
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Initialized, "initialized"),
+            NelcActivityFactory.Course(Settings, course),
+            NelcContextFactory.Course(Settings, teacher, NelcExtensionsFactory.Platform(Settings)),
+            result: null);
     }
 
     public XApiStatement BuildProgressUpdated(User student, Course course, Enrollment enrollment, int completedSessions, int totalSessions, string? identityNumber = null)
     {
-        var scaled = totalSessions > 0 ? (decimal)completedSessions / totalSessions : 0m;
+        var scaled = totalSessions > 0 ? Math.Round((decimal)completedSessions / totalSessions, 4) : 0m;
+        var result = new XApiResult
+        {
+            Score = new XApiScore { Scaled = scaled },
+            Completion = completedSessions >= totalSessions
+        };
+
+        // Each distinct progress point is a distinct statement, so the completed count joins the id.
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Progressed, "progressed"),
+            NelcActivityFactory.Course(Settings, course),
+            NelcContextFactory.Course(Settings),
+            result,
+            idDiscriminator: completedSessions.ToString());
+    }
+
+    public XApiStatement BuildCourseCompleted(User student, Course course, Enrollment enrollment, string? identityNumber = null)
+    {
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Completed, "completed"),
+            NelcActivityFactory.Course(Settings, course),
+            NelcContextFactory.Course(Settings),
+            result: null);
+    }
+
+    public XApiStatement BuildRated(User student, Course course, int rating, string? feedback, string? identityNumber = null)
+    {
+        var result = new XApiResult
+        {
+            Score = new XApiScore
+            {
+                Scaled = Math.Round(rating / 5m, 4),
+                Raw = rating,
+                Min = 0,
+                Max = 5
+            },
+            Response = string.IsNullOrWhiteSpace(feedback) ? null : feedback
+        };
+
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Rated, "rated"),
+            NelcActivityFactory.Course(Settings, course),
+            NelcContextFactory.Course(Settings),
+            result);
+    }
+
+    public XApiStatement BuildCourseEarned(User student, Course course, Enrollment enrollment, string? identityNumber = null)
+    {
+        var extensions = NelcExtensionsFactory.Certificate(Settings, enrollment.Id);
+
+        return Compose(
+            XApiActorFactory.Agent(Settings, student, identityNumber),
+            XApiVerbs.Create(XApiVerbs.Earned, "earned"),
+            NelcActivityFactory.Certificate(Settings, course, enrollment.Id),
+            NelcContextFactory.Certificate(Settings, course, extensions),
+            result: null);
+    }
+
+    private XApiStatement Compose(
+        XApiActor actor,
+        XApiVerb verb,
+        XApiObject @object,
+        XApiContext context,
+        XApiResult? result,
+        string? idDiscriminator = null)
+    {
+        var learner = actor.Name ?? actor.Mbox ?? actor.Account?.Name ?? string.Empty;
+        var id = idDiscriminator == null
+            ? XApiStatementId.Deterministic(Settings.PlatformIri, learner, verb.Id, @object.Id)
+            : XApiStatementId.Deterministic(Settings.PlatformIri, learner, verb.Id, @object.Id, idDiscriminator);
 
         return new XApiStatement
         {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Progressed, "progressed"),
-            Object = BuildCourseObject(course),
-            Result = new XApiResult
-            {
-                Score = new XApiScore
-                {
-                    Scaled = Math.Round(scaled, 4),
-                    Raw = completedSessions,
-                    Min = 0,
-                    Max = totalSessions
-                },
-                Completion = completedSessions >= totalSessions
-            },
-            Context = BuildContextWithParentCourse(course),
+            Id = id,
+            Actor = actor,
+            Verb = verb,
+            Object = @object,
+            Result = result,
+            Context = context,
             Timestamp = DateTime.UtcNow.ToString("o")
-        };
-    }
-
-    public XApiStatement BuildCourseCompleted(User student, Course course, Enrollment enrollment, User? teacher = null, string? identityNumber = null)
-    {
-        var stmt = new XApiStatement
-        {
-            Actor = BuildActor(student, identityNumber),
-            Verb = XApiVerbs.Create(XApiVerbs.Completed, "completed"),
-            Object = BuildCourseObject(course),
-            Context = BuildContext(teacher, course),
-            Result = new XApiResult
-            {
-                Completion = true,
-                Success = true
-            },
-            Timestamp = DateTime.UtcNow.ToString("o")
-        };
-
-        if (enrollment.CreatedAt != default && enrollment.CompletedAt.HasValue)
-        {
-            var duration = enrollment.CompletedAt.Value - enrollment.CreatedAt;
-            stmt.Result.Duration = $"P{(int)duration.TotalDays}D";
-        }
-
-        return stmt;
-    }
-
-    private XApiActor BuildActor(User user, string? identityNumber = null)
-    {
-        if (!string.IsNullOrEmpty(identityNumber))
-        {
-            // xAPI allows exactly one inverse-functional identifier. NELC matches learners by
-            // email, so use mbox when available; the national ID stays as the actor name.
-            if (!string.IsNullOrEmpty(user.Email))
-            {
-                return new XApiActor
-                {
-                    Name = identityNumber,
-                    Mbox = $"mailto:{user.Email}"
-                };
-            }
-
-            return new XApiActor
-            {
-                Name = identityNumber,
-                Account = new XApiAccount
-                {
-                    HomePage = Settings.PlatformIri,
-                    Name = identityNumber
-                }
-            };
-        }
-
-        return new XApiActor
-        {
-            Name = user.Email ?? $"{user.FirstName} {user.LastName}".Trim(),
-            Mbox = !string.IsNullOrEmpty(user.Email) ? $"mailto:{user.Email}" : null,
-            Account = string.IsNullOrEmpty(user.Email)
-                ? new XApiAccount
-                {
-                    HomePage = Settings.PlatformIri,
-                    Name = $"user-{user.Id}"
-                }
-                : null
-        };
-    }
-
-    private XApiObject BuildCourseObject(Course course)
-    {
-        return new XApiObject
-        {
-            Id = $"{Settings.PlatformIri}/course/{course.Id}",
-            Definition = new XApiActivityDefinition
-            {
-                Type = XApiActivityTypes.Course,
-                Name = new Dictionary<string, string> { ["ar-SA"] = course.Title }
-            }
-        };
-    }
-
-    private XApiObject BuildSessionObject(CourseSchedule schedule, Course course)
-    {
-        return new XApiObject
-        {
-            Id = $"{Settings.PlatformIri}/course/{course.Id}/session/{schedule.Id}",
-            Definition = new XApiActivityDefinition
-            {
-                Type = XApiActivityTypes.VirtualClassroom,
-                Name = new Dictionary<string, string>
-                {
-                    ["ar-SA"] = $"{course.Title} - جلسة {schedule.Date:yyyy-MM-dd}"
-                }
-            }
-        };
-    }
-
-    private XApiContext BuildContext(User? teacher, Course? course)
-    {
-        var ctx = new XApiContext
-        {
-            Platform = !string.IsNullOrEmpty(Settings.PlatformKey) ? Settings.PlatformKey : Settings.PlatformIri,
-            Language = "ar-SA"
-        };
-
-        if (teacher != null)
-        {
-            ctx.Instructor = BuildActor(teacher);
-        }
-
-        if (course != null)
-        {
-            ctx.ContextActivities = new XApiContextActivities
-            {
-                Grouping = new List<XApiObject> { BuildCourseObject(course) }
-            };
-        }
-
-        return ctx;
-    }
-
-    private XApiContext BuildContextWithParentCourse(Course course)
-    {
-        return new XApiContext
-        {
-            Platform = !string.IsNullOrEmpty(Settings.PlatformKey) ? Settings.PlatformKey : Settings.PlatformIri,
-            Language = "ar-SA",
-            ContextActivities = new XApiContextActivities
-            {
-                Parent = new List<XApiObject> { BuildCourseObject(course) }
-            }
         };
     }
 }

@@ -40,52 +40,48 @@ The consumer uses a separate `NelcLrs` named `HttpClient` (registered in `Qalam.
 
 ## Tracked events (verbs)
 
-| Trigger | Verb IRI | Method |
-|---------|----------|--------|
-| Enrollment activated (payment confirmed) | `http://adlnet.gov/expapi/verbs/registered` | `DispatchEnrollmentActivatedAsync` |
-| Session launched (session starts) | `http://adlnet.gov/expapi/verbs/initialized` | `DispatchSessionLaunchedAsync` |
-| Student marked as attended | `http://adlnet.gov/expapi/verbs/attended` | `DispatchStudentAttendedAsync` |
-| Session completed | `http://adlnet.gov/expapi/verbs/completed` (activity=session) | `DispatchSessionCompletedAsync` |
-| Progress updated after each session | `http://adlnet.gov/expapi/verbs/progressed` | `DispatchProgressUpdatedAsync` |
-| Course fully completed | `http://adlnet.gov/expapi/verbs/completed` (activity=course) | `DispatchCourseCompletedAsync` |
+Qalam emits a **course-level** NELC journey (NELC's content verbs — watched/attempted/lesson/module — are deferred until a video/content feature exists). Every statement's actor is `{ name: nationalId, mbox: mailto:email }` (single IFI), every object-is-course statement carries **no** `contextActivities` (NELC rule CRS002), durations are full ISO 8601 `PT{H}H{M}M{S}S` (CRS004), and ids are deterministic so re-dispatch is idempotent (SEQ003).
+
+| Trigger | Verb IRI | Object | Method |
+|---------|----------|--------|--------|
+| Enrollment activated (payment confirmed) | `http://adlnet.gov/expapi/verbs/registered` | course | `DispatchEnrollmentActivatedAsync` |
+| Enrollment activated (payment confirmed) | `http://adlnet.gov/expapi/verbs/initialized` | course | `DispatchEnrollmentActivatedAsync` |
+| Progress updated after each session | `http://adlnet.gov/expapi/verbs/progressed` | course | `DispatchProgressUpdatedAsync` |
+| Course fully completed | `http://adlnet.gov/expapi/verbs/completed` | course | `DispatchCourseCompletedAsync` |
+| Course fully completed | `http://id.tincanapi.com/verb/earned` | certificate | `DispatchCourseCompletedAsync` |
+| Student submits a review | `http://id.tincanapi.com/verb/rated` | course | `DispatchStudentRatedAsync` |
 
 ### Who calls the dispatch service
 
 | Service | Events dispatched |
 |---------|------------------|
-| `SessionLifecycleHelper` | session-launched, session-completed, student-attended |
-| `EnrollmentCompletionService` | course-completed, progress-updated |
-| `PaymentConfirmationService` | enrollment-activated (registered) |
-| `AdminSessionActionService` | student-attended (admin-side mark) |
-| `SetSessionAttendanceCommandHandler` | student-attended (teacher-side mark) |
-| `SessionPresenceService` | student-attended (presence trigger) |
+| `PaymentConfirmationService` | enrollment-activated → registered + initialized |
+| `EnrollmentCompletionService` | course-completed → completed + earned |
+| `SetSessionAttendanceCommandHandler` / `AdminSessionActionService` | progress-updated → progressed |
+| `SessionReviewService` | rated (on student review submission) |
+
+`ReplayFullJourneyAsync` (admin manual dispatch) replays the whole sequence in order: registered → initialized → progressed → completed → earned → rated.
 
 ---
 
 ## xAPI statement structure
 
-All statements use NELC-specific context extensions on the `registered` verb:
+Statements are composed from small reusable builders in `Qalam.Service/Implementations/LRS/Building/` (`XApiActorFactory`, `NelcActivityFactory`, `NelcContextFactory`, `NelcExtensionsFactory`, `XApiDuration`, `XApiStatementId`); `XApiStatementBuilder` is a thin orchestrator.
 
-| Extension key | Value |
-|---------------|-------|
-| `learnerFullName` | Student full name |
-| `lmsUrl` | Platform IRI (`LrsSettings.PlatformIri`) |
-| `programUrl` | `{PlatformIri}/courses/{courseId}` |
-| `platform` | `{ "ar-SA": PlatformNameAr, "en-US": PlatformNameEn }` |
-| `learnerMobileNo` | Student phone (if present) |
-| `learnerNationality` | Student nationality (if present) |
-
-**Actor** — when the student has a national identity number set (via `Student.IdentityNumber`), the actor uses `account: { homePage: PlatformIri, name: identityNumber }` for NELC compliance. Falls back to `mbox: mailto:{email}` when the user has an email address, or `account` with `homePage` + `name: user-{id}` as a last resort.
+**Actor** — `{ name: nationalId, mbox: mailto:{email} }` when the student has a national identity set. Falls back to `account` (homePage + nationalId) when there is no email. Exactly one inverse-functional identifier (never mbox + account together).
 
 **Object IRI**:
-- Course: `{PlatformIri}/course/{courseId}`
-- Session: `{PlatformIri}/course/{courseId}/session/{scheduleId}`
+- Course: `{PlatformIri}/course/{courseId}` (type cmi5 course)
+- Certificate: `{PlatformIri}/course/{courseId}/certificate/{enrollmentId}` (type certificate)
+
+**Context** — course-object statements carry only `platform` + `language` (+ instructor/extensions on registered/initialized), **never `contextActivities`** (CRS002). The certificate (`earned`) statement carries `contextActivities.parent = [course]`.
+
+**Registered extensions**: `duration` (ISO 8601 course total), `lms_url`, `program_url` = `{PlatformIri}/course/{courseId}`, `platform` = `{ name: { ar-SA, en-US } }`.
 
 **Result**:
-- `attended`: `completion: true`, duration as `PTnM`
-- `completed` (session): `completion` and `success` both = attendance was `Present`
-- `progressed`: score `scaled = completedSessions/totalSessions`, `raw/min/max`
-- `completed` (course): `completion: true`, `success: true`, duration as `PnD`
+- `progressed`: `score.scaled = completedSessions/totalSessions`, `completion`
+- `rated`: `score { scaled = rating/5, raw = rating, min 0, max 5 }`, `response = feedback`
+- `completed` (course) / `registered` / `initialized` / `earned`: no result
 
 ---
 

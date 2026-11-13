@@ -16,19 +16,22 @@ public class SessionReviewService : ISessionReviewService
     private readonly ITeacherRepository _teacherRepository;
     private readonly ApplicationDBContext _context;
     private readonly ILogger<SessionReviewService> _logger;
+    private readonly ILrsDispatchService? _lrsDispatch;
 
     public SessionReviewService(
         IStudentRepository studentRepository,
         ICourseScheduleRepository scheduleRepository,
         ITeacherRepository teacherRepository,
         ApplicationDBContext context,
-        ILogger<SessionReviewService> logger)
+        ILogger<SessionReviewService> logger,
+        ILrsDispatchService? lrsDispatch = null)
     {
         _studentRepository = studentRepository;
         _scheduleRepository = scheduleRepository;
         _teacherRepository = teacherRepository;
         _context = context;
         _logger = logger;
+        _lrsDispatch = lrsDispatch;
     }
 
     public async Task<(bool Ok, string Message, bool Forbidden, bool NotFound)> SubmitStudentReviewAsync(
@@ -87,6 +90,20 @@ public class SessionReviewService : ISessionReviewService
         _logger.LogInformation(
             "Student {StudentId} reviewed CourseSchedule {ScheduleId} for teacher {TeacherId}.",
             student.Id, courseScheduleId, teacherId.Value);
+
+        if (_lrsDispatch != null)
+        {
+            try
+            {
+                await _lrsDispatch.DispatchStudentRatedAsync(student.Id, courseScheduleId, rating, trimmed, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to dispatch LRS rated for Student {StudentId}, CourseSchedule {ScheduleId}",
+                    student.Id, courseScheduleId);
+            }
+        }
 
         return (true, "Review submitted.", false, false);
     }

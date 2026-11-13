@@ -19,7 +19,6 @@ public class SessionLifecycleHelper : ISessionLifecycleService
     private readonly IEnrollmentCompletionService _enrollmentCompletion;
     private readonly ITeacherEarningService _teacherEarning;
     private readonly ISessionComplaintService _sessionComplaints;
-    private readonly ILrsDispatchService _lrsDispatch;
     private readonly ILogger<SessionLifecycleHelper> _logger;
     private readonly ISessionPolicyService? _sessionPolicy;
 
@@ -31,7 +30,6 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         IEnrollmentCompletionService enrollmentCompletion,
         ITeacherEarningService teacherEarning,
         ISessionComplaintService sessionComplaints,
-        ILrsDispatchService lrsDispatch,
         ILogger<SessionLifecycleHelper> logger,
         ISessionPolicyService? sessionPolicy = null)
     {
@@ -43,7 +41,6 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         _enrollmentCompletion = enrollmentCompletion;
         _teacherEarning = teacherEarning;
         _sessionComplaints = sessionComplaints;
-        _lrsDispatch = lrsDispatch;
         _logger = logger;
     }
 
@@ -155,17 +152,6 @@ public class SessionLifecycleHelper : ISessionLifecycleService
                 schedule.Id);
         }
 
-        try
-        {
-            await _lrsDispatch.DispatchSessionCompletedAsync(schedule, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to dispatch LRS session-completed for CourseSchedule {ScheduleId}",
-                schedule.Id);
-        }
-
         if (_sessionPolicy != null
             && schedule.Attendances.Count > 0
             && schedule.Attendances.All(a => a.Status == SessionAttendanceStatus.Absent))
@@ -246,17 +232,6 @@ public class SessionLifecycleHelper : ISessionLifecycleService
         schedule.Status = ScheduleStatus.InProgress;
         await _courseScheduleRepository.SaveChangesAsync();
         _logger.LogInformation("Marked CourseSchedule {ScheduleId} InProgress (auto-start).", schedule.Id);
-
-        try
-        {
-            await _lrsDispatch.DispatchSessionLaunchedAsync(schedule, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Failed to dispatch LRS session-launched for CourseSchedule {ScheduleId}",
-                schedule.Id);
-        }
     }
 
     private async Task<TeacherEarningLineStatus> ResolveAccrualStatusAsync(

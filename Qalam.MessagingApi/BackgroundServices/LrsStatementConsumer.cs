@@ -64,76 +64,7 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
 
         var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += async (_, ea) =>
-        {
-            var retryCount = GetRetryCount(ea.BasicProperties);
-            LrsStatementMessage? message = null;
-
-            try
-            {
-                var body = Encoding.UTF8.GetString(ea.Body.ToArray());
-                message = JsonSerializer.Deserialize<LrsStatementMessage>(body);
-
-                if (message == null || string.IsNullOrEmpty(message.StatementJson))
-                {
-                    _logger.LogWarning("Discarding null/invalid LRS payload to DLQ");
-                    await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties, "Invalid or null LRS payload");
-                    await channel.BasicAckAsync(ea.DeliveryTag, false);
-                    return;
-                }
-
-                var result = await SendToLrsAsync(message.StatementJson, stoppingToken);
-
-                if (result.Success)
-                {
-                    _logger.LogInformation(
-                        "LRS statement sent ({StatusCode}): Verb={Verb}, Actor={Actor}, Object={Object}, Response={Response}",
-                        result.HttpStatusCode, message.Verb, message.ActorName, message.ObjectId, result.ErrorMessage);
-                    await UpdateLogAsync(message.LogId, LrsStatementStatus.Sent, (int?)result.HttpStatusCode, null);
-                    await channel.BasicAckAsync(ea.DeliveryTag, false);
-                }
-                else if (result.HttpStatusCode.HasValue && result.HttpStatusCode.Value >= 400 && result.HttpStatusCode.Value < 500)
-                {
-                    _logger.LogWarning(
-                        "LRS permanent failure ({StatusCode}), moving to DLQ: {Error}",
-                        result.HttpStatusCode, result.ErrorMessage);
-                    await UpdateLogAsync(message.LogId, LrsStatementStatus.DeadLettered, (int?)result.HttpStatusCode, result.ErrorMessage);
-                    await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties,
-                        $"HTTP {result.HttpStatusCode}: {result.ErrorMessage}");
-                    await channel.BasicAckAsync(ea.DeliveryTag, false);
-                }
-                else
-                {
-                    throw new HttpRequestException(
-                        $"LRS transient failure (HTTP {result.HttpStatusCode}): {result.ErrorMessage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "LRS consumer error (Verb={Verb}, Retry={Retry})",
-                    message?.Verb, retryCount);
-
-                var maxRetries = Math.Max(0, await LoadMaxRetriesAsync());
-                var payload = ea.Body.ToArray();
-
-                if (retryCount >= maxRetries)
-                {
-                    _logger.LogWarning(
-                        "LRS max retries reached ({Retry}/{Max}), moving to DLQ",
-                        retryCount, maxRetries);
-                    await UpdateLogAsync(message?.LogId, LrsStatementStatus.DeadLettered, null, ex.Message);
-                    await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
-                    await channel.BasicAckAsync(ea.DeliveryTag, false);
-                }
-                else
-                {
-                    await UpdateLogAsync(message?.LogId, LrsStatementStatus.Failed, null, ex.Message, retryCount + 1);
-                    await RepublishForRetryAsync(payload, retryCount + 1);
-                    await channel.BasicAckAsync(ea.DeliveryTag, false);
-                }
-            }
-        };
+        consumer.ReceivedAsync += (_, ea) => HandleDeliveryAsync(channel, ea, stoppingToken);
 
         await channel.BasicConsumeAsync(
             queue: Settings.LrsQueueName,
@@ -144,6 +75,93 @@ public class LrsStatementConsumer : RabbitMqConsumerBase
         _logger.LogInformation(
             "LrsStatementConsumer listening on queue: {Queue} (DLQ: {Dlq}, MaxRetries: {MaxRetries})",
             Settings.LrsQueueName, Settings.LrsDeadLetterQueueName, 3);
+    }
+
+    // Outer guard: a delivery handler must never let an exception escape, or RabbitMQ closes the
+    // channel and the queue is silently left with zero consumers (statements then stick at Queued).
+    private async Task HandleDeliveryAsync(IChannel channel, BasicDeliverEventArgs ea, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await ProcessDeliveryAsync(channel, ea, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LRS consumer handler faulted; acking to protect the channel subscription");
+            try { await channel.BasicAckAsync(ea.DeliveryTag, false); }
+            catch { /* channel may be gone; the base consumer will reconnect and re-subscribe */ }
+        }
+    }
+
+    private async Task ProcessDeliveryAsync(IChannel channel, BasicDeliverEventArgs ea, CancellationToken stoppingToken)
+    {
+        var retryCount = GetRetryCount(ea.BasicProperties);
+        LrsStatementMessage? message = null;
+
+        try
+        {
+            var body = Encoding.UTF8.GetString(ea.Body.ToArray());
+            message = JsonSerializer.Deserialize<LrsStatementMessage>(body);
+
+            if (message == null || string.IsNullOrEmpty(message.StatementJson))
+            {
+                _logger.LogWarning("Discarding null/invalid LRS payload to DLQ");
+                await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties, "Invalid or null LRS payload");
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+                return;
+            }
+
+            var result = await SendToLrsAsync(message.StatementJson, stoppingToken);
+
+            if (result.Success)
+            {
+                _logger.LogInformation(
+                    "LRS statement sent ({StatusCode}): Verb={Verb}, Actor={Actor}, Object={Object}, Response={Response}",
+                    result.HttpStatusCode, message.Verb, message.ActorName, message.ObjectId, result.ErrorMessage);
+                await UpdateLogAsync(message.LogId, LrsStatementStatus.Sent, (int?)result.HttpStatusCode, null);
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            else if (result.HttpStatusCode.HasValue && result.HttpStatusCode.Value >= 400 && result.HttpStatusCode.Value < 500)
+            {
+                _logger.LogWarning(
+                    "LRS permanent failure ({StatusCode}), moving to DLQ: {Error}",
+                    result.HttpStatusCode, result.ErrorMessage);
+                await UpdateLogAsync(message.LogId, LrsStatementStatus.DeadLettered, (int?)result.HttpStatusCode, result.ErrorMessage);
+                await PublishToDlqAsync(ea.Body.ToArray(), ea.BasicProperties,
+                    $"HTTP {result.HttpStatusCode}: {result.ErrorMessage}");
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            else
+            {
+                throw new HttpRequestException(
+                    $"LRS transient failure (HTTP {result.HttpStatusCode}): {result.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "LRS consumer error (Verb={Verb}, Retry={Retry})",
+                message?.Verb, retryCount);
+
+            var maxRetries = Math.Max(0, await LoadMaxRetriesAsync());
+            var payload = ea.Body.ToArray();
+
+            if (retryCount >= maxRetries)
+            {
+                _logger.LogWarning(
+                    "LRS max retries reached ({Retry}/{Max}), moving to DLQ",
+                    retryCount, maxRetries);
+                await UpdateLogAsync(message?.LogId, LrsStatementStatus.DeadLettered, null, ex.Message);
+                await PublishToDlqAsync(payload, ea.BasicProperties, ex.Message);
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            else
+            {
+                await UpdateLogAsync(message?.LogId, LrsStatementStatus.Failed, null, ex.Message, retryCount + 1);
+                await RepublishForRetryAsync(payload, retryCount + 1);
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
+            }
+        }
     }
 
     private async Task<bool> IsEnabledInDbAsync()
