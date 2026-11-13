@@ -10,6 +10,7 @@ using Qalam.Data.Entity.Messaging;
 using Qalam.Data.Entity.Teacher;
 using Qalam.Infrastructure.context;
 using Qalam.Service.Abstracts;
+using Qalam.Service.Implementations.LRS.Building;
 
 namespace Qalam.Service.Implementations.LRS;
 
@@ -136,6 +137,8 @@ public class LrsDispatchService : ILrsDispatchService
 
     public async Task DispatchStudentRatedAsync(int studentId, int courseScheduleId, int rating, string? feedback, CancellationToken ct = default)
     {
+        // NELC requires a text response on rated; a comment-less rating is simply not reported.
+        if (string.IsNullOrWhiteSpace(feedback)) return;
         if (!await IsEnabledAsync(ct)) return;
         await _builder.LoadSettingsAsync(ct);
 
@@ -214,7 +217,8 @@ public class LrsDispatchService : ILrsDispatchService
             }
 
             var review = await _db.Set<TeacherReview>()
-                .Where(r => r.StudentId == participant.StudentId && r.SessionId != null && scheduleIds.Contains(r.SessionId.Value))
+                .Where(r => r.StudentId == participant.StudentId && r.SessionId != null && scheduleIds.Contains(r.SessionId.Value)
+                    && r.Feedback != null && r.Feedback != "")
                 .OrderByDescending(r => r.Id)
                 .FirstOrDefaultAsync(ct);
 
@@ -248,6 +252,13 @@ public class LrsDispatchService : ILrsDispatchService
 
     private async Task QueueAsync(XApiStatement stmt, string verb, User student, string objectId, string sourceType, int sourceId)
     {
+        var (ok, error) = NelcStatementValidator.Validate(stmt);
+        if (!ok)
+        {
+            _logger.LogWarning("Dropping non-compliant LRS statement (Verb={Verb}, Object={Object}): {Error}", verb, objectId, error);
+            return;
+        }
+
         var statementJson = JsonSerializer.Serialize(stmt);
         var actorIdentifier = !string.IsNullOrEmpty(student.Email) ? student.Email : $"user-{student.Id}";
 

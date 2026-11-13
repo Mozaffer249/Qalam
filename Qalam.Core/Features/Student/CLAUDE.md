@@ -17,7 +17,7 @@ Student and guardian-facing functionality: course browsing, enrollment, payments
 | Sessions | `Sessions/` | Join sessions, complaints, reviews, live tokens |
 | Teachers | `Teachers/Queries` | Browse teacher profiles, availability, reviews, certificates |
 | Children | `Commands/` | Guardian adds/updates children |
-| Identity | `Commands/` | NELC national identity (NationalId/Iqama/Passport) |
+| Identity | `Commands/` | NELC national identity (NationalId/Iqama/Passport). **Required at registration** (Flutter self-register + add-child block submit without it) — it's the xAPI `actor.name`. NationalId: 10 digits starting 1/2/4. See [docs/LRS.md](../../../docs/LRS.md). |
 
 ---
 

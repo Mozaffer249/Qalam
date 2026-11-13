@@ -45,7 +45,9 @@ public class SessionReviewService : ISessionReviewService
             return (false, "Rating must be between 1 and 5.", false, false);
 
         var trimmed = feedback?.Trim();
-        if (trimmed is { Length: > 600 })
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 15)
+            return (false, "Feedback is required and must be at least 15 characters.", false, false);
+        if (trimmed.Length > 600)
             return (false, "Feedback is too long.", false, false);
 
         var student = await _studentRepository.GetByUserIdAsync(userId);

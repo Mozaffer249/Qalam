@@ -20,4 +20,10 @@ public class LrsSettings
 
     /// <summary>Platform name in English for NELC extensions.</summary>
     public string PlatformNameEn { get; set; } = "Qalam";
+
+    /// <summary>
+    /// Public, reachable origin that serves the certificate endpoint (e.g. https://api.qalam.net.sa).
+    /// NELC fetches the certificate location, so this must be reachable. Falls back to PlatformIri when empty.
+    /// </summary>
+    public string CertificateBaseUrl { get; set; } = string.Empty;
 }

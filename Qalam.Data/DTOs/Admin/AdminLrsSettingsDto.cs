@@ -12,4 +12,5 @@ public class AdminLrsSettingsDto
     public string PlatformKey { get; set; } = string.Empty;
     public string PlatformNameAr { get; set; } = "قلم";
     public string PlatformNameEn { get; set; } = "Qalam";
+    public string CertificateBaseUrl { get; set; } = string.Empty;
 }

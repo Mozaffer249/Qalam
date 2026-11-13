@@ -211,4 +211,45 @@ public class AdminLrsController : AppControllerBase
             return Ok(new { success = false, error = ex.Message, detail = ex.ToString(), endpoint });
         }
     }
+
+    /// <summary>
+    /// Public, reachable certificate page for a completed enrollment. The <c>earned</c> xAPI statement's
+    /// jws-certificate-location points here, and NELC fetches it (CRT002 requires a 200, not a 404).
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet(Router.AdminLrsCertificate)]
+    public async Task<IActionResult> Certificate([FromServices] ApplicationDBContext db, [FromRoute] int enrollmentId)
+    {
+        var enrollment = await db.Enrollments
+            .Include(e => e.Course)
+            .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
+            .FirstOrDefaultAsync(e => e.Id == enrollmentId);
+
+        if (enrollment?.Course == null)
+            return NotFound();
+
+        var learner = enrollment.Participants
+            .Select(p => p.Student?.User)
+            .FirstOrDefault(u => u != null);
+        var learnerName = System.Net.WebUtility.HtmlEncode(
+            learner != null ? $"{learner.FirstName} {learner.LastName}".Trim() : "—");
+        var courseTitle = System.Net.WebUtility.HtmlEncode(enrollment.Course.Title);
+        var issued = (enrollment.CompletedAt ?? enrollment.ActivatedAt ?? DateTime.UtcNow).ToString("yyyy-MM-dd");
+
+        var html = $@"<!doctype html>
+<html lang=""ar"" dir=""rtl"">
+<head><meta charset=""utf-8""><title>شهادة إتمام - {courseTitle}</title></head>
+<body style=""font-family:sans-serif;text-align:center;padding:48px"">
+  <h1>شهادة إتمام</h1>
+  <p>تشهد منصة قلم بأن</p>
+  <h2>{learnerName}</h2>
+  <p>قد أتمّ بنجاح دورة</p>
+  <h3>{courseTitle}</h3>
+  <p>بتاريخ {issued}</p>
+  <p>رقم الشهادة: {enrollmentId}</p>
+</body>
+</html>";
+
+        return Content(html, "text/html; charset=utf-8");
+    }
 }

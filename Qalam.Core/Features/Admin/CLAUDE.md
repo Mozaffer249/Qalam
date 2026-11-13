@@ -14,7 +14,7 @@ Admin back-office: teacher lifecycle, finance (payouts/refunds/revenue), pricing
 | Sessions | `Sessions/` | View sessions, complaints, resolve with finance side effects (refund/hold/void/release earnings) |
 | Payments | `Payments/` | Payment reconciliation runs, payment events |
 | LegalDocuments | `LegalDocuments/` | Create/update legal docs with versioned sections, publish/unpublish |
-| LRS | `Lrs/` | NELC xAPI statement dashboard, retry failed, dispatch enrollment, settings |
+| LRS | `Lrs/` | NELC xAPI statement dashboard, retry failed, dispatch enrollment, settings (incl. `CertificateBaseUrl`), and the public `GET Api/V1/Lrs/Certificate/{enrollmentId}` certificate page the `earned` statement links to. See [docs/LRS.md](../../../docs/LRS.md). |
 | Nationalities | `Nationalities/` | CRUD nationality reference data |
 | TeacherDomainQuestions | `TeacherDomainQuestions/` | CRUD per-domain qualification questions for teacher registration |
 | TeacherRegistrationRequirements | `TeacherRegistrationRequirements/` | CRUD registration document requirements |

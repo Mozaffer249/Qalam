@@ -54,6 +54,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
                     PlatformKey = doc.TryGetProperty("platformKey", out var pk) && !string.IsNullOrEmpty(pk.GetString()) ? pk.GetString()! : _fallback.PlatformKey,
                     PlatformNameAr = doc.TryGetProperty("platformNameAr", out var pna) && !string.IsNullOrEmpty(pna.GetString()) ? pna.GetString()! : _fallback.PlatformNameAr,
                     PlatformNameEn = doc.TryGetProperty("platformNameEn", out var pne) && !string.IsNullOrEmpty(pne.GetString()) ? pne.GetString()! : _fallback.PlatformNameEn,
+                    CertificateBaseUrl = doc.TryGetProperty("certificateBaseUrl", out var cbu) && !string.IsNullOrEmpty(cbu.GetString()) ? cbu.GetString()! : _fallback.CertificateBaseUrl,
                 };
             }
         }
@@ -68,7 +69,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
         return Compose(
             XApiActorFactory.Agent(Settings, student, identityNumber),
             XApiVerbs.Create(XApiVerbs.Registered, "registered"),
-            NelcActivityFactory.Course(Settings, course),
+            NelcActivityFactory.Course(Settings, course, includeDescription: true),
             NelcContextFactory.Course(Settings, teacher, extensions),
             result: null);
     }
@@ -136,7 +137,7 @@ public class XApiStatementBuilder : IXApiStatementBuilder
 
     public XApiStatement BuildCourseEarned(User student, Course course, Enrollment enrollment, string? identityNumber = null)
     {
-        var extensions = NelcExtensionsFactory.Certificate(Settings, enrollment.Id);
+        var extensions = NelcExtensionsFactory.Certificate(Settings, enrollment.Id, Settings.CertificateBaseUrl);
 
         return Compose(
             XApiActorFactory.Agent(Settings, student, identityNumber),

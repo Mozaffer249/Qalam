@@ -34,4 +34,17 @@ public static class XApiActorFactory
                 : null
         };
     }
+
+    /// <summary>
+    /// The teacher/instructor agent on NELC context: real display name + mbox (never the email as name).
+    /// </summary>
+    public static XApiActor Instructor(User teacher)
+    {
+        var fullName = $"{teacher.FirstName} {teacher.LastName}".Trim();
+        return new XApiActor
+        {
+            Name = string.IsNullOrWhiteSpace(fullName) ? teacher.Email : fullName,
+            Mbox = !string.IsNullOrEmpty(teacher.Email) ? $"mailto:{teacher.Email}" : null
+        };
+    }
 }

@@ -13,7 +13,9 @@ public static class NelcActivityFactory
     public static string CourseId(LrsSettings settings, Course course) =>
         $"{settings.PlatformIri}/course/{course.Id}";
 
-    public static XApiObject Course(LrsSettings settings, Course course)
+    // includeDescription is true ONLY for the registered statement — NELC rejects a course
+    // description on any other course-level statement (CTX001 / CRS008).
+    public static XApiObject Course(LrsSettings settings, Course course, bool includeDescription = false)
     {
         var definition = new XApiActivityDefinition
         {
@@ -21,8 +23,12 @@ public static class NelcActivityFactory
             Name = new Dictionary<string, string> { ["ar-SA"] = course.Title, ["en-US"] = course.Title }
         };
 
-        if (!string.IsNullOrWhiteSpace(course.Description))
-            definition.Description = new Dictionary<string, string> { ["ar-SA"] = course.Description! };
+        if (includeDescription && !string.IsNullOrWhiteSpace(course.Description))
+            definition.Description = new Dictionary<string, string>
+            {
+                ["ar-SA"] = course.Description!,
+                ["en-US"] = course.Description!
+            };
 
         return new XApiObject { Id = CourseId(settings, course), Definition = definition };
     }

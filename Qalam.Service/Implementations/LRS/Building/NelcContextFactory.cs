@@ -25,7 +25,7 @@ public static class NelcContextFactory
         {
             Platform = PlatformValue(settings),
             Language = "ar-SA",
-            Instructor = instructor != null ? XApiActorFactory.Agent(settings, instructor) : null,
+            Instructor = instructor != null ? XApiActorFactory.Instructor(instructor) : null,
             Extensions = extensions
         };
     }

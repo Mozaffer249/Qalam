@@ -85,6 +85,37 @@ Statements are composed from small reusable builders in `Qalam.Service/Implement
 
 ---
 
+## NELC validator rules (enforced by `Building/NelcStatementValidator`, run before queuing)
+
+- **Actor**: exactly one inverse-functional identifier — `mbox: mailto:{email}` with `name = national ID` (account fallback only when no email). Never mbox + account together.
+- **Course description** (`definition.description`): only on the `registered` statement; omitted everywhere else (CTX001 / CRS008).
+- **contextActivities**: course-object statements carry none (CRS002); only `earned` (object = certificate) has `parent: [course]`.
+- **Durations**: full ISO-8601 `PT{H}H{M}M{S}S` (CRS004).
+- **Instructor**: `context.instructor = { name: "<teacher full name>", mbox }` (real name, not email).
+- **`rated`**: must carry a non-empty `result.response` (ASM004). A rating with no comment is simply not reported.
+- **Statement id**: deterministic per (platform, learner, verb, object) so re-dispatch is idempotent (SEQ003).
+
+## Certificate endpoint (`earned` reachability — CRT002)
+
+NELC fetches the `earned` statement's `jws-certificate-location`, so it must return 200. Served by
+`[AllowAnonymous] GET /Api/V1/Lrs/Certificate/{enrollmentId}` (minimal HTML certificate). The location is
+`{CertificateBaseUrl}/Api/V1/Lrs/Certificate/{enrollmentId}`; set **`CertificateBaseUrl`** (LRS settings,
+admin-managed) to the reachable public API origin (e.g. `https://api-staging.qalam.net.sa`) — if empty it
+falls back to `PlatformIri` and will 404.
+
+## Required learner data (enforced at the source)
+
+- **National identity** — required at registration (Flutter self-register + add-child block submit without it;
+  national ID is the xAPI `actor.name`).
+- **Review feedback** — required, minimum 15 characters (Flutter review form gates the Send button;
+  `SubmitStudentSessionReviewCommandValidator` + `SessionReviewService` enforce server-side), so every
+  `rated` statement has a text response.
+
+**Deferred** (no backing data until a video/quiz/content feature exists): `watched` (video), `attempted`
+(quiz), `completed`→lesson/module.
+
+---
+
 ## Configuration (`appsettings.json` / environment)
 
 Section name: **`LrsSettings`**
@@ -101,6 +132,7 @@ Section name: **`LrsSettings`**
 | `PlatformKey` | — | NELC-assigned platform identifier (e.g. `QLAM-001`) |
 | `PlatformNameAr` | `قلم` | Arabic name in NELC context extensions |
 | `PlatformNameEn` | `Qalam` | English name in NELC context extensions |
+| `CertificateBaseUrl` | — | Reachable public API origin serving the certificate endpoint (falls back to `PlatformIri`). Required for `earned`/CRT002. |
 
 Docker Compose passes these as environment variables prefixed `LrsSettings__` (double underscore = nested key in .NET).
 

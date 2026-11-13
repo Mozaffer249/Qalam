@@ -38,12 +38,18 @@ public static class NelcExtensionsFactory
     /// <summary>Extensions carrying only the platform name (used by <c>initialized</c>).</summary>
     public static Dictionary<string, object> Platform(LrsSettings s) => PlatformName(s);
 
-    /// <summary>Extensions for the <c>earned</c> statement: certificate location + platform name.</summary>
-    public static Dictionary<string, object> Certificate(LrsSettings s, int enrollmentId)
+    /// <summary>
+    /// Extensions for the <c>earned</c> statement: certificate location + platform name. The location
+    /// must be a reachable URL (NELC fetches it — CRT002), so it points at the public certificate endpoint.
+    /// </summary>
+    public static Dictionary<string, object> Certificate(LrsSettings s, int enrollmentId, string certificateBaseUrl)
     {
+        var baseUrl = (string.IsNullOrWhiteSpace(certificateBaseUrl) ? s.PlatformIri : certificateBaseUrl)
+            .TrimEnd('/');
+
         var ext = new Dictionary<string, object>
         {
-            [NelcExtensions.CertificateLocation] = $"{s.PlatformIri}/cert/{enrollmentId}"
+            [NelcExtensions.CertificateLocation] = $"{baseUrl}/Api/V1/Lrs/Certificate/{enrollmentId}"
         };
         foreach (var kv in PlatformName(s))
             ext[kv.Key] = kv.Value;
