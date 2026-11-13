@@ -34,6 +34,7 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
     private readonly IPricingMarketResolver _marketResolver;
     private readonly IFreeSessionPolicyService _freeSessionPolicy;
     private readonly EnrollmentSettings _settings;
+    private readonly ILrsDispatchService? _lrsDispatch;
 
     public CreateIndividualEnrollmentCommandHandler(
         IStudentRepository studentRepository,
@@ -51,8 +52,10 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         IPricingMarketResolver marketResolver,
         IFreeSessionPolicyService freeSessionPolicy,
         IOptions<EnrollmentSettings> settings,
-        IStringLocalizer<SharedResources> localizer) : base(localizer)
+        IStringLocalizer<SharedResources> localizer,
+        ILrsDispatchService? lrsDispatch = null) : base(localizer)
     {
+        _lrsDispatch = lrsDispatch;
         _studentRepository = studentRepository;
         _courseRepository = courseRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -492,6 +495,17 @@ public class CreateIndividualEnrollmentCommandHandler : ResponseHandler,
         {
             await _enrollmentRepository.RollBackAsync();
             throw;
+        }
+
+        // Free enrollments activate immediately without a payment confirmation, so dispatch the
+        // LRS registered/initialized journey here (the paid path dispatches from PaymentConfirmationService).
+        if (_lrsDispatch != null && enrollment.EnrollmentStatus == EnrollmentStatus.Active)
+        {
+            try
+            {
+                await _lrsDispatch.DispatchEnrollmentActivatedAsync(enrollment, cancellationToken);
+            }
+            catch { /* best-effort; the dispatch service logs its own failures */ }
         }
 
         var payParticipantId = enrollment.Participants.FirstOrDefault()?.Id;

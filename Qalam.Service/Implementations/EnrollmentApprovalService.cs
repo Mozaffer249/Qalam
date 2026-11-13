@@ -12,15 +12,18 @@ public class EnrollmentApprovalService : IEnrollmentApprovalService
     private readonly IEnrollmentRepository _enrollmentRepository;
     private readonly ApplicationDBContext _db;
     private readonly IFreeSessionPolicyService _freeSessionPolicy;
+    private readonly ILrsDispatchService? _lrsDispatch;
 
     public EnrollmentApprovalService(
         IEnrollmentRepository enrollmentRepository,
         ApplicationDBContext db,
-        IFreeSessionPolicyService freeSessionPolicy)
+        IFreeSessionPolicyService freeSessionPolicy,
+        ILrsDispatchService? lrsDispatch = null)
     {
         _enrollmentRepository = enrollmentRepository;
         _db = db;
         _freeSessionPolicy = freeSessionPolicy;
+        _lrsDispatch = lrsDispatch;
     }
 
     public async Task<Enrollment> CreatePendingPaymentArtifactsAsync(
@@ -143,6 +146,17 @@ public class EnrollmentApprovalService : IEnrollmentApprovalService
                 approvingTeacherId,
                 domainId,
                 cancellationToken: cancellationToken);
+        }
+
+        // Free group enrollments activate immediately (no payment confirmation), so dispatch the
+        // LRS registered/initialized journey here.
+        if (_lrsDispatch != null && enrollment.EnrollmentStatus == EnrollmentStatus.Active)
+        {
+            try
+            {
+                await _lrsDispatch.DispatchEnrollmentActivatedAsync(enrollment, cancellationToken);
+            }
+            catch { /* best-effort; the dispatch service logs its own failures */ }
         }
 
         return enrollment;

@@ -57,20 +57,20 @@ public class LrsDispatchService : ILrsDispatchService
 
         try
         {
-            var course = enrollment.Course
-                ?? await _db.Courses.FindAsync(new object[] { enrollment.CourseId ?? 0 }, ct);
-            if (course == null) return;
+            var loaded = await LoadEnrollmentAsync(enrollment.Id, ct);
+            if (loaded?.Course == null) return;
 
-            var teacher = await ResolveTeacherUserAsync(enrollment, ct);
+            var course = loaded.Course;
+            var teacher = await ResolveTeacherUserAsync(loaded, ct);
             var courseObject = $"courses/{course.Id}";
 
-            await ForEachParticipantAsync(enrollment,
-                (student, id) => _builder.BuildRegistered(student, course, enrollment, teacher, id),
-                "registered", courseObject, enrollment.Id, ct);
+            await ForEachParticipantAsync(loaded,
+                (student, id) => _builder.BuildRegistered(student, course, loaded, teacher, id),
+                "registered", courseObject, loaded.Id, ct);
 
-            await ForEachParticipantAsync(enrollment,
+            await ForEachParticipantAsync(loaded,
                 (student, id) => _builder.BuildInitialized(student, course, teacher, id),
-                "initialized", courseObject, enrollment.Id, ct);
+                "initialized", courseObject, loaded.Id, ct);
         }
         catch (Exception ex)
         {
@@ -115,17 +115,18 @@ public class LrsDispatchService : ILrsDispatchService
 
         try
         {
-            var course = enrollment.Course
-                ?? await _db.Courses.FindAsync(new object[] { enrollment.CourseId ?? 0 }, ct);
-            if (course == null) return;
+            var loaded = await LoadEnrollmentAsync(enrollment.Id, ct);
+            if (loaded?.Course == null) return;
 
-            await ForEachParticipantAsync(enrollment,
-                (student, id) => _builder.BuildCourseCompleted(student, course, enrollment, id),
-                "completed", $"courses/{course.Id}", enrollment.Id, ct);
+            var course = loaded.Course;
 
-            await ForEachParticipantAsync(enrollment,
-                (student, id) => _builder.BuildCourseEarned(student, course, enrollment, id),
-                "earned", $"courses/{course.Id}/certificate", enrollment.Id, ct);
+            await ForEachParticipantAsync(loaded,
+                (student, id) => _builder.BuildCourseCompleted(student, course, loaded, id),
+                "completed", $"courses/{course.Id}", loaded.Id, ct);
+
+            await ForEachParticipantAsync(loaded,
+                (student, id) => _builder.BuildCourseEarned(student, course, loaded, id),
+                "earned", $"courses/{course.Id}/certificate", loaded.Id, ct);
         }
         catch (Exception ex)
         {
@@ -279,6 +280,15 @@ public class LrsDispatchService : ILrsDispatchService
         };
         await _rabbitMQ.QueueLrsStatementAsync(msg);
     }
+
+    // Self-sufficient load so a dispatch never depends on how the caller hydrated the enrollment
+    // (Participants / CourseSchedules must be present for the journey + registration duration).
+    private Task<Enrollment?> LoadEnrollmentAsync(int enrollmentId, CancellationToken ct) =>
+        _db.Enrollments
+            .Include(e => e.Course)
+            .Include(e => e.Participants)
+            .Include(e => e.CourseSchedules)
+            .FirstOrDefaultAsync(e => e.Id == enrollmentId, ct);
 
     private async Task<(User? User, string? IdentityNumber)> ResolveStudentUserAsync(int studentId, CancellationToken ct)
     {
