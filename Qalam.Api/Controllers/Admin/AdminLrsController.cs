@@ -221,7 +221,8 @@ public class AdminLrsController : AppControllerBase
     public async Task<IActionResult> Certificate([FromServices] ApplicationDBContext db, [FromRoute] int enrollmentId)
     {
         var enrollment = await db.Enrollments
-            .Include(e => e.Course)
+            .Include(e => e.Course).ThenInclude(c => c.Teacher).ThenInclude(t => t.User)
+            .Include(e => e.Course).ThenInclude(c => c.TeacherSubject).ThenInclude(ts => ts.Subject).ThenInclude(s => s.Domain)
             .Include(e => e.Participants).ThenInclude(p => p.Student).ThenInclude(s => s.User)
             .FirstOrDefaultAsync(e => e.Id == enrollmentId);
 
@@ -231,25 +232,24 @@ public class AdminLrsController : AppControllerBase
         var learner = enrollment.Participants
             .Select(p => p.Student?.User)
             .FirstOrDefault(u => u != null);
-        var learnerName = System.Net.WebUtility.HtmlEncode(
-            learner != null ? $"{learner.FirstName} {learner.LastName}".Trim() : "—");
-        var courseTitle = System.Net.WebUtility.HtmlEncode(enrollment.Course.Title);
-        var issued = (enrollment.CompletedAt ?? enrollment.ActivatedAt ?? DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var teacher = enrollment.Course.Teacher?.User;
+        var domain = enrollment.Course.Domain;
 
-        var html = $@"<!doctype html>
-<html lang=""ar"" dir=""rtl"">
-<head><meta charset=""utf-8""><title>شهادة إتمام - {courseTitle}</title></head>
-<body style=""font-family:sans-serif;text-align:center;padding:48px"">
-  <h1>شهادة إتمام</h1>
-  <p>تشهد منصة قلم بأن</p>
-  <h2>{learnerName}</h2>
-  <p>قد أتمّ بنجاح دورة</p>
-  <h3>{courseTitle}</h3>
-  <p>بتاريخ {issued}</p>
-  <p>رقم الشهادة: {enrollmentId}</p>
-</body>
-</html>";
+        var verificationUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}";
 
+        var model = new Qalam.Service.Implementations.LRS.Building.CertificateModel
+        {
+            LearnerName = learner != null ? $"{learner.FirstName} {learner.LastName}".Trim() : "—",
+            CourseTitle = enrollment.Course.Title,
+            InstructorName = teacher != null ? $"{teacher.FirstName} {teacher.LastName}".Trim() : null,
+            DomainNameAr = domain?.NameAr,
+            DomainNameEn = domain?.NameEn,
+            IssuedOn = enrollment.CompletedAt ?? enrollment.ActivatedAt ?? DateTime.UtcNow,
+            CertificateId = enrollment.Id,
+            VerificationUrl = verificationUrl,
+        };
+
+        var html = Qalam.Service.Implementations.LRS.Building.CertificateHtmlBuilder.Build(model);
         return Content(html, "text/html; charset=utf-8");
     }
 }
