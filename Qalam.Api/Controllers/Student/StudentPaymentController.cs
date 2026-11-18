@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Qalam.Api.Base;
+using Qalam.Core.Features.Student.Payments.Commands.ConfirmIapPayment;
 using Qalam.Core.Features.Student.Payments.Commands.ConfirmPayment;
+using Qalam.Core.Features.Student.Payments.Commands.CreateIapIntent;
 using Qalam.Core.Features.Student.Payments.Commands.CreatePaymentIntent;
 using Qalam.Core.Features.Student.Payments.Commands.PayEnrollmentParticipant;
 using Qalam.Core.Features.Student.Payments.Commands.PayWithWallet;
@@ -100,5 +102,29 @@ public class StudentPaymentController : AppControllerBase
     {
         var query = new GetPaymentReceiptQuery { PaymentId = paymentId };
         return NewResult(await Mediator.Send(query));
+    }
+
+    /// <summary>
+    /// Create an Apple IAP intent (maps enrollment price to an IAP tier product).
+    /// </summary>
+    [HttpPost(Router.StudentIapIntent)]
+    [ProducesResponseType(typeof(IapIntentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateIapIntent([FromBody] CreateIapIntentCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
+    }
+
+    /// <summary>
+    /// Confirm an Apple IAP after StoreKit purchase completes.
+    /// </summary>
+    [HttpPost(Router.StudentIapConfirm)]
+    [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmIapPayment([FromBody] ConfirmIapPaymentCommand command)
+    {
+        return NewResult(await Mediator.Send(command));
     }
 }

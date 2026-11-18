@@ -543,6 +543,10 @@ namespace Qalam.Data.AppMetaData
         public const string StudentPaymentById = StudentPayments + "/{paymentId:int}";
         /// <summary>Pay an enrollment participant from the wallet balance: Api/V1/Student/Payments/Wallet</summary>
         public const string StudentPayWithWallet = StudentPayments + "/Wallet";
+        /// <summary>Create an Apple IAP intent (maps price → IAP tier): Api/V1/Student/Payments/IapIntent</summary>
+        public const string StudentIapIntent = StudentPayments + "/IapIntent";
+        /// <summary>Confirm Apple IAP after StoreKit purchase: Api/V1/Student/Payments/IapConfirm</summary>
+        public const string StudentIapConfirm = StudentPayments + "/IapConfirm";
 
         /// <summary>Student wallet summary: Api/V1/Student/Wallet</summary>
         public const string StudentWallet = Rule + "Student/Wallet";

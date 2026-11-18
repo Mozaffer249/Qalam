@@ -111,6 +111,8 @@ namespace Qalam.Service
             services.AddTransient<IUserNotificationService, UserNotificationService>();
             services.AddTransient<IPaymentConfirmationService, PaymentConfirmationService>();
             services.AddTransient<IPaymentIntentService, PaymentIntentService>();
+            services.AddHttpClient("AppleIap");
+            services.AddTransient<IAppleIapValidator, AppleIapValidator>();
             services.AddTransient<IPaymentWebhookService, PaymentWebhookService>();
             services.AddTransient<IPaymentTransactionEventService, PaymentTransactionEventService>();
             services.AddTransient<IPaymentReconciliationService, PaymentReconciliationService>();

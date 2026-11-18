@@ -27,6 +27,8 @@ public class PaymentSettings
     public PaymentReconciliationSettings Reconciliation { get; set; } = new();
 
     public WalletSettings Wallet { get; set; } = new();
+
+    public AppleIapSettings AppleIap { get; set; } = new();
 }
 
 public class WalletSettings
@@ -135,4 +137,35 @@ public class StripePaymentSettings
     public string SuccessUrl { get; set; } = string.Empty;
 
     public string CancelUrl { get; set; } = string.Empty;
+}
+
+public class AppleIapSettings
+{
+    public const string ProviderName = "AppleIap";
+
+    /// <summary>App Store bundle ID (com.qalam.sa).</summary>
+    public string BundleId { get; set; } = "com.qalam.sa";
+
+    /// <summary>App Store Connect API issuer ID (UUID).</summary>
+    public string IssuerId { get; set; } = string.Empty;
+
+    /// <summary>App Store Connect API key ID.</summary>
+    public string KeyId { get; set; } = string.Empty;
+
+    /// <summary>Path to the .p8 private key file for App Store Server API.</summary>
+    public string PrivateKeyPath { get; set; } = string.Empty;
+
+    /// <summary>Environment: Production or Sandbox.</summary>
+    public string Environment { get; set; } = "Sandbox";
+
+    /// <summary>
+    /// IAP price tiers in SAR. The backend maps amountDue to the nearest ceiling tier.
+    /// </summary>
+    public List<int> Tiers { get; set; } = new()
+    {
+        10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200, 250, 300, 400, 500
+    };
+
+    /// <summary>IAP product ID prefix: com.qalam.sa.session.tier_</summary>
+    public string ProductIdPrefix { get; set; } = "com.qalam.sa.session.tier_";
 }

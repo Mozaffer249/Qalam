@@ -126,6 +126,28 @@ public class ConfirmPaymentRequestDto
     public string GivenId { get; set; } = string.Empty;
 }
 
+/// <summary>Body for creating an Apple IAP intent.</summary>
+public class CreateIapIntentRequestDto
+{
+    public int ParticipantId { get; set; }
+}
+
+/// <summary>Client payload for Apple IAP — product ID to purchase + server token.</summary>
+public class IapIntentDto
+{
+    public string IapProductId { get; set; } = string.Empty;
+    public string TransactionToken { get; set; } = string.Empty;
+    public decimal AmountSar { get; set; }
+}
+
+/// <summary>Body for confirming an Apple IAP after StoreKit purchase.</summary>
+public class ConfirmIapPaymentRequestDto
+{
+    public int ParticipantId { get; set; }
+    public string TransactionId { get; set; } = string.Empty;
+    public string TransactionToken { get; set; } = string.Empty;
+}
+
 public class EnrollmentParticipantPaymentSummaryDto
 {
     public int ParticipantId { get; set; }
