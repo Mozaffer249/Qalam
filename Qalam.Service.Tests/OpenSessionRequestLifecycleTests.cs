@@ -84,17 +84,19 @@ public class OpenSessionRequestLifecycleTests
     {
         var settings = new OpenSessionRequestSettings();
 
-        Assert.Equal(3, settings.BroadcastMinimumLeadHours);
-        Assert.Equal(2, settings.BroadcastOfferCutoffHours);
-        Assert.Equal(1, settings.BroadcastPaymentCutoffHours);
-        Assert.True(settings.BroadcastMinimumLeadHours > settings.BroadcastOfferCutoffHours);
-        Assert.True(settings.BroadcastOfferCutoffHours > settings.BroadcastPaymentCutoffHours);
+        // All lead/cutoff windows default to 0 — no time constraints out of the
+        // box. Operators dial these up per environment via appsettings/env vars.
+        Assert.Equal(0, settings.BroadcastMinimumLeadHours);
+        Assert.Equal(0, settings.BroadcastOfferCutoffHours);
+        Assert.Equal(0, settings.BroadcastPaymentCutoffHours);
+        Assert.True(settings.BroadcastMinimumLeadHours >= settings.BroadcastOfferCutoffHours);
+        Assert.True(settings.BroadcastOfferCutoffHours >= settings.BroadcastPaymentCutoffHours);
 
-        Assert.Equal(2, settings.TargetedMinimumLeadHours);
-        Assert.Equal(1, settings.TargetedOfferCutoffHours);
+        Assert.Equal(0, settings.TargetedMinimumLeadHours);
+        Assert.Equal(0, settings.TargetedOfferCutoffHours);
         Assert.Equal(0, settings.TargetedPaymentCutoffHours);
-        Assert.True(settings.TargetedMinimumLeadHours > settings.TargetedOfferCutoffHours);
-        Assert.True(settings.TargetedOfferCutoffHours > settings.TargetedPaymentCutoffHours);
+        Assert.True(settings.TargetedMinimumLeadHours >= settings.TargetedOfferCutoffHours);
+        Assert.True(settings.TargetedOfferCutoffHours >= settings.TargetedPaymentCutoffHours);
     }
 
     [Fact]

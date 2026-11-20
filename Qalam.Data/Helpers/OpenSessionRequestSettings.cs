@@ -9,22 +9,22 @@ public class OpenSessionRequestSettings
     /// <summary>Max window from publish before the request expires, regardless of session date.</summary>
     public int RequestWindowDays { get; set; } = 7;
 
-    /// <summary>Broadcast: first session must start at least this many hours from now.</summary>
+    /// <summary>Broadcast: first session must start at least this many hours from now. 0 = no lead required.</summary>
     public int BroadcastMinimumLeadHours { get; set; } = 0;
 
-    /// <summary>Broadcast: stop accepting offers this many hours before the first session.</summary>
+    /// <summary>Broadcast: stop accepting offers this many hours before the first session. 0 = up to session start.</summary>
     public int BroadcastOfferCutoffHours { get; set; } = 0;
 
-    /// <summary>Broadcast: payment deadline must end at least this many hours before the first session.</summary>
+    /// <summary>Broadcast: payment deadline must end at least this many hours before the first session. 0 = up to session start.</summary>
     public int BroadcastPaymentCutoffHours { get; set; } = 0;
 
-    /// <summary>Targeted: first session must start at least this many hours from now.</summary>
-    public int TargetedMinimumLeadHours { get; set; } = 2;
+    /// <summary>Targeted: first session must start at least this many hours from now. 0 = no lead required.</summary>
+    public int TargetedMinimumLeadHours { get; set; } = 0;
 
-    /// <summary>Targeted: stop accepting offers this many hours before the first session.</summary>
-    public int TargetedOfferCutoffHours { get; set; } = 1;
+    /// <summary>Targeted: stop accepting offers this many hours before the first session. 0 = up to session start.</summary>
+    public int TargetedOfferCutoffHours { get; set; } = 0;
 
-    /// <summary>Targeted: payment deadline must end at least this many hours before the first session (0 = pay up to session start).</summary>
+    /// <summary>Targeted: payment deadline must end at least this many hours before the first session. 0 = up to session start.</summary>
     public int TargetedPaymentCutoffHours { get; set; } = 0;
 
     /// <summary>Default offer validity when the teacher does not specify one.</summary>
