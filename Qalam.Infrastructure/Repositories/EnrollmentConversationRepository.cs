@@ -215,6 +215,8 @@ public class EnrollmentConversationRepository : GenericRepositoryAsync<Enrollmen
                 c.EnrollmentId,
                 ((c.Teacher.User != null ? c.Teacher.User.FirstName : "") + " " +
                  (c.Teacher.User != null ? c.Teacher.User.LastName : "")).Trim(),
+                ((c.StudentUser != null ? c.StudentUser.FirstName : "") + " " +
+                 (c.StudentUser != null ? c.StudentUser.LastName : "")).Trim(),
                 c.Enrollment.Course != null && c.Enrollment.Course.TeacherSubject != null
                     && c.Enrollment.Course.TeacherSubject.Subject != null
                     ? c.Enrollment.Course.TeacherSubject.Subject.NameAr

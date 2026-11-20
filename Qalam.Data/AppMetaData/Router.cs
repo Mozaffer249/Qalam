@@ -511,6 +511,9 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Availability pre-check: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/availability-check</summary>
         public const string StudentOpenSessionOfferAvailabilityCheck =
             StudentOpenSessionRequests + "/Offers/{offerId}/availability-check";
+        /// <summary>Price estimate for a targeted OSR before submission: Api/V1/Student/OpenSessionRequests/targeted-estimate</summary>
+        public const string StudentOpenSessionRequestTargetedEstimate =
+            StudentOpenSessionRequests + "/targeted-estimate";
 
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";

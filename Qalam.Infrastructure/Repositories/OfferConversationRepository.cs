@@ -284,6 +284,8 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
                 c.SessionOfferId,
                 ((c.Teacher.User != null ? c.Teacher.User.FirstName : "") + " " +
                  (c.Teacher.User != null ? c.Teacher.User.LastName : "")).Trim(),
+                ((c.OpenSessionRequest.RequestedByUser != null ? c.OpenSessionRequest.RequestedByUser.FirstName : "") + " " +
+                 (c.OpenSessionRequest.RequestedByUser != null ? c.OpenSessionRequest.RequestedByUser.LastName : "")).Trim(),
                 c.OpenSessionRequest.Subject != null
                     ? c.OpenSessionRequest.Subject.NameAr
                     : null,

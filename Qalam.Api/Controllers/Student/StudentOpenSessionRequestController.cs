@@ -15,8 +15,10 @@ using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetMyOpenSessionRe
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetOpenSessionRequestById;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOfferById;
 using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetStudentSessionOffers;
+using Qalam.Core.Features.Student.OpenSessionRequests.Queries.GetTargetedOsrEstimate;
 using Qalam.Data.AppMetaData;
 using Qalam.Data.DTOs.OpenSessionRequests;
+using Qalam.Data.DTOs.Pricing;
 using Qalam.Data.Entity.Common.Enums;
 
 namespace Qalam.Api.Controllers.Student;
@@ -285,6 +287,26 @@ public class StudentOpenSessionRequestController : AppControllerBase
     public async Task<IActionResult> GetOfferAvailabilityCheck(int offerId)
     {
         return NewResult(await Mediator.Send(new GetOfferAvailabilityCheckQuery { OfferId = offerId }));
+    }
+
+    /// <summary>
+    /// Preview the price of a targeted OSR before submission. Non-destructive —
+    /// no PricingSnapshot is created. The returned <see cref="PricingEstimateDto"/>
+    /// shows pricePerHour, totalPrice and currency so the client can display an
+    /// expected total on the review step. The authoritative snapshot is still frozen
+    /// on publish (handler in CreateOpenSessionRequest).
+    /// </summary>
+    /// <remarks>
+    /// GET Api/V1/Student/OpenSessionRequests/targeted-estimate
+    ///     ?teacherId=12&amp;domainId=1&amp;totalMinutes=120&amp;isGroup=false
+    /// </remarks>
+    [HttpGet(Router.StudentOpenSessionRequestTargetedEstimate)]
+    [ProducesResponseType(typeof(PricingEstimateDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetTargetedOsrEstimate([FromQuery] GetTargetedOsrEstimateQuery query)
+    {
+        return NewResult(await Mediator.Send(query));
     }
 
     /// <summary>

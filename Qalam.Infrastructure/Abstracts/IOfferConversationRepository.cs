@@ -89,6 +89,7 @@ public record OfferConversationListRow(
     int ConversationId,
     int? OfferId,
     string? TeacherName,
+    string? StudentName,
     string? SubjectName,
     string? LastMessageContent,
     DateTime? LastMessageAt,

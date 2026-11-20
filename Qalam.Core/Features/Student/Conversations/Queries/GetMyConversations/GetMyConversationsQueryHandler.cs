@@ -48,6 +48,7 @@ public class GetMyConversationsQueryHandler : ResponseHandler,
                 participants.Add(new ConversationParticipantDto
                 {
                     UserId = r.StudentUserId,
+                    DisplayName = r.StudentName,
                     Role = "Student"
                 });
 
@@ -79,6 +80,7 @@ public class GetMyConversationsQueryHandler : ResponseHandler,
                 participants.Add(new ConversationParticipantDto
                 {
                     UserId = r.StudentUserId,
+                    DisplayName = r.StudentName,
                     Role = "Student"
                 });
 

@@ -65,6 +65,7 @@ public record EnrollmentConversationListRow(
     int ConversationId,
     int EnrollmentId,
     string? TeacherName,
+    string? StudentName,
     string? SubjectName,
     string? LastMessageContent,
     DateTime? LastMessageAt,
