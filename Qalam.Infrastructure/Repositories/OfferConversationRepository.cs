@@ -282,6 +282,8 @@ public class OfferConversationRepository : GenericRepositoryAsync<OfferConversat
             .Select(c => new OfferConversationListRow(
                 c.Id,
                 c.SessionOfferId,
+                c.SessionRequestId,
+                c.TeacherId,
                 ((c.Teacher.User != null ? c.Teacher.User.FirstName : "") + " " +
                  (c.Teacher.User != null ? c.Teacher.User.LastName : "")).Trim(),
                 ((c.OpenSessionRequest.RequestedByUser != null ? c.OpenSessionRequest.RequestedByUser.FirstName : "") + " " +

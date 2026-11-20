@@ -62,6 +62,8 @@ public class GetMyConversationsQueryHandler : ResponseHandler,
                 LastMessageAt = r.LastMessageAt,
                 UnreadCount = r.UnreadCount,
                 OfferId = r.OfferId,
+                RequestId = r.SessionRequestId,
+                TeacherId = r.TeacherId,
                 Participants = participants
             });
         }

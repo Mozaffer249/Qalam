@@ -88,6 +88,8 @@ public record ConversationParticipantInfo(
 public record OfferConversationListRow(
     int ConversationId,
     int? OfferId,
+    int SessionRequestId,
+    int TeacherId,
     string? TeacherName,
     string? StudentName,
     string? SubjectName,
