@@ -15,7 +15,7 @@ This file is **user stories and backend entity reference**. For screens, flows, 
 |----------|-----------------|
 | **Flows, wizard screens, all backend endpoints** | **[S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md)** |
 | Targeted-teacher wizard (6 screens → `POST`) | [S2-FLOW §6](S2-FLOW-AND-ENDPOINTS.md#6-targeted-teacher-wizard-screen--endpoint-map) · publish body [§7](S2-FLOW-AND-ENDPOINTS.md#7-publish-contract) |
-| Student Flutter app (canonical) | [`apps/Qalam/`](../apps/Qalam/) — open as workspace root; wizard: `lib/features/teachers/presentation/screens/create_subscription/create_subscription_screen.dart` |
+| Student Flutter app (canonical) | Separate repo — `github.com/ahmedhantop/qalam`. Wizard: `lib/features/teachers/presentation/screens/create_subscription/create_subscription_screen.dart` |
 | Teacher inbox / offers (web) | [`apps/teacher/`](../apps/teacher/) · [TEACHER-ROLE-Scenario2.md](TEACHER-ROLE-Scenario2.md) |
 | Acceptance criteria per story | This file — §4 (student), §5 (teacher), §6 (admin) |
 
@@ -45,7 +45,7 @@ This file is **user stories and backend entity reference**. For screens, flows, 
 
 | Field | Value |
 |-------|-------|
-| **Frontend (student)** | Flutter app [`apps/Qalam/`](../apps/Qalam/) — flows & APIs: [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) |
+| **Frontend (student)** | Flutter app (separate repo — `github.com/ahmedhantop/qalam`) — flows & APIs: [S2-FLOW-AND-ENDPOINTS.md](S2-FLOW-AND-ENDPOINTS.md) |
 | **Frontend (teacher)** | Vite app [`apps/teacher/`](../apps/teacher/) — [TEACHER-ROLE-Scenario2.md](TEACHER-ROLE-Scenario2.md) |
 | **Scenario** | **2** — طلب جلسات مفتوح (Open Session Request) |
 | **Flow** | Student **publishes an open session request** â†’ matching notifies teachers â†’ teachers **submit offers** â†’ student accepts â†’ pay â†’ sessions run |

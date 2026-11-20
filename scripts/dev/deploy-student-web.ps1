@@ -27,14 +27,23 @@ param(
 
     [string]$VpsHost = $(if ($env:QALAM_VPS_HOST) { $env:QALAM_VPS_HOST } else { "root@8.213.80.90" }),
 
+    # Path to the standalone student Flutter repo (github.com/ahmedhantop/qalam).
+    # Defaults to a sibling clone at ../qalam-1; override with -StudentAppDir or
+    # the QALAM_STUDENT_APP_DIR env var.
+    [string]$StudentAppDir = $(if ($env:QALAM_STUDENT_APP_DIR) { $env:QALAM_STUDENT_APP_DIR } else { "" }),
+
     [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$appDir = Join-Path $root "apps/Qalam"
+if (-not $StudentAppDir) {
+    $StudentAppDir = Join-Path (Split-Path $root -Parent) "qalam-1"
+}
+$appDir = $StudentAppDir
 $webDir = Join-Path $appDir "build/web"
+$nginxConfSource = Join-Path $root "deploy/nginx/student.conf"
 
 # Per-environment remote layout / container names.
 # No -p for production: docker-compose.yml declares `name: qalam-platform`,
@@ -124,13 +133,12 @@ Ok "uploaded"
 
 # Unpack beside the live directory, then swap, so the site is never half-written.
 # Keeps the previous bundle at $prev for a quick manual rollback.
-$nginxConf = Join-Path $appDir "nginx.conf"
-$nginxB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($nginxConf))
+$nginxB64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($nginxConfSource))
 
 $remoteLines = @(
     "set -e",
-    "mkdir -p $remoteBase $repo/apps/Qalam",
-    "echo $nginxB64 | base64 -d > $repo/apps/Qalam/nginx.conf",
+    "mkdir -p $remoteBase $repo/deploy/nginx",
+    "echo $nginxB64 | base64 -d > $repo/deploy/nginx/student.conf",
     "rm -rf $stage",
     "mkdir -p $stage",
     "tar -xzf $remoteArchive -C $stage",

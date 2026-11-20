@@ -248,7 +248,7 @@ DTO: [`CreateOpenSessionRequestDto`](../Qalam.Data/DTOs/OpenSessionRequests/Open
 | **6 — Review & submit** | Validate + publish | `POST /Student/OpenSessionRequests` |
 | **Post-submit** | Attachments, detail | `POST …/Attachments`, `GET …/OpenSessionRequests/{id}` |
 
-Flutter: [`apps/Qalam`](../apps/Qalam/) — `TargetedTeacherWizardScreen`, `TeacherDetailsScreen`.
+Flutter: student app (`github.com/ahmedhantop/qalam`, separate repo) — `TargetedTeacherWizardScreen`, `TeacherDetailsScreen`.
 
 ---
 

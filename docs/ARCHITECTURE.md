@@ -9,7 +9,7 @@ flowchart TB
   subgraph frontends [Frontends]
     admin[apps/admin — Next.js Admin]
     teacher[apps/teacher — Vite Teacher]
-    student[apps/Qalam — Flutter Student]
+    student[Flutter Student — separate repo]
   end
 
   subgraph backend [.NET Backend]
@@ -50,7 +50,7 @@ flowchart TB
 | `Qalam.Service.Tests/` | Service layer tests |
 | `apps/admin/` | Admin web — **git submodule** |
 | `apps/teacher/` | Teacher web — **git submodule** |
-| `apps/Qalam/` | Student Flutter app |
+| Student Flutter app | Separate repo — `github.com/ahmedhantop/qalam` |
 | `docs/` | Feature guides, deployment, user stories |
 | `scripts/dev/` | PowerShell local dev scripts |
 | `Postman/` | API collections |
@@ -110,12 +110,12 @@ See `docs/STUDENT-FILTER-OPTIONS.md` and `BUSINESS_LOGIC.md`.
 - **Env:** `VITE_API_URL`
 - **Port:** 3000
 
-### Student (`apps/Qalam`)
+### Student Flutter (separate repo — `github.com/ahmedhantop/qalam`)
 
 - **Stack:** Flutter, Riverpod, go_router, easy_localization
 - **Architecture:** Thkel (data/domain/presentation + core services)
-- **Docs:** `apps/Qalam/docs/ARCHITECTURE.md`
-- **Cursor rules:** `apps/Qalam/.cursor/rules/` (`thkel-architecture.mdc` always on)
+- **Docs:** `docs/ARCHITECTURE.md` inside the student repo
+- **Cursor rules:** `.cursor/rules/` inside the student repo (`thkel-architecture.mdc` always on)
 
 ## Deployment
 
@@ -145,9 +145,9 @@ Root rules in `.cursor/rules/`:
 | `dotnet-backend.mdc` | All .NET projects |
 | `admin-frontend.mdc` | `apps/admin/` |
 | `teacher-frontend.mdc` | `apps/teacher/` |
-| `student-flutter.mdc` | `apps/Qalam/` (links to nested rules) |
+| `student-flutter.mdc` | Student Flutter app (separate repo) |
 | `deployment-env.mdc` | Docker, env, scripts |
 
-Student app also has detailed rules in `apps/Qalam/.cursor/rules/`.
+Student app also has detailed rules in its own `.cursor/rules/` directory (separate repo).
 
 Generate rules for other projects: [CURSOR-RULES-PROMPT.md](./CURSOR-RULES-PROMPT.md)

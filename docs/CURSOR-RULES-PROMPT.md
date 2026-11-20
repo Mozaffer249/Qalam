@@ -94,21 +94,21 @@ Summarize: rules created, docs created/updated, legacy patterns flagged.
 | `.cursor/rules/dotnet-backend.mdc` | Qalam.* projects |
 | `.cursor/rules/admin-frontend.mdc` | apps/admin |
 | `.cursor/rules/teacher-frontend.mdc` | apps/teacher |
-| `.cursor/rules/student-flutter.mdc` | apps/Qalam |
+| `.cursor/rules/student-flutter.mdc` | Student Flutter app (separate repo) |
 | `.cursor/rules/deployment-env.mdc` | Docker, env, scripts |
 | `docs/ARCHITECTURE.md` | System overview |
 | `docs/CONTRIBUTING.md` | Developer guide |
 | `AGENTS.md` | Agent reference |
 
-### Student app (apps/Qalam)
+### Student app (separate repo — `github.com/ahmedhantop/qalam`)
 
 | File | Scope |
 |------|-------|
-| `apps/Qalam/.cursor/rules/qalam-core.mdc` | Always on (in app) |
-| `apps/Qalam/.cursor/rules/flutter-architecture.mdc` | Dart files |
-| `apps/Qalam/.cursor/rules/riverpod-patterns.mdc` | Providers |
-| `apps/Qalam/.cursor/rules/localization.mdc` | Translations |
-| `apps/Qalam/.cursor/rules/navigation.mdc` | GoRouter |
-| `apps/Qalam/.cursor/rules/api-networking.mdc` | Repositories |
+| `.cursor/rules/qalam-core.mdc` | Always on (in app) |
+| `.cursor/rules/flutter-architecture.mdc` | Dart files |
+| `.cursor/rules/riverpod-patterns.mdc` | Providers |
+| `.cursor/rules/localization.mdc` | Translations |
+| `.cursor/rules/navigation.mdc` | GoRouter |
+| `.cursor/rules/api-networking.mdc` | Repositories |
 
-Open Cursor at the **monorepo root** (`C:\dev\Qalam`) for full-stack context. Rules activate based on the files you edit.
+Paths above are relative to the student repo's root. Open Cursor at the **monorepo root** for backend + admin + teacher context, and open the student repo separately for Flutter work.

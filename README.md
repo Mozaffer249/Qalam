@@ -13,7 +13,7 @@ This repository is the entry point for the Qalam platform. The backend (.NET 8) 
 | [Business logic](BUSINESS_LOGIC.md) | Domain rules and entity flows |
 | [Deployment](DEPLOYMENT.md) | Staging/production deploy |
 
-Cursor AI rules: [`.cursor/rules/`](.cursor/rules/) (monorepo) · [`apps/Qalam/.cursor/rules/`](apps/Qalam/.cursor/rules/) (student app)
+Cursor AI rules: [`.cursor/rules/`](.cursor/rules/) (monorepo). Student-app rules live in the standalone student repo ([github.com/ahmedhantop/qalam](https://github.com/ahmedhantop/qalam)).
 
 ## Layout
 
@@ -22,7 +22,8 @@ Cursor AI rules: [`.cursor/rules/`](.cursor/rules/) (monorepo) · [`apps/Qalam/.
 | `Qalam.Api/`, `Qalam.Service/`, `Qalam.Core/`, `Qalam.Data/`, `Qalam.Infrastructure/`, `Qalam.MessagingApi/`, `Qalam.Service.Tests/` | .NET 8 / EF Core | This repo | 8080 (compose) |
 | `apps/admin/` | Next.js 16 + React 19 + Tailwind 4 | submodule â†’ `github.com/Mozaffer249/qalam-admin` | 3005 |
 | `apps/teacher/` | Vite 7 + TanStack Start/Router + React 19 + Tailwind 4 | submodule → `github.com/Mozaffer249/qalam-teacher` | 3000 |
-| `apps/Qalam/` | Flutter (student app) | submodule → `github.com/ahmedhantop/qalam` | — |
+
+Student Flutter app (`github.com/ahmedhantop/qalam`) lives in its own repo — clone it alongside this monorepo rather than as a submodule.
 
 ## Cloning
 
@@ -38,7 +39,7 @@ Already cloned without submodules?
 git submodule update --init --recursive
 ```
 
-If `apps/admin`, `apps/teacher`, or `apps/Qalam` ever looks empty after a `git pull`, run the same command above.
+If `apps/admin` or `apps/teacher` ever looks empty after a `git pull`, run the same command above.
 
 ## Running locally
 

@@ -266,7 +266,7 @@ services:
     logging: *docker-logging
     volumes:
       - ${STUDENT_WEB_DIR:-/opt/qalam-student-web/staging}:/usr/share/nginx/html:ro
-      - ${STUDENT_NGINX_CONF:-./apps/Qalam/nginx.conf}:/etc/nginx/conf.d/default.conf:ro
+      - ${STUDENT_NGINX_CONF:-./deploy/nginx/student.conf}:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "127.0.0.1:8094:80"
     networks:

@@ -55,9 +55,10 @@ Set `NEXT_PUBLIC_API_URL` (admin) and `VITE_API_URL` (teacher) accordingly.
 | API endpoint / domain logic | Root repo (`Qalam.*`) | `Mozaffer249/Qalam` |
 | Admin UI | `apps/admin/` | `Mozaffer249/qalam-admin` |
 | Teacher UI | `apps/teacher/` | `Mozaffer249/qalam-teacher` |
-| Student app | `apps/Qalam/` | Student app repo |
+| Student app | Separate repo | `github.com/ahmedhantop/qalam` |
 
-After frontend changes, bump the submodule pointer in the monorepo.
+After admin/teacher changes, bump the submodule pointer in the monorepo.
+Student app has no pointer in this monorepo — commit directly to its own repo.
 
 ## Backend checklist (new endpoint)
 
@@ -85,7 +86,7 @@ After frontend changes, bump the submodule pointer in the monorepo.
 
 ### Student (Flutter)
 
-See `apps/Qalam/docs/CONTRIBUTING.md`:
+Student app lives in its own repo (`github.com/ahmedhantop/qalam`). See its own `docs/CONTRIBUTING.md`:
 
 - [ ] Feature under `lib/features/<name>/` clean architecture
 - [ ] Route in `routes_sercives.dart`
@@ -99,8 +100,8 @@ See `apps/Qalam/docs/CONTRIBUTING.md`:
 dotnet build Qalam.sln
 dotnet test Qalam.Service.Tests
 
-# Student
-cd apps/Qalam && flutter analyze
+# Student (inside the student repo clone)
+flutter analyze
 ```
 
 ## Documentation
@@ -111,7 +112,7 @@ cd apps/Qalam && flutter analyze
 
 ## AI-assisted development
 
-Cursor rules live in `.cursor/rules/` (monorepo) and `apps/Qalam/.cursor/rules/` (student app). Open the repo at `C:\dev\Qalam` root for full context.
+Cursor rules live in `.cursor/rules/` (this monorepo) and in the student repo's own `.cursor/rules/`. Open this monorepo for backend + admin + teacher context; open the student repo separately for Flutter work.
 
 Reusable rules generator: [CURSOR-RULES-PROMPT.md](./CURSOR-RULES-PROMPT.md)
 

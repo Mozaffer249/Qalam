@@ -13,7 +13,7 @@ Education platform monorepo: .NET 8 backend + Admin (Next.js) + Teacher (Vite) +
 | Deployment | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Cursor rules | [.cursor/rules/](.cursor/rules/) |
 | Rules generator | [docs/CURSOR-RULES-PROMPT.md](docs/CURSOR-RULES-PROMPT.md) |
-| Student app agent | [apps/Qalam/AGENTS.md](apps/Qalam/AGENTS.md) |
+| Student app agent | `AGENTS.md` inside the student repo (`github.com/ahmedhantop/qalam`) |
 
 ## Local dev commands
 
@@ -62,7 +62,8 @@ dotnet test Qalam.Service.Tests
 - Bump submodule SHA in monorepo after merge
 
 ### Student Flutter
-- Follow `apps/Qalam/.cursor/rules/` and `apps/Qalam/docs/CONTRIBUTING.md`
+- Lives in its own repo (`github.com/ahmedhantop/qalam`) — not vendored into this monorepo
+- Follow the student repo's own `.cursor/rules/` and `docs/CONTRIBUTING.md`
 
 ### Student Identity (NELC)
 - Backend: `StudentIdentityController` — `POST/GET Student/Identity`, `GET Student/Identity/AllowedTypes`, `PUT Student/Children/{id}/Identity`

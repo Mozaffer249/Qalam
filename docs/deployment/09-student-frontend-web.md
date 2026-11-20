@@ -4,15 +4,15 @@
 > **Staging URL:** `https://student-staging.qalam.net.sa` → container `127.0.0.1:8094`
 > **API:** compiled into the bundle via the Flutter flavor (`main_production.dart` → `https://api.qalam.net.sa`, `main_staging.dart` → `https://api-staging.qalam.net.sa`).
 
-Unlike teacher/admin (Node/SSR containers), the student app is **Flutter web**: it builds to a static bundle (`build/web/`) served by `nginx:alpine`. The API URL is **baked in at build time** from [`lib/core/config/flavor_config.dart`](../../apps/Qalam/lib/core/config/flavor_config.dart) — there is no runtime env var.
+Unlike teacher/admin (Node/SSR containers), the student app is **Flutter web**: it builds to a static bundle (`build/web/`) served by `nginx:alpine`. The API URL is **baked in at build time** from `lib/core/config/flavor_config.dart` inside the student repo — there is no runtime env var.
 
 **The bundle is built off the VPS.** A release Flutter web compile wants several GB of RAM and every core; running it next to SQL Server, RabbitMQ, and the APIs starves the box and it appears hung. So `qalam-student` has **no build section** — it is plain `nginx:alpine` mounting a directory of uploaded files.
 
-Source lives in-repo at [`apps/Qalam`](../../apps/Qalam). Relevant files:
+Student source lives in its own repo (`github.com/ahmedhantop/qalam`), cloned alongside this monorepo (default: `../qalam-1`). Relevant files:
 
-- [`scripts/dev/deploy-student-web.ps1`](../../scripts/dev/deploy-student-web.ps1) — build locally, upload, swap, restart
-- [`apps/Qalam/nginx.conf`](../../apps/Qalam/nginx.conf) — SPA fallback for `go_router` deep links
-- [`apps/Qalam/Dockerfile`](../../apps/Qalam/Dockerfile) — kept for local/CI image builds; **not** used by compose
+- [`scripts/dev/deploy-student-web.ps1`](../../scripts/dev/deploy-student-web.ps1) — build locally, upload, swap, restart. Takes `-StudentAppDir` (or env `QALAM_STUDENT_APP_DIR`) for a non-default location.
+- [`deploy/nginx/student.conf`](../../deploy/nginx/student.conf) — SPA fallback for `go_router` deep links (monorepo-owned)
+- `Dockerfile` inside the student repo — kept for local/CI image builds; **not** used by compose
 
 | Environment | Served from (VPS) | Container |
 |-------------|-------------------|-----------|
@@ -30,7 +30,7 @@ Confirm the compiled-in API URLs before deploying:
 - Staging → `https://api-staging.qalam.net.sa`
 - Production → `https://api.qalam.net.sa`
 
-Both are set in [`flavor_config.dart`](../../apps/Qalam/lib/core/config/flavor_config.dart). Rebuild the image after any change — the URL is embedded in the bundle.
+Both are set in `lib/core/config/flavor_config.dart` inside the student repo. Rebuild the image after any change — the URL is embedded in the bundle.
 
 ---
 

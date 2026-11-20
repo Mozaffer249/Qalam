@@ -17,7 +17,7 @@ Qalam is an educational tutoring marketplace connecting teachers with students a
 
   Qalam.MessagingApi      (separate host: RabbitMQ consumers — email, LRS)
   Qalam.Service.Tests     (xUnit)
-  apps/admin  (Next.js)  ·  apps/teacher  (Vite)  ·  apps/Qalam  (Flutter)
+  apps/admin  (Next.js)  ·  apps/teacher  (Vite)  ·  student Flutter app (separate repo)
 ```
 
 **Dependency rule:** Data ← Infrastructure ← Service ← Core ← Api. Never reference upward.
@@ -36,9 +36,10 @@ Qalam.sln
 ├── Qalam.MessagingApi/      # RabbitMQ consumers (email, LRS)
 ├── Qalam.Service.Tests/     # xUnit tests
 ├── apps/admin/              # Next.js 16 admin (submodule)
-├── apps/teacher/            # Vite teacher app (submodule)
-└── apps/Qalam/              # Flutter student app (submodule)
+└── apps/teacher/            # Vite teacher app (submodule)
 ```
+
+Student Flutter app lives in its own repo (`github.com/ahmedhantop/qalam`); clone it alongside this monorepo.
 
 ---
 
