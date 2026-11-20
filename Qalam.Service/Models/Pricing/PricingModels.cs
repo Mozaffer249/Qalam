@@ -10,6 +10,15 @@ public sealed class PricingEstimateRequest
     public int TotalMinutes { get; init; }
     public int TeacherId { get; init; }
     public DateTime? AsOf { get; init; }
+
+    /// <summary>
+    /// When true, the teacher's custom per-hour price flows straight to the
+    /// student-facing price and the teacher's own <c>ReflectCustomPriceToStudent</c>
+    /// flag is ignored. Targeted OSR sets this because the student is explicitly
+    /// requesting this one teacher at their rate — not buying a published course
+    /// where the platform brokers a uniform list price.
+    /// </summary>
+    public bool AlwaysReflectCustomPrice { get; init; }
 }
 
 public sealed record PriceEstimate(
@@ -45,4 +54,7 @@ public sealed class CreatePricingSnapshotRequest
     public int TotalMinutes { get; init; }
     public int TeacherId { get; init; }
     public DateTime? AsOf { get; init; }
+
+    /// <inheritdoc cref="PricingEstimateRequest.AlwaysReflectCustomPrice"/>
+    public bool AlwaysReflectCustomPrice { get; init; }
 }

@@ -44,6 +44,9 @@ public class GetTargetedOsrEstimateQueryHandler : ResponseHandler,
             MarketCode = market.MarketCode,
             TotalMinutes = request.TotalMinutes,
             TeacherId = request.TeacherId,
+            // Targeted OSR previews the picked teacher's own rate; the
+            // ReflectCustomPriceToStudent gate is a fixed-course concept.
+            AlwaysReflectCustomPrice = true,
         }, cancellationToken);
 
         var dto = new PricingEstimateDto

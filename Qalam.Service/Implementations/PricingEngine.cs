@@ -72,7 +72,9 @@ public class PricingEngine : IPricingEngine
             PricingDefaults.SessionTypeGroup,
             StringComparison.OrdinalIgnoreCase);
         var customLocal = ResolveCustomPriceInMarket(domainPricing, market, isGroup);
-        var reflect = ResolveReflectCustomPriceToStudent(domainPricing, isGroup);
+        var reflect = request.AlwaysReflectCustomPrice
+            ? customLocal.HasValue
+            : ResolveReflectCustomPriceToStudent(domainPricing, isGroup);
 
         var studentPricePerHour = reflect && customLocal.HasValue ? customLocal.Value : platformPricePerHour;
         var earningsPricePerHour = customLocal ?? platformPricePerHour;
@@ -100,7 +102,8 @@ public class PricingEngine : IPricingEngine
             MarketCode = request.MarketCode,
             TotalMinutes = request.TotalMinutes,
             TeacherId = request.TeacherId,
-            AsOf = request.AsOf
+            AsOf = request.AsOf,
+            AlwaysReflectCustomPrice = request.AlwaysReflectCustomPrice
         }, cancellationToken);
 
         return new PricingSnapshot

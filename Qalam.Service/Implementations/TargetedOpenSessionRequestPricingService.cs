@@ -46,7 +46,10 @@ public class TargetedOpenSessionRequestPricingService : ITargetedOpenSessionRequ
             SessionTypeCode = sessionTypeCode,
             MarketCode = market.MarketCode,
             TotalMinutes = totalMinutes,
-            TeacherId = request.TargetedTeacherId.Value
+            TeacherId = request.TargetedTeacherId.Value,
+            // Targeted OSR uses the picked teacher's own rate (matches the
+            // preview shown on the review step — see GetTargetedOsrEstimate).
+            AlwaysReflectCustomPrice = true
         }, cancellationToken);
 
         request.PricingSnapshotId = snapshot.Id;
