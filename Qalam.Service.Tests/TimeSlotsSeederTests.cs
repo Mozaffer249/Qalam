@@ -8,6 +8,11 @@ namespace Qalam.Service.Tests;
 
 public class TimeSlotsSeederTests
 {
+    // 24 hours × (1 full + 2 half) = 72 rows.
+    private const int ExpectedTotal = 72;
+    private const int Expected60Min = 24;
+    private const int Expected30Min = 48;
+
     private static ApplicationDBContext CreateDb()
     {
         var config = new ConfigurationBuilder()
@@ -25,7 +30,7 @@ public class TimeSlotsSeederTests
     }
 
     [Fact]
-    public async Task SeedAsync_EmptyDb_SeedsFullAndHalfHourBands()
+    public async Task SeedAsync_EmptyDb_SeedsFullAndHalfHourBandsForEntireDay()
     {
         await using var db = CreateDb();
 
@@ -33,26 +38,42 @@ public class TimeSlotsSeederTests
 
         var all = await db.TimeSlots.ToListAsync();
 
-        // 15 hours (08..22) × (1 full + 2 half) = 45 rows.
-        Assert.Equal(45, all.Count);
-        Assert.Equal(15, all.Count(t => t.DurationMinutes == 60));
-        Assert.Equal(30, all.Count(t => t.DurationMinutes == 30));
+        Assert.Equal(ExpectedTotal, all.Count);
+        Assert.Equal(Expected60Min, all.Count(t => t.DurationMinutes == 60));
+        Assert.Equal(Expected30Min, all.Count(t => t.DurationMinutes == 30));
 
-        // Spot-check the two 30-min bands of the 09:00 hour.
+        // 00:00 band exists (full and both halves).
+        Assert.Contains(all, t =>
+            t.StartTime == TimeSpan.Zero &&
+            t.EndTime == new TimeSpan(1, 0, 0) &&
+            t.DurationMinutes == 60 && t.IsActive);
+        Assert.Contains(all, t =>
+            t.StartTime == TimeSpan.Zero &&
+            t.EndTime == new TimeSpan(0, 30, 0) &&
+            t.DurationMinutes == 30 && t.IsActive);
+
+        // 23:30–00:00 band uses midnight-as-00:00, which EndsNextDayFor handles.
+        var lateUpper = all.Single(t =>
+            t.StartTime == new TimeSpan(23, 30, 0) &&
+            t.EndTime == TimeSpan.Zero);
+        Assert.Equal(30, lateUpper.DurationMinutes);
+        Assert.True(lateUpper.EndsNextDay);
+
+        // The last 60-min band 23:00–00:00 also present.
+        Assert.Contains(all, t =>
+            t.StartTime == new TimeSpan(23, 0, 0) &&
+            t.EndTime == TimeSpan.Zero &&
+            t.DurationMinutes == 60);
+
+        // Spot-check the two 30-min bands of the 09:00 hour (from the earlier plan).
         Assert.Contains(all, t =>
             t.StartTime == new TimeSpan(9, 0, 0) &&
             t.EndTime == new TimeSpan(9, 30, 0) &&
-            t.DurationMinutes == 30 && t.IsActive);
+            t.DurationMinutes == 30);
         Assert.Contains(all, t =>
             t.StartTime == new TimeSpan(9, 30, 0) &&
             t.EndTime == new TimeSpan(10, 0, 0) &&
-            t.DurationMinutes == 30 && t.IsActive);
-
-        // 60-min band for the same hour still present (unchanged).
-        Assert.Contains(all, t =>
-            t.StartTime == new TimeSpan(9, 0, 0) &&
-            t.EndTime == new TimeSpan(10, 0, 0) &&
-            t.DurationMinutes == 60);
+            t.DurationMinutes == 30);
     }
 
     [Fact]
@@ -63,15 +84,15 @@ public class TimeSlotsSeederTests
         await TimeSlotsSeeder.SeedAsync(db);
         await TimeSlotsSeeder.SeedAsync(db);
 
-        Assert.Equal(45, await db.TimeSlots.CountAsync());
+        Assert.Equal(ExpectedTotal, await db.TimeSlots.CountAsync());
     }
 
     [Fact]
-    public async Task SeedAsync_ExistingLegacy60MinOnly_AddsMissingHalfHourBandsOnly()
+    public async Task SeedAsync_ExistingLegacy60MinOnly_AddsMissingBandsOnly()
     {
         await using var db = CreateDb();
 
-        // Simulate a legacy DB with only the original 60-min hourly bands.
+        // Simulate a legacy DB with only the original 08:00–23:00 60-min hourly rows.
         for (int hour = 8; hour < 23; hour++)
         {
             db.TimeSlots.Add(new Qalam.Data.Entity.Common.TimeSlot
@@ -86,14 +107,14 @@ public class TimeSlotsSeederTests
             });
         }
         await db.SaveChangesAsync();
-
-        var countBefore = await db.TimeSlots.CountAsync();
-        Assert.Equal(15, countBefore);
+        Assert.Equal(15, await db.TimeSlots.CountAsync());
 
         await TimeSlotsSeeder.SeedAsync(db);
 
-        // 30 half-hour rows added; 15 legacy rows preserved (same IDs).
-        Assert.Equal(45, await db.TimeSlots.CountAsync());
+        // After seeding the full day, the 15 legacy rows survive and the
+        // missing 57 (24 new 30-min lower + 24 new 30-min upper + 9 new 60-min)
+        // are added, bringing the catalog to 72 total rows.
+        Assert.Equal(ExpectedTotal, await db.TimeSlots.CountAsync());
         Assert.Equal(15, await db.TimeSlots.CountAsync(t => t.LabelEn == "legacy"));
     }
 }

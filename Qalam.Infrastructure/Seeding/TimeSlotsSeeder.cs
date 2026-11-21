@@ -9,8 +9,9 @@ public class TimeSlotsSeeder
     public static async Task SeedAsync(ApplicationDBContext context)
     {
         // Idempotent: load whatever already exists, then insert the missing
-        // (StartTime, EndTime) rows so an existing DB gains the 30-min bands
-        // without losing the primary-key stability of the original 60-min rows.
+        // (StartTime, EndTime) rows so an existing DB gains the full-day
+        // catalog without losing the primary-key stability of the original
+        // 60-min hourly rows seeded in earlier environments.
         var existing = await context.TimeSlots
             .Select(t => new { t.StartTime, t.EndTime })
             .ToListAsync();
@@ -20,24 +21,29 @@ public class TimeSlotsSeeder
 
         var toInsert = new List<TimeSlot>();
 
-        for (int hour = 8; hour < 23; hour++)
+        // Full 24 hours, 00:00 through 23:30, three bands per hour:
+        //   60-min: HH:00 – (HH+1):00
+        //   30-min lower: HH:00 – HH:30
+        //   30-min upper: HH:30 – (HH+1):00
+        // The final hour (23) wraps to 00:00, which the entity treats as
+        // EndsNextDay=true (see TimeSlot.EndsNextDayFor). This avoids storing
+        // the SQL-hostile 24:00:00 value and keeps every TimeSpan in [0, 24h).
+        for (int hour = 0; hour < 24; hour++)
         {
-            string labelAr = hour < 12 ? "فترة الصباح" :
-                             hour < 17 ? "فترة الظهيرة" :
-                             "فترة المساء";
-            string labelEn = hour < 12 ? "Morning" :
-                             hour < 17 ? "Afternoon" :
-                             "Evening";
+            var nextHour = new TimeSpan((hour + 1) % 24, 0, 0);
 
-            // Full 60-minute band (original seed — keeps existing IDs stable).
+            string labelAr = PeriodLabelAr(hour);
+            string labelEn = PeriodLabelEn(hour);
+
+            // 60-minute band
             TryAdd(toInsert, existingKeys,
                 start: new TimeSpan(hour, 0, 0),
-                end: new TimeSpan(hour + 1, 0, 0),
+                end: nextHour,
                 durationMinutes: 60,
                 labelAr: labelAr,
                 labelEn: labelEn);
 
-            // Lower half-hour band HH:00 – HH:30
+            // Lower 30-minute band HH:00 – HH:30
             TryAdd(toInsert, existingKeys,
                 start: new TimeSpan(hour, 0, 0),
                 end: new TimeSpan(hour, 30, 0),
@@ -45,10 +51,10 @@ public class TimeSlotsSeeder
                 labelAr: labelAr,
                 labelEn: labelEn);
 
-            // Upper half-hour band HH:30 – (HH+1):00
+            // Upper 30-minute band HH:30 – (HH+1):00
             TryAdd(toInsert, existingKeys,
                 start: new TimeSpan(hour, 30, 0),
-                end: new TimeSpan(hour + 1, 0, 0),
+                end: nextHour,
                 durationMinutes: 30,
                 labelAr: labelAr,
                 labelEn: labelEn);
@@ -59,6 +65,24 @@ public class TimeSlotsSeeder
         await context.TimeSlots.AddRangeAsync(toInsert);
         await context.SaveChangesAsync();
     }
+
+    private static string PeriodLabelAr(int hour) => hour switch
+    {
+        < 6 => "بعد منتصف الليل",
+        < 12 => "فترة الصباح",
+        < 17 => "فترة الظهيرة",
+        < 22 => "فترة المساء",
+        _ => "وقت متأخر",
+    };
+
+    private static string PeriodLabelEn(int hour) => hour switch
+    {
+        < 6 => "Late Night",
+        < 12 => "Morning",
+        < 17 => "Afternoon",
+        < 22 => "Evening",
+        _ => "Night",
+    };
 
     private static void TryAdd(
         List<TimeSlot> target,
