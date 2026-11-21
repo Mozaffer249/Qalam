@@ -125,7 +125,8 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
                 // Sorted by StartTime, so overlap iff current.End > next.Start.
                 if (current.EndTime > next.StartTime)
                 {
-                    return $"Day {day.DayOfWeekId}: time slots overlap — {Format(current)} and {Format(next)} cannot both be selected.";
+                    var dayName = DayNameAr(day.DayOfWeekId);
+                    return $"يوم {dayName}: لا يمكن اختيار فترتين متداخلتين — {Format(current)} و {Format(next)}.";
                 }
             }
         }
@@ -135,4 +136,21 @@ public class SaveTeacherAvailabilityCommandHandler : ResponseHandler,
 
     private static string Format(TimeSlot s) =>
         $"{s.StartTime:hh\\:mm}–{s.EndTime:hh\\:mm}";
+
+    /// <summary>
+    /// Arabic day name for <c>DayOfWeekMaster.Id</c> (1=Sunday … 7=Saturday)
+    /// as seeded in <c>DayOfWeekSeeder</c>. Avoids a DB round-trip inside the
+    /// overlap validator and keeps the error message legible for the client.
+    /// </summary>
+    private static string DayNameAr(int dayOfWeekId) => dayOfWeekId switch
+    {
+        1 => "الأحد",
+        2 => "الإثنين",
+        3 => "الثلاثاء",
+        4 => "الأربعاء",
+        5 => "الخميس",
+        6 => "الجمعة",
+        7 => "السبت",
+        _ => $"#{dayOfWeekId}",
+    };
 }

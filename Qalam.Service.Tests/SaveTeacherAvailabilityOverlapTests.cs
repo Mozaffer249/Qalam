@@ -58,7 +58,7 @@ public class SaveTeacherAvailabilityOverlapTests
     }
 
     [Fact]
-    public void FindOverlap_FullHourAndContainedHalfHour_ReturnsErrorMessage()
+    public void FindOverlap_FullHourAndContainedHalfHour_ReturnsArabicErrorMessage()
     {
         var day = new DayAvailabilityDto
         {
@@ -69,8 +69,9 @@ public class SaveTeacherAvailabilityOverlapTests
         var result = SaveTeacherAvailabilityCommandHandler.FindOverlap([day], Catalog);
 
         Assert.NotNull(result);
-        Assert.Contains("overlap", result, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Day 2", result);
+        Assert.Contains("متداخلتين", result);
+        Assert.Contains("الإثنين", result);
+        Assert.Contains("09:00", result);
     }
 
     [Fact]
