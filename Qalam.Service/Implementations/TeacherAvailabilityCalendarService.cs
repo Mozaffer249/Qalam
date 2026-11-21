@@ -56,7 +56,10 @@ public class TeacherAvailabilityCalendarService : ITeacherAvailabilityCalendarSe
 
         var slotsByDayOfWeek = weeklySlots
             .GroupBy(s => s.DayOfWeekId)
-            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.TimeSlot != null ? s.TimeSlot.StartTime : TimeSpan.Zero).ToList());
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(s => s.TimeSlot != null ? s.TimeSlot.StartTime : TimeSpan.Zero)
+                .ThenBy(s => s.TimeSlot != null ? s.TimeSlot.EndTime : TimeSpan.Zero)
+                .ToList());
 
         static int UiWeekdaySortKey(int dayOfWeekId) => dayOfWeekId == 7 ? 0 : dayOfWeekId;
 

@@ -60,7 +60,10 @@ public class GetTeacherAvailabilityQueryHandler : ResponseHandler,
                 DayOfWeekId = g.Key.DayOfWeekId,
                 DayNameAr = g.Key.NameAr,
                 DayNameEn = g.Key.NameEn,
-                TimeSlots = _mapper.Map<List<TimeSlotResponseDto>>(g.OrderBy(a => a.TimeSlot.StartTime).ToList())
+                TimeSlots = _mapper.Map<List<TimeSlotResponseDto>>(g
+                    .OrderBy(a => a.TimeSlot.StartTime)
+                    .ThenBy(a => a.TimeSlot.EndTime)
+                    .ToList())
             })
             .ToList();
 

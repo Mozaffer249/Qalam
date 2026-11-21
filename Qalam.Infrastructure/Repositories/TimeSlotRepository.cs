@@ -17,9 +17,12 @@ public class TimeSlotRepository : GenericRepositoryAsync<TimeSlot>, ITimeSlotRep
 
     public IQueryable<TimeSlot> GetTimeSlotsQueryable()
     {
+        // Secondary sort by EndTime so shorter slots show first within the
+        // same StartTime (e.g. 09:00–09:30 before 09:00–10:00).
         return _context.TimeSlots
             .AsNoTracking()
-            .OrderBy(ts => ts.StartTime);
+            .OrderBy(ts => ts.StartTime)
+            .ThenBy(ts => ts.EndTime);
     }
 
     public IQueryable<TimeSlot> GetActiveTimeSlotsQueryable()
@@ -27,7 +30,8 @@ public class TimeSlotRepository : GenericRepositoryAsync<TimeSlot>, ITimeSlotRep
         return _context.TimeSlots
             .AsNoTracking()
             .Where(ts => ts.IsActive)
-            .OrderBy(ts => ts.StartTime);
+            .OrderBy(ts => ts.StartTime)
+            .ThenBy(ts => ts.EndTime);
     }
 
     public IQueryable<TimeSlot> GetTimeSlotsByDayOfWeek(int dayOfWeek)
@@ -35,7 +39,8 @@ public class TimeSlotRepository : GenericRepositoryAsync<TimeSlot>, ITimeSlotRep
         // TimeSlots are not day-specific in current implementation
         return _context.TimeSlots
             .AsNoTracking()
-            .OrderBy(ts => ts.StartTime);
+            .OrderBy(ts => ts.StartTime)
+            .ThenBy(ts => ts.EndTime);
     }
 
     public async Task<bool> IsTimeSlotOverlappingAsync(int dayOfWeek, TimeSpan startTime, TimeSpan endTime, int? excludeId = null)

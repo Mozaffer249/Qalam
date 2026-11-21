@@ -350,6 +350,7 @@ public class TeachingConfigurationService : ITeachingConfigurationService
 
         var items = await query
             .OrderBy(ts => ts.StartTime)
+            .ThenBy(ts => ts.EndTime)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
