@@ -1,113 +1,66 @@
 using MediatR;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
 using Qalam.Core.Bases;
 using Qalam.Core.Resources.Shared;
 using Qalam.Data.DTOs.Payment;
-using Qalam.Data.Entity.Common.Enums;
-using Qalam.Data.Entity.Payment;
-using Qalam.Data.Helpers;
 using Qalam.Infrastructure.Abstracts;
 using Qalam.Service.Abstracts;
 
 namespace Qalam.Core.Features.Student.Payments.Commands.CreateIapIntent;
 
 public class CreateIapIntentCommandHandler : ResponseHandler,
-    IRequestHandler<CreateIapIntentCommand, Response<IapIntentDto>>
+    IRequestHandler<CreateIapIntentCommand, Response<IapIntentResponseDto>>
 {
-    private readonly IEnrollmentParticipantRepository _participantRepository;
-    private readonly IPaymentRepository _paymentRepository;
-    private readonly IStudentCoursePriceResolver _coursePriceResolver;
-    private readonly AppleIapSettings _iapSettings;
+    private readonly IEnrollmentParticipantRepository _participantRepo;
+    private readonly IStudentCoursePriceResolver _priceResolver;
+    private readonly IAppleIapService _iap;
 
     public CreateIapIntentCommandHandler(
-        IEnrollmentParticipantRepository participantRepository,
-        IPaymentRepository paymentRepository,
-        IStudentCoursePriceResolver coursePriceResolver,
-        IOptions<PaymentSettings> paymentSettings,
+        IEnrollmentParticipantRepository participantRepo,
+        IStudentCoursePriceResolver priceResolver,
+        IAppleIapService iap,
         IStringLocalizer<SharedResources> localizer) : base(localizer)
     {
-        _participantRepository = participantRepository;
-        _paymentRepository = paymentRepository;
-        _coursePriceResolver = coursePriceResolver;
-        _iapSettings = paymentSettings.Value.AppleIap;
+        _participantRepo = participantRepo;
+        _priceResolver = priceResolver;
+        _iap = iap;
     }
 
-    public async Task<Response<IapIntentDto>> Handle(
+    public async Task<Response<IapIntentResponseDto>> Handle(
         CreateIapIntentCommand request,
         CancellationToken cancellationToken)
     {
-        var participant = await _participantRepository.GetByIdForPaymentAsync(
-            request.Data.ParticipantId, cancellationToken);
+        var participantId = request.Data.ParticipantId;
 
+        var participant = await _participantRepo.GetByIdForPaymentAsync(participantId, cancellationToken);
         if (participant == null)
-            return NotFound<IapIntentDto>("Enrollment participant not found.");
+            return NotFound<IapIntentResponseDto>("Enrollment participant not found.");
 
         var enrollment = participant.Enrollment;
 
-        if (enrollment.EnrollmentStatus != EnrollmentStatus.PendingPayment)
-            return BadRequest<IapIntentDto>("Only pending-payment enrollments can be paid.");
+        // Ownership: only the enrollment payer may initiate IAP
+        if (enrollment.OwnerUserId != request.UserId && enrollment.PaidByUserId != request.UserId)
+            return BadRequest<IapIntentResponseDto>("Only the enrollment payer can initiate payment.");
 
-        var now = DateTime.UtcNow;
-        if (enrollment.PaymentDeadline.HasValue && enrollment.PaymentDeadline.Value < now)
-            return BadRequest<IapIntentDto>("Payment deadline has expired.");
-
-        var ownerUserId = enrollment.EnrollmentRequest?.RequestedByUserId ?? enrollment.OwnerUserId;
-        if (!ownerUserId.HasValue || ownerUserId.Value != request.UserId)
-            return BadRequest<IapIntentDto>("Only the enrollment owner can pay.");
-
-        if (enrollment.PaidByUserId.HasValue
-            || enrollment.Participants.Any(p => p.PaymentStatus == PaymentStatus.Succeeded))
-            return BadRequest<IapIntentDto>("This enrollment has already been paid.");
-
-        var totalAmount = _coursePriceResolver.ResolveEnrollmentPayableAmount(enrollment);
-        if (totalAmount <= 0)
-            return BadRequest<IapIntentDto>("Use the free-trial endpoint for zero-amount enrollments.");
-
-        var tier = ResolveTier(totalAmount);
-        if (tier == null)
-            return BadRequest<IapIntentDto>("No IAP tier covers this amount.");
-
-        var productId = $"{_iapSettings.ProductIdPrefix}{tier}";
-        var transactionToken = Guid.NewGuid().ToString();
-
-        var payment = new Payment
+        var amountSar = _priceResolver.ResolveEnrollmentPayableAmount(enrollment);
+        if (amountSar <= 0)
         {
-            PayerUserId = request.UserId,
-            PaymentProvider = AppleIapSettings.ProviderName,
-            ProviderTransactionId = transactionToken,
-            Status = PaymentStatus.Pending,
-            Currency = "SAR",
-            Subtotal = totalAmount,
-            VatAmount = 0,
-            DiscountAmount = 0,
-            TotalAmount = totalAmount,
-        };
-        payment.PaymentItems.Add(new PaymentItem
-        {
-            ItemType = PaymentItemType.CourseEnrollment,
-            ReferenceId = enrollment.Id,
-            Amount = totalAmount,
-            Description = $"IAP {productId}",
-        });
+            // Free / already-paid — caller should use mock/wallet path instead
+            return BadRequest<IapIntentResponseDto>("USE_MOCK_PAY");
+        }
 
-        await _paymentRepository.AddAsync(payment);
+        var productId = _iap.ResolveProductId(amountSar);
+        if (productId == null)
+            return BadRequest<IapIntentResponseDto>(
+                $"Amount {amountSar:F2} SAR exceeds the maximum IAP tier. Use card payment.");
 
-        return Success(entity: new IapIntentDto
+        var token = _iap.CreateTransactionToken(participantId, request.UserId, productId, amountSar);
+
+        return Success(entity: new IapIntentResponseDto
         {
             IapProductId = productId,
-            TransactionToken = transactionToken,
-            AmountSar = totalAmount,
+            TransactionToken = token,
+            AmountSar = (double)amountSar
         });
-    }
-
-    private int? ResolveTier(decimal amount)
-    {
-        var amountInt = (int)Math.Ceiling(amount);
-        foreach (var tier in _iapSettings.Tiers.OrderBy(t => t))
-        {
-            if (tier >= amountInt) return tier;
-        }
-        return null;
     }
 }

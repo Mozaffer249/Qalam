@@ -6,7 +6,7 @@ using Qalam.Data.DTOs.Payment;
 
 namespace Qalam.Core.Features.Student.Payments.Commands.CreateIapIntent;
 
-public class CreateIapIntentCommand : IRequest<Response<IapIntentDto>>, IAuthenticatedRequest
+public class CreateIapIntentCommand : IRequest<Response<IapIntentResponseDto>>, IAuthenticatedRequest
 {
     [BindNever]
     public int UserId { get; set; }

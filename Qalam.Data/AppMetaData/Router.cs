@@ -511,9 +511,6 @@ namespace Qalam.Data.AppMetaData
         /// <summary>Availability pre-check: Api/V1/Student/OpenSessionRequests/Offers/{offerId}/availability-check</summary>
         public const string StudentOpenSessionOfferAvailabilityCheck =
             StudentOpenSessionRequests + "/Offers/{offerId}/availability-check";
-        /// <summary>Price estimate for a targeted OSR before submission: Api/V1/Student/OpenSessionRequests/targeted-estimate</summary>
-        public const string StudentOpenSessionRequestTargetedEstimate =
-            StudentOpenSessionRequests + "/targeted-estimate";
 
         /// <summary>Student enrollments (my enrollments): Api/V1/Student/Enrollments</summary>
         public const string StudentEnrollments = Rule + "Student/Enrollments";
@@ -546,10 +543,10 @@ namespace Qalam.Data.AppMetaData
         public const string StudentPaymentById = StudentPayments + "/{paymentId:int}";
         /// <summary>Pay an enrollment participant from the wallet balance: Api/V1/Student/Payments/Wallet</summary>
         public const string StudentPayWithWallet = StudentPayments + "/Wallet";
-        /// <summary>Create an Apple IAP intent (maps price → IAP tier): Api/V1/Student/Payments/IapIntent</summary>
-        public const string StudentIapIntent = StudentPayments + "/IapIntent";
+        /// <summary>Create Apple IAP intent (iOS only): Api/V1/Student/Payments/IapIntent</summary>
+        public const string StudentIapIntent = Rule + "Student/Payments/IapIntent";
         /// <summary>Confirm Apple IAP after StoreKit purchase: Api/V1/Student/Payments/IapConfirm</summary>
-        public const string StudentIapConfirm = StudentPayments + "/IapConfirm";
+        public const string StudentIapConfirm = Rule + "Student/Payments/IapConfirm";
 
         /// <summary>Student wallet summary: Api/V1/Student/Wallet</summary>
         public const string StudentWallet = Rule + "Student/Wallet";

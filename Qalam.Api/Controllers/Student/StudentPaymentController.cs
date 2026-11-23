@@ -105,10 +105,11 @@ public class StudentPaymentController : AppControllerBase
     }
 
     /// <summary>
-    /// Create an Apple IAP intent (maps enrollment price to an IAP tier product).
+    /// Create an Apple IAP intent (iOS only). Returns the App Store product ID and a
+    /// signed transaction token to pass to StoreKit as applicationUserName.
     /// </summary>
     [HttpPost(Router.StudentIapIntent)]
-    [ProducesResponseType(typeof(IapIntentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IapIntentResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateIapIntent([FromBody] CreateIapIntentCommand command)
@@ -117,7 +118,8 @@ public class StudentPaymentController : AppControllerBase
     }
 
     /// <summary>
-    /// Confirm an Apple IAP after StoreKit purchase completes.
+    /// Confirm an Apple IAP after StoreKit reports a successful purchase.
+    /// Verifies the transaction with the App Store Server API, then activates the enrollment.
     /// </summary>
     [HttpPost(Router.StudentIapConfirm)]
     [ProducesResponseType(typeof(PaymentResultDto), StatusCodes.Status200OK)]

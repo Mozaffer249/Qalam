@@ -65,6 +65,35 @@ public class PaymentIntentDto
     public Dictionary<string, string> Metadata { get; set; } = new();
 }
 
+/// <summary>Request body for creating an Apple IAP intent.</summary>
+public class CreateIapIntentRequestDto
+{
+    public int ParticipantId { get; set; }
+}
+
+/// <summary>Response from the IAP intent endpoint — passed to StoreKit on the client.</summary>
+public class IapIntentResponseDto
+{
+    /// <summary>App Store product ID (e.g. "com.qalam.sa.session.tier_50").</summary>
+    public string IapProductId { get; set; } = string.Empty;
+
+    /// <summary>Signed JWT that links this intent back to the enrollment participant.</summary>
+    public string TransactionToken { get; set; } = string.Empty;
+
+    /// <summary>Amount in SAR (informational — Apple charges the tier price).</summary>
+    public double AmountSar { get; set; }
+}
+
+/// <summary>Request body for confirming an Apple IAP after StoreKit reports a successful purchase.</summary>
+public class ConfirmIapPaymentRequestDto
+{
+    public int ParticipantId { get; set; }
+    /// <summary>Apple transaction ID returned by StoreKit (purchaseID).</summary>
+    public string TransactionId { get; set; } = string.Empty;
+    /// <summary>The token returned by IapIntent; must match the JWT signed for this participant.</summary>
+    public string TransactionToken { get; set; } = string.Empty;
+}
+
 /// <summary>Paginated student payment history row.</summary>
 public class StudentPaymentListItemDto
 {

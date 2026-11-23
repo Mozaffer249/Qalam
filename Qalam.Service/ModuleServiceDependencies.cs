@@ -176,6 +176,11 @@ namespace Qalam.Service
             services.AddTransient<IOpenSessionRequestReleaseService, OpenSessionRequestReleaseService>();
             services.AddTransient<ISessionAvailabilityMatchService, SessionAvailabilityMatchService>();
 
+            // Apple IAP
+            services.Configure<Qalam.Data.Helpers.AppleIapSettings>(
+                configuration.GetSection(Qalam.Data.Helpers.AppleIapSettings.SectionName));
+            services.AddTransient<IAppleIapService, AppleIapService>();
+
             // LRS / xAPI
             services.Configure<Qalam.Data.Helpers.LrsSettings>(
                 configuration.GetSection(Qalam.Data.Helpers.LrsSettings.SectionName));
